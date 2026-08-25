@@ -1,0 +1,44 @@
+{
+  "name": "Mobile Shop Profit Design System Tokens",
+  "version": "1.0.0",
+  "colors": {
+    "primary": "#0F172A",
+    "primaryLight": "#1E293B",
+    "accent": "#059669",
+    "accentLight": "#D1FAE5",
+    "background": "#F8FAFC",
+    "surface": "#FFFFFF",
+    "border": "#E2E8F0",
+    "textPrimary": "#0F172A",
+    "textSecondary": "#64748B",
+    "status": {
+      "success": "#16A34A",
+      "warning": "#D97706",
+      "error": "#DC2626",
+      "info": "#2563EB"
+    }
+  },
+  "typography": {
+    "fontFamily": "Inter, Roboto, sans-serif",
+    "headings": {
+      "h1": { "size": "24px", "weight": 700, "lineHeight": "32px" },
+      "h2": { "size": "20px", "weight": 600, "lineHeight": "28px" },
+      "h3": { "size": "16px", "weight": 600, "lineHeight": "24px" }
+    },
+    "body": {
+      "large": { "size": "16px", "weight": 400, "lineHeight": "24px" },
+      "medium": { "size": "14px", "weight": 400, "lineHeight": "20px" },
+      "small": { "size": "12px", "weight": 400, "lineHeight": "16px" }
+    }
+  },
+  "borderRadius": {
+    "small": "6px",
+    "medium": "10px",
+    "large": "16px",
+    "card": "12px"
+  },
+  "shadows": {
+    "card": "0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03)",
+    "modal": "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)"
+  }
+}
