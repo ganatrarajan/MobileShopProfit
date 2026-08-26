@@ -1,3 +1,6 @@
+import '../../features/technician/models/technician.dart';
+import '../../features/technician/presentation/technician_details_screen.dart';
+import '../../features/technician/presentation/technician_list_screen.dart';
 import '../../features/profit_intelligence/presentation/profit_intelligence_screen.dart';
 import '../../features/profit_intelligence/presentation/profit_intelligence_detail_screen.dart';
 import '../../features/reports/presentation/reports_hub_screen.dart';
@@ -81,6 +84,8 @@ class AppRoutes {
   static const String saleDetails = '/sale-details';
 
   static const String repairs = '/repairs';
+  static const String technicians = '/technicians';
+  static const String technicianDetails = '/technician-details';
   static const String createRepair = '/create-repair';
   static const String repairDetails = '/repair-details';
   static const String editRepair = '/edit-repair';
@@ -162,6 +167,11 @@ class AppRoutes {
         final sale = settings.arguments as Sale;
         return MaterialPageRoute(builder: (_) => SaleDetailsScreen(sale: sale));
 
+            case technicians:
+        return MaterialPageRoute(builder: (_) => const TechnicianListScreen());
+      case technicianDetails:
+        final tech = settings.arguments as Technician;
+        return MaterialPageRoute(builder: (_) => TechnicianDetailsScreen(technician: tech));
       case repairs:
         return MaterialPageRoute(builder: (_) => const RepairListScreen());
       case createRepair:

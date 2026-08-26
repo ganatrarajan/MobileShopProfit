@@ -67,6 +67,14 @@ class DashboardDrawer extends StatelessWidget {
             onTap: () => _navigateToTab(context, 3, AppRoutes.repairs),
           ),
           ListTile(
+            leading: const Icon(Icons.engineering_rounded, color: Colors.blueAccent),
+            title: const Text('Technicians'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, AppRoutes.technicians);
+            },
+          ),
+          ListTile(
             leading: const Icon(Icons.receipt_long_rounded, color: Colors.green),
             title: const Text('Sales & Invoices'),
             onTap: () => _navigateToTab(context, 1, AppRoutes.sales),

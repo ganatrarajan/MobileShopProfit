@@ -61,8 +61,34 @@ class InventoryRepository {
         }
       }
 
-      final metrics = InventoryMetrics.fromJson(metricsMap);
+      final rawJson = response.rawJson;
+      if (rawJson != null) {
+        if (metricsMap.isEmpty && rawJson['metrics'] is Map) {
+          metricsMap = Map<String, dynamic>.from(rawJson['metrics']);
+        }
+        if (metaMap.isEmpty && rawJson['meta'] is Map) {
+          metaMap = Map<String, dynamic>.from(rawJson['meta']);
+        }
+      }
+
       final items = rawList.map((item) => InventoryItem.fromJson(Map<String, dynamic>.from(item))).toList();
+
+      // Fallback metric calculation if server metrics map is empty
+      if (metricsMap.isEmpty) {
+        int totalItems = items.length;
+        int lowStockCount = items.where((i) => i.isLowStock).length;
+        int outOfStockCount = items.where((i) => i.isOutOfStock).length;
+        double totalStockValue = items.fold(0.0, (sum, i) => sum + i.stockValue);
+
+        metricsMap = {
+          'total_items': totalItems,
+          'low_stock_count': lowStockCount,
+          'out_of_stock_count': outOfStockCount,
+          'total_stock_value': totalStockValue,
+        };
+      }
+
+      final metrics = InventoryMetrics.fromJson(metricsMap);
 
       final resObj = InventoryResponse(
         metrics: metrics,
@@ -76,6 +102,7 @@ class InventoryRepository {
         success: true,
         message: response.message,
         data: resObj,
+        rawJson: rawJson,
       );
     }
 
@@ -137,7 +164,7 @@ class InventoryRepository {
 
   /// Get single item details
   Future<ApiResponse<InventoryItem>> getItemDetails(int id) async {
-    final response = await _apiClient.get('${ApiEndpoints.inventory}/$id');
+    final response = await _apiClient.get('/');
 
     if (response.success && response.data != null) {
       final dynamic rawData = response.data;
@@ -182,7 +209,7 @@ class InventoryRepository {
       if (isActive != null) 'is_active': isActive,
     };
 
-    final response = await _apiClient.put('${ApiEndpoints.inventory}/$id', body: body);
+    final response = await _apiClient.put('/', body: body);
 
     if (response.success && response.data != null) {
       final dynamic rawData = response.data;
@@ -198,7 +225,7 @@ class InventoryRepository {
 
   /// Delete inventory item
   Future<ApiResponse<void>> deleteItem(int id) async {
-    final response = await _apiClient.delete('${ApiEndpoints.inventory}/$id');
+    final response = await _apiClient.delete('/');
     return ApiResponse<void>(
       success: response.success,
       message: response.message,
@@ -224,7 +251,7 @@ class InventoryRepository {
       if (serialNumber != null && serialNumber.isNotEmpty) 'serial_number': serialNumber,
     };
 
-    final response = await _apiClient.post('${ApiEndpoints.inventory}/$id/stock', body: body);
+    final response = await _apiClient.post('//stock', body: body);
 
     if (response.success && response.data != null) {
       final dynamic rawData = response.data;
@@ -251,7 +278,7 @@ class InventoryRepository {
       'notes': notes,
     };
 
-    final response = await _apiClient.post('${ApiEndpoints.inventory}/$id/adjustment', body: body);
+    final response = await _apiClient.post('//adjustment', body: body);
 
     if (response.success && response.data != null) {
       final dynamic rawData = response.data;

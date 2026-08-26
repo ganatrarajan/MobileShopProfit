@@ -374,6 +374,227 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
                   ),
                   const SizedBox(height: 14),
 
+                                    // 3b. Assigned Technician Card
+                  CustomCard(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.engineering_rounded, color: AppColors.primary, size: 22),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Assigned Technician',
+                                style: TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w500),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _repair.technicianName != null && _repair.technicianName!.isNotEmpty
+                                    ? _repair.technicianName!
+                                    : 'Unassigned',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: _repair.technicianName != null && _repair.technicianName!.isNotEmpty
+                                      ? AppColors.textPrimary
+                                      : Colors.orange.shade800,
+                                ),
+                              ),
+                              if (_repair.technicianName != null && _repair.technicianName!.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Technician Cost: ',
+                                      style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                                    ),
+                                    Text(
+                                      '\u{20B9}${_repair.technicianEarning.toStringAsFixed(2)}',
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _repair.technicianName != null && _repair.technicianName!.isNotEmpty
+                                ? Colors.blue.shade50
+                                : Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: _repair.technicianName != null && _repair.technicianName!.isNotEmpty
+                                  ? Colors.blue.shade200
+                                  : Colors.orange.shade200,
+                            ),
+                          ),
+                          child: Text(
+                            _repair.technicianName != null && _repair.technicianName!.isNotEmpty ? 'Assigned' : 'Not Assigned',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: _repair.technicianName != null && _repair.technicianName!.isNotEmpty ? Colors.blue.shade800 : Colors.orange.shade900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                                    // 3c. Repair Financials Card
+                  CustomCard(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.account_balance_rounded, color: AppColors.primary, size: 20),
+                            SizedBox(width: 8),
+                            Text('Repair Financials', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        // Financial Grid Breakdown
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Repair Amount', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                                  const SizedBox(height: 2),
+                                  Text('\u{20B9}${_repair.netCost.toStringAsFixed(2)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Customer Paid', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                                  const SizedBox(height: 2),
+                                  Text('\u{20B9}${_repair.amountPaid.toStringAsFixed(2)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.green)),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Customer Pending', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '\u{20B9}${_repair.amountDue.toStringAsFixed(2)}',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: _repair.amountDue > 0 ? Colors.red : Colors.green,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        const Divider(height: 1),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Tech Earning', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                                  const SizedBox(height: 2),
+                                  Text('\u{20B9}${_repair.technicianEarning.toStringAsFixed(2)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.blue)),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Tech Paid', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                                  const SizedBox(height: 2),
+                                  Text('\u{20B9}${_repair.technicianPaidAmount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.teal)),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Tech Payable', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '\u{20B9}${_repair.technicianPayable.toStringAsFixed(2)}',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: _repair.technicianPayable > 0 ? Colors.orange.shade900 : Colors.green,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Shop Share', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                              Text('\u{20B9}${_repair.shopShare.toStringAsFixed(2)}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                            ],
+                          ),
+                        ),
+                        if (_repair.amountDue > 0 && _repair.technicianPayable > 0) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.shade50,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: Colors.amber.shade300),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.info_outline_rounded, size: 16, color: Colors.amber.shade900),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'Note: Customer still has \u{20B9}${_repair.amountDue.toStringAsFixed(2)} pending for this repair.',
+                                    style: TextStyle(fontSize: 11, color: Colors.amber.shade900, fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
                   // 4. Complaint & Problem Card
                   CustomCard(
                     padding: const EdgeInsets.all(16),

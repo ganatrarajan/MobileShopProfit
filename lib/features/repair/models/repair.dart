@@ -140,6 +140,13 @@ class Repair {
   final int shopId;
   final int customerId;
   final int deviceId;
+  final int? technicianId;
+  final String? technicianName;
+  final double technicianEarning;
+  final double technicianPaidAmount;
+  final double technicianPayable;
+  final double shopShare;
+  final String technicianPaymentStatus;
   final String jobNumber;
   final String dateReceived;
   final String? expectedDeliveryDate;
@@ -172,6 +179,13 @@ class Repair {
     required this.shopId,
     required this.customerId,
     required this.deviceId,
+    this.technicianId,
+    this.technicianName,
+    this.technicianEarning = 0.0,
+    this.technicianPaidAmount = 0.0,
+    this.technicianPayable = 0.0,
+    this.shopShare = 0.0,
+    this.technicianPaymentStatus = 'unassigned',
     required this.jobNumber,
     required this.dateReceived,
     this.expectedDeliveryDate,
@@ -208,6 +222,13 @@ class Repair {
       shopId: _parseInt(json['shop_id']),
       customerId: _parseInt(json['customer_id']),
       deviceId: _parseInt(json['device_id']),
+      technicianId: _parseNullableInt(json['technician_id']),
+            technicianName: json['technician_name']?.toString() ?? (json['technician'] is Map ? json['technician']['name']?.toString() : null),
+      technicianEarning: _parseDouble(json['technician_earning']),
+      technicianPaidAmount: _parseDouble(json['technician_paid_amount']),
+      technicianPayable: _parseDouble(json['technician_payable']),
+      shopShare: _parseDouble(json['shop_share']),
+      technicianPaymentStatus: json['technician_payment_status']?.toString() ?? 'unassigned',
       jobNumber: json['job_number']?.toString() ?? '',
       dateReceived: json['date_received']?.toString() ?? '',
       expectedDeliveryDate: json['expected_delivery_date']?.toString(),
@@ -251,6 +272,8 @@ class Repair {
       'shop_id': shopId,
       'customer_id': customerId,
       'device_id': deviceId,
+      if (technicianId != null) 'technician_id': technicianId,
+      if (technicianName != null) 'technician_name': technicianName,
       'job_number': jobNumber,
       'date_received': dateReceived,
       'expected_delivery_date': expectedDeliveryDate,

@@ -1,3 +1,5 @@
+import '../../technician/data/technician_repository.dart';
+import '../../technician/models/technician.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/custom_button.dart';
@@ -17,6 +19,10 @@ class EditRepairScreen extends StatefulWidget {
 class _EditRepairScreenState extends State<EditRepairScreen> {
   final _formKey = GlobalKey<FormState>();
   final _repairRepository = RepairRepository();
+  final _technicianRepository = TechnicianRepository();
+  Technician? _selectedTechnician;
+  List<Technician> _technicianList = [];
+  bool _isLoadingTechnicians = false;
 
   late TextEditingController _problemController;
   late TextEditingController _conditionNotesController;
@@ -24,6 +30,7 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
   late TextEditingController _pinPasscodeController;
   late TextEditingController _estimatedCostController;
   late TextEditingController _finalCostController;
+  late TextEditingController _technicianEarningController;
   late TextEditingController _labourCostController;
   late TextEditingController _customerNotesController;
   late TextEditingController _internalNotesController;
@@ -60,13 +67,19 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
   @override
   void initState() {
     super.initState();
-    final r = widget.repair;
+    _initControllers(widget.repair);
+    _loadTechnicians();
+    _fetchLatestRepairDetails();
+  }
+
+  void _initControllers(Repair r) {
     _problemController = TextEditingController(text: r.problemDescription);
     _conditionNotesController = TextEditingController(text: r.conditionNotes);
     _accessoriesNotesController = TextEditingController(text: r.accessoriesNotes);
     _pinPasscodeController = TextEditingController(text: r.pinPasscode);
     _estimatedCostController = TextEditingController(text: r.estimatedCost > 0 ? r.estimatedCost.toStringAsFixed(2) : '');
     _finalCostController = TextEditingController(text: r.finalCost > 0 ? r.finalCost.toStringAsFixed(2) : '');
+    _technicianEarningController = TextEditingController(text: r.technicianEarning > 0 ? r.technicianEarning.toStringAsFixed(2) : '');
     _labourCostController = TextEditingController(text: r.labourCost > 0 ? r.labourCost.toStringAsFixed(2) : '');
     _customerNotesController = TextEditingController(text: r.customerNotes);
     _internalNotesController = TextEditingController(text: r.internalNotes);
@@ -76,6 +89,68 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
 
     if (r.expectedDeliveryDate != null) {
       _expectedDeliveryDate = DateTime.tryParse(r.expectedDeliveryDate!);
+    }
+
+    if (r.technicianId != null) {
+      _selectedTechnician = Technician(
+        id: r.technicianId!,
+        shopId: 0,
+        name: r.technicianName ?? 'Technician #${r.technicianId}',
+        isActive: true,
+        workload: TechnicianWorkload(
+          pendingJobs: 0,
+          inProgressJobs: 0,
+          completedJobs: 0,
+          totalJobs: 0,
+          totalValueHandled: 0,
+        ),
+      );
+    }
+  }
+
+  Future<void> _fetchLatestRepairDetails() async {
+    try {
+      final res = await _repairRepository.getRepairDetails(widget.repair.id);
+      if (mounted && res.success && res.data != null) {
+        final r = res.data!;
+        setState(() {
+          _problemController.text = r.problemDescription;
+          _conditionNotesController.text = r.conditionNotes ?? '';
+          _accessoriesNotesController.text = r.accessoriesNotes ?? '';
+          _pinPasscodeController.text = r.pinPasscode ?? '';
+          _estimatedCostController.text = r.estimatedCost > 0 ? r.estimatedCost.toStringAsFixed(2) : '';
+          _finalCostController.text = r.finalCost > 0 ? r.finalCost.toStringAsFixed(2) : '';
+          _technicianEarningController.text = r.technicianEarning > 0 ? r.technicianEarning.toStringAsFixed(2) : '';
+          _labourCostController.text = r.labourCost > 0 ? r.labourCost.toStringAsFixed(2) : '';
+          _customerNotesController.text = r.customerNotes ?? '';
+          _internalNotesController.text = r.internalNotes ?? '';
+        });
+      }
+    } catch (_) {}
+  }
+
+    Future<void> _loadTechnicians() async {
+    setState(() => _isLoadingTechnicians = true);
+    try {
+      // Fetch active technicians only for assignment dropdown
+      final res = await _technicianRepository.getTechnicians(status: 'active');
+      if (mounted && res.success && res.data != null) {
+        setState(() {
+          _technicianList = res.data!.technicians;
+          if (widget.repair.technicianId != null) {
+            final existingIndex = _technicianList.indexWhere((t) => t.id == widget.repair.technicianId);
+            if (existingIndex != -1) {
+              _selectedTechnician = _technicianList[existingIndex];
+            } else if (_selectedTechnician != null) {
+              // If previously assigned technician was deactivated, keep in list with label
+              _technicianList.insert(0, _selectedTechnician!);
+            }
+          }
+          _isLoadingTechnicians = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingTechnicians = false);
     }
   }
 
@@ -87,6 +162,7 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
     _pinPasscodeController.dispose();
     _estimatedCostController.dispose();
     _finalCostController.dispose();
+    _technicianEarningController.dispose();
     _labourCostController.dispose();
     _customerNotesController.dispose();
     _internalNotesController.dispose();
@@ -112,6 +188,8 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
 
       final res = await _repairRepository.updateRepair(
         id: widget.repair.id,
+        technicianId: _selectedTechnician?.id,
+        technicianEarning: double.tryParse(_technicianEarningController.text) ?? 0.0,
         problemDescription: _problemController.text.trim(),
         deviceCondition: _selectedConditions.toList(),
         conditionNotes: _conditionNotesController.text.trim(),
@@ -171,6 +249,99 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
                 const SizedBox(height: 16),
               ],
 
+                            // Technician Selection Card
+              CustomCard(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.engineering_rounded, color: AppColors.accent, size: 20),
+                        SizedBox(width: 8),
+                        Text('Assigned Technician', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    const Text('Change or assign technician for this repair job', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<Technician>(
+                      value: _selectedTechnician,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        prefixIcon: const Icon(Icons.engineering_rounded, color: AppColors.primary),
+                      ),
+                      hint: _isLoadingTechnicians ? const Text('Loading technicians...') : const Text('Select Technician'),
+                      items: _technicianList.map((t) {
+                        final String displayName = (t.specialization != null && t.specialization!.isNotEmpty)
+                            ? '${t.name} (${t.specialization})'
+                            : t.name;
+                        return DropdownMenuItem<Technician>(
+                          value: t,
+                          child: Text(
+                            displayName,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (val) => setState(() => _selectedTechnician = val),
+                    ),
+                    if (_selectedTechnician != null) ...[
+                      const SizedBox(height: 12),
+                      CustomTextField(
+                        label: 'Technician Earning (\u{20B9})',
+                        hint: 'Enter fixed earning for technician (e.g. 200)',
+                        controller: _technicianEarningController,
+                        keyboardType: TextInputType.number,
+                        prefixIcon: Icons.currency_rupee_rounded,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                      const SizedBox(height: 8),
+                      Builder(
+                        builder: (ctx) {
+                          final fCost = double.tryParse(_finalCostController.text) ?? 0.0;
+                          final eCost = double.tryParse(_estimatedCostController.text) ?? 0.0;
+                          final repairCost = fCost > 0 ? fCost : eCost;
+                          final techEarning = double.tryParse(_technicianEarningController.text) ?? 0.0;
+                          final shopShare = (repairCost - techEarning) < 0 ? 0.0 : (repairCost - techEarning);
+                          return Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.blue.shade200),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Shop Share: \u{20B9}${shopShare.toStringAsFixed(2)}',
+                                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue.shade900, fontSize: 12),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Tech Earning: \u{20B9}${techEarning.toStringAsFixed(2)}',
+                                    textAlign: TextAlign.end,
+                                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade900, fontSize: 12),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
               // Problem & Complaint
               CustomCard(
                 padding: const EdgeInsets.all(16),
@@ -277,7 +448,7 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
                       children: [
                         Expanded(
                           child: CustomTextField(
-                            label: 'Estimated Cost (₹)',
+                            label: 'Estimated Cost (\u{20B9})',
                             controller: _estimatedCostController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           ),
@@ -285,7 +456,7 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: CustomTextField(
-                            label: 'Final Cost (₹)',
+                            label: 'Final Cost (\u{20B9})',
                             controller: _finalCostController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           ),
@@ -294,7 +465,7 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
                     ),
                     const SizedBox(height: 12),
                     CustomTextField(
-                      label: 'Labour Amount (₹)',
+                      label: 'Labour Amount (\u{20B9})',
                       controller: _labourCostController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     ),

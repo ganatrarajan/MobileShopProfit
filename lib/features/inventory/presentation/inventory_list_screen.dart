@@ -155,7 +155,7 @@ class InventoryListScreenState extends State<InventoryListScreen> {
                 Expanded(
                   child: _buildSummaryMetric(
                     title: 'Stock Value',
-                    value: '₹${_metrics!.totalStockValue.toStringAsFixed(0)}',
+                    value: '\u{20B9}${_metrics!.totalStockValue.toStringAsFixed(0)}',
                     icon: Icons.account_balance_wallet_rounded,
                     color: Colors.lightGreenAccent,
                   ),
@@ -357,7 +357,7 @@ class InventoryListScreenState extends State<InventoryListScreen> {
                                                 ),
                                                 const SizedBox(height: 4),
                                                 Text(
-                                                  'Buy: ₹${item.purchasePrice.toStringAsFixed(2)} | Sell: ₹${item.sellingPrice.toStringAsFixed(2)}',
+                                                  'Buy: \u{20B9}${item.purchasePrice.toStringAsFixed(2)} | Sell: \u{20B9}${item.sellingPrice.toStringAsFixed(2)}',
                                                   style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
                                                 ),
                                               ],

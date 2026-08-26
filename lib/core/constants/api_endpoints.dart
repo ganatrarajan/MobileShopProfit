@@ -17,5 +17,6 @@ class ApiEndpoints {
   static const String inventory = '/inventory';
   static const String expenseCategories = '/expense-categories';
   static const String expenses = '/expenses';
+  static const String technicians = '/technicians';
   static const String dashboard = '/dashboard';
 }

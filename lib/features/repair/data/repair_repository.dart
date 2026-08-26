@@ -49,6 +49,8 @@ class RepairRepository {
   Future<ApiResponse<Repair>> createRepair({
     required int customerId,
     required int deviceId,
+    int? technicianId,
+    double? technicianEarning,
     required String problemDescription,
     List<String>? deviceCondition,
     String? conditionNotes,
@@ -69,6 +71,8 @@ class RepairRepository {
     final body = {
       'customer_id': customerId,
       'device_id': deviceId,
+      if (technicianId != null) 'technician_id': technicianId,
+      if (technicianEarning != null) 'technician_earning': technicianEarning,
       'problem_description': problemDescription,
       if (deviceCondition != null) 'device_condition': deviceCondition,
       if (conditionNotes != null && conditionNotes.isNotEmpty) 'condition_notes': conditionNotes,
@@ -120,6 +124,8 @@ class RepairRepository {
   /// Update repair job card details
   Future<ApiResponse<Repair>> updateRepair({
     required int id,
+    int? technicianId,
+    double? technicianEarning,
     String? problemDescription,
     List<String>? deviceCondition,
     String? conditionNotes,
@@ -134,6 +140,8 @@ class RepairRepository {
     String? internalNotes,
   }) async {
     final body = {
+      if (technicianId != null) 'technician_id': technicianId,
+      if (technicianEarning != null) 'technician_earning': technicianEarning,
       if (problemDescription != null) 'problem_description': problemDescription,
       if (deviceCondition != null) 'device_condition': deviceCondition,
       if (conditionNotes != null) 'condition_notes': conditionNotes,

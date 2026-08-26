@@ -2,12 +2,14 @@ class ApiResponse<T> {
   final bool success;
   final String message;
   final T? data;
+  final Map<String, dynamic>? rawJson;
   final dynamic errors;
 
   ApiResponse({
     required this.success,
     required this.message,
     this.data,
+    this.rawJson,
     this.errors,
   });
 
@@ -26,6 +28,7 @@ class ApiResponse<T> {
       success: json['success'] ?? false,
       message: json['message'] ?? '',
       data: payload as T?,
+      rawJson: json,
       errors: json['errors'],
     );
   }

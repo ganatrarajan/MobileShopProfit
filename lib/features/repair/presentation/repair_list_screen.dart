@@ -585,6 +585,45 @@ class RepairListScreenState extends State<RepairListScreen> {
                                         ],
                                       ),
                                       const SizedBox(height: 6),
+                                                                            const SizedBox(height: 6),
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.engineering_rounded,
+                                            size: 15,
+                                            color: repair.technicianName != null && repair.technicianName!.isNotEmpty
+                                                ? AppColors.primary
+                                                : Colors.orange.shade800,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: repair.technicianName != null && repair.technicianName!.isNotEmpty
+                                                  ? Colors.blue.shade50
+                                                  : Colors.orange.shade50,
+                                              borderRadius: BorderRadius.circular(6),
+                                              border: Border.all(
+                                                color: repair.technicianName != null && repair.technicianName!.isNotEmpty
+                                                    ? Colors.blue.shade200
+                                                    : Colors.orange.shade200,
+                                              ),
+                                            ),
+                                            child: Text(
+                                              repair.technicianName != null && repair.technicianName!.isNotEmpty
+                                                  ? 'Tech: ${repair.technicianName}'
+                                                  : 'Tech: Unassigned',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: repair.technicianName != null && repair.technicianName!.isNotEmpty
+                                                    ? Colors.blue.shade900
+                                                    : Colors.orange.shade900,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                       Container(
                                         padding: const EdgeInsets.all(8),
                                         decoration: BoxDecoration(
