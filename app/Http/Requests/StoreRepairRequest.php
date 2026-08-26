@@ -16,6 +16,8 @@ class StoreRepairRequest extends FormRequest
         return [
             'customer_id' => ['required', 'integer', 'exists:customers,id'],
             'device_id' => ['required', 'integer', 'exists:devices,id'],
+            'technician_id' => ['nullable', 'integer', 'exists:technicians,id'],
+            'technician_earning' => ['nullable', 'numeric', 'min:0'],
             'date_received' => ['nullable', 'date'],
             'expected_delivery_date' => ['nullable', 'date'],
             'problem_description' => ['required', 'string', 'max:2000'],

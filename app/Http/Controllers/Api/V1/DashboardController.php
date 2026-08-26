@@ -9,6 +9,7 @@ use App\Models\Repair;
 use App\Models\Shop;
 use App\Models\Sale;
 use App\Models\StockMovement;
+use App\Models\Technician;
 use App\Models\Warranty;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -251,6 +252,13 @@ class DashboardController extends Controller
                         'name' => $topCategory->name,
                         'amount' => round((float) $topCategory->total_amount, 2),
                     ] : null,
+                ],
+                'technicians' => [
+                    'total_technicians' => (int) Technician::forShop($shopId)->count(),
+                    'active_technicians' => (int) Technician::forShop($shopId)->where('is_active', true)->count(),
+                    'in_progress_jobs' => (int) Repair::forShop($shopId)->whereIn('repair_status', ['repairing', 'in_progress'])->whereNotNull('technician_id')->count(),
+                    'pending_jobs' => (int) Repair::forShop($shopId)->whereIn('repair_status', ['received', 'diagnosing', 'waiting_customer', 'waiting_parts', 'pending_approval'])->whereNotNull('technician_id')->count(),
+                    'completed_jobs' => (int) Repair::forShop($shopId)->whereIn('repair_status', ['ready', 'delivered'])->whereNotNull('technician_id')->count(),
                 ],
                 'attention' => $attention,
                 'recent_activity' => $recentActivities,

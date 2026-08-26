@@ -14,6 +14,8 @@ class UpdateRepairRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'technician_id' => ['nullable', 'integer', 'exists:technicians,id'],
+            'technician_earning' => ['nullable', 'numeric', 'min:0'],
             'problem_description' => ['sometimes', 'string', 'max:2000'],
             'device_condition' => ['nullable', 'array'],
             'device_condition.*' => ['string', 'max:100'],

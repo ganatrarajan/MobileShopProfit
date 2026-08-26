@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\V1\WarrantyClaimController;
 use App\Http\Controllers\Api\V1\InventoryItemController;
 use App\Http\Controllers\Api\V1\ExpenseCategoryController;
 use App\Http\Controllers\Api\V1\ExpenseController;
+use App\Http\Controllers\Api\V1\TechnicianController;
 
 
 
@@ -130,6 +131,17 @@ Route::prefix('v1')->group(function () {
 
         // Expenses
         Route::apiResource('expenses', ExpenseController::class);
+
+        // Technicians
+            // Technician Management & Payouts
+    Route::get('technicians/{id}/payments', [\App\Http\Controllers\Api\V1\TechnicianPaymentController::class, 'index']);
+    Route::post('technician-payments', [\App\Http\Controllers\Api\V1\TechnicianPaymentController::class, 'store']);
+    Route::delete('technician-payments/{id}', [\App\Http\Controllers\Api\V1\TechnicianPaymentController::class, 'destroy']);
+        // Technician Management & Payouts
+    Route::get('technicians/{id}/payments', [\App\Http\Controllers\Api\V1\TechnicianPaymentController::class, 'index']);
+    Route::post('technician-payments', [\App\Http\Controllers\Api\V1\TechnicianPaymentController::class, 'store']);
+    Route::delete('technician-payments/{id}', [\App\Http\Controllers\Api\V1\TechnicianPaymentController::class, 'destroy']);
+    Route::apiResource('technicians', \App\Http\Controllers\Api\V1\TechnicianController::class);
 
         // Inventory Management
         Route::get('/inventory', [InventoryItemController::class, 'index']);

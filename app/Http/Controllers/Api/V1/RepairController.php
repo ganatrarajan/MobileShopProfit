@@ -31,7 +31,11 @@ class RepairController extends Controller
         }
 
         $query = Repair::forShop($user->shop_id)
-            ->with(['customer', 'device', 'parts', 'payments', 'creator']);
+            ->with(['customer', 'device', 'technician', 'parts', 'payments', 'creator']);
+
+        if ($request->filled('technician_id')) {
+            $query->where('technician_id', $request->input('technician_id'));
+        }
 
         if ($request->filled('search')) {
             $search = $request->input('search');
@@ -118,6 +122,16 @@ class RepairController extends Controller
             ], 422);
         }
 
+        if (!empty($validated['technician_id'])) {
+            $tech = \App\Models\Technician::forShop($user->shop_id)->find($validated['technician_id']);
+            if (!$tech || !$tech->is_active) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Selected technician is inactive or does not belong to your shop.',
+                ], 422);
+            }
+        }
+
         try {
             $repair = DB::transaction(function () use ($user, $validated) {
                 // Generate per-shop unique job card number collision-safely
@@ -147,6 +161,8 @@ class RepairController extends Controller
                     'shop_id' => $user->shop_id,
                     'customer_id' => $validated['customer_id'],
                     'device_id' => $validated['device_id'],
+                    'technician_id' => $validated['technician_id'] ?? null,
+                    'technician_earning' => (float) ($validated['technician_earning'] ?? 0),
                     'job_number' => $jobNumber,
                     'date_received' => $validated['date_received'] ?? now()->toDateString(),
                     'expected_delivery_date' => $validated['expected_delivery_date'] ?? null,
@@ -223,7 +239,7 @@ class RepairController extends Controller
                     }
                 }
 
-                return $repair->load(['customer', 'device', 'parts', 'payments', 'creator']);
+                return $repair->load(['customer', 'device', 'technician', 'parts', 'payments', 'creator']);
             });
 
             return response()->json([
@@ -246,7 +262,7 @@ class RepairController extends Controller
     {
         $user = $request->user();
         $repair = Repair::forShop($user->shop_id)
-            ->with(['customer', 'device', 'parts', 'payments.creator', 'creator'])
+            ->with(['customer', 'device', 'technician', 'parts', 'payments.creator', 'creator'])
             ->find($id);
 
         if (!$repair) {
@@ -278,13 +294,23 @@ class RepairController extends Controller
         }
 
         $validated = $request->validated();
+        if (array_key_exists('technician_id', $validated) && !empty($validated['technician_id'])) {
+            $tech = \App\Models\Technician::forShop($user->shop_id)->find($validated['technician_id']);
+            if (!$tech || !$tech->is_active) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Selected technician is inactive or does not belong to your shop.',
+                ], 422);
+            }
+        }
+
         $repair->update($validated);
         $repair->recalculatePaymentStatus();
 
         return response()->json([
             'success' => true,
             'message' => 'Repair job card updated successfully.',
-            'data' => new RepairResource($repair->load(['customer', 'device', 'parts', 'payments', 'creator'])),
+            'data' => new RepairResource($repair->load(['customer', 'device', 'technician', 'parts', 'payments', 'creator'])),
         ]);
     }
 
