@@ -87,7 +87,10 @@ class TechnicianPaymentController extends Controller
             if (!empty($validated['repair_id'])) {
                 $repair = Repair::find($validated['repair_id']);
                 if ($repair) {
-                    $repair->recalculatePaymentStatus();
+                    $directPaid = (float) $repair->technicianPayments()->sum('amount');
+                    $repair->update([
+                        'technician_paid_amount' => max((float) $repair->technician_paid_amount, $directPaid),
+                    ]);
                 }
             } else {
                 // Allocate payout across technician's unpaid repair jobs starting from oldest
@@ -142,14 +145,42 @@ class TechnicianPaymentController extends Controller
 
         $payment = TechnicianPayment::where('shop_id', $shopId)->findOrFail($id);
         $technicianId = $payment->technician_id;
-        $repairId = $payment->repair_id;
 
-        DB::transaction(function () use ($payment, $repairId) {
+        DB::transaction(function () use ($payment, $technicianId, $shopId) {
             $payment->delete();
-            if ($repairId) {
-                $repair = Repair::find($repairId);
-                if ($repair) {
-                    $repair->recalculatePaymentStatus();
+
+            // Re-sync all repair technician_paid_amount for this technician
+            $repairs = Repair::forShop($shopId)->where('technician_id', $technicianId)->get();
+            foreach ($repairs as $r) {
+                $directPaid = (float) $r->technicianPayments()->sum('amount');
+                $r->update(['technician_paid_amount' => $directPaid]);
+            }
+
+            // Re-allocate remaining general payouts (payments with repair_id == null)
+            $generalPayouts = TechnicianPayment::where('shop_id', $shopId)
+                ->where('technician_id', $technicianId)
+                ->whereNull('repair_id')
+                ->orderBy('created_at', 'asc')
+                ->get();
+
+            foreach ($generalPayouts as $payout) {
+                $rem = (float) $payout->amount;
+                $unpaid = Repair::forShop($shopId)
+                    ->where('technician_id', $technicianId)
+                    ->where('technician_earning', '>', 0)
+                    ->orderBy('created_at', 'asc')
+                    ->get();
+
+                foreach ($unpaid as $r) {
+                    if ($rem <= 0) break;
+                    $earning = (float) $r->technician_earning;
+                    $currPaid = (float) $r->technician_paid_amount;
+                    $dueOnRepair = max(0.0, $earning - $currPaid);
+                    if ($dueOnRepair > 0) {
+                        $alloc = min($dueOnRepair, $rem);
+                        $r->update(['technician_paid_amount' => round($currPaid + $alloc, 2)]);
+                        $rem -= $alloc;
+                    }
                 }
             }
         });

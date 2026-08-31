@@ -150,67 +150,65 @@
             padding: 24px 20px;
             font-size: 18px;
             font-weight: 700;
-            letter-spacing: -0.5px;
             border-bottom: 1px solid #1e293b;
             display: flex;
             align-items: center;
             gap: 10px;
         }
 
-        .sidebar-menu {
-            flex: 1;
-            padding: 16px 12px;
-            overflow-y: auto;
+        .sidebar-brand span {
+            color: #38bdf8;
         }
 
-        .menu-category {
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            color: #64748b;
-            padding: 12px 12px 6px;
+        .sidebar-menu {
+            list-style: none;
+            padding: 16px 10px;
+            flex: 1;
+            overflow-y: auto;
         }
 
         .nav-item {
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 11px 14px;
-            border-radius: 8px;
+            padding: 12px 14px;
             color: #94a3b8;
+            text-decoration: none;
             font-size: 14px;
             font-weight: 500;
-            cursor: pointer;
-            transition: all 0.15s;
+            border-radius: 8px;
             margin-bottom: 4px;
-            text-decoration: none;
+            transition: all 0.2s;
         }
 
-        .nav-item:hover, .nav-item.active {
+        .nav-item:hover {
             background: #1e293b;
             color: white;
         }
 
         .nav-item.active {
-            border-left: 3px solid var(--primary);
-            background: rgba(37, 99, 235, 0.15);
-            color: #60a5fa;
+            background: var(--primary);
+            color: white;
         }
 
-        .sidebar-footer {
+        .user-footer {
             padding: 16px 20px;
             border-top: 1px solid #1e293b;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
             font-size: 13px;
         }
 
-        .main-wrapper {
+        .main-content {
             flex: 1;
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            background: #f8fafc;
         }
 
-        .top-header {
+        .topbar {
             height: 64px;
             background: white;
             border-bottom: 1px solid var(--border-color);
@@ -220,40 +218,22 @@
             padding: 0 28px;
         }
 
-        .header-title {
+        .topbar h1 {
             font-size: 18px;
             font-weight: 700;
+            color: #0f172a;
         }
 
-        .admin-profile {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .avatar {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: var(--primary);
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 14px;
-        }
-
-        .content-body {
+        .content-area {
             flex: 1;
             padding: 24px 28px;
             overflow-y: auto;
         }
 
-        /* --- DASHBOARD METRIC CARDS --- */
+        /* --- CARDS & TABLES --- */
         .grid-4 {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 20px;
             margin-bottom: 24px;
         }
@@ -269,42 +249,40 @@
         .metric-title {
             font-size: 12px;
             font-weight: 600;
-            color: var(--text-muted);
             text-transform: uppercase;
-            margin-bottom: 8px;
+            color: #64748b;
         }
 
         .metric-value {
-            font-size: 26px;
+            font-size: 24px;
             font-weight: 700;
-            color: var(--text-main);
+            color: #0f172a;
+            margin: 8px 0 4px 0;
         }
 
         .metric-sub {
             font-size: 12px;
-            color: #16a34a;
-            margin-top: 6px;
+            color: #10b981;
             font-weight: 500;
         }
 
-        /* --- TABLES & CARDS --- */
         .card-table {
             background: white;
             border-radius: 12px;
             border: 1px solid var(--border-color);
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
             overflow: hidden;
-            margin-bottom: 24px;
         }
 
         .table-toolbar {
             padding: 16px 20px;
             border-bottom: 1px solid var(--border-color);
             display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
             align-items: center;
             justify-content: space-between;
-            gap: 16px;
-            flex-wrap: wrap;
+            background: #ffffff;
         }
 
         .search-box {
@@ -314,64 +292,81 @@
 
         .search-box input {
             width: 100%;
-            padding: 8px 12px 8px 36px;
-            border-radius: 6px;
-            border: 1px solid var(--border-color);
+            padding: 9px 14px 9px 36px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
             font-size: 13px;
+            outline: none;
+            transition: all 0.2s;
         }
 
-        .search-box svg {
+        .search-box input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+        }
+
+        .search-box::before {
+            content: '🔍';
             position: absolute;
-            left: 10px;
+            left: 12px;
             top: 50%;
             transform: translateY(-50%);
-            width: 16px;
-            height: 16px;
-            fill: #94a3b8;
+            font-size: 13px;
+            opacity: 0.5;
         }
 
         .filter-select {
-            padding: 8px 12px;
-            border-radius: 6px;
-            border: 1px solid var(--border-color);
+            padding: 9px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
             font-size: 13px;
+            outline: none;
             background: white;
+            color: #334155;
+            cursor: pointer;
+        }
+
+        .filter-select:focus {
+            border-color: var(--primary);
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 13.5px;
+            text-align: left;
+            font-size: 14px;
         }
 
         th {
             background: #f8fafc;
-            text-align: left;
-            padding: 12px 18px;
+            padding: 12px 20px;
             font-size: 11px;
             font-weight: 700;
             text-transform: uppercase;
-            color: #64748b;
+            color: #475569;
             border-bottom: 1px solid var(--border-color);
         }
 
         td {
-            padding: 14px 18px;
+            padding: 14px 20px;
             border-bottom: 1px solid var(--border-color);
             color: #334155;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
         }
 
         tr:hover td {
             background: #f8fafc;
         }
 
-        /* --- BADGES --- */
         .badge {
             display: inline-block;
             padding: 4px 10px;
-            border-radius: 50px;
+            border-radius: 20px;
             font-size: 11px;
-            font-weight: 600;
+            font-weight: 700;
             text-transform: uppercase;
         }
 
@@ -380,33 +375,69 @@
         .badge-trial { background: #fef3c7; color: #b45309; }
         .badge-resolved { background: #e0e7ff; color: #4338ca; }
 
-        /* --- MODAL DIALOG --- */
-        .modal-overlay {
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            background: white;
+            color: #334155;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-sm:hover {
+            background: #f1f5f9;
+        }
+
+        .btn-danger-sm {
+            background: #fef2f2;
+            color: #991b1b;
+            border-color: #fecaca;
+        }
+
+        .btn-danger-sm:hover {
+            background: #fee2e2;
+        }
+
+        .btn-success-sm {
+            background: #f0fdf4;
+            color: #166534;
+            border-color: #bbf7d0;
+        }
+
+        .btn-success-sm:hover {
+            background: #dcfce7;
+        }
+
+        /* MODAL */
+        #modal-container {
             position: fixed;
             inset: 0;
             background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
             display: none;
             align-items: center;
             justify-content: center;
-            z-index: 2000;
+            z-index: 1100;
         }
 
-        .modal-card {
+        .modal-content {
             background: white;
-            border-radius: 12px;
             width: 100%;
             max-width: 540px;
-            padding: 24px;
-            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2);
+            border-radius: 14px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
         }
 
         .modal-header {
+            padding: 18px 24px;
+            border-bottom: 1px solid var(--border-color);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 16px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid var(--border-color);
         }
 
         .modal-header h3 {
@@ -422,102 +453,79 @@
             color: #64748b;
         }
 
-        .btn-sm {
-            padding: 6px 12px;
-            font-size: 12px;
-            border-radius: 6px;
-            border: 1px solid var(--border-color);
-            background: white;
-            cursor: pointer;
-        }
-
-        .btn-danger-sm {
-            background: #fee2e2;
-            color: #b91c1c;
-            border: none;
+        .modal-body {
+            padding: 24px;
         }
     </style>
 </head>
 <body>
 
-    <!-- 1. ADMIN AUTH LOGIN SCREEN -->
+    <!-- LOGIN SCREEN -->
     <div id="auth-screen">
         <div class="login-card">
             <div class="login-header">
-                <h2>Mobile Profits Admin</h2>
-                <p>Sign in to your SaaS administrator panel</p>
+                <h2>Mobile Profits SaaS</h2>
+                <p>Platform Administrator Sign In</p>
             </div>
             <div id="login-alert" class="alert-error"></div>
-            <form id="login-form" onsubmit="handleLogin(event)">
+            <form onsubmit="handleLogin(event)">
                 <div class="form-group">
-                    <label>Admin Mobile or Email</label>
-                    <input type="text" id="login-input" class="form-control" placeholder="admin@mobileprofits.com" required>
+                    <label>Admin Mobile / Email</label>
+                    <input type="text" id="login-input" class="form-control" placeholder="7405989816 or admin@mobileprofits.com" value="7405989816" required>
                 </div>
                 <div class="form-group">
                     <label>Password</label>
-                    <input type="password" id="login-password" class="form-control" placeholder="••••••••" required>
+                    <input type="password" id="password-input" class="form-control" placeholder="••••••••" value="12345678" required>
                 </div>
-                <button type="submit" class="btn-primary" id="login-btn">Sign In to Dashboard</button>
+                <button type="submit" class="btn-primary">Sign In to Dashboard</button>
             </form>
         </div>
     </div>
 
-    <!-- 2. MAIN ADMIN APP LAYOUT -->
+    <!-- MAIN APP LAYOUT -->
     <div id="app-layout" style="display: none;">
-        <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="sidebar-brand">
-                <span>⚡ Mobile Profits Admin</span>
+                📱 <span>Mobile Profits</span>
             </div>
-            <div class="sidebar-menu">
-                <div class="menu-category">Main Navigation</div>
-                <a href="#dashboard" class="nav-item active" onclick="switchNav('dashboard')">📊 Dashboard</a>
-                <a href="#shops" class="nav-item" onclick="switchNav('shops')">🏬 Shops Directory</a>
-                <a href="#users" class="nav-item" onclick="switchNav('users')">👥 User Accounts</a>
-                
-                <div class="menu-category">SaaS Business</div>
-                <a href="#subscriptions" class="nav-item" onclick="switchNav('subscriptions')">💳 Subscriptions</a>
-                <a href="#payments" class="nav-item" onclick="switchNav('payments')">🧾 Real Payments</a>
-                <a href="#plans" class="nav-item" onclick="switchNav('plans')">🏷️ Plans & Pricing</a>
-                <a href="#revenue" class="nav-item" onclick="switchNav('revenue')">📈 Revenue Analytics</a>
-                
-                <div class="menu-category">Settings & Help</div>
-                <a href="#gateway" class="nav-item" onclick="switchNav('gateway')">⚙️ Payment Gateway</a>
-                <a href="#support" class="nav-item" onclick="switchNav('support')">📞 Support Requests</a>
-                <a href="#audit" class="nav-item" onclick="switchNav('audit')">📜 Audit Logs</a>
-            </div>
-            <div class="sidebar-footer">
-                <button onclick="handleLogout()" class="btn-sm btn-danger-sm" style="width:100%;">Logout Admin</button>
+            <ul class="sidebar-menu">
+                <li><a href="#dashboard" class="nav-item active" onclick="switchNav('dashboard')">📊 Dashboard</a></li>
+                <li><a href="#shops" class="nav-item" onclick="switchNav('shops')">🏪 Shops Directory</a></li>
+                <li><a href="#users" class="nav-item" onclick="switchNav('users')">👥 User Accounts</a></li>
+                <li><a href="#subscriptions" class="nav-item" onclick="switchNav('subscriptions')">💳 Subscriptions</a></li>
+                <li><a href="#payments" class="nav-item" onclick="switchNav('payments')">🧾 Real Payments</a></li>
+                <li><a href="#plans" class="nav-item" onclick="switchNav('plans')">🏷️ Plans & Pricing</a></li>
+                <li><a href="#revenue" class="nav-item" onclick="switchNav('revenue')">📈 Revenue Analytics</a></li>
+                <li><a href="#gateway" class="nav-item" onclick="switchNav('gateway')">⚙️ Gateway Settings</a></li>
+                <li><a href="#support" class="nav-item" onclick="switchNav('support')">💬 Support & Tickets</a></li>
+                <li><a href="#audit" class="nav-item" onclick="switchNav('audit')">🛡️ Audit Logs</a></li>
+            </ul>
+            <div class="user-footer">
+                <span id="admin-name">Admin</span>
+                <a href="#" style="color:#ef4444; text-decoration:none; font-weight:600;" onclick="logout()">Logout</a>
             </div>
         </aside>
 
-        <!-- Main Wrapper -->
-        <div class="main-wrapper">
-            <header class="top-header">
-                <div class="header-title" id="page-title">Dashboard Overview</div>
-                <div class="admin-profile">
-                    <div class="avatar" id="admin-avatar">A</div>
-                    <div>
-                        <div style="font-weight:600; font-size:13px;" id="admin-name">Administrator</div>
-                        <div style="font-size:11px; color:#64748b;" id="admin-role">Super Admin</div>
-                    </div>
-                </div>
+        <main class="main-content">
+            <header class="topbar">
+                <h1 id="page-title">Dashboard Overview</h1>
             </header>
-
-            <main class="content-body" id="content-area">
-                <!-- Views loaded dynamically via JS -->
-            </main>
-        </div>
+            <div id="content-area" class="content-area">
+                <!-- Dynamic Content View Loaded Here -->
+            </div>
+        </main>
     </div>
 
-    <!-- 3. MODAL DIALOG -->
-    <div id="modal-container" class="modal-overlay">
-        <div class="modal-card">
+    <!-- GLOBAL MODAL -->
+    <div id="modal-container">
+        <div class="modal-content">
             <div class="modal-header">
                 <h3 id="modal-title">Modal Title</h3>
-                <button class="modal-close" onclick="closeModal()">×</button>
+                <button class="modal-close" onclick="closeModal()">✕</button>
             </div>
-            <div id="modal-body"></div>
+            <div id="modal-body" class="modal-body">
+                <!-- Dynamic Modal Content -->
+            </div>
         </div>
     </div>
 
@@ -525,10 +533,9 @@
         const API_BASE = '/api/v1/admin';
         let authToken = localStorage.getItem('admin_token');
 
-        // Check Initial Auth State
-        window.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', () => {
             if (authToken) {
-                verifyAdmin();
+                checkAuth();
             } else {
                 showAuthScreen();
             }
@@ -539,62 +546,57 @@
             document.getElementById('app-layout').style.display = 'none';
         }
 
-        async function verifyAdmin() {
-            try {
-                const res = await fetch(`${API_BASE}/auth/me`, {
-                    headers: { 'Authorization': `Bearer ${authToken}`, 'Accept': 'application/json' }
-                });
-                const data = await res.json();
-                if (res.ok && data.success) {
-                    document.getElementById('auth-screen').style.display = 'none';
-                    document.getElementById('app-layout').style.display = 'flex';
-                    document.getElementById('admin-name').innerText = data.data.user.name;
-                    document.getElementById('admin-role').innerText = data.data.user.role.toUpperCase();
-                    document.getElementById('admin-avatar').innerText = data.data.user.name.charAt(0);
-                    switchNav('dashboard');
-                } else {
-                    handleLogout();
-                }
-            } catch (err) {
-                handleLogout();
+        function showAppLayout() {
+            document.getElementById('auth-screen').style.display = 'none';
+            document.getElementById('app-layout').style.display = 'flex';
+            loadDashboardView();
+        }
+
+        async function checkAuth() {
+            const data = await apiFetch('/auth/me');
+            if (data && data.success) {
+                document.getElementById('admin-name').innerText = data.data.user.name || 'Admin';
+                showAppLayout();
+            } else {
+                logout();
             }
         }
 
         async function handleLogin(e) {
             e.preventDefault();
-            const btn = document.getElementById('login-btn');
-            const alert = document.getElementById('login-alert');
-            alert.style.display = 'none';
-            btn.innerText = 'Authenticating...';
+            const login = document.getElementById('login-input').value;
+            const password = document.getElementById('password-input').value;
+            const alertBox = document.getElementById('login-alert');
+
+            alertBox.style.display = 'none';
 
             try {
-                const res = await fetch(`${API_BASE}/auth/login`, {
+                const res = await fetch('/api/v1/admin/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                    body: JSON.stringify({
-                        login: document.getElementById('login-input').value,
-                        password: document.getElementById('login-password').value
-                    })
+                    body: JSON.stringify({ login, password })
                 });
                 const data = await res.json();
-                btn.innerText = 'Sign In to Dashboard';
 
                 if (res.ok && data.success) {
                     authToken = data.data.token;
                     localStorage.setItem('admin_token', authToken);
-                    verifyAdmin();
+                    document.getElementById('admin-name').innerText = data.data.user.name || 'Admin';
+                    showAppLayout();
                 } else {
-                    alert.innerText = data.message || 'Invalid credentials or non-admin user.';
-                    alert.style.display = 'block';
+                    alertBox.innerText = data.message || 'Invalid credentials or non-admin account';
+                    alertBox.style.display = 'block';
                 }
             } catch (err) {
-                btn.innerText = 'Sign In to Dashboard';
-                alert.innerText = 'Connection error. Please try again.';
-                alert.style.display = 'block';
+                alertBox.innerText = 'Server connection error. Please try again.';
+                alertBox.style.display = 'block';
             }
         }
 
-        function handleLogout() {
+        function logout() {
+            if (authToken) {
+                apiFetch('/auth/logout', 'POST');
+            }
             localStorage.removeItem('admin_token');
             authToken = null;
             showAuthScreen();
@@ -643,10 +645,38 @@
             return await res.json();
         }
 
+        let _searchDebounceTimer = null;
+        function debounceSearch(fn) {
+            if (_searchDebounceTimer) clearTimeout(_searchDebounceTimer);
+            _searchDebounceTimer = setTimeout(fn, 350);
+        }
+
+        function renderPagination(meta, fnName, ...extraArgs) {
+            if (!meta || meta.last_page <= 1) return '';
+            const current = meta.current_page;
+            const last = meta.last_page;
+            const total = meta.total || 0;
+            const from = meta.from || (((current - 1) * meta.per_page) + 1);
+            const to = meta.to || Math.min(current * meta.per_page, total);
+            const extraStr = extraArgs.map(a => typeof a === 'string' ? `'${a.replace(/'/g, "\'")}'` : a).join(', ');
+            const comma = extraStr ? ', ' : '';
+
+            return `
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-top:1px solid #e2e8f0; font-size:13px; color:#64748b; background:#f8fafc;">
+                    <div>Showing <strong>${from}-${to}</strong> of <strong>${total}</strong> records</div>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <button class="btn-sm" ${current <= 1 ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : ''} onclick="${fnName}(${current - 1}${comma}${extraStr})">← Prev</button>
+                        <span style="font-weight:600; color:#1e293b; padding:0 6px;">Page ${current} of ${last}</span>
+                        <button class="btn-sm" ${current >= last ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : ''} onclick="${fnName}(${current + 1}${comma}${extraStr})">Next →</button>
+                    </div>
+                </div>
+            `;
+        }
+
         // 1. DASHBOARD VIEW
         async function loadDashboardView() {
             const content = document.getElementById('content-area');
-            content.innerHTML = '<div style="padding:20px;">Loading overview metrics...</div>';
+            content.innerHTML = '<div style="padding:20px; color:#64748b;">Loading overview metrics...</div>';
             const data = await apiFetch('/dashboard');
 
             if (!data.success) return;
@@ -707,57 +737,73 @@
         }
 
         // 2. SHOPS VIEW
-        async function loadShopsView(page = 1, search = '', status = '') {
+        async function loadShopsView(page = 1, search = '', status = '', subStatus = '') {
             const content = document.getElementById('content-area');
-            const data = await apiFetch(`/shops?page=${page}&search=${search}&status=${status}`);
-            if (!data.success) return;
-            const shops = data.data.data;
+            const data = await apiFetch(`/shops?page=${page}&search=${encodeURIComponent(search)}&status=${status}&subscription_status=${subStatus}`);
+            if (!data || !data.success) return;
+            const pageData = data.data;
+            const shops = pageData.data || [];
 
             content.innerHTML = `
                 <div class="card-table">
                     <div class="table-toolbar">
-                        <div class="search-box">
-                            <input type="text" placeholder="Search by shop name, owner, mobile..." value="${search}" oninput="loadShopsView(1, this.value, '${status}')">
+                        <div style="display:flex; gap:10px; flex:1; min-width:280px;">
+                            <div class="search-box" style="flex:1;">
+                                <input type="text" id="shops-search-input" placeholder="Search shop name, owner, phone, email..." value="${search}" oninput="debounceSearch(() => loadShopsView(1, document.getElementById('shops-search-input').value, '${status}', '${subStatus}'))">
+                            </div>
                         </div>
-                        <select class="filter-select" onchange="loadShopsView(1, '${search}', this.value)">
-                            <option value="">All Statuses</option>
-                            <option value="active" ${status === 'active' ? 'selected' : ''}>Active</option>
-                            <option value="deactivated" ${status === 'deactivated' ? 'selected' : ''}>Deactivated</option>
-                        </select>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                            <select class="filter-select" onchange="loadShopsView(1, '${search}', this.value, '${subStatus}')">
+                                <option value="">Account: All Statuses</option>
+                                <option value="active" ${status === 'active' ? 'selected' : ''}>Active Account</option>
+                                <option value="deactivated" ${status === 'deactivated' ? 'selected' : ''}>Deactivated Account</option>
+                            </select>
+                            <select class="filter-select" onchange="loadShopsView(1, '${search}', '${status}', this.value)">
+                                <option value="">Plan: All Subscriptions</option>
+                                <option value="active" ${subStatus === 'active' ? 'selected' : ''}>Active Plan</option>
+                                <option value="trial" ${subStatus === 'trial' ? 'selected' : ''}>Trial</option>
+                                <option value="expired" ${subStatus === 'expired' ? 'selected' : ''}>Expired</option>
+                            </select>
+                            ${(search || status || subStatus) ? `<button class="btn-sm" style="background:#e2e8f0; color:#334155;" onclick="loadShopsView(1, '', '', '')">Clear Filters</button>` : ''}
+                        </div>
                     </div>
                     <table>
                         <thead>
                             <tr>
                                 <th>Shop Name</th>
-                                <th>Owner</th>
-                                <th>Contact</th>
-                                <th>Registered</th>
+                                <th>Owner Name</th>
+                                <th>Contact Number</th>
+                                <th>Registration Date</th>
                                 <th>Subscription</th>
-                                <th>Status</th>
+                                <th>Account Status</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
+                            ${shops.length === 0 ? `<tr><td colspan="7" style="text-align:center; padding:30px; color:#94a3b8;">No shops found matching filter criteria.</td></tr>` : ''}
                             ${shops.map(s => {
                                 const mob = s.phone || s.mobile || (s.user ? (s.user.mobile || s.user.phone) : 'N/A');
+                                const sub = s.latest_subscription ? s.latest_subscription.status : 'trial';
                                 return `
                                 <tr>
                                     <td><strong>${s.name}</strong></td>
                                     <td>${s.owner_name}</td>
                                     <td>${mob}</td>
                                     <td>${new Date(s.created_at).toLocaleDateString()}</td>
-                                    <td><span class="badge badge-trial">${s.latest_subscription ? s.latest_subscription.status : 'Trial'}</span></td>
+                                    <td><span class="badge ${sub === 'active' ? 'badge-active' : (sub === 'expired' ? 'badge-inactive' : 'badge-trial')}">${sub.toUpperCase()}</span></td>
                                     <td><span class="badge ${s.status === 'active' ? 'badge-active' : 'badge-inactive'}">${s.status}</span></td>
                                     <td>
                                         <button class="btn-sm" onclick="openShopDetails(${s.id})">Details</button>
-                                        <button class="btn-sm ${s.status === 'active' ? 'btn-danger-sm' : ''}" onclick="toggleShopStatus(${s.id}, '${s.status === 'active' ? 'deactivated' : 'active'}')">
+                                        <button class="btn-sm ${s.status === 'active' ? 'btn-danger-sm' : 'btn-success-sm'}" onclick="toggleShopStatus(${s.id}, '${s.status === 'active' ? 'deactivated' : 'active'}')">
                                             ${s.status === 'active' ? 'Deactivate' : 'Activate'}
                                         </button>
                                     </td>
                                 </tr>
-                            `}).join('')}
+                                `;
+                            }).join('')}
                         </tbody>
                     </table>
+                    ${renderPagination(pageData, 'loadShopsView', search, status, subStatus)}
                 </div>
             `;
         }
@@ -798,25 +844,42 @@
         }
 
         // 3. USERS VIEW
-        async function loadUsersView(page = 1) {
+        async function loadUsersView(page = 1, search = '', role = '') {
             const content = document.getElementById('content-area');
-            const data = await apiFetch(`/users?page=${page}`);
-            if (!data.success) return;
-            const users = data.data.data;
+            const data = await apiFetch(`/users?page=${page}&search=${encodeURIComponent(search)}&role=${role}`);
+            if (!data || !data.success) return;
+            const pageData = data.data;
+            const users = pageData.data || [];
 
             content.innerHTML = `
                 <div class="card-table">
+                    <div class="table-toolbar">
+                        <div style="display:flex; gap:10px; flex:1; min-width:280px;">
+                            <div class="search-box" style="flex:1;">
+                                <input type="text" id="users-search-input" placeholder="Search user name, mobile, email..." value="${search}" oninput="debounceSearch(() => loadUsersView(1, document.getElementById('users-search-input').value, '${role}'))">
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                            <select class="filter-select" onchange="loadUsersView(1, '${search}', this.value)">
+                                <option value="">All Roles</option>
+                                <option value="owner" ${role === 'owner' ? 'selected' : ''}>Shop Owner</option>
+                                <option value="admin" ${role === 'admin' ? 'selected' : ''}>SaaS Admin</option>
+                            </select>
+                            ${(search || role) ? `<button class="btn-sm" style="background:#e2e8f0; color:#334155;" onclick="loadUsersView(1, '', '')">Clear Filters</button>` : ''}
+                        </div>
+                    </div>
                     <table>
                         <thead>
                             <tr>
                                 <th>Name</th>
                                 <th>Mobile / Email</th>
-                                <th>Shop</th>
-                                <th>Role</th>
+                                <th>Associated Shop</th>
+                                <th>User Role</th>
                                 <th>Created Date</th>
                             </tr>
                         </thead>
                         <tbody>
+                            ${users.length === 0 ? `<tr><td colspan="5" style="text-align:center; padding:30px; color:#94a3b8;">No users found matching filter criteria.</td></tr>` : ''}
                             ${users.map(u => `
                                 <tr>
                                     <td><strong>${u.name}</strong></td>
@@ -828,80 +891,242 @@
                             `).join('')}
                         </tbody>
                     </table>
+                    ${renderPagination(pageData, 'loadUsersView', search, role)}
                 </div>
             `;
         }
 
         // 4. SUBSCRIPTIONS VIEW
-        async function loadSubscriptionsView() {
+        async function loadSubscriptionsView(page = 1, search = '', status = '', paymentStatus = '') {
             const content = document.getElementById('content-area');
-            const data = await apiFetch('/subscriptions');
-            if (!data.success) return;
-            const subs = data.data.data;
-
-            content.innerHTML = `
-                <div class="card-table">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Shop</th>
-                                <th>Plan</th>
-                                <th>Status</th>
-                                <th>Payment</th>
-                                <th>Expiry Date</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${subs.map(s => `
-                                <tr>
-                                    <td><strong>${s.shop ? s.shop.name : 'N/A'}</strong></td>
-                                    <td>${s.plan ? s.plan.name : 'Trial Plan'}</td>
-                                    <td><span class="badge badge-trial">${s.status}</span></td>
-                                    <td><span class="badge ${s.payment_status === 'paid' ? 'badge-active' : 'badge-inactive'}">${s.payment_status}</span></td>
-                                    <td>${s.expiry_date ? new Date(s.expiry_date).toLocaleDateString() : 'N/A'}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-        }
-
-        // REAL PAYMENTS VIEW
-        async function loadPaymentsView() {
-            const content = document.getElementById('content-area');
-            const data = await apiFetch('/payments');
-            if (!data.status || data.status !== 'success') return;
-            const txns = data.data.data;
+            const data = await apiFetch(`/subscriptions?page=${page}&search=${encodeURIComponent(search)}&status=${status}&payment_status=${paymentStatus}`);
+            if (!data || !data.success) return;
+            const pageData = data.data;
+            const subs = pageData.data || [];
 
             content.innerHTML = `
                 <div class="card-table">
                     <div class="table-toolbar">
-                        <div style="font-weight:700; font-size:15px;">Real Payment Transactions Log</div>
+                        <div style="display:flex; gap:10px; flex:1; min-width:280px;">
+                            <div class="search-box" style="flex:1;">
+                                <input type="text" id="subs-search-input" placeholder="Search by shop name, owner..." value="${search}" oninput="debounceSearch(() => loadSubscriptionsView(1, document.getElementById('subs-search-input').value, '${status}', '${paymentStatus}'))">
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                            <select class="filter-select" onchange="loadSubscriptionsView(1, '${search}', this.value, '${paymentStatus}')">
+                                <option value="">Status: All</option>
+                                <option value="trial" ${status === 'trial' ? 'selected' : ''}>Trial</option>
+                                <option value="active" ${status === 'active' ? 'selected' : ''}>Active</option>
+                                <option value="expired" ${status === 'expired' ? 'selected' : ''}>Expired</option>
+                                <option value="cancelled" ${status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+                            </select>
+                            <select class="filter-select" onchange="loadSubscriptionsView(1, '${search}', '${status}', this.value)">
+                                <option value="">Payment: All</option>
+                                <option value="paid" ${paymentStatus === 'paid' ? 'selected' : ''}>Paid</option>
+                                <option value="pending" ${paymentStatus === 'pending' ? 'selected' : ''}>Pending</option>
+                                <option value="free" ${paymentStatus === 'free' ? 'selected' : ''}>Free</option>
+                            </select>
+                            ${(search || status || paymentStatus) ? `<button class="btn-sm" style="background:#e2e8f0; color:#334155;" onclick="loadSubscriptionsView(1, '', '', '')">Clear Filters</button>` : ''}
+                        </div>
                     </div>
                     <table>
                         <thead>
                             <tr>
-                                <th>Shop</th>
-                                <th>Order ID</th>
-                                <th>Payment ID</th>
-                                <th>Plan</th>
-                                <th>Amount</th>
-                                <th>Status</th>
-                                <th>Date</th>
+                                <th>Shop Name</th>
+                                <th>Current Plan</th>
+                                <th>Subscription Status</th>
+                                <th>Payment Status</th>
+                                <th>Expiry Date</th>
+                                <th>Action</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${txns.length === 0 ? '<tr><td colspan="7" style="text-align:center; padding:20px;">No payment transactions recorded yet.</td></tr>' : ''}
-                            ${txns.map(t => `
+                            ${subs.length === 0 ? `<tr><td colspan="6" style="text-align:center; padding:30px; color:#94a3b8;">No subscriptions found matching filter criteria.</td></tr>` : ''}
+                            ${subs.map(s => `
                                 <tr>
-                                    <td><strong>${t.shop ? t.shop.name : 'N/A'}</strong></td>
-                                    <td><code>${t.order_id}</code></td>
-                                    <td><code>${t.payment_id || 'Pending'}</code></td>
-                                    <td>${t.plan ? t.plan.name : 'Pro Plan'}</td>
-                                    <td>₹${parseFloat(t.amount).toLocaleString()}</td>
-                                    <td><span class="badge ${t.status === 'successful' ? 'badge-active' : (t.status === 'pending' ? 'badge-trial' : 'badge-inactive')}">${t.status}</span></td>
-                                    <td>${new Date(t.created_at).toLocaleString()}</td>
+                                    <td><strong>${s.shop ? s.shop.name : 'Shop #' + s.shop_id}</strong></td>
+                                    <td>${s.plan ? s.plan.name : 'Default Plan'}</td>
+                                    <td><span class="badge ${s.status === 'active' ? 'badge-active' : (s.status === 'expired' ? 'badge-inactive' : 'badge-trial')}">${s.status.toUpperCase()}</span></td>
+                                    <td><span class="badge ${s.payment_status === 'paid' ? 'badge-active' : 'badge-trial'}">${s.payment_status}</span></td>
+                                    <td>${s.expiry_date ? new Date(s.expiry_date).toLocaleDateString() : 'N/A'}</td>
+                                    <td>
+                                        <button class="btn-sm" onclick="editSubscription(${s.id}, ${s.plan_id || 1}, '${s.status}', '${s.expiry_date ? s.expiry_date.substring(0, 10) : ''}', '${s.payment_status}')">Manage</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    ${renderPagination(pageData, 'loadSubscriptionsView', search, status, paymentStatus)}
+                </div>
+            `;
+        }
+
+        async function editSubscription(id, currentPlanId, currentStatus, currentExpiry, currentPaymentStatus) {
+            openModal('Manage Subscription', `
+                <form onsubmit="saveSubscriptionUpdate(event, ${id})">
+                    <div class="form-group">
+                        <label>Subscription Status</label>
+                        <select id="sub-edit-status" class="form-control">
+                            <option value="trial" ${currentStatus === 'trial' ? 'selected' : ''}>Trial</option>
+                            <option value="active" ${currentStatus === 'active' ? 'selected' : ''}>Active</option>
+                            <option value="expired" ${currentStatus === 'expired' ? 'selected' : ''}>Expired</option>
+                            <option value="cancelled" ${currentStatus === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Payment Status</label>
+                        <select id="sub-edit-payment" class="form-control">
+                            <option value="paid" ${currentPaymentStatus === 'paid' ? 'selected' : ''}>Paid</option>
+                            <option value="pending" ${currentPaymentStatus === 'pending' ? 'selected' : ''}>Pending</option>
+                            <option value="free" ${currentPaymentStatus === 'free' ? 'selected' : ''}>Free</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Expiry Date</label>
+                        <input type="date" id="sub-edit-expiry" class="form-control" value="${currentExpiry}">
+                    </div>
+                    <div style="margin-top:20px; display:flex; gap:10px;">
+                        <button type="submit" class="btn-primary" style="flex:1;">Update Subscription</button>
+                        <button type="button" class="btn-sm" onclick="closeModal()">Cancel</button>
+                    </div>
+                </form>
+            `);
+        }
+
+        async function saveSubscriptionUpdate(e, id) {
+            e.preventDefault();
+            const body = {
+                status: document.getElementById('sub-edit-status').value,
+                payment_status: document.getElementById('sub-edit-payment').value,
+                expiry_date: document.getElementById('sub-edit-expiry').value,
+            };
+            const data = await apiFetch(`/subscriptions/${id}/status`, 'PUT', body);
+            if (data && data.success) {
+                alert('Subscription updated successfully!');
+                closeModal();
+                loadSubscriptionsView();
+            } else {
+                alert(data.message || 'Failed to update subscription');
+            }
+        }
+
+        // 5. PAYMENTS VIEW
+        async function loadPaymentsView(page = 1, search = '', status = '') {
+            const content = document.getElementById('content-area');
+            const data = await apiFetch(`/payments?page=${page}&search=${encodeURIComponent(search)}&status=${status}`);
+            if (!data || data.status !== 'success') return;
+            const pageData = data.data;
+            const payments = pageData.data || [];
+
+            content.innerHTML = `
+                <div class="card-table">
+                    <div class="table-toolbar">
+                        <div style="display:flex; gap:10px; flex:1; min-width:280px;">
+                            <div class="search-box" style="flex:1;">
+                                <input type="text" id="payments-search-input" placeholder="Search order ID, payment ID, shop..." value="${search}" oninput="debounceSearch(() => loadPaymentsView(1, document.getElementById('payments-search-input').value, '${status}'))">
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                            <select class="filter-select" onchange="loadPaymentsView(1, '${search}', this.value)">
+                                <option value="">Status: All</option>
+                                <option value="successful" ${status === 'successful' ? 'selected' : ''}>Successful</option>
+                                <option value="pending" ${status === 'pending' ? 'selected' : ''}>Pending</option>
+                                <option value="failed" ${status === 'failed' ? 'selected' : ''}>Failed</option>
+                            </select>
+                            ${(search || status) ? `<button class="btn-sm" style="background:#e2e8f0; color:#334155;" onclick="loadPaymentsView(1, '', '')">Clear Filters</button>` : ''}
+                        </div>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Shop Name</th>
+                                <th>Order ID</th>
+                                <th>Payment ID</th>
+                                <th>Amount</th>
+                                <th>Method</th>
+                                <th>Status</th>
+                                <th>Timestamp</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${payments.length === 0 ? `<tr><td colspan="7" style="text-align:center; padding:30px; color:#94a3b8;">No payment records found matching filter criteria.</td></tr>` : ''}
+                            ${payments.map(p => `
+                                <tr>
+                                    <td><strong>${p.shop ? p.shop.name : 'Shop #' + p.shop_id}</strong></td>
+                                    <td><span style="font-family:monospace; font-size:12px;">${p.order_id}</span></td>
+                                    <td><span style="font-family:monospace; font-size:12px;">${p.payment_id || '—'}</span></td>
+                                    <td><strong>₹${parseFloat(p.amount).toFixed(2)}</strong></td>
+                                    <td>${p.payment_method || 'Razorpay'}</td>
+                                    <td><span class="badge ${p.status === 'successful' ? 'badge-active' : (p.status === 'failed' ? 'badge-inactive' : 'badge-trial')}">${p.status.toUpperCase()}</span></td>
+                                    <td>${new Date(p.created_at).toLocaleString()}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    ${renderPagination(pageData, 'loadPaymentsView', search, status)}
+                </div>
+            `;
+        }
+
+        // 6. PLANS VIEW
+        async function loadPlansView(search = '', status = '') {
+            const content = document.getElementById('content-area');
+            const data = await apiFetch('/plans');
+            if (!data || !data.success) return;
+            let plans = data.data || [];
+
+            if (search) {
+                const sLower = search.toLowerCase();
+                plans = plans.filter(p => p.name.toLowerCase().includes(sLower) || p.billing_period.toLowerCase().includes(sLower));
+            }
+            if (status) {
+                plans = plans.filter(p => p.status === status);
+            }
+
+            content.innerHTML = `
+                <div class="card-table">
+                    <div class="table-toolbar">
+                        <div style="display:flex; gap:10px; flex:1; min-width:280px;">
+                            <div class="search-box" style="flex:1;">
+                                <input type="text" id="plans-search-input" placeholder="Search plan name, billing period..." value="${search}" oninput="debounceSearch(() => loadPlansView(document.getElementById('plans-search-input').value, '${status}'))">
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                            <select class="filter-select" onchange="loadPlansView('${search}', this.value)">
+                                <option value="">Status: All</option>
+                                <option value="active" ${status === 'active' ? 'selected' : ''}>Active</option>
+                                <option value="inactive" ${status === 'inactive' ? 'selected' : ''}>Inactive</option>
+                            </select>
+                            ${(search || status) ? `<button class="btn-sm" style="background:#e2e8f0; color:#334155;" onclick="loadPlansView('', '')">Clear Filters</button>` : ''}
+                            <button class="btn-primary" style="padding:8px 16px; width:auto; font-size:13px;" onclick="createPlanModal()">+ Create New Plan</button>
+                        </div>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Plan Name</th>
+                                <th>Price</th>
+                                <th>Billing Cycle</th>
+                                <th>Sort Order</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${plans.length === 0 ? `<tr><td colspan="6" style="text-align:center; padding:30px; color:#94a3b8;">No plans found matching filter criteria.</td></tr>` : ''}
+                            ${plans.map(p => `
+                                <tr>
+                                    <td><strong>${p.name}</strong></td>
+                                    <td><strong>₹${parseFloat(p.price).toFixed(2)}</strong></td>
+                                    <td>${p.billing_period}</td>
+                                    <td>${p.sort_order || 0}</td>
+                                    <td><span class="badge ${p.status === 'active' ? 'badge-active' : 'badge-inactive'}">${p.status}</span></td>
+                                    <td>
+                                        <button class="btn-sm" onclick="editPlanModal(${p.id}, '${p.name.replace(/'/g, "\'")}', ${p.price}, '${p.billing_period}', ${p.sort_order || 0}, '${p.status}')">Edit</button>
+                                        <button class="btn-sm ${p.status === 'active' ? 'btn-danger-sm' : 'btn-success-sm'}" onclick="togglePlanStatus(${p.id})">
+                                            ${p.status === 'active' ? 'Disable' : 'Enable'}
+                                        </button>
+                                    </td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -910,124 +1135,46 @@
             `;
         }
 
-        // 5. PLANS VIEW
-        async function loadPlansView() {
-            const content = document.getElementById('content-area');
-            const data = await apiFetch('/plans');
-            if (!data.success) return;
-            const plans = data.data;
-
-            content.innerHTML = `
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                    <div>
-                        <h3 style="font-size:16px; font-weight:700;">Subscription Plans Management</h3>
-                        <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">Manage plan display order, pricing, and active status for the mobile app.</p>
-                    </div>
-                    <button class="btn-primary" style="width:auto; padding:10px 18px;" onclick="openCreatePlanModal()">+ Create New Plan</button>
-                </div>
-                <div class="grid-4">
-                    ${plans.map(p => `
-                        <div class="metric-card" style="position:relative; border: 1px solid ${p.status === 'active' ? '#cbd5e1' : '#f87171'};">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                                <span class="metric-title">${p.billing_period.toUpperCase()} (Order: #${p.sort_order || 0})</span>
-                                <span class="badge ${p.status === 'active' ? 'badge-active' : 'badge-inactive'}">${p.status === 'active' ? 'ON' : 'OFF'}</span>
-                            </div>
-                            <div class="metric-value">RS ${parseFloat(p.price).toLocaleString()}</div>
-                            <div style="font-weight:700; font-size:16px; margin-top:4px;">${p.name}</div>
-                            <div class="metric-sub">${p.subscriptions_count || 0} Active Subscribers</div>
-                            
-                            <div style="display:flex; gap:8px; margin-top:14px;">
-                                <button class="btn-sm" style="flex:1;" onclick="openEditPlanModal(${p.id}, '${p.name}', ${p.price}, '${p.billing_period}', '${p.status}', ${p.sort_order || 0})">Edit</button>
-                                <button class="btn-sm" style="flex:1; background:${p.status === 'active' ? '#ef4444' : '#10b981'}; color:white;" onclick="togglePlanStatus(${p.id})">
-                                    ${p.status === 'active' ? 'Turn OFF' : 'Turn ON'}
-                                </button>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-        }
-
-        function openCreatePlanModal() {
-            openModal('Create New Subscription Plan', `
-                <form onsubmit="submitPlanForm(event)">
+        function createPlanModal() {
+            openModal('Create New Plan', `
+                <form onsubmit="saveNewPlan(event)">
                     <div class="form-group">
                         <label>Plan Name</label>
-                        <input type="text" id="plan-name" class="form-control" placeholder="e.g. 3 Months Pro Plan" required>
+                        <input type="text" id="new-plan-name" class="form-control" placeholder="e.g. Annual Pro Plan" required>
                     </div>
                     <div class="form-group">
-                        <label>Price (RS)</label>
-                        <input type="number" id="plan-price" class="form-control" placeholder="500" min="0" step="1" required>
+                        <label>Price (INR)</label>
+                        <input type="number" step="0.01" id="new-plan-price" class="form-control" placeholder="99.00" required>
                     </div>
                     <div class="form-group">
                         <label>Billing Period</label>
-                        <select id="plan-period" class="form-control">
-                            <option value="monthly">Monthly (1 Month)</option>
-                            <option value="3_months">3 Months Plan</option>
-                            <option value="6_months">6 Months Plan</option>
-                            <option value="annual">Annual (1 Year)</option>
+                        <select id="new-plan-period" class="form-control">
+                            <option value="monthly">Monthly</option>
+                            <option value="3_months">3 Months</option>
+                            <option value="6_months">6 Months</option>
+                            <option value="annual">Annual (12 Months)</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Display Order (Position 1, 2, 3...)</label>
-                        <input type="number" id="plan-sort" class="form-control" value="1" min="1" step="1" required>
+                        <label>Sort Order</label>
+                        <input type="number" id="new-plan-sort" class="form-control" value="1">
                     </div>
-                    <div class="form-group">
-                        <label>Status (Show on App)</label>
-                        <select id="plan-status" class="form-control">
-                            <option value="active">Active (ON)</option>
-                            <option value="inactive">Inactive (OFF)</option>
-                        </select>
+                    <div style="margin-top:20px; display:flex; gap:10px;">
+                        <button type="submit" class="btn-primary" style="flex:1;">Create Plan</button>
+                        <button type="button" class="btn-sm" onclick="closeModal()">Cancel</button>
                     </div>
-                    <button type="submit" class="btn-primary">Create Plan</button>
                 </form>
             `);
         }
 
-        function openEditPlanModal(id, name, price, period, status, sortOrder) {
-            openModal('Edit Subscription Plan', `
-                <form onsubmit="submitEditPlanForm(event, ${id})">
-                    <div class="form-group">
-                        <label>Plan Name</label>
-                        <input type="text" id="edit-plan-name" class="form-control" value="${name}" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Price (RS)</label>
-                        <input type="number" id="edit-plan-price" class="form-control" value="${price}" min="0" step="1" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Billing Period</label>
-                        <select id="edit-plan-period" class="form-control">
-                            <option value="monthly" ${period === 'monthly' ? 'selected' : ''}>Monthly (1 Month)</option>
-                            <option value="3_months" ${period === '3_months' ? 'selected' : ''}>3 Months Plan</option>
-                            <option value="6_months" ${period === '6_months' ? 'selected' : ''}>6 Months Plan</option>
-                            <option value="annual" ${period === 'annual' ? 'selected' : ''}>Annual (1 Year)</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Display Order (Position 1, 2, 3...)</label>
-                        <input type="number" id="edit-plan-sort" class="form-control" value="${sortOrder}" min="1" step="1" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Status (Show on App)</label>
-                        <select id="edit-plan-status" class="form-control">
-                            <option value="active" ${status === 'active' ? 'selected' : ''}>Active (ON)</option>
-                            <option value="inactive" ${status === 'inactive' ? 'selected' : ''}>Inactive (OFF)</option>
-                        </select>
-                    </div>
-                    <button type="submit" class="btn-primary">Update Plan</button>
-                </form>
-            `);
-        }
-
-        async function submitPlanForm(e) {
+        async function saveNewPlan(e) {
             e.preventDefault();
             const body = {
-                name: document.getElementById('plan-name').value,
-                price: parseFloat(document.getElementById('plan-price').value),
-                billing_period: document.getElementById('plan-period').value,
-                sort_order: parseInt(document.getElementById('plan-sort').value),
-                status: document.getElementById('plan-status').value,
+                name: document.getElementById('new-plan-name').value,
+                price: parseFloat(document.getElementById('new-plan-price').value),
+                billing_period: document.getElementById('new-plan-period').value,
+                sort_order: parseInt(document.getElementById('new-plan-sort').value),
+                status: 'active',
             };
             const res = await apiFetch('/plans', 'POST', body);
             if (res && res.success) {
@@ -1039,7 +1186,46 @@
             }
         }
 
-        async function submitEditPlanForm(e, id) {
+        function editPlanModal(id, name, price, period, sort, status) {
+            openModal('Edit Subscription Plan', `
+                <form onsubmit="savePlanUpdate(event, ${id})">
+                    <div class="form-group">
+                        <label>Plan Name</label>
+                        <input type="text" id="edit-plan-name" class="form-control" value="${name}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Price (INR)</label>
+                        <input type="number" step="0.01" id="edit-plan-price" class="form-control" value="${price}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Billing Period</label>
+                        <select id="edit-plan-period" class="form-control">
+                            <option value="monthly" ${period === 'monthly' ? 'selected' : ''}>Monthly</option>
+                            <option value="3_months" ${period === '3_months' ? 'selected' : ''}>3 Months</option>
+                            <option value="6_months" ${period === '6_months' ? 'selected' : ''}>6 Months</option>
+                            <option value="annual" ${period === 'annual' ? 'selected' : ''}>Annual (12 Months)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Sort Order</label>
+                        <input type="number" id="edit-plan-sort" class="form-control" value="${sort}">
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="edit-plan-status" class="form-control">
+                            <option value="active" ${status === 'active' ? 'selected' : ''}>Active</option>
+                            <option value="inactive" ${status === 'inactive' ? 'selected' : ''}>Inactive</option>
+                        </select>
+                    </div>
+                    <div style="margin-top:20px; display:flex; gap:10px;">
+                        <button type="submit" class="btn-primary" style="flex:1;">Update Plan</button>
+                        <button type="button" class="btn-sm" onclick="closeModal()">Cancel</button>
+                    </div>
+                </form>
+            `);
+        }
+
+        async function savePlanUpdate(e, id) {
             e.preventDefault();
             const body = {
                 name: document.getElementById('edit-plan-name').value,
@@ -1067,11 +1253,11 @@
             }
         }
 
-        // 6. REVENUE VIEW
+        // 7. REVENUE VIEW
         async function loadRevenueView() {
             const content = document.getElementById('content-area');
             const data = await apiFetch('/revenue');
-            if (!data.success) return;
+            if (!data || !data.success) return;
             const r = data.data;
 
             content.innerHTML = `
@@ -1096,10 +1282,10 @@
             `;
         }
 
-        // PAYMENT GATEWAY SETTINGS VIEW
+        // 8. PAYMENT GATEWAY SETTINGS VIEW
         async function loadGatewayView() {
             const content = document.getElementById('content-area');
-            content.innerHTML = '<div style="padding:20px;">Loading gateway configuration...</div>';
+            content.innerHTML = '<div style="padding:20px; color:#64748b;">Loading gateway configuration...</div>';
             const res = await apiFetch('/settings/payment-gateway');
             if (!res || res.status !== 'success') return;
             const g = res.data;
@@ -1187,15 +1373,38 @@
             }
         }
 
-        // 7. SUPPORT VIEW
-        async function loadSupportView() {
+        // 9. SUPPORT VIEW
+        async function loadSupportView(page = 1, search = '', status = '', type = '') {
             const content = document.getElementById('content-area');
-            const data = await apiFetch('/support');
-            if (!data.success) return;
-            const tickets = data.data.data;
+            const data = await apiFetch(`/support?page=${page}&search=${encodeURIComponent(search)}&status=${status}&type=${type}`);
+            if (!data || !data.success) return;
+            const pageData = data.data;
+            const tickets = pageData.data || [];
 
             content.innerHTML = `
                 <div class="card-table">
+                    <div class="table-toolbar">
+                        <div style="display:flex; gap:10px; flex:1; min-width:280px;">
+                            <div class="search-box" style="flex:1;">
+                                <input type="text" id="support-search-input" placeholder="Search subject, message, shop..." value="${search}" oninput="debounceSearch(() => loadSupportView(1, document.getElementById('support-search-input').value, '${status}', '${type}'))">
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                            <select class="filter-select" onchange="loadSupportView(1, '${search}', this.value, '${type}')">
+                                <option value="">Status: All</option>
+                                <option value="open" ${status === 'open' ? 'selected' : ''}>Open</option>
+                                <option value="in_progress" ${status === 'in_progress' ? 'selected' : ''}>In Progress</option>
+                                <option value="resolved" ${status === 'resolved' ? 'selected' : ''}>Resolved</option>
+                            </select>
+                            <select class="filter-select" onchange="loadSupportView(1, '${search}', '${status}', this.value)">
+                                <option value="">Type: All</option>
+                                <option value="contact" ${type === 'contact' ? 'selected' : ''}>Contact</option>
+                                <option value="problem" ${type === 'problem' ? 'selected' : ''}>Problem</option>
+                                <option value="feedback" ${type === 'feedback' ? 'selected' : ''}>Feedback</option>
+                            </select>
+                            ${(search || status || type) ? `<button class="btn-sm" style="background:#e2e8f0; color:#334155;" onclick="loadSupportView(1, '', '', '')">Clear Filters</button>` : ''}
+                        </div>
+                    </div>
                     <table>
                         <thead>
                             <tr>
@@ -1208,20 +1417,22 @@
                             </tr>
                         </thead>
                         <tbody>
+                            ${tickets.length === 0 ? `<tr><td colspan="6" style="text-align:center; padding:30px; color:#94a3b8;">No support tickets found matching filter criteria.</td></tr>` : ''}
                             ${tickets.map(t => `
                                 <tr>
                                     <td><span class="badge badge-trial">${t.type}</span></td>
-                                    <td><strong>${t.shop ? t.shop.name : 'Unknown'}</strong></td>
+                                    <td><strong>${t.shop ? t.shop.name : 'Unknown Shop'}</strong></td>
                                     <td>${t.message}</td>
                                     <td>${new Date(t.created_at).toLocaleDateString()}</td>
                                     <td><span class="badge ${t.status === 'resolved' ? 'badge-resolved' : 'badge-inactive'}">${t.status}</span></td>
                                     <td>
-                                        ${t.status !== 'resolved' ? `<button class="btn-sm" onclick="resolveTicket(${t.id})">Mark Resolved</button>` : '—'}
+                                        ${t.status !== 'resolved' ? `<button class="btn-sm btn-success-sm" onclick="resolveTicket(${t.id})">Mark Resolved</button>` : '—'}
                                     </td>
                                 </tr>
                             `).join('')}
                         </tbody>
                     </table>
+                    ${renderPagination(pageData, 'loadSupportView', search, status, type)}
                 </div>
             `;
         }
@@ -1233,29 +1444,49 @@
             }
         }
 
-        // 8. AUDIT LOGS VIEW
-        async function loadAuditView() {
+        // 10. AUDIT LOGS VIEW
+        async function loadAuditView(page = 1, search = '', action = '') {
             const content = document.getElementById('content-area');
-            const data = await apiFetch('/audit-logs');
-            if (!data.success) return;
-            const logs = data.data.data;
+            const data = await apiFetch(`/audit-logs?page=${page}&search=${encodeURIComponent(search)}&action=${action}`);
+            if (!data || !data.success) return;
+            const pageData = data.data;
+            const logs = pageData.data || [];
 
             content.innerHTML = `
                 <div class="card-table">
+                    <div class="table-toolbar">
+                        <div style="display:flex; gap:10px; flex:1; min-width:280px;">
+                            <div class="search-box" style="flex:1;">
+                                <input type="text" id="audit-search-input" placeholder="Search details, IP, admin name..." value="${search}" oninput="debounceSearch(() => loadAuditView(1, document.getElementById('audit-search-input').value, '${action}'))">
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                            <select class="filter-select" onchange="loadAuditView(1, '${search}', this.value)">
+                                <option value="">Action: All Actions</option>
+                                <option value="ACTIVATE_SHOP" ${action === 'ACTIVATE_SHOP' ? 'selected' : ''}>Activate Shop</option>
+                                <option value="DEACTIVATE_SHOP" ${action === 'DEACTIVATE_SHOP' ? 'selected' : ''}>Deactivate Shop</option>
+                                <option value="UPDATE_SUBSCRIPTION" ${action === 'UPDATE_SUBSCRIPTION' ? 'selected' : ''}>Update Subscription</option>
+                                <option value="update_payment_gateway_settings" ${action === 'update_payment_gateway_settings' ? 'selected' : ''}>Update Gateway</option>
+                                <option value="UPDATE_SUPPORT_STATUS" ${action === 'UPDATE_SUPPORT_STATUS' ? 'selected' : ''}>Support Status</option>
+                            </select>
+                            ${(search || action) ? `<button class="btn-sm" style="background:#e2e8f0; color:#334155;" onclick="loadAuditView(1, '', '')">Clear Filters</button>` : ''}
+                        </div>
+                    </div>
                     <table>
                         <thead>
                             <tr>
-                                <th>Admin</th>
-                                <th>Action</th>
-                                <th>Details</th>
+                                <th>Admin User</th>
+                                <th>Action Taken</th>
+                                <th>Action Details</th>
                                 <th>IP Address</th>
                                 <th>Timestamp</th>
                             </tr>
                         </thead>
                         <tbody>
+                            ${logs.length === 0 ? `<tr><td colspan="5" style="text-align:center; padding:30px; color:#94a3b8;">No audit logs found matching filter criteria.</td></tr>` : ''}
                             ${logs.map(l => `
                                 <tr>
-                                    <td><strong>${l.admin ? l.admin.name : 'Admin'}</strong></td>
+                                    <td><strong>${l.admin ? l.admin.name : 'Admin System'}</strong></td>
                                     <td><span class="badge badge-resolved">${l.action}</span></td>
                                     <td>${l.details || '—'}</td>
                                     <td>${l.ip_address || '—'}</td>
@@ -1264,6 +1495,7 @@
                             `).join('')}
                         </tbody>
                     </table>
+                    ${renderPagination(pageData, 'loadAuditView', search, action)}
                 </div>
             `;
         }
@@ -1281,6 +1513,3 @@
     </script>
 </body>
 </html>
-
-
-

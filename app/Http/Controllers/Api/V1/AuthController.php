@@ -138,9 +138,15 @@ class AuthController extends Controller
             ]
         );
 
-        return $this->successResponse([
-            'reset_token' => $resetToken, // Returned for local development testing
-        ], 'Password reset code generated successfully');
+        $responsePayload = [];
+        if (config('app.env') === 'local' && config('app.debug')) {
+            $responsePayload['reset_token'] = $resetToken;
+        }
+
+        return $this->successResponse(
+            $responsePayload,
+            'Password reset code generated successfully. Please check your registered email/mobile.'
+        );
     }
 
     /**

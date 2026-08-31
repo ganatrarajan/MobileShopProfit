@@ -23,9 +23,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   List<dynamic> _availablePlans = [];
 
   String? _lastOrderId;
-  int? _lastPlanId;
-  String? _lastPlanName;
-  double? _lastPlanPrice;
 
   @override
   void initState() {
@@ -50,15 +47,15 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
     final String orderId = (response.orderId != null && response.orderId!.isNotEmpty)
         ? response.orderId!
-        : (_lastOrderId ?? 'order_test_');
+        : (_lastOrderId ?? 'order_test_${DateTime.now().millisecondsSinceEpoch}');
 
     final String paymentId = (response.paymentId != null && response.paymentId!.isNotEmpty)
         ? response.paymentId!
-        : 'pay_';
+        : 'pay_${DateTime.now().millisecondsSinceEpoch}';
 
     final String signature = (response.signature != null && response.signature!.isNotEmpty)
         ? response.signature!
-        : 'sig_verified_mock_';
+        : 'sig_verified_mock_${DateTime.now().millisecondsSinceEpoch}';
 
     try {
       final verifyRes = await _repository.verifyPayment(
@@ -109,21 +106,18 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         _isProcessing = false;
       });
 
-      if (_lastOrderId != null && _lastOrderId!.isNotEmpty) {
-        _showMockPaymentDialog(
-          planId: _lastPlanId ?? 1,
-          planName: _lastPlanName ?? 'Mobile Profits Pro',
-          planPrice: _lastPlanPrice ?? 99.0,
-          orderId: _lastOrderId!,
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response.code == Razorpay.PAYMENT_CANCELLED ? 'Payment cancelled.' : 'Payment Failed: ${response.message}'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
+      final String msg = (response.code == Razorpay.PAYMENT_CANCELLED)
+          ? 'Payment cancelled.'
+          : (response.message != null && response.message!.isNotEmpty
+              ? 'Payment Failed: ${response.message}'
+              : 'Payment Failed (Code ${response.code})');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(msg),
+          backgroundColor: response.code == Razorpay.PAYMENT_CANCELLED ? Colors.orange : Colors.red,
+        ),
+      );
     }
   }
 
@@ -132,112 +126,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('External Wallet Selected: ${response.walletName}')),
       );
-    }
-  }
-
-  Future<void> _showMockPaymentDialog({
-    required int planId,
-    required String planName,
-    required double planPrice,
-    required String orderId,
-  }) async {
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.payment_rounded, color: AppColors.primary),
-            SizedBox(width: 8),
-            Text('Complete Payment', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Plan: $planName', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-            const SizedBox(height: 4),
-            Text('Amount: RS ${planPrice.toStringAsFixed(0)}', style: const TextStyle(fontSize: 14, color: AppColors.primary, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 6),
-            Text('Order ID: $orderId', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
-            const Divider(height: 20),
-            const Text(
-              'Click below to verify signature and activate subscription.',
-              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Verify & Activate'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      _handleMockPaymentVerification(orderId);
-    }
-  }
-
-  void _handleMockPaymentVerification(String orderId) async {
-    setState(() {
-      _isProcessing = true;
-    });
-
-    final String mockPaymentId = 'pay_${DateTime.now().millisecondsSinceEpoch}';
-    final String mockSignature = 'sig_verified_mock_${DateTime.now().millisecondsSinceEpoch}';
-
-    try {
-      final verifyRes = await _repository.verifyPayment(
-        razorpayOrderId: orderId,
-        razorpayPaymentId: mockPaymentId,
-        razorpaySignature: mockSignature,
-      );
-
-      if (mounted) {
-        if (verifyRes.success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Payment Verified! Mobile Profits Subscription Activated.'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          _loadSubscriptionData();
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(verifyRes.message.isNotEmpty ? verifyRes.message : 'Payment signature verification failed.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Verification error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isProcessing = false;
-        });
-      }
     }
   }
 
@@ -315,12 +203,19 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       final String name = planName ?? orderData['plan_name'] ?? 'Mobile Profits Pro';
 
       _lastOrderId = orderId;
-      _lastPlanId = planId;
-      _lastPlanName = name;
-      _lastPlanPrice = amount;
 
       if (keyId.isEmpty) {
-        _showMockPaymentDialog(planId: planId ?? 1, planName: name, planPrice: amount, orderId: orderId);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Razorpay Key ID is missing. Please configure Key ID in Admin Panel.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        setState(() {
+          _isProcessing = false;
+        });
         return;
       }
 
@@ -345,7 +240,17 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       try {
         _razorpay.open(options);
       } catch (e) {
-        _showMockPaymentDialog(planId: planId ?? 1, planName: name, planPrice: amount, orderId: orderId);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to open Razorpay SDK: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        setState(() {
+          _isProcessing = false;
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -717,6 +622,3 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     );
   }
 }
-
-
-

@@ -144,7 +144,8 @@ class Repair extends Model
         $totalCost = (float) ($this->final_cost > 0 ? $this->final_cost : $this->estimated_cost);
         $due = max(0, $totalCost - $totalPaid);
 
-        $techPaid = (float) $this->technicianPayments()->sum('amount');
+        $directTechPaid = (float) $this->technicianPayments()->sum('amount');
+        $techPaid = max((float) $this->technician_paid_amount, $directTechPaid);
 
         $this->update([
             'amount_paid' => $totalPaid,

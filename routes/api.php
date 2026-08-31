@@ -54,8 +54,8 @@ Route::prefix('v1')->group(function () {
     // Public Razorpay Webhook Callback Endpoint
     Route::post('/webhooks/razorpay', [WebhookController::class, 'handleRazorpay']);
 
-    // Admin Auth Public Route
-    Route::post('/admin/auth/login', [AdminAuthController::class, 'login']);
+    // Admin Auth Public Route (Rate Limited)
+    Route::post('/admin/auth/login', [AdminAuthController::class, 'login'])->middleware('throttle:10,1');
 
     // Admin Protected Routes (Sanctum Auth + Admin Role Middleware)
     Route::prefix('admin')->middleware(['auth:sanctum', EnsureUserIsAdmin::class])->group(function () {
@@ -104,11 +104,11 @@ Route::prefix('v1')->group(function () {
         Route::get('/audit-logs', [AdminAuditLogController::class, 'index']);
     });
 
-    // Authentication Routes (Public)
-    Route::post('/auth/register', [AuthController::class, 'register']);
-    Route::post('/auth/login', [AuthController::class, 'login']);
-    Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
-    Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
+    // Authentication Routes (Public & Rate Limited)
+    Route::post('/auth/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
+    Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+    Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:10,1');
+    Route::post('/auth/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:10,1');
 
     // Protected Shop Owner Routes (Sanctum Auth)
     Route::middleware('auth:sanctum')->group(function () {
@@ -120,10 +120,10 @@ Route::prefix('v1')->group(function () {
         Route::post('/auth/change-password', [AuthController::class, 'changePassword']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
 
-        // Subscription & Payments (Shop Owner)
+        // Subscription & Payments (Shop Owner - Rate Limited)
         Route::get('/subscription/status', [SubscriptionController::class, 'status']);
-        Route::post('/subscription/create-order', [SubscriptionController::class, 'createOrder']);
-        Route::post('/subscription/verify-payment', [SubscriptionController::class, 'verifyPayment']);
+        Route::post('/subscription/create-order', [SubscriptionController::class, 'createOrder'])->middleware('throttle:15,1');
+        Route::post('/subscription/verify-payment', [SubscriptionController::class, 'verifyPayment'])->middleware('throttle:15,1');
         Route::get('/subscription/history', [SubscriptionController::class, 'history']);
         Route::get('/plans', [AdminPlanController::class, 'index']);
 

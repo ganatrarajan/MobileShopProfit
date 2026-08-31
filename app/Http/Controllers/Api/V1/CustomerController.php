@@ -26,7 +26,7 @@ class CustomerController extends Controller
             return $this->errorResponse('Owner does not have a shop registered yet', 400);
         }
 
-        $query = Customer::query();
+        $query = Customer::where('shop_id', $shopId);
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
@@ -63,7 +63,7 @@ class CustomerController extends Controller
         }
 
         // Duplicate check within current shop
-        $existingCustomer = Customer::where('mobile', $request->mobile)->first();
+        $existingCustomer = Customer::where('shop_id', $shopId)->where('mobile', $request->mobile)->first();
 
         if ($existingCustomer) {
             return response()->json([
@@ -92,8 +92,13 @@ class CustomerController extends Controller
     /**
      * Display customer details.
      */
-    public function show(Customer $customer): JsonResponse
+    public function show(Request $request, Customer $customer): JsonResponse
     {
+        $shopId = $request->user()->shop_id;
+        if ($customer->shop_id !== $shopId) {
+            return $this->errorResponse('Unauthorized access to customer record.', 403);
+        }
+
         return $this->successResponse(new CustomerResource($customer), 'Customer details retrieved successfully');
     }
 
@@ -102,9 +107,15 @@ class CustomerController extends Controller
      */
     public function update(UpdateCustomerRequest $request, Customer $customer): JsonResponse
     {
+        $shopId = $request->user()->shop_id;
+        if ($customer->shop_id !== $shopId) {
+            return $this->errorResponse('Unauthorized access to customer record.', 403);
+        }
+
         // If mobile is being updated, check duplicate in same shop
         if ($request->has('mobile') && $request->mobile !== $customer->mobile) {
-            $duplicate = Customer::where('mobile', $request->mobile)
+            $duplicate = Customer::where('shop_id', $shopId)
+                ->where('mobile', $request->mobile)
                 ->where('id', '!=', $customer->id)
                 ->first();
 
@@ -135,8 +146,13 @@ class CustomerController extends Controller
     /**
      * Delete customer.
      */
-    public function destroy(Customer $customer): JsonResponse
+    public function destroy(Request $request, Customer $customer): JsonResponse
     {
+        $shopId = $request->user()->shop_id;
+        if ($customer->shop_id !== $shopId) {
+            return $this->errorResponse('Unauthorized access to customer record.', 403);
+        }
+
         $customer->delete();
 
         return $this->successResponse(null, 'Customer deleted successfully');

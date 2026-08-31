@@ -141,10 +141,28 @@ class RazorpayDriver
             ];
         }
 
+        $event = $request->input('event');
+        $entity = $request->input('payload.payment.entity') ?? $request->input('payload.order.entity') ?? [];
+
+        $orderId = $entity['order_id'] ?? $entity['id'] ?? null;
+        $paymentId = $entity['id'] ?? null;
+        $paymentMethod = $entity['method'] ?? 'Online';
+
+        $status = 'ignored';
+        if (in_array($event, ['payment.captured', 'order.paid'])) {
+            $status = 'successful';
+        } elseif (in_array($event, ['payment.failed'])) {
+            $status = 'failed';
+        }
+
         return [
-            'verified' => true,
-            'event'    => $request->input('event'),
-            'payload'  => $request->all(),
+            'verified'         => true,
+            'event'            => $event,
+            'status'           => $status,
+            'order_id'         => $orderId,
+            'payment_id'       => $paymentId,
+            'payment_method'   => $paymentMethod,
+            'gateway_response' => $request->all(),
         ];
     }
 }

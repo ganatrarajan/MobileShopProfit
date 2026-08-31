@@ -19,9 +19,14 @@ class DeviceController extends Controller
     /**
      * Get all devices belonging to a specific customer.
      */
-    public function indexForCustomer(Customer $customer): JsonResponse
+    public function indexForCustomer(Request $request, Customer $customer): JsonResponse
     {
-        $devices = $customer->devices()->orderBy('created_at', 'desc')->get();
+        $shopId = $request->user()->shop_id;
+        if ($customer->shop_id !== $shopId) {
+            return $this->errorResponse('Unauthorized access to customer devices.', 403);
+        }
+
+        $devices = $customer->devices()->where('shop_id', $shopId)->orderBy('created_at', 'desc')->get();
 
         return $this->successResponse(
             DeviceResource::collection($devices),
@@ -40,9 +45,13 @@ class DeviceController extends Controller
             return $this->errorResponse('No shop profile found for this owner', 400);
         }
 
+        if ($customer->shop_id !== $shopId) {
+            return $this->errorResponse('Unauthorized access to customer record.', 403);
+        }
+
         // 1. Check IMEI 1 duplicate in current shop
         if ($request->filled('imei_1')) {
-            $duplicate = Device::where(function ($q) use ($request) {
+            $duplicate = Device::where('shop_id', $shopId)->where(function ($q) use ($request) {
                 $q->where('imei_1', $request->imei_1)
                   ->orWhere('imei_2', $request->imei_1);
             })->first();
@@ -60,7 +69,7 @@ class DeviceController extends Controller
 
         // 2. Check IMEI 2 duplicate in current shop
         if ($request->filled('imei_2')) {
-            $duplicate = Device::where(function ($q) use ($request) {
+            $duplicate = Device::where('shop_id', $shopId)->where(function ($q) use ($request) {
                 $q->where('imei_1', $request->imei_2)
                   ->orWhere('imei_2', $request->imei_2);
             })->first();
@@ -103,7 +112,8 @@ class DeviceController extends Controller
      */
     public function indexGlobal(Request $request): JsonResponse
     {
-        $query = Device::with('customer');
+        $shopId = $request->user()->shop_id;
+        $query = Device::where('shop_id', $shopId)->with('customer');
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
@@ -137,8 +147,13 @@ class DeviceController extends Controller
     /**
      * Display single device details.
      */
-    public function show(Device $device): JsonResponse
+    public function show(Request $request, Device $device): JsonResponse
     {
+        $shopId = $request->user()->shop_id;
+        if ($device->shop_id !== $shopId) {
+            return $this->errorResponse('Unauthorized access to device record.', 403);
+        }
+
         return $this->successResponse(
             new DeviceResource($device->load('customer')),
             'Device details retrieved successfully'
@@ -150,9 +165,15 @@ class DeviceController extends Controller
      */
     public function update(UpdateDeviceRequest $request, Device $device): JsonResponse
     {
+        $shopId = $request->user()->shop_id;
+        if ($device->shop_id !== $shopId) {
+            return $this->errorResponse('Unauthorized access to device record.', 403);
+        }
+
         // Check IMEI 1 duplicate
         if ($request->filled('imei_1') && $request->imei_1 !== $device->imei_1) {
-            $duplicate = Device::where('id', '!=', $device->id)
+            $duplicate = Device::where('shop_id', $shopId)
+                ->where('id', '!=', $device->id)
                 ->where(function ($q) use ($request) {
                     $q->where('imei_1', $request->imei_1)
                       ->orWhere('imei_2', $request->imei_1);
@@ -171,7 +192,8 @@ class DeviceController extends Controller
 
         // Check IMEI 2 duplicate
         if ($request->filled('imei_2') && $request->imei_2 !== $device->imei_2) {
-            $duplicate = Device::where('id', '!=', $device->id)
+            $duplicate = Device::where('shop_id', $shopId)
+                ->where('id', '!=', $device->id)
                 ->where(function ($q) use ($request) {
                     $q->where('imei_1', $request->imei_2)
                       ->orWhere('imei_2', $request->imei_2);
@@ -210,8 +232,13 @@ class DeviceController extends Controller
     /**
      * Delete device.
      */
-    public function destroy(Device $device): JsonResponse
+    public function destroy(Request $request, Device $device): JsonResponse
     {
+        $shopId = $request->user()->shop_id;
+        if ($device->shop_id !== $shopId) {
+            return $this->errorResponse('Unauthorized access to device record.', 403);
+        }
+
         $device->delete();
 
         return $this->successResponse(null, 'Device deleted successfully');
