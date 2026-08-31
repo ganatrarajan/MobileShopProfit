@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\PaymentTransaction;
 use App\Models\Subscription;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -16,19 +17,16 @@ class AdminRevenueController extends Controller
         $now = now();
         $startOfMonth = $now->copy()->startOfMonth();
 
-        $totalRevenue = Subscription::join('plans', 'subscriptions.plan_id', '=', 'plans.id')
-            ->where('subscriptions.payment_status', 'paid')
-            ->sum('plans.price');
-
-        $revenueThisMonth = Subscription::join('plans', 'subscriptions.plan_id', '=', 'plans.id')
-            ->where('subscriptions.payment_status', 'paid')
-            ->where('subscriptions.created_at', '>=', $startOfMonth)
-            ->sum('plans.price');
+        $totalRevenue = PaymentTransaction::where('status', 'successful')->sum('amount');
+        $revenueThisMonth = PaymentTransaction::where('status', 'successful')
+            ->where('created_at', '>=', $startOfMonth)
+            ->sum('amount');
 
         $paidSubscriptionsCount = Subscription::where('payment_status', 'paid')->count();
+        $failedPaymentsCount = PaymentTransaction::where('status', 'failed')->count();
 
-        $recentPayments = Subscription::with(['shop.user', 'plan'])
-            ->where('payment_status', 'paid')
+        $recentPayments = PaymentTransaction::with(['shop', 'user', 'plan'])
+            ->where('status', 'successful')
             ->latest()
             ->paginate(15);
 
@@ -36,6 +34,7 @@ class AdminRevenueController extends Controller
             'total_revenue'            => (float) $totalRevenue,
             'revenue_this_month'       => (float) $revenueThisMonth,
             'paid_subscriptions_count' => $paidSubscriptionsCount,
+            'failed_payments_count'    => $failedPaymentsCount,
             'recent_payments'          => $recentPayments,
         ], 'Revenue summary retrieved');
     }

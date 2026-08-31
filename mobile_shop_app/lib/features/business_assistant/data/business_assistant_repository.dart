@@ -1,17 +1,27 @@
 import '../../../core/network/api_client.dart';
-import '../models/business_recommendation.dart';
+import '../../../core/network/api_response.dart';
+import '../models/recommendation.dart';
 
 class BusinessAssistantRepository {
-  final ApiClient _apiClient;
+  final ApiClient _apiClient = ApiClient();
 
-  BusinessAssistantRepository({ApiClient? apiClient})
-      : _apiClient = apiClient ?? ApiClient();
-
-  Future<BusinessAssistantResponse> getRecommendations() async {
+  Future<ApiResponse<BusinessAssistantData>> getRecommendations() async {
     final response = await _apiClient.get(
-      '/v1/business-assistant',
-      fromJson: (json) => BusinessAssistantResponse.fromJson(json as Map<String, dynamic>),
+      '/business-assistant',
+      fromJson: (data) {
+        if (data is Map<String, dynamic>) {
+          return BusinessAssistantData.fromJson(data);
+        }
+        return BusinessAssistantData(
+          hasEnoughData: false,
+          message: 'No data available',
+          totalCount: 0,
+          priorityCounts: {'high': 0, 'medium': 0, 'low': 0},
+          recommendations: [],
+        );
+      },
     );
-    return response.data ?? const BusinessAssistantResponse(hasSufficientData: false, totalActionsCount: 0, recommendations: []);
+
+    return response;
   }
 }

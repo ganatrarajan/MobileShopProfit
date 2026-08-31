@@ -1,5 +1,13 @@
 import '../../customer/models/customer.dart';
 
+int _parseInt(dynamic val, {int defaultValue = 0}) {
+  if (val == null) return defaultValue;
+  if (val is int) return val;
+  if (val is num) return val.toInt();
+  if (val is String) return int.tryParse(val) ?? (double.tryParse(val)?.toInt() ?? defaultValue);
+  return defaultValue;
+}
+
 class Device {
   final int id;
   final int shopId;
@@ -39,24 +47,24 @@ class Device {
 
   factory Device.fromJson(Map<String, dynamic> json) {
     return Device(
-      id: json['id'] is int ? json['id'] : int.parse(json['id'].toString()),
-      shopId: json['shop_id'] is int ? json['shop_id'] : int.parse(json['shop_id'].toString()),
-      customerId: json['customer_id'] is int ? json['customer_id'] : int.parse(json['customer_id'].toString()),
-      deviceType: json['device_type'] ?? 'Mobile',
-      brand: json['brand'] ?? '',
-      model: json['model'] ?? '',
-      variant: json['variant'],
-      color: json['color'],
-      imei1: json['imei_1'],
-      imei2: json['imei_2'],
-      serialNumber: json['serial_number'],
-      purchaseDate: json['purchase_date'],
-      notes: json['notes'],
+      id: _parseInt(json['id']),
+      shopId: _parseInt(json['shop_id']),
+      customerId: _parseInt(json['customer_id']),
+      deviceType: json['device_type']?.toString() ?? 'Mobile',
+      brand: json['brand']?.toString() ?? '',
+      model: json['model']?.toString() ?? '',
+      variant: json['variant']?.toString(),
+      color: json['color']?.toString(),
+      imei1: json['imei_1']?.toString(),
+      imei2: json['imei_2']?.toString(),
+      serialNumber: json['serial_number']?.toString(),
+      purchaseDate: json['purchase_date']?.toString(),
+      notes: json['notes']?.toString(),
       customer: json['customer'] != null && json['customer'] is Map<String, dynamic>
           ? Customer.fromJson(json['customer'])
           : null,
-      createdAt: json['created_at'],
-      updatedAt: json['updated_at'],
+      createdAt: json['created_at']?.toString(),
+      updatedAt: json['updated_at']?.toString(),
     );
   }
 

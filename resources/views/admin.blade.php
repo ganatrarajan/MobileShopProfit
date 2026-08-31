@@ -183,7 +183,6 @@
             cursor: pointer;
             transition: all 0.15s;
             margin-bottom: 4px;
-
             text-decoration: none;
         }
 
@@ -423,16 +422,6 @@
             color: #64748b;
         }
 
-        .pagination-bar {
-            padding: 12px 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 13px;
-            color: var(--text-muted);
-            border-top: 1px solid var(--border-color);
-        }
-
         .btn-sm {
             padding: 6px 12px;
             font-size: 12px;
@@ -488,10 +477,12 @@
                 
                 <div class="menu-category">SaaS Business</div>
                 <a href="#subscriptions" class="nav-item" onclick="switchNav('subscriptions')">💳 Subscriptions</a>
+                <a href="#payments" class="nav-item" onclick="switchNav('payments')">🧾 Real Payments</a>
                 <a href="#plans" class="nav-item" onclick="switchNav('plans')">🏷️ Plans & Pricing</a>
                 <a href="#revenue" class="nav-item" onclick="switchNav('revenue')">📈 Revenue Analytics</a>
                 
-                <div class="menu-category">Help & System</div>
+                <div class="menu-category">Settings & Help</div>
+                <a href="#gateway" class="nav-item" onclick="switchNav('gateway')">⚙️ Payment Gateway</a>
                 <a href="#support" class="nav-item" onclick="switchNav('support')">📞 Support Requests</a>
                 <a href="#audit" class="nav-item" onclick="switchNav('audit')">📜 Audit Logs</a>
             </div>
@@ -620,8 +611,10 @@
                 'shops': 'Shops Directory',
                 'users': 'User Accounts',
                 'subscriptions': 'Subscriptions Management',
+                'payments': 'Real Payment Transactions',
                 'plans': 'Plans & Pricing',
                 'revenue': 'Platform Revenue Analytics',
+                'gateway': 'Razorpay Gateway Settings',
                 'support': 'Support Tickets & Feedback',
                 'audit': 'Admin Audit Action Logs'
             };
@@ -631,8 +624,10 @@
             else if (route === 'shops') loadShopsView();
             else if (route === 'users') loadUsersView();
             else if (route === 'subscriptions') loadSubscriptionsView();
+            else if (route === 'payments') loadPaymentsView();
             else if (route === 'plans') loadPlansView();
             else if (route === 'revenue') loadRevenueView();
+            else if (route === 'gateway') loadGatewayView();
             else if (route === 'support') loadSupportView();
             else if (route === 'audit') loadAuditView();
         }
@@ -872,6 +867,49 @@
             `;
         }
 
+        // REAL PAYMENTS VIEW
+        async function loadPaymentsView() {
+            const content = document.getElementById('content-area');
+            const data = await apiFetch('/payments');
+            if (!data.status || data.status !== 'success') return;
+            const txns = data.data.data;
+
+            content.innerHTML = `
+                <div class="card-table">
+                    <div class="table-toolbar">
+                        <div style="font-weight:700; font-size:15px;">Real Payment Transactions Log</div>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Shop</th>
+                                <th>Order ID</th>
+                                <th>Payment ID</th>
+                                <th>Plan</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${txns.length === 0 ? '<tr><td colspan="7" style="text-align:center; padding:20px;">No payment transactions recorded yet.</td></tr>' : ''}
+                            ${txns.map(t => `
+                                <tr>
+                                    <td><strong>${t.shop ? t.shop.name : 'N/A'}</strong></td>
+                                    <td><code>${t.order_id}</code></td>
+                                    <td><code>${t.payment_id || 'Pending'}</code></td>
+                                    <td>${t.plan ? t.plan.name : 'Pro Plan'}</td>
+                                    <td>₹${parseFloat(t.amount).toLocaleString()}</td>
+                                    <td><span class="badge ${t.status === 'successful' ? 'badge-active' : (t.status === 'pending' ? 'badge-trial' : 'badge-inactive')}">${t.status}</span></td>
+                                    <td>${new Date(t.created_at).toLocaleString()}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
         // 5. PLANS VIEW
         async function loadPlansView() {
             const content = document.getElementById('content-area');
@@ -880,17 +918,153 @@
             const plans = data.data;
 
             content.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <div>
+                        <h3 style="font-size:16px; font-weight:700;">Subscription Plans Management</h3>
+                        <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">Manage plan display order, pricing, and active status for the mobile app.</p>
+                    </div>
+                    <button class="btn-primary" style="width:auto; padding:10px 18px;" onclick="openCreatePlanModal()">+ Create New Plan</button>
+                </div>
                 <div class="grid-4">
                     ${plans.map(p => `
-                        <div class="metric-card">
-                            <div class="metric-title">${p.billing_period} Billing</div>
-                            <div class="metric-value">₹${parseFloat(p.price).toLocaleString()}</div>
+                        <div class="metric-card" style="position:relative; border: 1px solid ${p.status === 'active' ? '#cbd5e1' : '#f87171'};">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                <span class="metric-title">${p.billing_period.toUpperCase()} (Order: #${p.sort_order || 0})</span>
+                                <span class="badge ${p.status === 'active' ? 'badge-active' : 'badge-inactive'}">${p.status === 'active' ? 'ON' : 'OFF'}</span>
+                            </div>
+                            <div class="metric-value">RS ${parseFloat(p.price).toLocaleString()}</div>
                             <div style="font-weight:700; font-size:16px; margin-top:4px;">${p.name}</div>
-                            <div class="metric-sub">${p.subscriptions_count} Active Subscribers</div>
+                            <div class="metric-sub">${p.subscriptions_count || 0} Active Subscribers</div>
+                            
+                            <div style="display:flex; gap:8px; margin-top:14px;">
+                                <button class="btn-sm" style="flex:1;" onclick="openEditPlanModal(${p.id}, '${p.name}', ${p.price}, '${p.billing_period}', '${p.status}', ${p.sort_order || 0})">Edit</button>
+                                <button class="btn-sm" style="flex:1; background:${p.status === 'active' ? '#ef4444' : '#10b981'}; color:white;" onclick="togglePlanStatus(${p.id})">
+                                    ${p.status === 'active' ? 'Turn OFF' : 'Turn ON'}
+                                </button>
+                            </div>
                         </div>
                     `).join('')}
                 </div>
             `;
+        }
+
+        function openCreatePlanModal() {
+            openModal('Create New Subscription Plan', `
+                <form onsubmit="submitPlanForm(event)">
+                    <div class="form-group">
+                        <label>Plan Name</label>
+                        <input type="text" id="plan-name" class="form-control" placeholder="e.g. 3 Months Pro Plan" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Price (RS)</label>
+                        <input type="number" id="plan-price" class="form-control" placeholder="500" min="0" step="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Billing Period</label>
+                        <select id="plan-period" class="form-control">
+                            <option value="monthly">Monthly (1 Month)</option>
+                            <option value="3_months">3 Months Plan</option>
+                            <option value="6_months">6 Months Plan</option>
+                            <option value="annual">Annual (1 Year)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Display Order (Position 1, 2, 3...)</label>
+                        <input type="number" id="plan-sort" class="form-control" value="1" min="1" step="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Status (Show on App)</label>
+                        <select id="plan-status" class="form-control">
+                            <option value="active">Active (ON)</option>
+                            <option value="inactive">Inactive (OFF)</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn-primary">Create Plan</button>
+                </form>
+            `);
+        }
+
+        function openEditPlanModal(id, name, price, period, status, sortOrder) {
+            openModal('Edit Subscription Plan', `
+                <form onsubmit="submitEditPlanForm(event, ${id})">
+                    <div class="form-group">
+                        <label>Plan Name</label>
+                        <input type="text" id="edit-plan-name" class="form-control" value="${name}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Price (RS)</label>
+                        <input type="number" id="edit-plan-price" class="form-control" value="${price}" min="0" step="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Billing Period</label>
+                        <select id="edit-plan-period" class="form-control">
+                            <option value="monthly" ${period === 'monthly' ? 'selected' : ''}>Monthly (1 Month)</option>
+                            <option value="3_months" ${period === '3_months' ? 'selected' : ''}>3 Months Plan</option>
+                            <option value="6_months" ${period === '6_months' ? 'selected' : ''}>6 Months Plan</option>
+                            <option value="annual" ${period === 'annual' ? 'selected' : ''}>Annual (1 Year)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Display Order (Position 1, 2, 3...)</label>
+                        <input type="number" id="edit-plan-sort" class="form-control" value="${sortOrder}" min="1" step="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Status (Show on App)</label>
+                        <select id="edit-plan-status" class="form-control">
+                            <option value="active" ${status === 'active' ? 'selected' : ''}>Active (ON)</option>
+                            <option value="inactive" ${status === 'inactive' ? 'selected' : ''}>Inactive (OFF)</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn-primary">Update Plan</button>
+                </form>
+            `);
+        }
+
+        async function submitPlanForm(e) {
+            e.preventDefault();
+            const body = {
+                name: document.getElementById('plan-name').value,
+                price: parseFloat(document.getElementById('plan-price').value),
+                billing_period: document.getElementById('plan-period').value,
+                sort_order: parseInt(document.getElementById('plan-sort').value),
+                status: document.getElementById('plan-status').value,
+            };
+            const res = await apiFetch('/plans', 'POST', body);
+            if (res && res.success) {
+                alert('Plan created successfully!');
+                closeModal();
+                loadPlansView();
+            } else {
+                alert(res.message || 'Failed to create plan');
+            }
+        }
+
+        async function submitEditPlanForm(e, id) {
+            e.preventDefault();
+            const body = {
+                name: document.getElementById('edit-plan-name').value,
+                price: parseFloat(document.getElementById('edit-plan-price').value),
+                billing_period: document.getElementById('edit-plan-period').value,
+                sort_order: parseInt(document.getElementById('edit-plan-sort').value),
+                status: document.getElementById('edit-plan-status').value,
+            };
+            const res = await apiFetch(`/plans/${id}`, 'PUT', body);
+            if (res && res.success) {
+                alert('Plan updated successfully!');
+                closeModal();
+                loadPlansView();
+            } else {
+                alert(res.message || 'Failed to update plan');
+            }
+        }
+
+        async function togglePlanStatus(id) {
+            const res = await apiFetch(`/plans/${id}/toggle-status`, 'POST');
+            if (res && res.success) {
+                loadPlansView();
+            } else {
+                alert(res.message || 'Failed to toggle status');
+            }
         }
 
         // 6. REVENUE VIEW
@@ -914,8 +1088,103 @@
                         <div class="metric-title">Paid Subscriptions</div>
                         <div class="metric-value">${r.paid_subscriptions_count}</div>
                     </div>
+                    <div class="metric-card">
+                        <div class="metric-title">Failed Payments</div>
+                        <div class="metric-value">${r.failed_payments_count || 0}</div>
+                    </div>
                 </div>
             `;
+        }
+
+        // PAYMENT GATEWAY SETTINGS VIEW
+        async function loadGatewayView() {
+            const content = document.getElementById('content-area');
+            content.innerHTML = '<div style="padding:20px;">Loading gateway configuration...</div>';
+            const res = await apiFetch('/settings/payment-gateway');
+            if (!res || res.status !== 'success') return;
+            const g = res.data;
+
+            content.innerHTML = `
+                <div class="card-table" style="padding:24px; max-width:650px;">
+                    <h3 style="font-size:18px; font-weight:700; margin-bottom:16px;">Razorpay Gateway Settings</h3>
+                    <div id="gw-alert" class="alert-error"></div>
+                    <form onsubmit="saveGatewaySettings(event)">
+                        <div class="form-group">
+                            <label>Gateway Status</label>
+                            <select id="gw-active" class="form-control">
+                                <option value="1" ${g.active ? 'selected' : ''}>Enabled</option>
+                                <option value="0" ${!g.active ? 'selected' : ''}>Disabled</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Environment Mode</label>
+                            <select id="gw-mode" class="form-control">
+                                <option value="test" ${g.mode === 'test' ? 'selected' : ''}>TEST Mode</option>
+                                <option value="live" ${g.mode === 'live' ? 'selected' : ''}>LIVE Production Mode</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Razorpay Key ID</label>
+                            <input type="text" id="gw-key-id" class="form-control" placeholder="rzp_test_xxxxxx" value="${g.key_id || ''}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Razorpay Key Secret ${g.key_secret_configured ? '<span style="color:#16a34a; text-transform:none;">(Configured: ********)</span>' : '<span style="color:#dc2626; text-transform:none;">(Not Configured)</span>'}</label>
+                            <input type="password" id="gw-key-secret" class="form-control" placeholder="Leave blank to keep existing key secret">
+                        </div>
+                        <div class="form-group">
+                            <label>Razorpay Webhook Secret ${g.webhook_secret_configured ? '<span style="color:#16a34a; text-transform:none;">(Configured: ********)</span>' : '<span style="color:#64748b; text-transform:none;">(Optional)</span>'}</label>
+                            <input type="password" id="gw-webhook-secret" class="form-control" placeholder="Leave blank to keep existing webhook secret">
+                        </div>
+                        <div class="form-group">
+                            <label>Free Trial Period (Months)</label>
+                            <input type="number" id="gw-trial" class="form-control" value="${g.trial_months || 3}" min="0" max="24" required>
+                        </div>
+                        <div style="display:flex; gap:12px; margin-top:24px;">
+                            <button type="submit" class="btn-primary" style="flex:1;">Save Gateway Settings</button>
+                            <button type="button" class="btn-sm" style="padding:12px 18px;" onclick="testGatewayConnection()">Test Connection</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+        }
+
+        async function saveGatewaySettings(e) {
+            e.preventDefault();
+            const body = {
+                key_id: document.getElementById('gw-key-id').value,
+                mode: document.getElementById('gw-mode').value,
+                currency: 'INR',
+                active: document.getElementById('gw-active').value === '1',
+                trial_months: parseInt(document.getElementById('gw-trial').value),
+            };
+            const sec = document.getElementById('gw-key-secret').value;
+            const wh = document.getElementById('gw-webhook-secret').value;
+            if (sec) body.key_secret = sec;
+            if (wh) body.webhook_secret = wh;
+
+            const res = await apiFetch('/settings/payment-gateway', 'POST', body);
+            if (res && res.status === 'success') {
+                alert('Razorpay Gateway Settings Saved Successfully!');
+                loadGatewayView();
+            } else {
+                alert(res.message || 'Failed to save settings');
+            }
+        }
+
+        async function testGatewayConnection() {
+            const body = {
+                key_id: document.getElementById('gw-key-id').value,
+            };
+            const sec = document.getElementById('gw-key-secret').value;
+            if (sec) body.key_secret = sec;
+
+            alert('Testing connection to Razorpay API...');
+            const res = await apiFetch('/settings/payment-gateway/test', 'POST', body);
+            if (res && res.success) {
+                alert('SUCCESS: ' + res.message);
+            } else {
+                alert('FAILED: ' + (res.message || 'Authentication error'));
+            }
         }
 
         // 7. SUPPORT VIEW
@@ -1012,3 +1281,6 @@
     </script>
 </body>
 </html>
+
+
+

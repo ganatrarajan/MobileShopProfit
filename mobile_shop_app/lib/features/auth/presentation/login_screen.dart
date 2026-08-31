@@ -14,8 +14,8 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _loginController = TextEditingController();
-  final _passwordController = TextEditingController();
+  final _loginController = TextEditingController(text: '7405989816');
+  final _passwordController = TextEditingController(text: '12345678');
   final _authRepository = AuthRepository();
 
   bool _isLoading = false;
@@ -141,7 +141,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                   CustomTextField(
                     label: 'Mobile Number or Email',
-                    hint: 'e.g. 9876543210 or owner@shop.com',
+                    hint: 'e.g. 7405989816',
                     controller: _loginController,
                     keyboardType: TextInputType.emailAddress,
                     prefixIcon: Icons.person_outline_rounded,
@@ -150,7 +150,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 18),
                   CustomTextField(
                     label: 'Password',
-                    hint: '••••••••',
+                    hint: 'Enter password',
                     controller: _passwordController,
                     isPassword: true,
                     prefixIcon: Icons.lock_outline_rounded,

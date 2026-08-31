@@ -1,3 +1,11 @@
+int _parseInt(dynamic val, {int defaultValue = 0}) {
+  if (val == null) return defaultValue;
+  if (val is int) return val;
+  if (val is num) return val.toInt();
+  if (val is String) return int.tryParse(val) ?? (double.tryParse(val)?.toInt() ?? defaultValue);
+  return defaultValue;
+}
+
 class Customer {
   final int id;
   final int shopId;
@@ -27,17 +35,17 @@ class Customer {
 
   factory Customer.fromJson(Map<String, dynamic> json) {
     return Customer(
-      id: json['id'] is int ? json['id'] : int.parse(json['id'].toString()),
-      shopId: json['shop_id'] is int ? json['shop_id'] : int.parse(json['shop_id'].toString()),
-      name: json['name'] ?? '',
-      mobile: json['mobile'] ?? '',
-      alternateMobile: json['alternate_mobile'],
-      email: json['email'],
-      address: json['address'],
-      city: json['city'],
-      notes: json['notes'],
-      createdAt: json['created_at'],
-      updatedAt: json['updated_at'],
+      id: _parseInt(json['id']),
+      shopId: _parseInt(json['shop_id']),
+      name: json['name']?.toString() ?? '',
+      mobile: json['mobile']?.toString() ?? '',
+      alternateMobile: json['alternate_mobile']?.toString(),
+      email: json['email']?.toString(),
+      address: json['address']?.toString(),
+      city: json['city']?.toString(),
+      notes: json['notes']?.toString(),
+      createdAt: json['created_at']?.toString(),
+      updatedAt: json['updated_at']?.toString(),
     );
   }
 

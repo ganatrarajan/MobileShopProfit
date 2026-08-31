@@ -219,12 +219,12 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
             _isLoadingDevices
                 ? const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator(color: AppColors.primary)))
                 : _devices.isEmpty
-                    ? const CustomCard(
+                    ? CustomCard(
                         child: Row(
                           children: [
-                            Icon(Icons.phone_iphone_rounded, color: AppColors.textMuted, size: 24),
-                            SizedBox(width: 12),
-                            Expanded(
+                            const Icon(Icons.phone_iphone_rounded, color: AppColors.textMuted, size: 24),
+                            const SizedBox(width: 12),
+                            const Expanded(
                               child: Text(
                                 'No registered devices yet. Tap "+ Add Device" to register customer phone/tablet.',
                                 style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
@@ -248,10 +248,10 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
                               },
                               child: Row(
                                 children: [
-                                  const CircleAvatar(
+                                  CircleAvatar(
                                     radius: 20,
                                     backgroundColor: AppColors.primaryLight,
-                                    child: Icon(Icons.phone_iphone_rounded, color: Colors.white, size: 20),
+                                    child: const Icon(Icons.phone_iphone_rounded, color: Colors.white, size: 20),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(

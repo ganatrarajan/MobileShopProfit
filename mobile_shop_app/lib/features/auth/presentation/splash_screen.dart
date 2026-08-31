@@ -22,11 +22,15 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _checkAuthStatus() async {
     await Future.delayed(const Duration(milliseconds: 1000));
     final bool loggedIn = await _authStorage.isLoggedIn();
+    final user = await _authStorage.getUser();
     final shop = await _authStorage.getShop();
 
     if (mounted) {
       if (loggedIn) {
-        if (shop != null && shop['id'] != null) {
+        final bool hasShop = (shop != null && shop['id'] != null) ||
+            (user != null && (user['shop_id'] != null || user['shop'] != null));
+
+        if (hasShop) {
           Navigator.pushReplacementNamed(context, AppRoutes.dashboard);
         } else {
           Navigator.pushReplacementNamed(context, AppRoutes.shopSetup);

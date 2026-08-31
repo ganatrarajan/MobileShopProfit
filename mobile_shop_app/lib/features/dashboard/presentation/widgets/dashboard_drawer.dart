@@ -54,7 +54,7 @@ class DashboardDrawer extends StatelessWidget {
           ),
           ListTile(
             leading: const Icon(Icons.star_rounded, color: Colors.amber),
-            title: const Text('? Profit AI Assistant', style: TextStyle(fontWeight: FontWeight.bold)),
+            title: const Text('Profit AI Assistant', style: TextStyle(fontWeight: FontWeight.bold)),
             onTap: () {
               Navigator.pop(context);
               Navigator.pushNamed(context, AppRoutes.profitIntelligence);
@@ -125,6 +125,14 @@ class DashboardDrawer extends StatelessWidget {
             },
           ),
           const Divider(),
+          ListTile(
+            leading: const Icon(Icons.card_membership_rounded, color: Colors.amber),
+            title: const Text('Subscription & Billing', style: TextStyle(fontWeight: FontWeight.bold)),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, AppRoutes.subscription);
+            },
+          ),
           ListTile(
             leading: const Icon(Icons.storefront_rounded, color: AppColors.primary),
             title: const Text('Shop Profile'),

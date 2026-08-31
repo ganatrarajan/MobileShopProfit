@@ -287,6 +287,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
         backgroundColor: AppColors.background,
         body: bodyContent,
         floatingActionButton: FloatingActionButton(
+          heroTag: 'fab_customer_tab',
           onPressed: () async {
             await Navigator.pushNamed(context, AppRoutes.addCustomer);
             _fetchCustomers(query: _searchController.text);
@@ -306,6 +307,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
       ),
       body: bodyContent,
       floatingActionButton: FloatingActionButton(
+        heroTag: 'fab_customer_list',
         onPressed: () async {
           await Navigator.pushNamed(context, AppRoutes.addCustomer);
           _fetchCustomers(query: _searchController.text);
