@@ -45,6 +45,7 @@ import '../../features/sales/presentation/sales_list_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/shop/presentation/shop_profile_screen.dart';
 import '../../features/shop/presentation/shop_setup_screen.dart';
+import '../../features/subscription/presentation/subscription_screen.dart';
 import '../../features/technician/models/technician.dart';
 import '../../features/technician/presentation/technician_details_screen.dart';
 import '../../features/technician/presentation/technician_list_screen.dart';
@@ -64,6 +65,7 @@ class AppRoutes {
   static const String dashboard = '/dashboard';
   static const String shopProfile = '/shop-profile';
   static const String settings = '/settings';
+  static const String subscription = '/subscription';
 
   static const String customers = '/customers';
   static const String addCustomer = '/add-customer';
@@ -133,6 +135,8 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const ShopProfileScreen());
       case AppRoutes.settings:
         return MaterialPageRoute(builder: (_) => const SettingsScreen());
+      case subscription:
+        return MaterialPageRoute(builder: (_) => const SubscriptionScreen());
       case customers:
         return MaterialPageRoute(builder: (_) => const CustomerListScreen());
       case addCustomer:

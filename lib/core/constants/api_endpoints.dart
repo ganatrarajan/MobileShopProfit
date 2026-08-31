@@ -20,4 +20,8 @@ class ApiEndpoints {
   static const String expenses = '/expenses';
   static const String technicians = '/technicians';
   static const String dashboard = '/dashboard';
+  static const String subscriptionStatus = '/subscription/status';
+  static const String subscriptionCreateOrder = '/subscription/create-order';
+  static const String subscriptionVerifyPayment = '/subscription/verify-payment';
+  static const String subscriptionHistory = '/subscription/history';
 }

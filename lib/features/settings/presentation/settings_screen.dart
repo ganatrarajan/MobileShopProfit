@@ -245,7 +245,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         SizedBox(height: 4),
                         Text(
-                          'App Preferences • Security • Support',
+                          'App Preferences ï¿½ Security ï¿½ Support',
                           style: TextStyle(fontSize: 10, color: AppColors.textMuted),
                         ),
                       ],
@@ -322,3 +322,4 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 }
+
