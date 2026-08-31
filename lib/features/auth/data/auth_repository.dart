@@ -251,6 +251,21 @@ class AuthRepository {
     );
   }
 
+  Future<ApiResponse<dynamic>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String newPasswordConfirmation,
+  }) async {
+    return await _apiClient.post(
+      ApiEndpoints.changePassword,
+      body: {
+        'current_password': currentPassword,
+        'password': newPassword,
+        'password_confirmation': newPasswordConfirmation,
+      },
+    );
+  }
+
   Future<void> logout() async {
     try {
       await _apiClient.post(ApiEndpoints.logout);

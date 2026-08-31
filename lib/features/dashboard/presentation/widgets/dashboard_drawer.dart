@@ -54,7 +54,7 @@ class DashboardDrawer extends StatelessWidget {
           ),
           ListTile(
             leading: const Icon(Icons.star_rounded, color: Colors.amber),
-            title: const Text('⭐ Profit AI Assistant', style: TextStyle(fontWeight: FontWeight.bold)),
+            title: const Text('? Profit AI Assistant', style: TextStyle(fontWeight: FontWeight.bold)),
             onTap: () {
               Navigator.pop(context);
               Navigator.pushNamed(context, AppRoutes.profitIntelligence);
@@ -131,6 +131,14 @@ class DashboardDrawer extends StatelessWidget {
             onTap: () {
               Navigator.pop(context);
               Navigator.pushNamed(context, AppRoutes.shopProfile);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.settings_rounded, color: AppColors.textSecondary),
+            title: const Text('Settings'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, AppRoutes.settings);
             },
           ),
         ],
