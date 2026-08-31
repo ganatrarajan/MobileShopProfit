@@ -1,27 +1,33 @@
 <?php
 
-use App\Http\Controllers\Api\V1\ProfitIntelligenceController;
+use App\Http\Controllers\Api\V1\Admin\AdminAuditLogController;
+use App\Http\Controllers\Api\V1\Admin\AdminAuthController;
+use App\Http\Controllers\Api\V1\Admin\AdminDashboardController;
+use App\Http\Controllers\Api\V1\Admin\AdminPlanController;
+use App\Http\Controllers\Api\V1\Admin\AdminRevenueController;
+use App\Http\Controllers\Api\V1\Admin\AdminShopController;
+use App\Http\Controllers\Api\V1\Admin\AdminSubscriptionController;
+use App\Http\Controllers\Api\V1\Admin\AdminSupportController;
+use App\Http\Controllers\Api\V1\Admin\AdminUserController;
 use App\Http\Controllers\Api\V1\AuthController;
-use App\Http\Controllers\Api\V1\DashboardController;
-use App\Http\Controllers\Api\V1\ReportController;
-
 use App\Http\Controllers\Api\V1\CustomerController;
+use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DeviceController;
-use App\Http\Controllers\Api\V1\ShopController;
-use App\Http\Controllers\Api\V1\SaleController;
-use App\Http\Controllers\Api\V1\SalePaymentController;
-use App\Http\Controllers\Api\V1\RepairController;
-use App\Http\Controllers\Api\V1\RepairPaymentController;
-use App\Http\Controllers\Api\V1\RepairPartController;
-use App\Http\Controllers\Api\V1\WarrantyController;
-use App\Http\Controllers\Api\V1\WarrantyClaimController;
-use App\Http\Controllers\Api\V1\InventoryItemController;
 use App\Http\Controllers\Api\V1\ExpenseCategoryController;
 use App\Http\Controllers\Api\V1\ExpenseController;
+use App\Http\Controllers\Api\V1\InventoryItemController;
+use App\Http\Controllers\Api\V1\ProfitIntelligenceController;
+use App\Http\Controllers\Api\V1\RepairController;
+use App\Http\Controllers\Api\V1\RepairPartController;
+use App\Http\Controllers\Api\V1\RepairPaymentController;
+use App\Http\Controllers\Api\V1\ReportController;
+use App\Http\Controllers\Api\V1\SaleController;
+use App\Http\Controllers\Api\V1\SalePaymentController;
+use App\Http\Controllers\Api\V1\ShopController;
 use App\Http\Controllers\Api\V1\TechnicianController;
-
-
-
+use App\Http\Controllers\Api\V1\WarrantyClaimController;
+use App\Http\Controllers\Api\V1\WarrantyController;
+use App\Http\Middleware\EnsureUserIsAdmin;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -41,20 +47,60 @@ Route::prefix('v1')->group(function () {
         ]);
     });
 
+    // Admin Auth Public Route
+    Route::post('/admin/auth/login', [AdminAuthController::class, 'login']);
+
+    // Admin Protected Routes (Sanctum Auth + Admin Role Middleware)
+    Route::prefix('admin')->middleware(['auth:sanctum', EnsureUserIsAdmin::class])->group(function () {
+        // Admin Profile & Credentials
+        Route::get('/auth/me', [AdminAuthController::class, 'me']);
+        Route::post('/auth/change-password', [AdminAuthController::class, 'changePassword']);
+        Route::post('/auth/logout', [AdminAuthController::class, 'logout']);
+
+        // Admin Dashboard Overview
+        Route::get('/dashboard', [AdminDashboardController::class, 'index']);
+
+        // Admin Shop Management
+        Route::get('/shops', [AdminShopController::class, 'index']);
+        Route::get('/shops/{id}', [AdminShopController::class, 'show']);
+        Route::post('/shops/{id}/toggle-status', [AdminShopController::class, 'toggleStatus']);
+
+        // Admin User Management
+        Route::get('/users', [AdminUserController::class, 'index']);
+        Route::get('/users/{id}', [AdminUserController::class, 'show']);
+
+        // Admin Subscription & Plans Management
+        Route::get('/subscriptions', [AdminSubscriptionController::class, 'index']);
+        Route::put('/subscriptions/{id}/status', [AdminSubscriptionController::class, 'updateStatus']);
+
+        Route::get('/plans', [AdminPlanController::class, 'index']);
+        Route::post('/plans', [AdminPlanController::class, 'store']);
+        Route::put('/plans/{id}', [AdminPlanController::class, 'update']);
+
+        // Admin Revenue Analytics
+        Route::get('/revenue', [AdminRevenueController::class, 'index']);
+
+        // Admin Support Tickets & Problem Reports
+        Route::get('/support', [AdminSupportController::class, 'index']);
+        Route::put('/support/{id}/status', [AdminSupportController::class, 'updateStatus']);
+
+        // Admin Audit Action Logs
+        Route::get('/audit-logs', [AdminAuditLogController::class, 'index']);
+    });
+
     // Authentication Routes (Public)
     Route::post('/auth/register', [AuthController::class, 'register']);
     Route::post('/auth/login', [AuthController::class, 'login']);
     Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
     Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
 
-    // Protected Routes (Sanctum Auth)
+    // Protected Shop Owner Routes (Sanctum Auth)
     Route::middleware('auth:sanctum')->group(function () {
-                // Dashboard Endpoint
+        // Dashboard Endpoint
         Route::get('/dashboard', [DashboardController::class, 'index']);
-    // Profit Intelligence USP module routes
-    Route::get('/profit-intelligence', [ProfitIntelligenceController::class, 'index']);
-    Route::get('/profit-intelligence/details/{category}', [ProfitIntelligenceController::class, 'details']);
-
+        // Profit Intelligence USP module routes
+        Route::get('/profit-intelligence', [ProfitIntelligenceController::class, 'index']);
+        Route::get('/profit-intelligence/details/{category}', [ProfitIntelligenceController::class, 'details']);
 
         // Reports & Analytics Management
         Route::get('/reports/sales', [ReportController::class, 'sales']);
@@ -69,7 +115,11 @@ Route::prefix('v1')->group(function () {
         // Owner User & Auth
         Route::get('/auth/me', [AuthController::class, 'me']);
         Route::put('/auth/profile', [AuthController::class, 'updateProfile']);
+        Route::post('/auth/change-password', [AuthController::class, 'changePassword']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
+
+        // Support Requests (App Submissions)
+        Route::post('/support-requests', [AdminSupportController::class, 'store']);
 
         // Shop Profile & Onboarding
         Route::post('/shop', [ShopController::class, 'store']);
@@ -125,7 +175,7 @@ Route::prefix('v1')->group(function () {
         Route::put('/warranty-claims/{claim}', [WarrantyClaimController::class, 'update']);
         Route::delete('/warranty-claims/{claim}', [WarrantyClaimController::class, 'destroy']);
 
-                // Expense Categories
+        // Expense Categories
         Route::get('/expense-categories', [ExpenseCategoryController::class, 'index']);
         Route::post('/expense-categories', [ExpenseCategoryController::class, 'store']);
 
@@ -133,15 +183,10 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('expenses', ExpenseController::class);
 
         // Technicians
-            // Technician Management & Payouts
-    Route::get('technicians/{id}/payments', [\App\Http\Controllers\Api\V1\TechnicianPaymentController::class, 'index']);
-    Route::post('technician-payments', [\App\Http\Controllers\Api\V1\TechnicianPaymentController::class, 'store']);
-    Route::delete('technician-payments/{id}', [\App\Http\Controllers\Api\V1\TechnicianPaymentController::class, 'destroy']);
-        // Technician Management & Payouts
-    Route::get('technicians/{id}/payments', [\App\Http\Controllers\Api\V1\TechnicianPaymentController::class, 'index']);
-    Route::post('technician-payments', [\App\Http\Controllers\Api\V1\TechnicianPaymentController::class, 'store']);
-    Route::delete('technician-payments/{id}', [\App\Http\Controllers\Api\V1\TechnicianPaymentController::class, 'destroy']);
-    Route::apiResource('technicians', \App\Http\Controllers\Api\V1\TechnicianController::class);
+        Route::get('technicians/{id}/payments', [\App\Http\Controllers\Api\V1\TechnicianPaymentController::class, 'index']);
+        Route::post('technician-payments', [\App\Http\Controllers\Api\V1\TechnicianPaymentController::class, 'store']);
+        Route::delete('technician-payments/{id}', [\App\Http\Controllers\Api\V1\TechnicianPaymentController::class, 'destroy']);
+        Route::apiResource('technicians', \App\Http\Controllers\Api\V1\TechnicianController::class);
 
         // Inventory Management
         Route::get('/inventory', [InventoryItemController::class, 'index']);

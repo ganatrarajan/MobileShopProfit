@@ -187,4 +187,28 @@ class AuthController extends Controller
 
         return $this->successResponse(null, 'Logged out successfully');
     }
+
+    /**
+     * Change password for the authenticated shop owner.
+     */
+    public function changePassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'current_password'      => 'required|string',
+            'password'              => 'required|string|min:6|confirmed',
+        ]);
+
+        $user = $request->user();
+
+        if (! Hash::check($request->current_password, $user->password)) {
+            return $this->errorResponse('Current password is incorrect', 422);
+        }
+
+        $user->update([
+            'password' => Hash::make($request->password),
+        ]);
+
+        return $this->successResponse(null, 'Password updated successfully');
+    }
 }
+

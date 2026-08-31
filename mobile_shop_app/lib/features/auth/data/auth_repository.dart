@@ -28,15 +28,31 @@ class AuthRepository {
     );
 
     if (response.success && response.data != null) {
-      final token = response.data['token'];
-      final user = response.data['user'];
-      final shop = response.data['shop'];
-      if (token != null && user != null && shop != null) {
-        await _authStorage.saveSession(
-          token: token,
-          user: user,
-          shop: shop,
-        );
+      final dynamic rawData = response.data;
+      Map<String, dynamic>? dataMap;
+      if (rawData is Map<String, dynamic>) {
+        dataMap = rawData.containsKey('data') && rawData['data'] is Map<String, dynamic>
+            ? rawData['data']
+            : rawData;
+      }
+
+      if (dataMap != null) {
+        final token = dataMap['token'];
+        final user = dataMap['user'];
+        final dynamic shopRaw = dataMap['shop'] ?? (user is Map ? user['shop'] : null);
+        final Map<String, dynamic> shop = (shopRaw is Map)
+            ? Map<String, dynamic>.from(shopRaw)
+            : ((user is Map && (user['shop_id'] != null || user['shop'] != null))
+                ? {'id': user['shop_id'] ?? user['shop']?['id'], 'name': user['shop']?['name'] ?? 'My Shop'}
+                : {});
+
+        if (token != null && user != null) {
+          await _authStorage.saveSession(
+            token: token.toString(),
+            user: Map<String, dynamic>.from(user),
+            shop: shop,
+          );
+        }
       }
     }
 
@@ -56,15 +72,31 @@ class AuthRepository {
     );
 
     if (response.success && response.data != null) {
-      final token = response.data['token'];
-      final user = response.data['user'];
-      final shop = response.data['shop'];
-      if (token != null && user != null && shop != null) {
-        await _authStorage.saveSession(
-          token: token,
-          user: user,
-          shop: shop,
-        );
+      final dynamic rawData = response.data;
+      Map<String, dynamic>? dataMap;
+      if (rawData is Map<String, dynamic>) {
+        dataMap = rawData.containsKey('data') && rawData['data'] is Map<String, dynamic>
+            ? rawData['data']
+            : rawData;
+      }
+
+      if (dataMap != null) {
+        final token = dataMap['token'];
+        final user = dataMap['user'];
+        final dynamic shopRaw = dataMap['shop'] ?? (user is Map ? user['shop'] : null);
+        final Map<String, dynamic> shop = (shopRaw is Map)
+            ? Map<String, dynamic>.from(shopRaw)
+            : ((user is Map && (user['shop_id'] != null || user['shop'] != null))
+                ? {'id': user['shop_id'] ?? user['shop']?['id'], 'name': user['shop']?['name'] ?? 'My Shop'}
+                : {});
+
+        if (token != null && user != null) {
+          await _authStorage.saveSession(
+            token: token.toString(),
+            user: Map<String, dynamic>.from(user),
+            shop: shop,
+          );
+        }
       }
     }
 
@@ -215,6 +247,21 @@ class AuthRepository {
         'token': token,
         'password': password,
         'password_confirmation': passwordConfirmation,
+      },
+    );
+  }
+
+  Future<ApiResponse<dynamic>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String newPasswordConfirmation,
+  }) async {
+    return await _apiClient.post(
+      ApiEndpoints.changePassword,
+      body: {
+        'current_password': currentPassword,
+        'password': newPassword,
+        'password_confirmation': newPasswordConfirmation,
       },
     );
   }

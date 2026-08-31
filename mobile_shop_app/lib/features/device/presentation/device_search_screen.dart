@@ -130,7 +130,7 @@ class _DeviceSearchScreenState extends State<DeviceSearchScreen> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.devices_other_rounded, size: 48, color: AppColors.textMuted),
+                                const Icon(Icons.devices_other_rounded, size: 48, color: AppColors.textMuted),
                                 const SizedBox(height: 12),
                                 Text(
                                   _searchController.text.isEmpty
@@ -181,7 +181,7 @@ class _DeviceSearchScreenState extends State<DeviceSearchScreen> {
                                       ],
                                       if (device.customer != null) ...[
                                         const SizedBox(height: 6),
-                                        Divider(color: AppColors.border),
+                                        const Divider(color: AppColors.border),
                                         Row(
                                           children: [
                                             const Icon(Icons.person_outline_rounded, size: 14, color: AppColors.textSecondary),
