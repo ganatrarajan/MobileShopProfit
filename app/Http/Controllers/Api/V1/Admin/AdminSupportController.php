@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AdminAuditLog;
 use App\Models\SupportRequest;
+use App\Models\SystemSetting;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,6 +13,55 @@ use Illuminate\Http\Request;
 class AdminSupportController extends Controller
 {
     use ApiResponse;
+
+    /**
+     * Get official support contact details (Public / Mobile App / Admin).
+     */
+    public function getContactInfo(): JsonResponse
+    {
+        $email = SystemSetting::getByKey('support_email', 'support@mobileprofits.com');
+        $phone = SystemSetting::getByKey('support_phone', '+91 98765 43210');
+        $hours = SystemSetting::getByKey('support_hours', 'Mon - Sat: 9:00 AM - 8:00 PM IST');
+
+        return $this->successResponse([
+            'support_email' => $email,
+            'support_phone' => $phone,
+            'support_hours' => $hours,
+        ], 'Support contact information retrieved successfully');
+    }
+
+    /**
+     * Save official support contact details (Admin Panel).
+     */
+    public function saveContactInfo(Request $request): JsonResponse
+    {
+        $request->validate([
+            'support_email' => 'required|string|email',
+            'support_phone' => 'required|string',
+            'support_hours' => 'required|string',
+        ]);
+
+        SystemSetting::setKey('support_email', $request->support_email);
+        SystemSetting::setKey('support_phone', $request->support_phone);
+        SystemSetting::setKey('support_hours', $request->support_hours);
+
+        if ($request->user()) {
+            AdminAuditLog::create([
+                'admin_id'    => $request->user()->id,
+                'action'      => 'UPDATE_SUPPORT_CONTACT_INFO',
+                'target_type' => 'SystemSetting',
+                'target_id'   => null,
+                'details'     => "Updated support contact details (Email: {$request->support_email}, Phone: {$request->support_phone}, Hours: {$request->support_hours})",
+                'ip_address'  => $request->ip(),
+            ]);
+        }
+
+        return $this->successResponse([
+            'support_email' => $request->support_email,
+            'support_phone' => $request->support_phone,
+            'support_hours' => $request->support_hours,
+        ], 'Support contact details updated successfully');
+    }
 
     /**
      * Submit a support request / problem report / feedback (Shop Owner API).

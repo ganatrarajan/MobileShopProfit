@@ -32,6 +32,7 @@ use App\Http\Controllers\Api\V1\WarrantyClaimController;
 use App\Http\Controllers\Api\V1\WarrantyController;
 use App\Http\Controllers\Api\V1\WebhookController;
 use App\Http\Middleware\EnsureUserIsAdmin;
+use App\Http\Middleware\EnsureShopIsActive;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -99,6 +100,8 @@ Route::prefix('v1')->group(function () {
         // Admin Support Tickets & Problem Reports
         Route::get('/support', [AdminSupportController::class, 'index']);
         Route::put('/support/{id}/status', [AdminSupportController::class, 'updateStatus']);
+        Route::get('/support/contact-info', [AdminSupportController::class, 'getContactInfo']);
+        Route::post('/support/contact-info', [AdminSupportController::class, 'saveContactInfo']);
 
         // Admin Audit Action Logs
         Route::get('/audit-logs', [AdminAuditLogController::class, 'index']);
@@ -111,7 +114,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/auth/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:10,1');
 
     // Protected Shop Owner Routes (Sanctum Auth)
-    Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware(['auth:sanctum', EnsureShopIsActive::class])->group(function () {
         // Dashboard Endpoint
         Route::get('/dashboard', [DashboardController::class, 'index']);
 
@@ -128,6 +131,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/plans', [AdminPlanController::class, 'index']);
 
         // Support Requests (App Submissions)
+        Route::get('/support/contact-info', [AdminSupportController::class, 'getContactInfo']);
         Route::post('/support-requests', [AdminSupportController::class, 'store']);
 
         // Profit Intelligence USP module routes

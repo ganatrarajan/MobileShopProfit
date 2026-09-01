@@ -1382,6 +1382,30 @@
             const tickets = pageData.data || [];
 
             content.innerHTML = `
+                <div class="card-table" style="padding:24px; margin-bottom:24px; max-width:850px;">
+                    <h3 style="font-size:18px; font-weight:700; margin-bottom:6px;">💬 Mobile App Support Contact Settings</h3>
+                    <p style="font-size:13px; color:#64748b; margin-bottom:16px;">Configure official support email, helpline phone number, and working hours displayed in the Mobile App Settings dialog.</p>
+                    <form onsubmit="saveSupportContactInfo(event)" style="display:flex; flex-direction:column; gap:14px;">
+                        <div style="display:flex; gap:16px; flex-wrap:wrap;">
+                            <div class="form-group" style="flex:1; min-width:240px;">
+                                <label style="font-size:12px; font-weight:600; color:#475569;">Official Support Email</label>
+                                <input type="email" id="support_email" class="form-control" required placeholder="support@mobileprofits.com">
+                            </div>
+                            <div class="form-group" style="flex:1; min-width:240px;">
+                                <label style="font-size:12px; font-weight:600; color:#475569;">Support Helpline Number</label>
+                                <input type="text" id="support_phone" class="form-control" required placeholder="+91 98765 43210">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label style="font-size:12px; font-weight:600; color:#475569;">Support Working Hours</label>
+                            <input type="text" id="support_hours" class="form-control" required placeholder="Mon - Sat: 9:00 AM - 8:00 PM IST">
+                        </div>
+                        <div>
+                            <button type="submit" class="btn-primary" style="padding:10px 24px; border-radius:8px; font-weight:600;">Save Support Contact Details</button>
+                        </div>
+                    </form>
+                </div>
+
                 <div class="card-table">
                     <div class="table-toolbar">
                         <div style="display:flex; gap:10px; flex:1; min-width:280px;">
@@ -1435,12 +1459,44 @@
                     ${renderPagination(pageData, 'loadSupportView', search, status, type)}
                 </div>
             `;
+
+            loadSupportContactInfo();
         }
 
         async function resolveTicket(id) {
             const data = await apiFetch(`/support/${id}/status`, 'PUT', { status: 'resolved' });
             if (data.success) {
                 loadSupportView();
+            }
+        }
+
+        async function loadSupportContactInfo() {
+            const res = await apiFetch('/support/contact-info');
+            if (res && res.success && res.data) {
+                const info = res.data;
+                if (document.getElementById('support_email')) document.getElementById('support_email').value = info.support_email || '';
+                if (document.getElementById('support_phone')) document.getElementById('support_phone').value = info.support_phone || '';
+                if (document.getElementById('support_hours')) document.getElementById('support_hours').value = info.support_hours || '';
+            }
+        }
+
+        async function saveSupportContactInfo(e) {
+            e.preventDefault();
+            const email = document.getElementById('support_email').value;
+            const phone = document.getElementById('support_phone').value;
+            const hours = document.getElementById('support_hours').value;
+
+            const res = await apiFetch('/support/contact-info', 'POST', {
+                support_email: email,
+                support_phone: phone,
+                support_hours: hours
+            });
+
+            if (res && res.success) {
+                alert('Official Support Contact Details Saved Successfully!');
+                loadSupportContactInfo();
+            } else {
+                alert('Failed to save support details: ' + (res.message || 'Error'));
             }
         }
 

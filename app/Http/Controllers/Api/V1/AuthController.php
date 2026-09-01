@@ -74,6 +74,13 @@ class AuthController extends Controller
             return $this->errorResponse('Invalid mobile/email or password', 401);
         }
 
+        // Check if shop account has been deactivated by SaaS Admin
+        if (! in_array($user->role, ['admin', 'super_admin'])) {
+            if ($user->shop && in_array(strtolower($user->shop->status), ['deactivated', 'inactive', 'suspended'])) {
+                return $this->errorResponse('Your shop account has been deactivated. Please contact support.', 403);
+            }
+        }
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return $this->successResponse([

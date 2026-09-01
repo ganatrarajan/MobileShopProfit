@@ -208,6 +208,13 @@ class DashboardController extends Controller
         $isEmptyShop = ($totalSalesCount === 0 && $totalRepairsCount === 0 && $totalItems === 0 && $totalExpensesSum === 0.0);
 
         $shopObj = Shop::find($shopId);
+        $subObj = \App\Models\Subscription::where('shop_id', $shopId)->latest()->first();
+        $daysRemainingVal = 999;
+        if ($subObj && $subObj->expiry_date) {
+            $expiryDate = \Carbon\Carbon::parse($subObj->expiry_date);
+            $daysRemainingVal = max(0, (int) ceil(now()->diffInDays($expiryDate, false)));
+        }
+
         $shopNameVal = $shopObj ? $shopObj->name : "My Mobile Shop";
         $ownerNameVal = ($shopObj && $shopObj->user) ? $shopObj->user->name : ($user ? $user->name : "Shop Owner");
 
@@ -221,9 +228,13 @@ class DashboardController extends Controller
             'is_empty_shop' => $isEmptyShop,
             'shop_name' => $shopNameVal,
             'owner_name' => $ownerNameVal,
+                'days_remaining' => $daysRemainingVal,
+                'is_expiring_soon' => ($daysRemainingVal <= 10),
             'data' => [
                 'shop_name' => $shopNameVal,
                 'owner_name' => $ownerNameVal,
+                'days_remaining' => $daysRemainingVal,
+                'is_expiring_soon' => ($daysRemainingVal <= 10),
                 'sales' => [
                     'total_sales' => round($totalSales, 2),
                     'total_collected' => round($totalCollected, 2),
