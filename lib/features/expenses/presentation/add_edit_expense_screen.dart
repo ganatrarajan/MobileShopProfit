@@ -179,6 +179,102 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
     }
   }
 
+  void _showCategorySearchBottomSheet() {
+    String filterQuery = '';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final filteredCats = _categories.where((c) {
+              return c.name.toLowerCase().contains(filterQuery.toLowerCase());
+            }).toList();
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.7,
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Select Expense Category',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  TextField(
+                    onChanged: (val) {
+                      setModalState(() => filterQuery = val);
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Search category name...',
+                      hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 14),
+                      prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: _isLoadingCategories
+                        ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                        : filteredCats.isEmpty
+                            ? const Center(child: Text('No categories found', style: TextStyle(color: AppColors.textSecondary)))
+                            : ListView.separated(
+                                itemCount: filteredCats.length,
+                                separatorBuilder: (_, __) => const Divider(height: 1),
+                                itemBuilder: (context, idx) {
+                                  final cat = filteredCats[idx];
+                                  final isSelected = _selectedCategory?.id == cat.id;
+                                  return ListTile(
+                                    title: Text(
+                                      cat.name,
+                                      style: TextStyle(
+                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                        color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedCategory = cat;
+                                      });
+                                      Navigator.pop(ctx);
+                                    },
+                                  );
+                                },
+                              ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _submitExpense() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -305,22 +401,31 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
                         Expanded(
                           child: _isLoadingCategories
                               ? const SizedBox(height: 48, child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
-                              : DropdownButtonFormField<ExpenseCategory>(
-                                  value: _selectedCategory,
+                              : InkWell(
+                                onTap: _showCategorySearchBottomSheet,
+                                borderRadius: BorderRadius.circular(10),
+                                child: InputDecorator(
                                   decoration: InputDecoration(
                                     labelText: 'Category *',
                                     filled: true,
                                     fillColor: Colors.grey.shade50,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                    suffixIcon: const Icon(Icons.search_rounded, size: 22, color: AppColors.primary),
                                   ),
-                                  items: _categories.map((cat) {
-                                    return DropdownMenuItem<ExpenseCategory>(
-                                      value: cat,
-                                      child: Text(cat.name, style: const TextStyle(fontSize: 14)),
-                                    );
-                                  }).toList(),
-                                  onChanged: (cat) => setState(() => _selectedCategory = cat),
+                                  child: Text(
+                                    _selectedCategory != null
+                                        ? _selectedCategory!.name
+                                        : 'Tap to search category',
+                                    style: TextStyle(
+                                      color: _selectedCategory == null ? AppColors.textMuted : AppColors.textPrimary,
+                                      fontSize: 14,
+                                      fontWeight: _selectedCategory != null ? FontWeight.w600 : FontWeight.normal,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
+                              ),
                         ),
                         const SizedBox(width: 8),
                         IconButton(

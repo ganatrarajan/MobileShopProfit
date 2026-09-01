@@ -1,9 +1,57 @@
+import '../../../core/constants/api_endpoints.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_response.dart';
 import '../models/device.dart';
 
 class DeviceRepository {
   final ApiClient _apiClient = ApiClient();
+
+  /// Get list of available device brands from catalog
+  Future<ApiResponse<List<String>>> getDeviceBrands() async {
+    try {
+      return await _apiClient.get<List<String>>(
+        ApiEndpoints.deviceBrands,
+        fromJson: (data) {
+          if (data is List) {
+            return data.map((e) => e.toString()).toList();
+          } else if (data is Map && data['data'] is List) {
+            return (data['data'] as List).map((e) => e.toString()).toList();
+          }
+          return <String>[];
+        },
+      );
+    } catch (_) {
+      return ApiResponse<List<String>>(
+        success: false,
+        message: 'Could not load device brands catalog',
+        data: [],
+      );
+    }
+  }
+
+  /// Get list of available device models for a specific brand from catalog
+  Future<ApiResponse<List<String>>> getDeviceModels(String brand) async {
+    try {
+      final encodedBrand = Uri.encodeComponent(brand.trim());
+      return await _apiClient.get<List<String>>(
+        '${ApiEndpoints.deviceModels}?brand=$encodedBrand',
+        fromJson: (data) {
+          if (data is List) {
+            return data.map((e) => e.toString()).toList();
+          } else if (data is Map && data['data'] is List) {
+            return (data['data'] as List).map((e) => e.toString()).toList();
+          }
+          return <String>[];
+        },
+      );
+    } catch (_) {
+      return ApiResponse<List<String>>(
+        success: false,
+        message: 'Could not load device models catalog',
+        data: [],
+      );
+    }
+  }
 
   Future<ApiResponse<List<Device>>> getDevicesForCustomer(int customerId) async {
     return await _apiClient.get<List<Device>>(

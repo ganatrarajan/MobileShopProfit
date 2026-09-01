@@ -169,6 +169,107 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
     super.dispose();
   }
 
+  void _showTechnicianSearchBottomSheet() {
+    String filterQuery = '';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final filteredTechs = _technicianList.where((t) {
+              final q = filterQuery.toLowerCase();
+              return t.name.toLowerCase().contains(q) ||
+                  (t.mobile != null && t.mobile!.contains(q)) ||
+                  (t.specialization != null && t.specialization!.toLowerCase().contains(q));
+            }).toList();
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.7,
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Select Technician',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  TextField(
+                    onChanged: (val) {
+                      setModalState(() => filterQuery = val);
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Search technician name or skill...',
+                      hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 14),
+                      prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: _isLoadingTechnicians
+                        ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                        : filteredTechs.isEmpty
+                            ? const Center(child: Text('No technicians found', style: TextStyle(color: AppColors.textSecondary)))
+                            : ListView.separated(
+                                itemCount: filteredTechs.length,
+                                separatorBuilder: (_, __) => const Divider(height: 1),
+                                itemBuilder: (context, idx) {
+                                  final tech = filteredTechs[idx];
+                                  final isSelected = _selectedTechnician?.id == tech.id;
+                                  final spec = tech.specialization ?? 'General Technician';
+                                  return ListTile(
+                                    title: Text(
+                                      tech.name,
+                                      style: TextStyle(
+                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                        color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    subtitle: Text(spec, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                                    trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedTechnician = tech;
+                                      });
+                                      Navigator.pop(ctx);
+                                    },
+                                  );
+                                },
+                              ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _submitUpdate() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -265,28 +366,29 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
                     const SizedBox(height: 4),
                     const Text('Change or assign technician for this repair job', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<Technician>(
-                      value: _selectedTechnician,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                        prefixIcon: const Icon(Icons.engineering_rounded, color: AppColors.primary),
-                      ),
-                      hint: _isLoadingTechnicians ? const Text('Loading technicians...') : const Text('Select Technician'),
-                      items: _technicianList.map((t) {
-                        final String displayName = (t.specialization != null && t.specialization!.isNotEmpty)
-                            ? '${t.name} (${t.specialization})'
-                            : t.name;
-                        return DropdownMenuItem<Technician>(
-                          value: t,
-                          child: Text(
-                            displayName,
-                            overflow: TextOverflow.ellipsis,
+                    InkWell(
+                      onTap: _showTechnicianSearchBottomSheet,
+                      borderRadius: BorderRadius.circular(10),
+                      child: InputDecorator(
+                        decoration: InputDecoration(
+                          labelText: 'Assigned Technician',
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          prefixIcon: const Icon(Icons.engineering_rounded, color: AppColors.primary),
+                          suffixIcon: const Icon(Icons.search_rounded, size: 22, color: AppColors.primary),
+                        ),
+                        child: Text(
+                          _selectedTechnician != null
+                              ? '${_selectedTechnician!.name}${_selectedTechnician!.specialization != null ? ' (${_selectedTechnician!.specialization})' : ''}'
+                              : (_isLoadingTechnicians ? 'Loading technicians...' : 'Tap to search & select technician (${_technicianList.length} available)'),
+                          style: TextStyle(
+                            color: _selectedTechnician == null ? AppColors.textMuted : AppColors.textPrimary,
+                            fontSize: 14,
+                            fontWeight: _selectedTechnician != null ? FontWeight.w600 : FontWeight.normal,
                           ),
-                        );
-                      }).toList(),
-                      onChanged: (val) => setState(() => _selectedTechnician = val),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ),
                     if (_selectedTechnician != null) ...[
                       const SizedBox(height: 12),

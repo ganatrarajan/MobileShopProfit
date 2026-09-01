@@ -25,4 +25,6 @@ class ApiEndpoints {
   static const String subscriptionVerifyPayment = '/subscription/verify-payment';
   static const String subscriptionHistory = '/subscription/history';
   static const String supportContactInfo = '/support/contact-info';
+  static const String deviceBrands = '/device-brands';
+  static const String deviceModels = '/device-models';
 }

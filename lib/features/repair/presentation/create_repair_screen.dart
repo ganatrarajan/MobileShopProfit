@@ -142,6 +142,310 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
     }
   }
 
+  void _showCustomerSearchBottomSheet() {
+    String filterQuery = '';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final filteredCustomers = _customerList.where((c) {
+              final q = filterQuery.toLowerCase();
+              return c.name.toLowerCase().contains(q) || c.mobile.contains(q);
+            }).toList();
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.7,
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Select Customer',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  TextField(
+                    onChanged: (val) {
+                      setModalState(() => filterQuery = val);
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Search by customer name or mobile...',
+                      hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 14),
+                      prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: _isLoadingCustomers
+                        ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                        : filteredCustomers.isEmpty
+                            ? const Center(child: Text('No customers found', style: TextStyle(color: AppColors.textSecondary)))
+                            : ListView.separated(
+                                itemCount: filteredCustomers.length,
+                                separatorBuilder: (_, __) => const Divider(height: 1),
+                                itemBuilder: (context, idx) {
+                                  final customer = filteredCustomers[idx];
+                                  final isSelected = _selectedCustomer?.id == customer.id;
+                                  return ListTile(
+                                    title: Text(
+                                      customer.name,
+                                      style: TextStyle(
+                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                        color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    subtitle: Text(customer.mobile, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                                    trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedCustomer = customer;
+                                        _selectedDevice = null;
+                                        _deviceList = [];
+                                      });
+                                      _loadDevicesForCustomer(customer.id);
+                                      Navigator.pop(ctx);
+                                    },
+                                  );
+                                },
+                              ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showDeviceSearchBottomSheet() {
+    if (_selectedCustomer == null) return;
+    String filterQuery = '';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final filteredDevices = _deviceList.where((d) {
+              final q = filterQuery.toLowerCase();
+              return d.brand.toLowerCase().contains(q) ||
+                  d.model.toLowerCase().contains(q) ||
+                  (d.imei1 != null && d.imei1!.contains(q));
+            }).toList();
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.7,
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Select Customer Device',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  TextField(
+                    onChanged: (val) {
+                      setModalState(() => filterQuery = val);
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Search model, brand, IMEI...',
+                      hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 14),
+                      prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: _isLoadingDevices
+                        ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                        : filteredDevices.isEmpty
+                            ? const Center(child: Text('No devices found', style: TextStyle(color: AppColors.textSecondary)))
+                            : ListView.separated(
+                                itemCount: filteredDevices.length,
+                                separatorBuilder: (_, __) => const Divider(height: 1),
+                                itemBuilder: (context, idx) {
+                                  final device = filteredDevices[idx];
+                                  final isSelected = _selectedDevice?.id == device.id;
+                                  final imeiStr = device.imei1 != null ? 'IMEI: ${device.imei1}' : '';
+                                  return ListTile(
+                                    title: Text(
+                                      '${device.brand} ${device.model}',
+                                      style: TextStyle(
+                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                        color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    subtitle: imeiStr.isNotEmpty ? Text(imeiStr, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)) : null,
+                                    trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedDevice = device;
+                                      });
+                                      Navigator.pop(ctx);
+                                    },
+                                  );
+                                },
+                              ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showTechnicianSearchBottomSheet() {
+    String filterQuery = '';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final filteredTechs = _technicianList.where((t) {
+              final q = filterQuery.toLowerCase();
+              return t.name.toLowerCase().contains(q) ||
+                  (t.mobile != null && t.mobile!.contains(q)) ||
+                  (t.specialization != null && t.specialization!.toLowerCase().contains(q));
+            }).toList();
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.7,
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Select Technician',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  TextField(
+                    onChanged: (val) {
+                      setModalState(() => filterQuery = val);
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Search technician name or skill...',
+                      hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 14),
+                      prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: _isLoadingTechnicians
+                        ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                        : filteredTechs.isEmpty
+                            ? const Center(child: Text('No technicians found', style: TextStyle(color: AppColors.textSecondary)))
+                            : ListView.separated(
+                                itemCount: filteredTechs.length,
+                                separatorBuilder: (_, __) => const Divider(height: 1),
+                                itemBuilder: (context, idx) {
+                                  final tech = filteredTechs[idx];
+                                  final isSelected = _selectedTechnician?.id == tech.id;
+                                  final spec = tech.specialization ?? 'General Technician';
+                                  return ListTile(
+                                    title: Text(
+                                      tech.name,
+                                      style: TextStyle(
+                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                        color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    subtitle: Text(spec, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                                    trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedTechnician = tech;
+                                      });
+                                      Navigator.pop(ctx);
+                                    },
+                                  );
+                                },
+                              ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _submitRepair() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -270,61 +574,55 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<Customer>(
-                      value: (_selectedCustomer != null && _customerList.any((c) => c.id == _selectedCustomer!.id))
-                          ? _customerList.firstWhere((c) => c.id == _selectedCustomer!.id)
-                          : null,
-                      isExpanded: true,
-                      hint: _isLoadingCustomers
-                          ? const Text('Loading customers...')
-                          : const Text('Select Customer *'),
-                      decoration: InputDecoration(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                        prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
+                    InkWell(
+                      onTap: _showCustomerSearchBottomSheet,
+                      borderRadius: BorderRadius.circular(10),
+                      child: InputDecorator(
+                        decoration: InputDecoration(
+                          labelText: 'Customer *',
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          prefixIcon: const Icon(Icons.person_rounded, color: AppColors.primary),
+                          suffixIcon: const Icon(Icons.search_rounded, size: 22, color: AppColors.primary),
+                        ),
+                        child: Text(
+                          _selectedCustomer != null
+                              ? '${_selectedCustomer!.name} (${_selectedCustomer!.mobile})'
+                              : (_isLoadingCustomers ? 'Loading customers...' : 'Tap to search & select customer (${_customerList.length} registered)'),
+                          style: TextStyle(
+                            color: _selectedCustomer == null ? AppColors.textMuted : AppColors.textPrimary,
+                            fontSize: 14,
+                            fontWeight: _selectedCustomer != null ? FontWeight.w600 : FontWeight.normal,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      items: _customerList.map((c) {
-                        return DropdownMenuItem<Customer>(
-                          value: c,
-                          child: Text('${c.name} (${c.mobile})', overflow: TextOverflow.ellipsis),
-                        );
-                      }).toList(),
-                      onChanged: (val) {
-                        setState(() {
-                          _selectedCustomer = val;
-                          _selectedDevice = null;
-                          _deviceList = [];
-                        });
-                        if (val != null) {
-                          _loadDevicesForCustomer(val.id);
-                        }
-                      },
                     ),
                     if (_selectedCustomer != null) ...[
                       const SizedBox(height: 12),
-                      DropdownButtonFormField<Device>(
-                        value: (_selectedDevice != null && _deviceList.any((d) => d.id == _selectedDevice!.id))
-                            ? _deviceList.firstWhere((d) => d.id == _selectedDevice!.id)
-                            : null,
-                        isExpanded: true,
-                        hint: _isLoadingDevices
-                            ? const Text('Loading customer devices...')
-                            : const Text('Select Customer Device *'),
-                        decoration: InputDecoration(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                          prefixIcon: const Icon(Icons.phone_android_rounded, color: AppColors.primary),
+                      InkWell(
+                        onTap: _showDeviceSearchBottomSheet,
+                        borderRadius: BorderRadius.circular(10),
+                        child: InputDecorator(
+                          decoration: InputDecoration(
+                            labelText: 'Customer Device *',
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            prefixIcon: const Icon(Icons.phone_android_rounded, color: AppColors.primary),
+                            suffixIcon: const Icon(Icons.search_rounded, size: 22, color: AppColors.primary),
+                          ),
+                          child: Text(
+                            _selectedDevice != null
+                                ? '${_selectedDevice!.brand} ${_selectedDevice!.model}${_selectedDevice!.imei1 != null ? ' (IMEI: ${_selectedDevice!.imei1})' : ''}'
+                                : (_isLoadingDevices ? 'Loading devices...' : 'Tap to search & select device (${_deviceList.length} available)'),
+                            style: TextStyle(
+                              color: _selectedDevice == null ? AppColors.textMuted : AppColors.textPrimary,
+                              fontSize: 14,
+                              fontWeight: _selectedDevice != null ? FontWeight.w600 : FontWeight.normal,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                        items: _deviceList.map((d) {
-                          final imeiStr = d.imei1 != null ? ' - ${d.imei1}' : '';
-                          return DropdownMenuItem<Device>(
-                            value: d,
-                            child: Text('${d.brand} ${d.model}$imeiStr', overflow: TextOverflow.ellipsis),
-                          );
-                        }).toList(),
-                        onChanged: (val) {
-                          setState(() => _selectedDevice = val);
-                        },
                       ),
                     ],
                   ],
@@ -348,30 +646,29 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
                     const SizedBox(height: 4),
                     const Text('Assign an active technician to handle this repair job', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<Technician>(
-                      value: (_selectedTechnician != null && _technicianList.any((t) => t.id == _selectedTechnician!.id))
-                          ? _technicianList.firstWhere((t) => t.id == _selectedTechnician!.id)
-                          : null,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                        prefixIcon: const Icon(Icons.engineering_rounded, color: AppColors.primary),
-                      ),
-                      hint: _isLoadingTechnicians ? const Text('Loading technicians...') : const Text('Select Technician (Optional)'),
-                      items: _technicianList.map((t) {
-                        final String displayName = (t.specialization != null && t.specialization!.isNotEmpty)
-                            ? '${t.name} (${t.specialization})'
-                            : t.name;
-                        return DropdownMenuItem<Technician>(
-                          value: t,
-                          child: Text(
-                            displayName,
-                            overflow: TextOverflow.ellipsis,
+                    InkWell(
+                      onTap: _showTechnicianSearchBottomSheet,
+                      borderRadius: BorderRadius.circular(10),
+                      child: InputDecorator(
+                        decoration: InputDecoration(
+                          labelText: 'Assign Technician (Optional)',
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          prefixIcon: const Icon(Icons.engineering_rounded, color: AppColors.primary),
+                          suffixIcon: const Icon(Icons.search_rounded, size: 22, color: AppColors.primary),
+                        ),
+                        child: Text(
+                          _selectedTechnician != null
+                              ? '${_selectedTechnician!.name}${_selectedTechnician!.specialization != null ? ' (${_selectedTechnician!.specialization})' : ''}'
+                              : (_isLoadingTechnicians ? 'Loading technicians...' : 'Tap to search & select technician (${_technicianList.length} available)'),
+                          style: TextStyle(
+                            color: _selectedTechnician == null ? AppColors.textMuted : AppColors.textPrimary,
+                            fontSize: 14,
+                            fontWeight: _selectedTechnician != null ? FontWeight.w600 : FontWeight.normal,
                           ),
-                        );
-                      }).toList(),
-                      onChanged: (val) => setState(() => _selectedTechnician = val),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ),
                     if (_selectedTechnician != null) ...[
                       const SizedBox(height: 12),
