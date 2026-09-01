@@ -4,7 +4,7 @@ import '../storage/preferences_storage.dart';
 class ThemeNotifier extends ValueNotifier<ThemeMode> {
   final PreferencesStorage _prefs = PreferencesStorage();
 
-  ThemeNotifier() : super(ThemeMode.system) {
+  ThemeNotifier() : super(ThemeMode.light) {
     _loadTheme();
   }
 
@@ -12,6 +12,7 @@ class ThemeNotifier extends ValueNotifier<ThemeMode> {
 
   Future<void> _loadTheme() async {
     final modeStr = await _prefs.getThemeMode();
+    // Default to light mode if not explicitly saved as dark
     value = _themeModeFromString(modeStr);
   }
 
@@ -22,24 +23,24 @@ class ThemeNotifier extends ValueNotifier<ThemeMode> {
 
   static ThemeMode _themeModeFromString(String str) {
     switch (str) {
-      case 'light':
-        return ThemeMode.light;
       case 'dark':
         return ThemeMode.dark;
+      case 'system':
+        return ThemeMode.light; // Prefer Light mode
+      case 'light':
       default:
-        return ThemeMode.system;
+        return ThemeMode.light;
     }
   }
 
   static String _stringFromThemeMode(ThemeMode mode) {
     switch (mode) {
-      case ThemeMode.light:
-        return 'light';
       case ThemeMode.dark:
         return 'dark';
+      case ThemeMode.light:
       case ThemeMode.system:
       default:
-        return 'system';
+        return 'light';
     }
   }
 }

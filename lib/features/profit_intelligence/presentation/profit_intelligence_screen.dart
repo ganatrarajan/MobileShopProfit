@@ -58,8 +58,11 @@ class _ProfitIntelligenceScreenState extends State<ProfitIntelligenceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
       appBar: AppBar(
         title: const Text('⭐ Profit Intelligence'),
         backgroundColor: AppColors.primary,
@@ -95,9 +98,9 @@ class _ProfitIntelligenceScreenState extends State<ProfitIntelligenceScreen> {
                         ],
 
                         // 3. Problem Cards Grid
-                        const Text(
+                        Text(
                           'Business Optimization Cards',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor, letterSpacing: -0.3),
                         ),
                         const SizedBox(height: 4),
                         const Text(
@@ -116,11 +119,14 @@ class _ProfitIntelligenceScreenState extends State<ProfitIntelligenceScreen> {
   }
 
   Widget _buildHealthScoreCard(BusinessHealthScore health) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMutedColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
     final score = health.score;
-    Color color = score >= 80 ? Colors.green : (score >= 60 ? Colors.amber.shade800 : Colors.red.shade700);
+    Color color = score >= 80 ? AppColors.accent : (score >= 60 ? AppColors.warning : AppColors.error);
 
     return CustomCard(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -130,33 +136,33 @@ class _ProfitIntelligenceScreenState extends State<ProfitIntelligenceScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Business Health Score', style: TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+                  Text('Business Health Score', style: TextStyle(fontSize: 12, color: textMutedColor, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 4),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.baseline,
                     textBaseline: TextBaseline.alphabetic,
                     children: [
-                      Text('$score', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: color)),
-                      const Text(' / 100', style: TextStyle(fontSize: 14, color: AppColors.textMuted, fontWeight: FontWeight.bold)),
+                      Text('$score', style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900, color: color)),
+                      Text(' / 100', style: TextStyle(fontSize: 14, color: textMutedColor, fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ],
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                 decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(20)),
                 child: Text(
                   health.rating.toUpperCase(),
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: color, letterSpacing: 0.5),
                 ),
               ),
             ],
           ),
           if (health.deductionReasons.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Divider(height: 1, color: isDark ? AppColors.darkBorder : AppColors.border),
             const SizedBox(height: 12),
-            const Divider(height: 1),
-            const SizedBox(height: 10),
-            const Text('Optimization Opportunities:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+            Text('Optimization Opportunities:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor)),
             const SizedBox(height: 6),
             ...health.deductionReasons.map(
               (reason) => Padding(
@@ -179,18 +185,14 @@ class _ProfitIntelligenceScreenState extends State<ProfitIntelligenceScreen> {
   Widget _buildPotentialProfitBanner(String text, double amount) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.teal.shade700, Colors.teal.shade900],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
+        gradient: AppColors.profitGradient,
+        borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.teal.withOpacity(0.25),
-            blurRadius: 8,
+            color: AppColors.accent.withOpacity(0.3),
+            blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
@@ -202,18 +204,18 @@ class _ProfitIntelligenceScreenState extends State<ProfitIntelligenceScreen> {
             children: const [
               Icon(Icons.trending_up_rounded, color: Colors.white, size: 22),
               SizedBox(width: 8),
-              Text('POTENTIAL EXTRA PROFIT', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70, letterSpacing: 0.8)),
+              Text('POTENTIAL EXTRA PROFIT', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white70, letterSpacing: 0.8)),
             ],
           ),
           const SizedBox(height: 8),
           Text(
             text,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Colors.white),
           ),
           const SizedBox(height: 4),
           const Text(
             'By addressing underpriced repairs, recovering overdue customer payments, and liquidating dead stock.',
-            style: TextStyle(fontSize: 11, color: Colors.white70),
+            style: TextStyle(fontSize: 11.5, color: Colors.white70, height: 1.3),
           ),
         ],
       ),
@@ -236,29 +238,32 @@ class _ProfitIntelligenceScreenState extends State<ProfitIntelligenceScreen> {
   }
 
   Widget _buildProblemCardItem(ProblemCardSummary card) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMutedColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
     IconData icon;
     Color color;
 
     switch (card.category) {
       case 'underpriced_repairs':
         icon = Icons.handyman_rounded;
-        color = Colors.amber.shade800;
+        color = AppColors.warning;
         break;
       case 'slow_moving_stock':
         icon = Icons.hourglass_empty_rounded;
-        color = Colors.purple.shade700;
+        color = AppColors.secondary;
         break;
       case 'warranty_loss':
         icon = Icons.verified_user_rounded;
-        color = Colors.red.shade700;
+        color = AppColors.error;
         break;
       case 'pending_payments':
         icon = Icons.account_balance_wallet_rounded;
-        color = Colors.blue.shade700;
+        color = AppColors.primary;
         break;
       case 'low_margin_products':
         icon = Icons.price_change_rounded;
-        color = Colors.teal.shade700;
+        color = AppColors.accent;
         break;
       default:
         icon = Icons.analytics_rounded;
@@ -284,7 +289,7 @@ class _ProfitIntelligenceScreenState extends State<ProfitIntelligenceScreen> {
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
+                decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(12)),
                 child: Icon(icon, color: color, size: 22),
               ),
               const SizedBox(width: 14),
@@ -292,24 +297,24 @@ class _ProfitIntelligenceScreenState extends State<ProfitIntelligenceScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(card.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                    Text(card.title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textColor)),
                     const SizedBox(height: 2),
                     Text(card.message, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textMuted),
+              Icon(Icons.arrow_forward_ios_rounded, size: 14, color: textMutedColor),
             ],
           ),
           if (card.hasEnoughData && card.financialImpact > 0) ...[
             const SizedBox(height: 12),
-            const Divider(height: 1),
+            Divider(height: 1, color: isDark ? AppColors.darkBorder : AppColors.border),
             const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Impact Value:', style: TextStyle(fontSize: 11.5, color: AppColors.textMuted)),
-                Text('₹ ${card.financialImpact.toStringAsFixed(0)}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color)),
+                Text('Impact Value:', style: TextStyle(fontSize: 11.5, color: textMutedColor)),
+                Text('₹${card.financialImpact.toStringAsFixed(0)}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: color)),
               ],
             ),
           ],

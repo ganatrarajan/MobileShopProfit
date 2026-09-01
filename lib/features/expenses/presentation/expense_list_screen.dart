@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/custom_card.dart';
-import '../../../core/widgets/status_badge.dart';
 import '../data/expense_repository.dart';
 import '../../subscription/utils/subscription_guard.dart';
 import '../models/expense.dart';

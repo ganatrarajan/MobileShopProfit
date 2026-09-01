@@ -669,7 +669,7 @@ class SalesListScreenState extends State<SalesListScreen> {
       ),
       body: content,
       floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'fab_sales_list',
+        heroTag: null,
         onPressed: () async {
           final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create sales invoices');
           if (!ok) return;

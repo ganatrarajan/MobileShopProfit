@@ -157,6 +157,10 @@ class DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMutedColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
+
     final String shopName = (_dashboardData?.shopName != null &&
             _dashboardData!.shopName.isNotEmpty &&
             _dashboardData!.shopName != 'Mobile Repair Shop')
@@ -170,13 +174,13 @@ class DashboardScreenState extends State<DashboardScreen> {
         : (_storedOwnerName.isNotEmpty ? _storedOwnerName : 'Shop Owner');
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(shopName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            Text('Welcome, $ownerName', style: const TextStyle(fontSize: 11, color: Colors.white70)),
+            Text('Welcome back, $ownerName 👋', style: const TextStyle(fontSize: 11, color: Colors.white70)),
           ],
         ),
         backgroundColor: AppColors.primary,
@@ -215,9 +219,9 @@ class DashboardScreenState extends State<DashboardScreen> {
                   child: Center(
                     child: Column(
                       children: [
-                        Text(_errorMessage!, style: TextStyle(color: AppColors.error)),
+                        Text(_errorMessage!, style: const TextStyle(color: AppColors.error)),
                         const SizedBox(height: 12),
-                        ElevatedButton(onPressed: fetchDashboard, child: Text('Retry')),
+                        ElevatedButton(onPressed: fetchDashboard, child: const Text('Retry')),
                       ],
                     ),
                   ),
@@ -235,16 +239,16 @@ class DashboardScreenState extends State<DashboardScreen> {
                         if (_dashboardData!.daysRemaining <= 10 || _dashboardData!.isExpiringSoon)
                           _buildSubscriptionHighlightCard(_dashboardData!.daysRemaining),
 
-                        // 1. TOP USP: ⭐ Profit AI Business Assistant Banner (FEATURED AT VERY TOP!)
+                        // 1. TOP USP: ⭐ Profit AI Business Assistant Banner
                         _buildTopProfitAiBanner(),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 20),
 
                         // 2. Fast Creation Actions Section (Quick Daily Tasks)
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('⚡ Quick Operations', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                            Text('Tap to create', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                            Text('⚡ Quick Actions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor, letterSpacing: -0.3)),
+                            Text('Tap to create', style: TextStyle(fontSize: 11, color: textMutedColor)),
                           ],
                         ),
                         const SizedBox(height: 10),
@@ -252,7 +256,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(height: 20),
 
                         // 3. Shop Performance Metrics Summary
-                        Text('📊 Shop Performance Summary', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                        Text('📊 Shop Performance Summary', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor, letterSpacing: -0.3)),
                         const SizedBox(height: 10),
                         _buildSalesSummaryCard(_dashboardData!.sales),
                         const SizedBox(height: 12),
@@ -266,28 +270,28 @@ class DashboardScreenState extends State<DashboardScreen> {
                         ),
                         const SizedBox(height: 12),
                         _buildExpenseSummaryCard(_dashboardData!.expenses),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 24),
 
                         // 4. Organized Business Management Modules
-                        Text('📂 Business Management Modules', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                        Text('📂 Business Management Modules', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor, letterSpacing: -0.3)),
                         const SizedBox(height: 4),
-                        Text('Select a module to manage records, invoices, stock & customers.', style: TextStyle(fontSize: 11.5, color: AppColors.textMuted)),
+                        Text('Select a module to manage records, invoices, stock & customers.', style: TextStyle(fontSize: 11.5, color: textMutedColor)),
                         const SizedBox(height: 12),
                         _buildStructuredModulesList(),
                         const SizedBox(height: 20),
 
-                        // 5. Needs Attention Section (Low stock, due invoices, pending repairs)
+                        // 5. Needs Attention Section
                         if (_dashboardData!.attention.isNotEmpty) ...[
                           Row(
                             children: [
-                              const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+                              const Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 20),
                               const SizedBox(width: 6),
-                              Text('Needs Attention', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                              Text('Needs Attention', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor, letterSpacing: -0.3)),
                               const Spacer(),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(color: Colors.amber.shade100, borderRadius: BorderRadius.circular(12)),
-                                child: Text('${_dashboardData!.attention.length} items', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber.shade900)),
+                                decoration: BoxDecoration(color: AppColors.warning.withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
+                                child: Text('${_dashboardData!.attention.length} items', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.warning)),
                               ),
                             ],
                           ),
@@ -314,87 +318,106 @@ class DashboardScreenState extends State<DashboardScreen> {
     final extraProfit = _profitAiData?.potentialExtraProfit ?? 0.0;
     final extraProfitFormatted = _profitAiData?.potentialExtraProfitFormatted ?? 'Analyze your shop profit leaks in real time.';
 
+    Color ratingBgColor = healthScore >= 80 ? AppColors.accent : (healthScore >= 60 ? AppColors.warning : AppColors.error);
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppColors.primary, Colors.indigo.shade900],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
+        color: const Color(0xFFECFDF5), // Light Emerald Green Fill
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFA7F3D0), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.3),
-            blurRadius: 10,
+            color: AppColors.accent.withOpacity(0.12),
+            blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(18),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  runSpacing: 8,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.star_rounded, color: Colors.amber, size: 20),
-                        SizedBox(width: 4),
-                        Text(
-                          'PROFIT AI ASSISTANT',
-                          style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5),
-                        ),
-                      ],
+                    Flexible(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.auto_awesome_rounded, color: Color(0xFF047857), size: 20),
+                          SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              'PROFIT AI ASSISTANT',
+                              style: TextStyle(
+                                color: Color(0xFF047857),
+                                fontWeight: FontWeight.w900,
+                                fontSize: 12,
+                                letterSpacing: 0.8,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: Colors.amber.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: ratingBgColor,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.favorite_rounded, color: Colors.amber, size: 12),
+                          const Icon(Icons.favorite_rounded, color: Colors.white, size: 12),
                           const SizedBox(width: 4),
-                          Text('Health: $healthScore/100 ($rating)', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                          Text(
+                            'Health: $healthScore/100 ($rating)',
+                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800),
+                          ),
                         ],
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Text(
                   extraProfit > 0 ? extraProfitFormatted : 'Real-time AI Business Analysis & Profit Recovery',
-                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                  style: const TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w800, height: 1.3),
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  'Automatically checks underpriced repairs, slow stock, warranty loss & unpaid dues.',
-                  style: TextStyle(color: Colors.white70, fontSize: 11.5),
+                const Text(
+                  'Automated analysis checks underpriced repairs, slow stock, warranty loss & unpaid dues.',
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 12, height: 1.35),
                 ),
               ],
             ),
           ),
           InkWell(
             onTap: () => Navigator.pushNamed(context, AppRoutes.profitIntelligence),
+            borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(18), bottomRight: Radius.circular(18)),
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.12),
-                borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(16), bottomRight: Radius.circular(16)),
+              padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 18),
+              decoration: const BoxDecoration(
+                gradient: AppColors.profitGradient,
+                borderRadius: BorderRadius.only(bottomLeft: Radius.circular(18), bottomRight: Radius.circular(18)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Open ⭐ Profit AI Analysis', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                  Icon(Icons.arrow_forward_rounded, color: Colors.amber, size: 18),
+                children: const [
+                  Text(
+                    'Open ⭐ Profit AI Analysis',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13),
+                  ),
+                  Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18),
                 ],
               ),
             ),
@@ -407,7 +430,7 @@ class DashboardScreenState extends State<DashboardScreen> {
   Widget _buildPeriodFilterBar() {
     return Container(
       color: AppColors.primary,
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
@@ -423,20 +446,28 @@ class DashboardScreenState extends State<DashboardScreen> {
             InkWell(
               onTap: _pickCustomDateRange,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: _selectedPeriod == 'custom' ? AppColors.accent : Colors.white24,
-                  borderRadius: BorderRadius.circular(16),
+                  color: _selectedPeriod == 'custom' ? Colors.white : Colors.white24,
+                  borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.date_range_rounded, size: 14, color: Colors.white),
+                    Icon(
+                      Icons.date_range_rounded,
+                      size: 14,
+                      color: _selectedPeriod == 'custom' ? AppColors.primary : Colors.white,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       _selectedPeriod == 'custom' && _customDateRange != null
                           ? '${_customDateRange!.start.day}/${_customDateRange!.start.month} - ${_customDateRange!.end.day}/${_customDateRange!.end.month}'
                           : 'Custom',
-                      style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: _selectedPeriod == 'custom' ? FontWeight.w800 : FontWeight.w600,
+                        color: _selectedPeriod == 'custom' ? AppColors.primary : Colors.white,
+                      ),
                     ),
                   ],
                 ),
@@ -453,16 +484,16 @@ class DashboardScreenState extends State<DashboardScreen> {
     return InkWell(
       onTap: () => _onPeriodSelected(value),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected ? Colors.white : Colors.white24,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 12,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
             color: isSelected ? AppColors.primary : Colors.white,
           ),
         ),
@@ -471,17 +502,21 @@ class DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildEmptyShopOnboarding() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMutedColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
+
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const SizedBox(height: 20),
-          Icon(Icons.storefront_rounded, size: 64, color: AppColors.primary.withOpacity(0.7)),
+          Icon(Icons.storefront_rounded, size: 64, color: AppColors.primary),
           const SizedBox(height: 16),
-          Text('Welcome to Your Mobile Shop!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+          Text('Welcome to Your Mobile Shop!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor)),
           const SizedBox(height: 8),
-          Text('Get started by adding your first sale, repair ticket, or inventory item.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary)),
+          Text('Get started by adding your first sale, repair ticket, or inventory item.', textAlign: TextAlign.center, style: TextStyle(color: textMutedColor)),
           const SizedBox(height: 24),
           _buildOnboardingStepTile(
             number: '1',
@@ -524,8 +559,8 @@ class DashboardScreenState extends State<DashboardScreen> {
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: AppColors.primary.withOpacity(0.1),
-            child: Text(number, style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
+            backgroundColor: AppColors.primary.withOpacity(0.12),
+            child: Text(number, style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -534,7 +569,7 @@ class DashboardScreenState extends State<DashboardScreen> {
               children: [
                 Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(height: 2),
-                Text(desc, style: TextStyle(fontSize: 11.5, color: AppColors.textMuted)),
+                Text(desc, style: const TextStyle(fontSize: 11.5, color: AppColors.textMuted)),
               ],
             ),
           ),
@@ -545,6 +580,10 @@ class DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildSalesSummaryCard(SalesSummary sales) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMutedColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
+
     return CustomCard(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -555,14 +594,14 @@ class DashboardScreenState extends State<DashboardScreen> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.point_of_sale_rounded, color: AppColors.primary, size: 20),
-                  SizedBox(width: 8),
-                  Text('Sales & Revenue', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                  const Icon(Icons.point_of_sale_rounded, color: AppColors.primary, size: 20),
+                  const SizedBox(width: 8),
+                  Text('Sales & Revenue', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor)),
                 ],
               ),
               InkWell(
                 onTap: () => _navigateToTab(1, AppRoutes.sales),
-                child: Text('View All →', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                child: const Text('View All →', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
               ),
             ],
           ),
@@ -573,9 +612,9 @@ class DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Total Revenue', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                    Text('Total Revenue', style: TextStyle(fontSize: 11, color: textMutedColor)),
                     const SizedBox(height: 4),
-                    Text('₹ ${sales.totalSales.toStringAsFixed(0)}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                    Text('₹${sales.totalSales.toStringAsFixed(0)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.primary)),
                   ],
                 ),
               ),
@@ -583,22 +622,22 @@ class DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Total Invoices', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                    Text('Total Invoices', style: TextStyle(fontSize: 11, color: textMutedColor)),
                     const SizedBox(height: 4),
-                    Text('${sales.totalCount}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                    Text('${sales.totalCount}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: textColor)),
                   ],
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          const Divider(height: 1),
+          Divider(height: 1, color: isDark ? AppColors.darkBorder : AppColors.border),
           const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Collected: ₹${sales.totalCollected.toStringAsFixed(0)}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.green.shade800)),
-              Text('Pending Due: ₹${sales.totalDue.toStringAsFixed(0)}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: sales.totalDue > 0 ? AppColors.error : AppColors.textMuted)),
+              Text('Collected: ₹${sales.totalCollected.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.accent)),
+              Text('Pending Due: ₹${sales.totalDue.toStringAsFixed(0)}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: sales.totalDue > 0 ? AppColors.error : textMutedColor)),
             ],
           ),
         ],
@@ -607,6 +646,10 @@ class DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildRepairSummaryCard(RepairSummary repairs) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMutedColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
+
     return CustomCard(
       onTap: () => _navigateToTab(3, AppRoutes.repairs),
       padding: const EdgeInsets.all(14),
@@ -616,22 +659,26 @@ class DashboardScreenState extends State<DashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(Icons.build_rounded, color: Colors.orange.shade800, size: 20),
-              Text('${repairs.activeRepairsCount} Active', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange.shade900)),
+              const Icon(Icons.build_rounded, color: AppColors.warning, size: 20),
+              Text('${repairs.activeRepairsCount} Active', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.warning)),
             ],
           ),
           const SizedBox(height: 10),
-          Text('Repairs', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+          Text('Repairs', style: TextStyle(fontSize: 12, color: textMutedColor)),
           const SizedBox(height: 2),
-          Text('${repairs.totalRepairsCount}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+          Text('${repairs.totalRepairsCount}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
           const SizedBox(height: 4),
-          Text('Delivered: ${repairs.readyCount}', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+          Text('Delivered: ${repairs.readyCount}', style: TextStyle(fontSize: 11, color: textMutedColor)),
         ],
       ),
     );
   }
 
   Widget _buildInventorySummaryCard(InventorySummary inventory) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMutedColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
+
     return CustomCard(
       onTap: () => _navigateToTab(4, AppRoutes.inventory),
       padding: const EdgeInsets.all(14),
@@ -641,27 +688,31 @@ class DashboardScreenState extends State<DashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(Icons.inventory_2_rounded, color: Colors.teal.shade800, size: 20),
+              const Icon(Icons.inventory_2_rounded, color: AppColors.accent, size: 20),
               if (inventory.lowStockCount > 0)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(color: Colors.red.shade100, borderRadius: BorderRadius.circular(10)),
-                  child: Text('${inventory.lowStockCount} Low', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.red.shade900)),
+                  decoration: BoxDecoration(color: AppColors.errorLight, borderRadius: BorderRadius.circular(10)),
+                  child: Text('${inventory.lowStockCount} Low', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.error)),
                 ),
             ],
           ),
           const SizedBox(height: 10),
-          Text('Inventory Stock', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+          Text('Inventory Stock', style: TextStyle(fontSize: 12, color: textMutedColor)),
           const SizedBox(height: 2),
-          Text('₹ ${inventory.totalStockValue.toStringAsFixed(0)}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+          Text('₹${inventory.totalStockValue.toStringAsFixed(0)}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
           const SizedBox(height: 4),
-          Text('${inventory.totalItems} Total Items', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+          Text('${inventory.totalItems} Total Items', style: TextStyle(fontSize: 11, color: textMutedColor)),
         ],
       ),
     );
   }
 
   Widget _buildExpenseSummaryCard(ExpenseSummary expenses) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMutedColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
+
     return CustomCard(
       onTap: () => Navigator.pushNamed(context, AppRoutes.expenses),
       padding: const EdgeInsets.all(14),
@@ -670,18 +721,18 @@ class DashboardScreenState extends State<DashboardScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.account_balance_wallet_rounded, color: Colors.red.shade800, size: 20),
+              const Icon(Icons.account_balance_wallet_rounded, color: AppColors.secondary, size: 20),
               const SizedBox(width: 10),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Shop Expenses', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                  Text('Top: ${expenses.topCategory?.name ?? "General"}', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                  Text('Shop Expenses', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor)),
+                  Text('Top: ${expenses.topCategory?.name ?? "General"}', style: TextStyle(fontSize: 11, color: textMutedColor)),
                 ],
               ),
             ],
           ),
-          Text('₹ ${expenses.totalExpensesSum.toStringAsFixed(0)}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.red.shade800)),
+          Text('₹${expenses.totalExpensesSum.toStringAsFixed(0)}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.error)),
         ],
       ),
     );
@@ -690,22 +741,22 @@ class DashboardScreenState extends State<DashboardScreen> {
   Widget _buildFastActionsGrid() {
     return Row(
       children: [
-        _buildActionTile('⚡ Quick Sale', Icons.flash_on_rounded, Colors.orange.shade800, () async {
+        _buildActionTile('⚡ Quick Sale', Icons.flash_on_rounded, AppColors.warning, () async {
           final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'make quick sales');
           if (ok && mounted) _navigateToTab(2, AppRoutes.quickSale);
         }),
         const SizedBox(width: 8),
-        _buildActionTile('📱 Add Repair', Icons.handyman_rounded, Colors.blue.shade700, () async {
+        _buildActionTile('📱 Add Repair', Icons.handyman_rounded, AppColors.primary, () async {
           final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create repair tickets');
           if (ok && mounted) Navigator.pushNamed(context, AppRoutes.createRepair);
         }),
         const SizedBox(width: 8),
-        _buildActionTile('🧾 Create Invoice', Icons.add_shopping_cart_rounded, Colors.green.shade700, () async {
+        _buildActionTile('🧾 Create Invoice', Icons.add_shopping_cart_rounded, AppColors.accent, () async {
           final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create sales invoices');
           if (ok && mounted) Navigator.pushNamed(context, AppRoutes.createSale);
         }),
         const SizedBox(width: 8),
-        _buildActionTile('💸 Add Expense', Icons.post_add_rounded, Colors.purple.shade700, () async {
+        _buildActionTile('💸 Add Expense', Icons.post_add_rounded, AppColors.secondary, () async {
           final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'manage expenses');
           if (ok && mounted) Navigator.pushNamed(context, AppRoutes.addExpense);
         }),
@@ -714,6 +765,9 @@ class DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildActionTile(String title, IconData icon, Color color, VoidCallback onTap) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+
     return Expanded(
       child: CustomCard(
         onTap: onTap,
@@ -725,7 +779,7 @@ class DashboardScreenState extends State<DashboardScreen> {
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: color.withOpacity(0.12), shape: BoxShape.circle),
+                decoration: BoxDecoration(color: color.withOpacity(0.15), shape: BoxShape.circle),
                 child: Icon(icon, color: color, size: 20),
               ),
               const SizedBox(height: 6),
@@ -734,7 +788,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textColor),
               ),
             ],
           ),
@@ -751,7 +805,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           title: '👥 Customers Directory',
           desc: 'Customer profiles, contact numbers & purchase/repair history',
           icon: Icons.people_alt_rounded,
-          color: Colors.indigo.shade700,
+          color: AppColors.primary,
           onTap: () => Navigator.pushNamed(context, AppRoutes.customers),
         ),
         const SizedBox(height: 10),
@@ -759,7 +813,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           title: '🛡️ Warranty & Rework Claims',
           desc: 'Track device repair warranties & rework claims',
           icon: Icons.verified_user_rounded,
-          color: Colors.purple.shade700,
+          color: AppColors.secondary,
           onTap: () => Navigator.pushNamed(context, AppRoutes.warranties),
         ),
         const SizedBox(height: 10),
@@ -767,7 +821,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           title: '📈 Reports & Business Analytics',
           desc: 'Sales reports, repair stats, expense summary & CSV exports',
           icon: Icons.analytics_rounded,
-          color: Colors.blue.shade800,
+          color: AppColors.accent,
           onTap: () => Navigator.pushNamed(context, AppRoutes.reportsHub),
         ),
         const SizedBox(height: 10),
@@ -775,7 +829,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           title: '📱 Device Models & IMEI Database',
           desc: 'Search customer devices, IMEI numbers & models',
           icon: Icons.phone_android_rounded,
-          color: Colors.blueGrey.shade700,
+          color: AppColors.textSecondary,
           onTap: () => Navigator.pushNamed(context, AppRoutes.deviceSearch),
         ),
       ],
@@ -789,6 +843,10 @@ class DashboardScreenState extends State<DashboardScreen> {
     required Color color,
     required VoidCallback onTap,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMutedColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
+
     return CustomCard(
       onTap: onTap,
       padding: const EdgeInsets.all(14),
@@ -796,7 +854,7 @@ class DashboardScreenState extends State<DashboardScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
+            decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(12)),
             child: Icon(icon, color: color, size: 22),
           ),
           const SizedBox(width: 14),
@@ -804,36 +862,39 @@ class DashboardScreenState extends State<DashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textPrimary)),
+                Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor)),
                 const SizedBox(height: 2),
-                Text(desc, style: TextStyle(fontSize: 11.5, color: AppColors.textMuted)),
+                Text(desc, style: TextStyle(fontSize: 11.5, color: textMutedColor)),
               ],
             ),
           ),
-          const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textMuted),
+          Icon(Icons.arrow_forward_ios_rounded, size: 14, color: textMutedColor),
         ],
       ),
     );
   }
 
   Widget _buildAttentionCard(AttentionItem item) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: CustomCard(
         onTap: () => _handleAttentionNavigation(item),
         padding: const EdgeInsets.all(12),
-        backgroundColor: Colors.amber.shade50.withOpacity(0.5),
+        backgroundColor: AppColors.warning.withOpacity(0.08),
         child: Row(
           children: [
-            Icon(Icons.warning_rounded, color: Colors.amber.shade900, size: 20),
+            const Icon(Icons.warning_rounded, color: AppColors.warning, size: 20),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textPrimary)),
+                  Text(item.title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textColor)),
                   const SizedBox(height: 2),
-                  Text(item.subtitle, style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                  Text(item.subtitle, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                 ],
               ),
             ),
@@ -862,8 +923,8 @@ class DashboardScreenState extends State<DashboardScreen> {
 
   void _showSubscriptionExpiryDialog(int daysRemaining) {
     final bool isExpired = daysRemaining <= 0;
-    final Color mainColor = isExpired ? Colors.red.shade700 : Colors.orange.shade800;
-    final Color bgLightColor = isExpired ? Colors.red.shade50 : Colors.orange.shade50;
+    final Color mainColor = isExpired ? AppColors.error : AppColors.warning;
+    final Color bgLightColor = isExpired ? AppColors.errorLight : AppColors.warning.withOpacity(0.12);
     final IconData iconData = isExpired ? Icons.error_outline_rounded : Icons.timer_outlined;
     final String titleText = isExpired ? '⏰ Subscription Expired!' : '⏰ Subscription Expiring Soon!';
     final String bodyText = isExpired
@@ -935,15 +996,15 @@ class DashboardScreenState extends State<DashboardScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.orange.shade800, Colors.deepOrange.shade600],
+        gradient: const LinearGradient(
+          colors: [AppColors.warning, Color(0xFFEA580C)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.orange.withOpacity(0.3),
+            color: AppColors.warning.withOpacity(0.3),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -987,7 +1048,7 @@ class DashboardScreenState extends State<DashboardScreen> {
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
-                foregroundColor: Colors.orange.shade900,
+                foregroundColor: AppColors.textPrimary,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -1002,4 +1063,3 @@ class DashboardScreenState extends State<DashboardScreen> {
     );
   }
 }
-

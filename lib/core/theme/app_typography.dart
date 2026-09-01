@@ -7,6 +7,7 @@ class AppTypography {
     fontWeight: FontWeight.bold,
     color: AppColors.textPrimary,
     height: 1.2,
+    letterSpacing: -0.5,
   );
 
   static const TextStyle h2 = TextStyle(
@@ -14,6 +15,7 @@ class AppTypography {
     fontWeight: FontWeight.w700,
     color: AppColors.textPrimary,
     height: 1.3,
+    letterSpacing: -0.3,
   );
 
   static const TextStyle h3 = TextStyle(
@@ -39,7 +41,14 @@ class AppTypography {
 
   static const TextStyle caption = TextStyle(
     fontSize: 12,
-    fontWeight: FontWeight.normal,
+    fontWeight: FontWeight.w500,
     color: AppColors.textSecondary,
+  );
+
+  static const TextStyle currency = TextStyle(
+    fontSize: 22,
+    fontWeight: FontWeight.w800,
+    color: AppColors.textPrimary,
+    letterSpacing: -0.5,
   );
 }

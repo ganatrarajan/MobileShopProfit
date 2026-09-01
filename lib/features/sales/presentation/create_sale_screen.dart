@@ -12,8 +12,6 @@ import '../models/sale.dart';
 import '../../inventory/data/inventory_repository.dart';
 import '../../inventory/models/inventory_item.dart';
 
-import '../../subscription/utils/subscription_guard.dart';
-
 class CreateSaleScreen extends StatefulWidget {
   const CreateSaleScreen({super.key});
 
@@ -49,12 +47,6 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
   void initState() {
     super.initState();
     _loadCustomers();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (mounted) {
-        final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create sales invoices');
-        if (!ok && mounted) Navigator.pop(context);
-      }
-    });
   }
 
   @override
@@ -185,9 +177,6 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
     final nameCtrl = TextEditingController();
     final brandCtrl = TextEditingController();
     final modelCtrl = TextEditingController();
-    final imei1Ctrl = TextEditingController();
-    final imei2Ctrl = TextEditingController();
-    final serialCtrl = TextEditingController();
     final priceCtrl = TextEditingController();
     final qtyCtrl = TextEditingController(text: '1');
     final discountCtrl = TextEditingController(text: '0');
@@ -226,13 +215,18 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
       }
     }
 
+    bool initialFetchDone = false;
+
     showDialog(
       context: context,
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            if (saleMode == 'inventory' && invItems.isEmpty && !isLoadingInv && invError == null) {
-              fetchInventory(setDialogState);
+            if (saleMode == 'inventory' && !initialFetchDone) {
+              initialFetchDone = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                fetchInventory(setDialogState);
+              });
             }
 
             return AlertDialog(
@@ -703,14 +697,15 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Expanded(
+                        Expanded(
                           child: Row(
-                            children: [
+                            children: const [
                               Icon(Icons.person_outline_rounded, color: AppColors.accent, size: 20),
                               SizedBox(width: 8),
-                              Expanded(
+                              Flexible(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
                                       'Customer & Device',
@@ -744,7 +739,9 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                     ),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<Customer>(
-                      value: _selectedCustomer,
+                      value: (_selectedCustomer != null && _customerList.any((c) => c.id == _selectedCustomer!.id))
+                          ? _customerList.firstWhere((c) => c.id == _selectedCustomer!.id)
+                          : null,
                       isExpanded: true,
                       hint: _isLoadingCustomers
                           ? const Text('Loading customers...')
@@ -773,7 +770,9 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                     if (_selectedCustomer != null) ...[
                       const SizedBox(height: 12),
                       DropdownButtonFormField<Device>(
-                        value: _selectedDevice,
+                        value: (_selectedDevice != null && _deviceList.any((d) => d.id == _selectedDevice!.id))
+                            ? _deviceList.firstWhere((d) => d.id == _selectedDevice!.id)
+                            : null,
                         isExpanded: true,
                         hint: _isLoadingDevices
                             ? const Text('Loading customer devices...')
@@ -812,6 +811,7 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
+                      minimumSize: const Size(0, 36),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     ),
@@ -867,6 +867,7 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
                                     item.productName,
@@ -885,6 +886,7 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                             ),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
+                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
                                   '₹ ${item.total.toStringAsFixed(2)}',
@@ -995,6 +997,7 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                       children: [
                         const Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Text('GRAND TOTAL', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                             Text('Final Invoice Amount', style: TextStyle(color: Colors.white60, fontSize: 11)),

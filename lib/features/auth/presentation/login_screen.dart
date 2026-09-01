@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_logo.dart';
 import '../../../core/widgets/custom_button.dart';
+import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../data/auth_repository.dart';
 
@@ -89,114 +91,114 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
             child: Form(
               key: _formKey,
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.storefront_rounded, color: Colors.white, size: 28),
-                      ),
-                      const SizedBox(width: 14),
-                      const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Mobile Shop SaaS',
-                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                          ),
-                          Text(
-                            'Profit Intelligence Platform',
-                            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                          ),
-                        ],
-                      ),
-                    ],
+                  const Center(
+                    child: AppLogo(
+                      size: AppLogoSize.large,
+                      showSubtitle: true,
+                    ),
                   ),
                   const SizedBox(height: 36),
-                  const Text(
-                    'Owner Login',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Sign in with your registered mobile number or email.',
-                    style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
-                  ),
-                  const SizedBox(height: 28),
-                  if (_errorMessage != null) ...[
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.errorLight,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppColors.error.withOpacity(0.5)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.error_outline, color: AppColors.error, size: 20),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              _errorMessage!,
-                              style: const TextStyle(color: AppColors.error, fontSize: 13, fontWeight: FontWeight.w500),
+                  CustomCard(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Welcome Back 👋',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Sign in to manage your mobile shop profits & repairs.',
+                          style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                        ),
+                        const SizedBox(height: 24),
+                        if (_errorMessage != null) ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppColors.errorLight,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 20),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    _errorMessage!,
+                                    style: const TextStyle(color: AppColors.error, fontSize: 13, fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
+                          const SizedBox(height: 20),
                         ],
-                      ),
+                        CustomTextField(
+                          label: 'Mobile Number or Email',
+                          hint: 'e.g. 7405989816',
+                          controller: _loginController,
+                          keyboardType: TextInputType.emailAddress,
+                          prefixIcon: Icons.phone_android_rounded,
+                          validator: (val) => (val == null || val.isEmpty) ? 'Please enter your mobile or email' : null,
+                        ),
+                        const SizedBox(height: 18),
+                        CustomTextField(
+                          label: 'Password',
+                          hint: 'Enter password',
+                          controller: _passwordController,
+                          isPassword: true,
+                          prefixIcon: Icons.lock_outline_rounded,
+                          validator: (val) => (val == null || val.isEmpty) ? 'Please enter your password' : null,
+                        ),
+                        const SizedBox(height: 10),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () {
+                              Navigator.pushNamed(context, AppRoutes.forgotPassword);
+                            },
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: const Text(
+                              'Forgot Password?',
+                              style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 13),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        CustomButton(
+                          text: 'Sign In to Shop',
+                          isLoading: _isLoading,
+                          onPressed: _handleLogin,
+                          icon: Icons.arrow_forward_rounded,
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 20),
-                  ],
-                  CustomTextField(
-                    label: 'Mobile Number or Email',
-                    hint: 'e.g. 7405989816',
-                    controller: _loginController,
-                    keyboardType: TextInputType.emailAddress,
-                    prefixIcon: Icons.person_outline_rounded,
-                    validator: (val) => (val == null || val.isEmpty) ? 'Please enter your mobile or email' : null,
-                  ),
-                  const SizedBox(height: 18),
-                  CustomTextField(
-                    label: 'Password',
-                    hint: 'Enter password',
-                    controller: _passwordController,
-                    isPassword: true,
-                    prefixIcon: Icons.lock_outline_rounded,
-                    validator: (val) => (val == null || val.isEmpty) ? 'Please enter your password' : null,
-                  ),
-                  const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () {
-                        Navigator.pushNamed(context, AppRoutes.forgotPassword);
-                      },
-                      style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                      child: const Text(
-                        'Forgot Password?',
-                        style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.w600, fontSize: 13),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  CustomButton(
-                    text: 'Sign In to Shop',
-                    isLoading: _isLoading,
-                    onPressed: _handleLogin,
-                    icon: Icons.login_rounded,
                   ),
                   const SizedBox(height: 24),
                   Row(
@@ -209,7 +211,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         },
                         child: const Text(
                           'Create Shop Account',
-                          style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold, fontSize: 14),
+                          style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800, fontSize: 14),
                         ),
                       ),
                     ],

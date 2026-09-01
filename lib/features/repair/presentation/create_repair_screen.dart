@@ -9,7 +9,6 @@ import '../../customer/data/customer_repository.dart';
 import '../../customer/models/customer.dart';
 import '../../device/data/device_repository.dart';
 import '../../device/models/device.dart';
-import '../../subscription/utils/subscription_guard.dart';
 import '../data/repair_repository.dart';
 
 class CreateRepairScreen extends StatefulWidget {
@@ -83,12 +82,6 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
     super.initState();
     _loadCustomers();
     _loadTechnicians();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (mounted) {
-        final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create repair tickets');
-        if (!ok && mounted) Navigator.pop(context);
-      }
-    });
   }
 
   @override
@@ -278,7 +271,9 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<Customer>(
-                      value: _selectedCustomer,
+                      value: (_selectedCustomer != null && _customerList.any((c) => c.id == _selectedCustomer!.id))
+                          ? _customerList.firstWhere((c) => c.id == _selectedCustomer!.id)
+                          : null,
                       isExpanded: true,
                       hint: _isLoadingCustomers
                           ? const Text('Loading customers...')
@@ -308,7 +303,9 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
                     if (_selectedCustomer != null) ...[
                       const SizedBox(height: 12),
                       DropdownButtonFormField<Device>(
-                        value: _selectedDevice,
+                        value: (_selectedDevice != null && _deviceList.any((d) => d.id == _selectedDevice!.id))
+                            ? _deviceList.firstWhere((d) => d.id == _selectedDevice!.id)
+                            : null,
                         isExpanded: true,
                         hint: _isLoadingDevices
                             ? const Text('Loading customer devices...')
@@ -352,7 +349,9 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
                     const Text('Assign an active technician to handle this repair job', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<Technician>(
-                      value: _selectedTechnician,
+                      value: (_selectedTechnician != null && _technicianList.any((t) => t.id == _selectedTechnician!.id))
+                          ? _technicianList.firstWhere((t) => t.id == _selectedTechnician!.id)
+                          : null,
                       isExpanded: true,
                       decoration: InputDecoration(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),

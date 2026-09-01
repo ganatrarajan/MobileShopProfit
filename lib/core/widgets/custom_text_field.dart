@@ -11,7 +11,6 @@ class CustomTextField extends StatefulWidget {
   final String? Function(String?)? validator;
   final bool readOnly;
   final void Function(String)? onChanged;
-
   final int maxLines;
 
   const CustomTextField({
@@ -37,15 +36,20 @@ class _CustomTextFieldState extends State<CustomTextField> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final labelColor = isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           widget.label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w700,
+            color: labelColor,
+            letterSpacing: 0.1,
           ),
         ),
         const SizedBox(height: 6),
@@ -57,12 +61,12 @@ class _CustomTextFieldState extends State<CustomTextField> {
           readOnly: widget.readOnly,
           onChanged: widget.onChanged,
           validator: widget.validator,
-          style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: textColor),
           decoration: InputDecoration(
             hintText: widget.hint,
             hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 14),
             prefixIcon: widget.prefixIcon != null
-                ? Icon(widget.prefixIcon, size: 20, color: AppColors.textSecondary)
+                ? Icon(widget.prefixIcon, size: 20, color: AppColors.primary)
                 : null,
             suffixIcon: widget.isPassword
                 ? IconButton(

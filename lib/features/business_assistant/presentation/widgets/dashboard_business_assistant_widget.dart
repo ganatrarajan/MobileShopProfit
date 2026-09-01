@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../../../../core/routes/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/custom_card.dart';
@@ -109,7 +109,7 @@ class _DashboardBusinessAssistantWidgetState extends State<DashboardBusinessAssi
               ),
               TextButton.icon(
                 onPressed: () {
-                  Navigator.pushNamed(context, AppRoutes.businessAssistant);
+                  Navigator.pushNamed(context, AppRoutes.profitIntelligence);
                 },
                 icon: const Text('View All', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 label: const Icon(Icons.arrow_forward_ios_rounded, size: 12),

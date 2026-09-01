@@ -283,7 +283,7 @@ class InventoryListScreenState extends State<InventoryListScreen> {
                                           Expanded(
                                             child: Text(
                                               item.name,
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.primary),
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.textPrimary),
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ),

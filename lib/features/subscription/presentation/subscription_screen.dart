@@ -69,7 +69,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Payment Verified! Mobile Profits Subscription Activated.'),
-              backgroundColor: Colors.green,
+              backgroundColor: AppColors.accent,
             ),
           );
           _loadSubscriptionData();
@@ -77,7 +77,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(verifyRes.message.isNotEmpty ? verifyRes.message : 'Payment signature verification failed.'),
-              backgroundColor: Colors.red,
+              backgroundColor: AppColors.error,
             ),
           );
         }
@@ -87,7 +87,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Verification error: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -115,7 +115,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(msg),
-          backgroundColor: response.code == Razorpay.PAYMENT_CANCELLED ? Colors.orange : Colors.red,
+          backgroundColor: response.code == Razorpay.PAYMENT_CANCELLED ? AppColors.warning : AppColors.error,
         ),
       );
     }
@@ -180,7 +180,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(orderRes.message.isNotEmpty ? orderRes.message : 'Failed to create payment order.'),
-              backgroundColor: Colors.red,
+              backgroundColor: AppColors.error,
             ),
           );
         }
@@ -209,7 +209,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Razorpay Key ID is missing. Please configure Key ID in Admin Panel.'),
-              backgroundColor: Colors.red,
+              backgroundColor: AppColors.error,
             ),
           );
         }
@@ -244,7 +244,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Failed to open Razorpay SDK: $e'),
-              backgroundColor: Colors.red,
+              backgroundColor: AppColors.error,
             ),
           );
         }
@@ -257,7 +257,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Payment initiation error: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -269,6 +269,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
     final String status = _statusData?['status'] ?? 'trial';
     final int daysRemaining = _statusData?['days_remaining'] ?? 90;
 
@@ -284,7 +286,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     }
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
       appBar: AppBar(
         title: const Text('Subscription & Payments', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         backgroundColor: AppColors.primary,
@@ -292,7 +294,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         elevation: 0,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
           : RefreshIndicator(
               onRefresh: _loadSubscriptionData,
               child: SingleChildScrollView(
@@ -309,9 +311,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     const SizedBox(height: 20),
 
                     // Payment History Section
-                    const Text(
+                    Text(
                       'Payment History',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
                     ),
                     const SizedBox(height: 8),
                     _buildHistoryList(),
@@ -323,6 +325,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   }
 
   Widget _buildStatusCard(String status, int daysRemaining, String expiryDate) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMutedColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
     Color badgeColor;
     String statusText;
     IconData statusIcon;
@@ -332,28 +337,28 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
     if (status == 'active') {
       if (isExpiringSoon) {
-        badgeColor = Colors.orange.shade800;
+        badgeColor = AppColors.warning;
         statusText = 'Active (Expiring Soon)';
         statusIcon = Icons.timer_outlined;
         badgeTagText = 'EXPIRING SOON';
       } else {
-        badgeColor = Colors.green;
+        badgeColor = AppColors.accent;
         statusText = 'Active Subscription';
         statusIcon = Icons.verified_rounded;
       }
     } else if (status == 'expired') {
-      badgeColor = Colors.red;
+      badgeColor = AppColors.error;
       statusText = 'Subscription Expired';
       statusIcon = Icons.error_rounded;
       badgeTagText = 'EXPIRED';
     } else {
       if (isExpiringSoon) {
-        badgeColor = Colors.orange.shade800;
+        badgeColor = AppColors.warning;
         statusText = 'Trial Expiring Soon';
         statusIcon = Icons.hourglass_bottom_rounded;
         badgeTagText = 'EXPIRING SOON';
       } else {
-        badgeColor = Colors.orange;
+        badgeColor = AppColors.warning;
         statusText = 'Free Trial Active';
         statusIcon = Icons.hourglass_top_rounded;
       }
@@ -391,7 +396,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               ),
             ],
           ),
-          const Divider(height: 24),
+          Divider(height: 24, color: isDark ? AppColors.darkBorder : AppColors.border),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -400,7 +405,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 children: [
                   Text(
                     'Days Remaining',
-                    style: TextStyle(fontSize: 12, color: isExpiringSoon ? Colors.deepOrange : AppColors.textMuted),
+                    style: TextStyle(fontSize: 12, color: isExpiringSoon ? AppColors.warning : textMutedColor),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -408,7 +413,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: isExpiringSoon ? Colors.deepOrange.shade800 : AppColors.textPrimary,
+                      color: isExpiringSoon ? AppColors.warning : textColor,
                     ),
                   ),
                 ],
@@ -416,14 +421,14 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const Text('Valid Until', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                  Text('Valid Until', style: TextStyle(fontSize: 12, color: textMutedColor)),
                   const SizedBox(height: 2),
                   Text(
                     expiryDate,
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: isExpiringSoon ? Colors.deepOrange.shade800 : AppColors.textSecondary,
+                      color: isExpiringSoon ? AppColors.warning : textColor,
                     ),
                   ),
                 ],
@@ -435,18 +440,18 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.orange.shade50,
+                color: AppColors.warning.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.orange.shade300),
+                border: Border.all(color: AppColors.warning.withOpacity(0.3)),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.warning_amber_rounded, size: 20, color: Colors.orange.shade900),
+                  const Icon(Icons.warning_amber_rounded, size: 20, color: AppColors.warning),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       '⏰ Only $daysRemaining days remaining! Renew your plan below to continue uninterrupted access.',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.orange.shade900),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.warning),
                     ),
                   ),
                 ],
@@ -479,63 +484,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
           return Padding(
             padding: const EdgeInsets.only(bottom: 12.0),
-            child: CustomCard(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                          const SizedBox(height: 2),
-                          const Text('All-in-one Shop Management', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                        ],
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text('RS ${price.toStringAsFixed(0)}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                          Text('/ $periodFormatted', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 24),
-                  _buildFeatureRow('� Full Customer Directory & Purchase History'),
-                  _buildFeatureRow('� Repair Jobs Tracking & Parts Usage'),
-                  _buildFeatureRow('� Quick Billing & Invoice Receipts'),
-                  _buildFeatureRow('� Profit Intelligence & AI Recommendations'),
-                  _buildFeatureRow('� Technician Commissions & Management'),
-                  _buildFeatureRow('� Business Reports & CSV Exports'),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      onPressed: _isProcessing ? null : () => _startRazorpayPayment(planId: planId, planName: name, planPrice: price),
-                      child: _isProcessing
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                            )
-                          : Text(
-                              currentStatus == 'active' ? 'Renew Plan (RS ${price.toStringAsFixed(0)}/$periodFormatted)' : 'Subscribe Now (RS ${price.toStringAsFixed(0)}/$periodFormatted)',
-                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                            ),
-                    ),
-                  ),
-                ],
-              ),
+            child: _buildSinglePlanCard(
+              planId: planId,
+              name: name,
+              price: price,
+              periodFormatted: periodFormatted,
+              currentStatus: currentStatus,
             ),
           );
         }).toList(),
@@ -543,8 +497,28 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     }
 
     // Default Plan Card
+    return _buildSinglePlanCard(
+      planId: 1,
+      name: 'Mobile Profits Pro',
+      price: 200.0,
+      periodFormatted: 'month',
+      currentStatus: currentStatus,
+    );
+  }
+
+  Widget _buildSinglePlanCard({
+    required int planId,
+    required String name,
+    required double price,
+    required String periodFormatted,
+    required String currentStatus,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMutedColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
+
     return CustomCard(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -554,38 +528,50 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Mobile Profits Pro', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                  Text(name, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: textColor)),
                   const SizedBox(height: 2),
-                  const Text('All-in-one Shop Management', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                  Text('All-in-one Shop Management', style: TextStyle(fontSize: 12, color: textMutedColor)),
                 ],
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
-                children: const [
-                  Text('RS 200', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                  Text('/ month', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                children: [
+                  Text('₹${price.toStringAsFixed(0)}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.primary)),
+                  Text('/ $periodFormatted', style: TextStyle(fontSize: 11, color: textMutedColor)),
                 ],
               ),
             ],
           ),
-          const Divider(height: 24),
-          _buildFeatureRow('� Full Customer Directory & Purchase History'),
-          _buildFeatureRow('� Repair Jobs Tracking & Parts Usage'),
-          _buildFeatureRow('� Quick Billing & Invoice Receipts'),
-          _buildFeatureRow('� Profit Intelligence & AI Recommendations'),
-          _buildFeatureRow('� Technician Commissions & Management'),
-          _buildFeatureRow('� Business Reports & CSV Exports'),
+          Divider(height: 24, color: isDark ? AppColors.darkBorder : AppColors.border),
+          _buildFeatureRow('✔ Full Customer Directory & Purchase History'),
+          _buildFeatureRow('✔ Repair Jobs Tracking & Parts Usage'),
+          _buildFeatureRow('✔ Quick Billing & Invoice Receipts'),
+          _buildFeatureRow('✔ Profit Intelligence & AI Recommendations'),
+          _buildFeatureRow('✔ Technician Commissions & Management'),
+          _buildFeatureRow('✔ Business Reports & CSV Exports'),
           const SizedBox(height: 20),
-          SizedBox(
+          Container(
             width: double.infinity,
-            height: 48,
+            height: 50,
+            decoration: BoxDecoration(
+              gradient: AppColors.brandGradient,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              onPressed: _isProcessing ? null : () => _startRazorpayPayment(),
+              onPressed: _isProcessing ? null : () => _startRazorpayPayment(planId: planId, planName: name, planPrice: price),
               child: _isProcessing
                   ? const SizedBox(
                       width: 20,
@@ -593,7 +579,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                       child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                     )
                   : Text(
-                      currentStatus == 'active' ? 'Renew Plan (RS 200/mo)' : 'Subscribe Now (RS 200/mo)',
+                      currentStatus == 'active' ? 'Renew Plan (₹${price.toStringAsFixed(0)}/$periodFormatted)' : 'Subscribe Now (₹${price.toStringAsFixed(0)}/$periodFormatted)',
                       style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                     ),
             ),
@@ -604,18 +590,25 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   }
 
   Widget _buildFeatureRow(String text) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
-      child: Text(text, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+      child: Text(text, style: TextStyle(fontSize: 13, color: textColor, fontWeight: FontWeight.w500)),
     );
   }
 
   Widget _buildHistoryList() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMutedColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
+
     if (_historyList.isEmpty) {
-      return const CustomCard(
-        padding: EdgeInsets.all(20),
+      return CustomCard(
+        padding: const EdgeInsets.all(20),
         child: Center(
-          child: Text('No previous payment transactions found.', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+          child: Text('No previous payment transactions found.', style: TextStyle(color: textMutedColor, fontSize: 13)),
         ),
       );
     }
@@ -640,11 +633,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(item['plan_name'] ?? 'Mobile Profits Pro', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      Text(item['plan_name'] ?? 'Mobile Profits Pro', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor)),
                       const SizedBox(height: 2),
                       Text(
                         'Order: ${item['order_id'] ?? ''}',
-                        style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                        style: TextStyle(fontSize: 11, color: textMutedColor),
                         overflow: TextOverflow.ellipsis,
                         maxLines: 1,
                       ),
@@ -655,14 +648,14 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('RS ${amount.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textPrimary)),
+                    Text('₹${amount.toStringAsFixed(0)}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor)),
                     const SizedBox(height: 2),
                     Text(
                       status.toUpperCase(),
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: status == 'successful' ? Colors.green : (status == 'pending' ? Colors.orange : Colors.red),
+                        color: status == 'successful' ? AppColors.accent : (status == 'pending' ? AppColors.warning : AppColors.error),
                       ),
                     ),
                   ],
