@@ -152,6 +152,8 @@ Route::prefix('v1')->group(function () {
         // Customer Devices Module
         Route::get('/devices', [DeviceController::class, 'indexGlobal']);
         Route::get('/devices/search', [DeviceController::class, 'search']);
+        Route::get('/device-brands', [DeviceController::class, 'getBrands']);
+        Route::get('/device-models', [DeviceController::class, 'getModels']);
         Route::apiResource('customers.devices', DeviceController::class)->shallow();
 
         // Sales & Invoicing Module

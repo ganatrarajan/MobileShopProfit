@@ -261,4 +261,96 @@ class DeviceController extends Controller
 
         return $this->successResponse(null, 'Device deleted successfully');
     }
+
+    /**
+     * Get unique device brands from storage/app/public/device/devices.json
+     */
+    /**
+     * Get unique device brands from storage/app/public/device/devices.json
+     */
+    public function getBrands(Request $request): JsonResponse
+    {
+        $jsonPath = storage_path('app/public/device/devices.json');
+
+        if (! \Illuminate\Support\Facades\File::exists($jsonPath)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'devices.json not found',
+                'data'    => [],
+            ], 404);
+        }
+
+        $brands = \Illuminate\Support\Facades\Cache::remember('device_brands_list_v2', 86400, function () use ($jsonPath) {
+            $content = \Illuminate\Support\Facades\File::get($jsonPath);
+            $devices = json_decode($content, true) ?? [];
+
+            $brandList = [];
+            foreach ($devices as $key => $item) {
+                if (is_array($item) && ! empty($item['brand'])) {
+                    $brandList[] = trim($item['brand']);
+                }
+            }
+
+            sort($brandList);
+            return array_values(array_unique($brandList));
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Brands retrieved successfully',
+            'data'    => $brands,
+        ]);
+    }
+
+    /**
+     * Get device models for a specific brand from storage/app/public/device/devices.json
+     */
+    public function getModels(Request $request): JsonResponse
+    {
+        $brandName = $request->query('brand');
+
+        if (! $brandName) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Brand parameter is required',
+                'data'    => [],
+            ], 400);
+        }
+
+        $jsonPath = storage_path('app/public/device/devices.json');
+
+        if (! \Illuminate\Support\Facades\File::exists($jsonPath)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'devices.json not found',
+                'data'    => [],
+            ], 404);
+        }
+
+        $cacheKey = 'device_models_v2_' . md5(strtolower(trim($brandName)));
+
+        $models = \Illuminate\Support\Facades\Cache::remember($cacheKey, 86400, function () use ($jsonPath, $brandName) {
+            $content = \Illuminate\Support\Facades\File::get($jsonPath);
+            $devices = json_decode($content, true) ?? [];
+
+            $modelList = [];
+            foreach ($devices as $key => $item) {
+                if (is_array($item) && ! empty($item['brand']) && strcasecmp(trim($item['brand']), trim($brandName)) === 0) {
+                    $modelVal = ! empty($item['name']) ? $item['name'] : (! empty($item['model']) ? $item['model'] : $key);
+                    if (! empty($modelVal)) {
+                        $modelList[] = trim($modelVal);
+                    }
+                }
+            }
+
+            sort($modelList);
+            return array_values(array_unique($modelList));
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Models retrieved successfully',
+            'data'    => $models,
+        ]);
+    }
 }
