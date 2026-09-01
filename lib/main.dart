@@ -33,6 +33,7 @@ class MobileShopProfitApp extends StatelessWidget {
           centerTitle: false,
         ),
       ),
+      navigatorKey: AppRoutes.navigatorKey,
       initialRoute: AppRoutes.splash,
       onGenerateRoute: AppRoutes.generateRoute,
     );

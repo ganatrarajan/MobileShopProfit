@@ -56,6 +56,8 @@ import '../../features/warranty/presentation/warranty_details_screen.dart';
 import '../../features/warranty/presentation/warranty_list_screen.dart';
 
 class AppRoutes {
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
   static const String splash = '/';
   static const String login = '/login';
   static const String register = '/register';
@@ -121,7 +123,8 @@ class AppRoutes {
       case splash:
         return MaterialPageRoute(builder: (_) => const SplashScreen());
       case login:
-        return MaterialPageRoute(builder: (_) => const LoginScreen());
+        final errorMsg = settings.arguments is String ? settings.arguments as String : null;
+        return MaterialPageRoute(builder: (_) => LoginScreen(errorMessage: errorMsg));
       case register:
         return MaterialPageRoute(builder: (_) => const RegisterScreen());
       case forgotPassword:

@@ -6,7 +6,9 @@ import '../../../core/widgets/custom_text_field.dart';
 import '../data/auth_repository.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final String? errorMessage;
+
+  const LoginScreen({super.key, this.errorMessage});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -20,6 +22,25 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _isLoading = false;
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.errorMessage != null && widget.errorMessage!.isNotEmpty) {
+      _errorMessage = widget.errorMessage;
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final routeArgs = ModalRoute.of(context)?.settings.arguments;
+    if (routeArgs is String && routeArgs.isNotEmpty && _errorMessage == null) {
+      setState(() {
+        _errorMessage = routeArgs;
+      });
+    }
+  }
 
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;

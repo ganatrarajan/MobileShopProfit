@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config/env_config.dart';
+import '../routes/app_routes.dart';
 import '../storage/auth_storage.dart';
 import 'api_exception.dart';
 import 'api_response.dart';
@@ -168,6 +169,16 @@ class ApiClient {
       return ApiResponse.fromJson(jsonResponseBody, fromJson);
     } else {
       final message = jsonResponseBody['message'] ?? 'Request failed with status code ${response.statusCode}';
+
+      if (response.statusCode == 403 || response.statusCode == 401) {
+        _authStorage.clearSession();
+        AppRoutes.navigatorKey.currentState?.pushNamedAndRemoveUntil(
+          AppRoutes.login,
+          (route) => false,
+          arguments: message,
+        );
+      }
+
       throw ApiException(
         message: message,
         statusCode: response.statusCode,

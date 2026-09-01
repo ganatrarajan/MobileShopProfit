@@ -191,6 +191,8 @@ class DashboardData {
   final bool isEmptyShop;
   final String shopName;
   final String ownerName;
+  final int daysRemaining;
+  final bool isExpiringSoon;
   final SalesSummary sales;
   final RepairSummary repairs;
   final InventorySummary inventory;
@@ -205,6 +207,8 @@ class DashboardData {
     required this.isEmptyShop,
     this.shopName = 'Mobile Repair Shop',
     this.ownerName = 'Shop Owner',
+    this.daysRemaining = 999,
+    this.isExpiringSoon = false,
     required this.sales,
     required this.repairs,
     required this.inventory,
@@ -241,6 +245,9 @@ class DashboardData {
         ?.toString() ??
         '';
 
+    final int dRemaining = _parseInt(dataMap['days_remaining'] ?? json['days_remaining'] ?? 999);
+    final bool expiring = (dataMap['is_expiring_soon'] == true || dRemaining <= 10);
+
     return DashboardData(
       period: json['period']?.toString() ?? 'this_month',
       startDate: dateRange['start_date']?.toString() ?? '',
@@ -248,6 +255,8 @@ class DashboardData {
       isEmptyShop: json['is_empty_shop'] == true,
       shopName: sName.isNotEmpty ? sName : 'Mobile Repair Shop',
       ownerName: oName.isNotEmpty ? oName : 'Shop Owner',
+      daysRemaining: dRemaining,
+      isExpiringSoon: expiring,
       sales: SalesSummary.fromJson(Map<String, dynamic>.from(dataMap['sales'] ?? {})),
       repairs: RepairSummary.fromJson(Map<String, dynamic>.from(dataMap['repairs'] ?? {})),
       inventory: InventorySummary.fromJson(Map<String, dynamic>.from(dataMap['inventory'] ?? {})),

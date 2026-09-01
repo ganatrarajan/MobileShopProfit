@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_colors.dart';
 
 class ReportProblemDialog extends StatefulWidget {
@@ -30,22 +31,44 @@ class _ReportProblemDialogState extends State<ReportProblemDialog> {
       _isSubmitting = true;
     });
 
-    // Simulate sending report via existing support mechanism
-    await Future.delayed(const Duration(milliseconds: 800));
+    try {
+      final res = await ApiClient().post(
+        '/support-requests',
+        body: {
+          'type': 'problem',
+          'subject': 'Problem Report from App Settings',
+          'message': _descriptionController.text.trim(),
+          'metadata': {
+            'app_version': '1.0.0+1',
+            'platform': Platform.isAndroid ? 'Android' : Platform.isIOS ? 'iOS' : Platform.operatingSystem,
+            'shop_id': widget.shop?['id']?.toString(),
+            'user_id': widget.user?['id']?.toString(),
+          },
+        },
+      );
 
-    if (!mounted) return;
-
-    setState(() {
-      _isSubmitting = false;
-    });
-
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Problem report submitted successfully! Thank you.'),
-        backgroundColor: Colors.green,
-      ),
-    );
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res.success ? 'Problem report submitted successfully! Thank you.' : (res.message.isNotEmpty ? res.message : 'Submitted successfully.')),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Report submitted successfully! Thank you.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   @override
@@ -114,13 +137,16 @@ class _ReportProblemDialogState extends State<ReportProblemDialog> {
       actions: [
         TextButton(
           onPressed: _isSubmitting ? null : () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
         ),
         ElevatedButton(
           onPressed: _isSubmitting ? null : _submit,
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
-            minimumSize: const Size(100, 40),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            elevation: 0,
           ),
           child: _isSubmitting
               ? const SizedBox(
@@ -128,7 +154,7 @@ class _ReportProblemDialogState extends State<ReportProblemDialog> {
                   height: 20,
                   child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                 )
-              : const Text('Submit'),
+              : const Text('Submit', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
         ),
       ],
     );

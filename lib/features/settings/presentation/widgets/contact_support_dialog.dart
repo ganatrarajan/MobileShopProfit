@@ -1,15 +1,58 @@
 import 'package:flutter/material.dart';
+import '../../../../core/constants/api_endpoints.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_colors.dart';
 
-class ContactSupportDialog extends StatelessWidget {
+class ContactSupportDialog extends StatefulWidget {
   final Map<String, dynamic>? user;
   final Map<String, dynamic>? shop;
 
   const ContactSupportDialog({super.key, this.user, this.shop});
 
-  static const String supportEmail = 'support@mobileprofits.com';
-  static const String supportPhone = '+91 98765 43210';
-  static const String supportHours = 'Mon - Sat: 9:00 AM - 8:00 PM IST';
+  @override
+  State<ContactSupportDialog> createState() => _ContactSupportDialogState();
+}
+
+class _ContactSupportDialogState extends State<ContactSupportDialog> {
+  String _supportEmail = 'support@mobileprofits.com';
+  String _supportPhone = '+91 98765 43210';
+  String _supportHours = 'Mon - Sat: 9:00 AM - 8:00 PM IST';
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchContactInfo();
+  }
+
+  Future<void> _fetchContactInfo() async {
+    try {
+      final res = await ApiClient().get(ApiEndpoints.supportContactInfo);
+      if (mounted && res.success && res.data != null) {
+        final dynamic raw = res.data;
+        final Map<String, dynamic> data = (raw is Map && raw.containsKey('data'))
+            ? Map<String, dynamic>.from(raw['data'])
+            : (raw is Map ? Map<String, dynamic>.from(raw) : {});
+
+        setState(() {
+          if (data['support_email'] != null && data['support_email'].toString().isNotEmpty) {
+            _supportEmail = data['support_email'].toString();
+          }
+          if (data['support_phone'] != null && data['support_phone'].toString().isNotEmpty) {
+            _supportPhone = data['support_phone'].toString();
+          }
+          if (data['support_hours'] != null && data['support_hours'].toString().isNotEmpty) {
+            _supportHours = data['support_hours'].toString();
+          }
+          _isLoading = false;
+        });
+      } else {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,23 +75,30 @@ class ContactSupportDialog extends StatelessWidget {
               style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 16),
-            _buildContactTile(
-              icon: Icons.email_rounded,
-              title: 'Official Support Email',
-              value: supportEmail,
-            ),
-            const SizedBox(height: 10),
-            _buildContactTile(
-              icon: Icons.phone_rounded,
-              title: 'Support Helpline',
-              value: supportPhone,
-            ),
-            const SizedBox(height: 10),
-            _buildContactTile(
-              icon: Icons.access_time_rounded,
-              title: 'Working Hours',
-              value: supportHours,
-            ),
+            if (_isLoading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary))),
+              )
+            else ...[
+              _buildContactTile(
+                icon: Icons.email_rounded,
+                title: 'Official Support Email',
+                value: _supportEmail,
+              ),
+              const SizedBox(height: 10),
+              _buildContactTile(
+                icon: Icons.phone_rounded,
+                title: 'Support Helpline',
+                value: _supportPhone,
+              ),
+              const SizedBox(height: 10),
+              _buildContactTile(
+                icon: Icons.access_time_rounded,
+                title: 'Working Hours',
+                value: _supportHours,
+              ),
+            ],
           ],
         ),
       ),
@@ -57,9 +107,12 @@ class ContactSupportDialog extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
-            minimumSize: const Size(100, 40),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            elevation: 0,
           ),
-          child: const Text('Close'),
+          child: const Text('Close', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
         ),
       ],
     );

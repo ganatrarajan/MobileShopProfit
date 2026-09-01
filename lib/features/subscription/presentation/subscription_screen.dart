@@ -326,19 +326,37 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     Color badgeColor;
     String statusText;
     IconData statusIcon;
+    String badgeTagText = status.toUpperCase();
+
+    final bool isExpiringSoon = (daysRemaining <= 10);
 
     if (status == 'active') {
-      badgeColor = Colors.green;
-      statusText = 'Active Subscription';
-      statusIcon = Icons.verified_rounded;
+      if (isExpiringSoon) {
+        badgeColor = Colors.orange.shade800;
+        statusText = 'Active (Expiring Soon)';
+        statusIcon = Icons.timer_outlined;
+        badgeTagText = 'EXPIRING SOON';
+      } else {
+        badgeColor = Colors.green;
+        statusText = 'Active Subscription';
+        statusIcon = Icons.verified_rounded;
+      }
     } else if (status == 'expired') {
       badgeColor = Colors.red;
       statusText = 'Subscription Expired';
       statusIcon = Icons.error_rounded;
+      badgeTagText = 'EXPIRED';
     } else {
-      badgeColor = Colors.orange;
-      statusText = 'Free Trial Active';
-      statusIcon = Icons.hourglass_top_rounded;
+      if (isExpiringSoon) {
+        badgeColor = Colors.orange.shade800;
+        statusText = 'Trial Expiring Soon';
+        statusIcon = Icons.hourglass_bottom_rounded;
+        badgeTagText = 'EXPIRING SOON';
+      } else {
+        badgeColor = Colors.orange;
+        statusText = 'Free Trial Active';
+        statusIcon = Icons.hourglass_top_rounded;
+      }
     }
 
     return CustomCard(
@@ -355,7 +373,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   const SizedBox(width: 8),
                   Text(
                     statusText,
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: badgeColor),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: badgeColor),
                   ),
                 ],
               ),
@@ -364,10 +382,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 decoration: BoxDecoration(
                   color: badgeColor.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(20),
+                  border: isExpiringSoon ? Border.all(color: badgeColor.withOpacity(0.5)) : null,
                 ),
                 child: Text(
-                  status.toUpperCase(),
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: badgeColor),
+                  badgeTagText,
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: badgeColor),
                 ),
               ),
             ],
@@ -379,11 +398,18 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Days Remaining', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                  Text(
+                    'Days Remaining',
+                    style: TextStyle(fontSize: 12, color: isExpiringSoon ? Colors.deepOrange : AppColors.textMuted),
+                  ),
                   const SizedBox(height: 2),
                   Text(
                     '$daysRemaining Days',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: isExpiringSoon ? Colors.deepOrange.shade800 : AppColors.textPrimary,
+                    ),
                   ),
                 ],
               ),
@@ -394,12 +420,39 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   const SizedBox(height: 2),
                   Text(
                     expiryDate,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: isExpiringSoon ? Colors.deepOrange.shade800 : AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
             ],
           ),
+          if (isExpiringSoon) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.orange.shade300),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, size: 20, color: Colors.orange.shade900),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '‚è∞ Only $daysRemaining days remaining! Renew your plan below to continue uninterrupted access.',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.orange.shade900),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -452,12 +505,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     ],
                   ),
                   const Divider(height: 24),
-                  _buildFeatureRow('ï Full Customer Directory & Purchase History'),
-                  _buildFeatureRow('ï Repair Jobs Tracking & Parts Usage'),
-                  _buildFeatureRow('ï Quick Billing & Invoice Receipts'),
-                  _buildFeatureRow('ï Profit Intelligence & AI Recommendations'),
-                  _buildFeatureRow('ï Technician Commissions & Management'),
-                  _buildFeatureRow('ï Business Reports & CSV Exports'),
+                  _buildFeatureRow('ÔøΩ Full Customer Directory & Purchase History'),
+                  _buildFeatureRow('ÔøΩ Repair Jobs Tracking & Parts Usage'),
+                  _buildFeatureRow('ÔøΩ Quick Billing & Invoice Receipts'),
+                  _buildFeatureRow('ÔøΩ Profit Intelligence & AI Recommendations'),
+                  _buildFeatureRow('ÔøΩ Technician Commissions & Management'),
+                  _buildFeatureRow('ÔøΩ Business Reports & CSV Exports'),
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
@@ -516,12 +569,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             ],
           ),
           const Divider(height: 24),
-          _buildFeatureRow('ï Full Customer Directory & Purchase History'),
-          _buildFeatureRow('ï Repair Jobs Tracking & Parts Usage'),
-          _buildFeatureRow('ï Quick Billing & Invoice Receipts'),
-          _buildFeatureRow('ï Profit Intelligence & AI Recommendations'),
-          _buildFeatureRow('ï Technician Commissions & Management'),
-          _buildFeatureRow('ï Business Reports & CSV Exports'),
+          _buildFeatureRow('ÔøΩ Full Customer Directory & Purchase History'),
+          _buildFeatureRow('ÔøΩ Repair Jobs Tracking & Parts Usage'),
+          _buildFeatureRow('ÔøΩ Quick Billing & Invoice Receipts'),
+          _buildFeatureRow('ÔøΩ Profit Intelligence & AI Recommendations'),
+          _buildFeatureRow('ÔøΩ Technician Commissions & Management'),
+          _buildFeatureRow('ÔøΩ Business Reports & CSV Exports'),
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,

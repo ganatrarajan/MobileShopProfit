@@ -35,6 +35,7 @@ class DashboardScreenState extends State<DashboardScreen> {
   String? _errorMessage;
   DashboardData? _dashboardData;
   ProfitIntelligenceData? _profitAiData;
+  bool _hasShownExpiryDialog = false;
 
   String _storedShopName = '';
   String _storedOwnerName = '';
@@ -129,6 +130,13 @@ class DashboardScreenState extends State<DashboardScreen> {
             _dashboardData = res.data!;
             _isLoading = false;
           });
+
+          if (_dashboardData != null && (_dashboardData!.daysRemaining <= 10 || _dashboardData!.isExpiringSoon) && !_hasShownExpiryDialog) {
+            _hasShownExpiryDialog = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _showSubscriptionExpiryDialog(_dashboardData!.daysRemaining);
+            });
+          }
         } else {
           setState(() {
             _errorMessage = res.message;
@@ -222,6 +230,10 @@ class DashboardScreenState extends State<DashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Subscription Expiry Highlight Card (Shown if 10 or fewer days remaining)
+                        if (_dashboardData!.daysRemaining <= 10 || _dashboardData!.isExpiringSoon)
+                          _buildSubscriptionHighlightCard(_dashboardData!.daysRemaining),
+
                         // 1. TOP USP: ⭐ Profit AI Business Assistant Banner (FEATURED AT VERY TOP!)
                         _buildTopProfitAiBanner(),
                         const SizedBox(height: 16),
@@ -833,6 +845,139 @@ class DashboardScreenState extends State<DashboardScreen> {
       default:
         break;
     }
+  }
+
+  void _showSubscriptionExpiryDialog(int daysRemaining) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.timer_outlined, size: 40, color: Colors.orange.shade800),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                '⏰ Subscription Expiring Soon!',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Only $daysRemaining days remaining on your active subscription plan! Please renew your plan now to continue uninterrupted access to sales billing, repair tracking, and profit intelligence.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange.shade800,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.pushNamed(context, AppRoutes.subscription);
+                  },
+                  icon: const Icon(Icons.rocket_launch_rounded, size: 20),
+                  label: const Text('Renew Plan Now', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Remind Me Later', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubscriptionHighlightCard(int daysRemaining) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.orange.shade800, Colors.deepOrange.shade600],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.alarm_rounded, color: Colors.white, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '⏰ Subscription Expiring in $daysRemaining Days!',
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Renew your plan to keep shop billing, repairs & AI active without interruption.',
+                      style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.9)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.orange.shade900,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () => Navigator.pushNamed(context, AppRoutes.subscription),
+              icon: const Icon(Icons.shopping_cart_checkout_rounded, size: 16),
+              label: const Text('Renew Plan Now', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
