@@ -19,7 +19,7 @@ class DeviceController extends Controller
     /**
      * Get all devices belonging to a specific customer.
      */
-    public function indexForCustomer(Request $request, Customer $customer): JsonResponse
+    public function index(Request $request, Customer $customer): JsonResponse
     {
         $shopId = $request->user()->shop_id;
         if ($customer->shop_id !== $shopId) {
@@ -34,10 +34,15 @@ class DeviceController extends Controller
         );
     }
 
+    public function indexForCustomer(Request $request, Customer $customer): JsonResponse
+    {
+        return $this->index($request, $customer);
+    }
+
     /**
      * Store a new device for a specific customer.
      */
-    public function storeForCustomer(CreateDeviceRequest $request, Customer $customer): JsonResponse
+    public function store(CreateDeviceRequest $request, Customer $customer): JsonResponse
     {
         $shopId = $request->user()->shop_id;
 
@@ -105,6 +110,19 @@ class DeviceController extends Controller
             'Device registered successfully',
             201
         );
+    }
+
+    public function storeForCustomer(CreateDeviceRequest $request, Customer $customer): JsonResponse
+    {
+        return $this->store($request, $customer);
+    }
+
+    /**
+     * Alias for search endpoint.
+     */
+    public function search(Request $request): JsonResponse
+    {
+        return $this->indexGlobal($request);
     }
 
     /**

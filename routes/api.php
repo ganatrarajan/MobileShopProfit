@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\V1\SalePaymentController;
 use App\Http\Controllers\Api\V1\ShopController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
 use App\Http\Controllers\Api\V1\TechnicianController;
+use App\Http\Controllers\Api\V1\TechnicianPaymentController;
 use App\Http\Controllers\Api\V1\WarrantyClaimController;
 use App\Http\Controllers\Api\V1\WarrantyController;
 use App\Http\Controllers\Api\V1\WebhookController;
@@ -149,8 +150,9 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('customers', CustomerController::class);
 
         // Customer Devices Module
+        Route::get('/devices', [DeviceController::class, 'indexGlobal']);
         Route::get('/devices/search', [DeviceController::class, 'search']);
-        Route::apiResource('customers.devices', DeviceController::class)->except(['index']);
+        Route::apiResource('customers.devices', DeviceController::class)->shallow();
 
         // Sales & Invoicing Module
         Route::apiResource('sales', SaleController::class);
@@ -158,12 +160,16 @@ Route::prefix('v1')->group(function () {
 
         // Repairs Module
         Route::apiResource('repairs', RepairController::class);
+        Route::match(['post', 'patch', 'put'], '/repairs/{repair}/status', [RepairController::class, 'updateStatus']);
         Route::post('/repairs/{repair}/parts', [RepairPartController::class, 'store']);
         Route::delete('/repairs/{repair}/parts/{part}', [RepairPartController::class, 'destroy']);
+        Route::match(['post', 'delete'], '/repair-parts/{part}', [RepairPartController::class, 'destroy']);
         Route::post('/repairs/{repair}/payments', [RepairPaymentController::class, 'store']);
 
         // Warranties Module
         Route::apiResource('warranties', WarrantyController::class);
+        Route::get('/warranties/{warranty}/claims', [WarrantyClaimController::class, 'index']);
+        Route::post('/warranties/{warranty}/claims', [WarrantyClaimController::class, 'store']);
         Route::apiResource('warranty-claims', WarrantyClaimController::class);
 
         // Inventory Module
@@ -175,6 +181,11 @@ Route::prefix('v1')->group(function () {
 
         // Technicians Module
         Route::apiResource('technicians', TechnicianController::class);
+        Route::get('/technicians/{technician}/payments', [TechnicianPaymentController::class, 'index']);
+        Route::post('/technicians/{technician}/payments', [TechnicianPaymentController::class, 'store']);
+        Route::post('/technician-payments', [TechnicianPaymentController::class, 'store']);
+        Route::delete('/technician-payments/{payment}', [TechnicianPaymentController::class, 'destroy']);
+        Route::delete('/technicians/{technician}/payments/{payment}', [TechnicianPaymentController::class, 'destroy']);
 
         // Reports Module
         Route::get('/reports/sales', [ReportController::class, 'sales']);

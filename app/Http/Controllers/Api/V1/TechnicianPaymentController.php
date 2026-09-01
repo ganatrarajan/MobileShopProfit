@@ -44,8 +44,12 @@ class TechnicianPaymentController extends Controller
     /**
      * Record a new payout to a technician.
      */
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, ?int $technicianId = null): JsonResponse
     {
+        if ($technicianId && !$request->has('technician_id')) {
+            $request->merge(['technician_id' => $technicianId]);
+        }
+
         $user = $request->user();
         $shopId = $user->shop_id ?? $user->shop?->id;
 
