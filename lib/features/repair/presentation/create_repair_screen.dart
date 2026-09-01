@@ -9,6 +9,7 @@ import '../../customer/data/customer_repository.dart';
 import '../../customer/models/customer.dart';
 import '../../device/data/device_repository.dart';
 import '../../device/models/device.dart';
+import '../../subscription/utils/subscription_guard.dart';
 import '../data/repair_repository.dart';
 
 class CreateRepairScreen extends StatefulWidget {
@@ -82,6 +83,12 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
     super.initState();
     _loadCustomers();
     _loadTechnicians();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (mounted) {
+        final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create repair tickets');
+        if (!ok && mounted) Navigator.pop(context);
+      }
+    });
   }
 
   @override

@@ -12,6 +12,8 @@ import '../models/sale.dart';
 import '../../inventory/data/inventory_repository.dart';
 import '../../inventory/models/inventory_item.dart';
 
+import '../../subscription/utils/subscription_guard.dart';
+
 class CreateSaleScreen extends StatefulWidget {
   const CreateSaleScreen({super.key});
 
@@ -47,6 +49,12 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
   void initState() {
     super.initState();
     _loadCustomers();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (mounted) {
+        final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create sales invoices');
+        if (!ok && mounted) Navigator.pop(context);
+      }
+    });
   }
 
   @override

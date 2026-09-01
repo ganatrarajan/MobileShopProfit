@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/custom_card.dart';
+import '../../subscription/utils/subscription_guard.dart';
 import '../data/customer_repository.dart';
 import '../models/customer.dart';
 
@@ -17,7 +18,7 @@ class CustomerListScreen extends StatefulWidget {
 class _CustomerListScreenState extends State<CustomerListScreen> {
   final CustomerRepository _repository = CustomerRepository();
   final TextEditingController _searchController = TextEditingController();
-  Timer? _debounce;
+  Timer? _debounceTimer;
 
   List<Customer> _customers = [];
   bool _isLoading = true;
@@ -29,22 +30,31 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
     _fetchCustomers();
   }
 
-  Future<void> _fetchCustomers({String? query, int page = 1}) async {
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchCustomers({String query = ''}) async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      final response = await _repository.getCustomers(search: query, page: page);
+      final response = await _repository.getCustomers(search: query);
       if (mounted) {
         if (response.success && response.data != null) {
           setState(() {
             _customers = response.data!;
+            _isLoading = false;
           });
         } else {
           setState(() {
             _errorMessage = response.message;
+            _isLoading = false;
           });
         }
       }
@@ -52,11 +62,6 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
       if (mounted) {
         setState(() {
           _errorMessage = e.toString();
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
           _isLoading = false;
         });
       }
@@ -64,9 +69,9 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
   }
 
   void _onSearchChanged(String query) {
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 350), () {
-      _fetchCustomers(query: query, page: 1);
+    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 400), () {
+      _fetchCustomers(query: query);
     });
   }
 
@@ -74,13 +79,13 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Customer'),
-        content: Text('Are you sure you want to delete ${customer.name}?'),
+        title: const Text('Delete Customer?'),
+        content: Text('Are you sure you want to delete ${customer.name}? This action cannot be undone.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Delete'),
           ),
         ],
@@ -88,16 +93,24 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
     );
 
     if (confirm == true) {
-      final response = await _repository.deleteCustomer(customer.id);
-      if (mounted) {
-        if (response.success) {
+      try {
+        final res = await _repository.deleteCustomer(customer.id);
+        if (mounted) {
+          if (res.success) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Customer deleted successfully')),
+            );
+            _fetchCustomers(query: _searchController.text);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(res.message), backgroundColor: AppColors.error),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Customer ${customer.name} deleted')),
-          );
-          _fetchCustomers(query: _searchController.text);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(response.message)),
+            SnackBar(content: Text('Failed to delete: $e'), backgroundColor: AppColors.error),
           );
         }
       }
@@ -105,181 +118,191 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
   }
 
   @override
-  void dispose() {
-    _searchController.dispose();
-    _debounce?.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final bodyContent = RefreshIndicator(
-      onRefresh: () => _fetchCustomers(query: _searchController.text),
-      child: Column(
-        children: [
-          // Search Bar Header
-          Container(
-            padding: const EdgeInsets.all(16),
-            color: AppColors.primary,
-            child: TextField(
-              controller: _searchController,
-              onChanged: _onSearchChanged,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-              decoration: InputDecoration(
-                hintText: 'Search customer by name or mobile...',
-                hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
-                prefixIcon: const Icon(Icons.search_rounded, color: Colors.white70),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear_rounded, color: Colors.white70, size: 18),
-                        onPressed: () {
-                          _searchController.clear();
-                          _fetchCustomers(query: '');
-                        },
-                      )
-                    : null,
-                filled: true,
-                fillColor: AppColors.primaryLight,
-                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
+    final Widget bodyContent = Column(
+      children: [
+        // Header Bar
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+          color: AppColors.primary,
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Customers Directory',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  Text(
+                    '${_customers.length} total',
+                    style: const TextStyle(fontSize: 12, color: Colors.white70),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _searchController,
+                onChanged: _onSearchChanged,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: 'Search by name, mobile number, or city...',
+                  hintStyle: const TextStyle(color: Colors.white70, fontSize: 13),
+                  prefixIcon: const Icon(Icons.search_rounded, color: Colors.white70),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear_rounded, color: Colors.white70, size: 18),
+                          onPressed: () {
+                            _searchController.clear();
+                            _fetchCustomers(query: '');
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: AppColors.primaryLight,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
+        ),
 
-          // Main List / States
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-                : _errorMessage != null
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24.0),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.error_outline_rounded, size: 48, color: AppColors.error),
-                              const SizedBox(height: 12),
-                              Text(_errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textSecondary)),
-                              const SizedBox(height: 16),
-                              ElevatedButton(
-                                onPressed: () => _fetchCustomers(query: _searchController.text),
-                                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-                                child: const Text('Retry'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    : _customers.isEmpty
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(32.0),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(20),
-                                    decoration: const BoxDecoration(
-                                      color: AppColors.accentLight,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(Icons.people_outline_rounded, size: 48, color: AppColors.accent),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  const Text(
-                                    'No customers yet',
-                                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  const Text(
-                                    'Add your first customer to start managing your shop.',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-                                  ),
-                                  const SizedBox(height: 20),
-                                  ElevatedButton.icon(
-                                    onPressed: () async {
-                                      await Navigator.pushNamed(context, AppRoutes.addCustomer);
-                                      _fetchCustomers(query: _searchController.text);
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColors.primary,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                    ),
-                                    icon: const Icon(Icons.person_add_rounded, size: 18),
-                                    label: const Text('Add Customer'),
-                                  ),
-                                ],
-                              ),
+        // Main List / States
+        Expanded(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+              : _errorMessage != null
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.error_outline_rounded, size: 48, color: AppColors.error),
+                            const SizedBox(height: 12),
+                            Text(_errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textSecondary)),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: () => _fetchCustomers(query: _searchController.text),
+                              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                              child: const Text('Retry'),
                             ),
-                          )
-                        : ListView.builder(
-                            padding: const EdgeInsets.all(16),
-                            itemCount: _customers.length,
-                            itemBuilder: (context, index) {
-                              final customer = _customers[index];
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 10.0),
-                                child: CustomCard(
-                                  onTap: () async {
-                                    await Navigator.pushNamed(
-                                      context,
-                                      AppRoutes.customerDetails,
-                                      arguments: customer,
-                                    );
+                          ],
+                        ),
+                      ),
+                    )
+                  : _customers.isEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(32.0),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(20),
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.accentLight,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.people_outline_rounded, size: 48, color: AppColors.accent),
+                                ),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'No customers yet',
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                ),
+                                const SizedBox(height: 6),
+                                const Text(
+                                  'Add your first customer to start managing your shop.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                                ),
+                                const SizedBox(height: 20),
+                                ElevatedButton.icon(
+                                  onPressed: () async {
+                                    final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'add customers');
+                                    if (!ok) return;
+                                    await Navigator.pushNamed(context, AppRoutes.addCustomer);
                                     _fetchCustomers(query: _searchController.text);
                                   },
-                                  child: Row(
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 22,
-                                        backgroundColor: AppColors.primaryLight,
-                                        child: Text(
-                                          customer.name.isNotEmpty ? customer.name[0].toUpperCase() : 'C',
-                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                                        ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primary,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                  ),
+                                  icon: const Icon(Icons.person_add_rounded, size: 18),
+                                  label: const Text('Add Customer'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: _customers.length,
+                          itemBuilder: (context, index) {
+                            final customer = _customers[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 10.0),
+                              child: CustomCard(
+                                onTap: () async {
+                                  await Navigator.pushNamed(
+                                    context,
+                                    AppRoutes.customerDetails,
+                                    arguments: customer,
+                                  );
+                                  _fetchCustomers(query: _searchController.text);
+                                },
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 22,
+                                      backgroundColor: AppColors.primaryLight,
+                                      child: Text(
+                                        customer.name.isNotEmpty ? customer.name[0].toUpperCase() : 'C',
+                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                                       ),
-                                      const SizedBox(width: 14),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              customer.name,
-                                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                                            ),
+                                    ),
+                                    const SizedBox(width: 14),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            customer.name,
+                                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            '📱 ${customer.mobile}',
+                                            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                                          ),
+                                          if (customer.city != null && customer.city!.isNotEmpty) ...[
                                             const SizedBox(height: 2),
                                             Text(
-                                              '📱 ${customer.mobile}',
-                                              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                                              '📍 ${customer.city}',
+                                              style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
                                             ),
-                                            if (customer.city != null && customer.city!.isNotEmpty) ...[
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                '📍 ${customer.city}',
-                                                style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
-                                              ),
-                                            ],
                                           ],
-                                        ),
+                                        ],
                                       ),
-                                      IconButton(
-                                        icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 20),
-                                        onPressed: () => _deleteCustomer(customer),
-                                      ),
-                                    ],
-                                  ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 20),
+                                      onPressed: () => _deleteCustomer(customer),
+                                    ),
+                                  ],
                                 ),
-                              );
-                            },
-                          ),
-          ),
-        ],
-      ),
+                              ),
+                            );
+                          },
+                        ),
+        ),
+      ],
     );
 
     if (widget.isTab) {
@@ -289,6 +312,8 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
         floatingActionButton: FloatingActionButton(
           heroTag: 'fab_customer_tab',
           onPressed: () async {
+            final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'add customers');
+            if (!ok) return;
             await Navigator.pushNamed(context, AppRoutes.addCustomer);
             _fetchCustomers(query: _searchController.text);
           },
@@ -309,6 +334,8 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
       floatingActionButton: FloatingActionButton(
         heroTag: 'fab_customer_list',
         onPressed: () async {
+          final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'add customers');
+          if (!ok) return;
           await Navigator.pushNamed(context, AppRoutes.addCustomer);
           _fetchCustomers(query: _searchController.text);
         },

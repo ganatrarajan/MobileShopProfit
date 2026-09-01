@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../data/warranty_repository.dart';
+import '../../subscription/utils/subscription_guard.dart';
 import '../models/warranty.dart';
 
 class WarrantyListScreen extends StatefulWidget {
@@ -483,6 +484,8 @@ class _WarrantyListScreenState extends State<WarrantyListScreen> {
           IconButton(
             icon: const Icon(Icons.add_rounded),
             onPressed: () async {
+              final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'issue warranties');
+              if (!ok) return;
               final result = await Navigator.pushNamed(context, AppRoutes.createWarranty);
               if (result == true) _fetchWarranties();
             },
@@ -493,6 +496,8 @@ class _WarrantyListScreenState extends State<WarrantyListScreen> {
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'fab_warranty_list',
         onPressed: () async {
+          final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'issue warranties');
+          if (!ok) return;
           final result = await Navigator.pushNamed(context, AppRoutes.createWarranty);
           if (result == true) _fetchWarranties();
         },

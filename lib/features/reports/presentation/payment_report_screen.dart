@@ -53,12 +53,18 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
       if (mounted) {
         if (res.success && res.data != null) {
           final data = res.data!;
-          final summaryJson = data['summary'] as Map<String, dynamic>?;
-          final detailsJson = data['details']?['data'] as List<dynamic>?;
+          final summaryJson = data['summary'] is Map ? Map<String, dynamic>.from(data['summary']) : null;
+          final detailsData = data['details'];
+          List<dynamic>? detailsJson;
+          if (detailsData is Map && detailsData['data'] is List) {
+            detailsJson = detailsData['data'] as List<dynamic>;
+          } else if (detailsData is List) {
+            detailsJson = detailsData;
+          }
 
           setState(() {
             _totalCollected = double.tryParse(summaryJson?['total_collected']?.toString() ?? '') ?? 0.0;
-            _byMethod = (summaryJson?['by_method'] as Map<String, dynamic>?) ?? {};
+            _byMethod = summaryJson?['by_method'] is Map ? Map<String, dynamic>.from(summaryJson!['by_method']) : {};
             _detailsList = detailsJson ?? [];
             _isLoading = false;
           });

@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../data/inventory_repository.dart';
+import '../../subscription/utils/subscription_guard.dart';
 import '../models/inventory_item.dart';
 import 'add_stock_dialog.dart';
 import 'adjust_stock_dialog.dart';
@@ -406,6 +407,8 @@ class InventoryListScreenState extends State<InventoryListScreen> {
         floatingActionButton: FloatingActionButton.extended(
           heroTag: 'fab_inventory_tab',
           onPressed: () async {
+            final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'manage inventory items');
+            if (!ok) return;
             final result = await Navigator.pushNamed(context, AppRoutes.addInventoryItem);
             if (result == true) _fetchInventory();
           },
@@ -426,6 +429,8 @@ class InventoryListScreenState extends State<InventoryListScreen> {
           IconButton(
             icon: const Icon(Icons.add_rounded),
             onPressed: () async {
+              final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'manage inventory items');
+              if (!ok) return;
               final result = await Navigator.pushNamed(context, AppRoutes.addInventoryItem);
               if (result == true) _fetchInventory();
             },
@@ -436,6 +441,8 @@ class InventoryListScreenState extends State<InventoryListScreen> {
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'fab_inventory_list',
         onPressed: () async {
+          final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'manage inventory items');
+          if (!ok) return;
           final result = await Navigator.pushNamed(context, AppRoutes.addInventoryItem);
           if (result == true) _fetchInventory();
         },

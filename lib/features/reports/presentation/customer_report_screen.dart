@@ -55,9 +55,15 @@ class _CustomerReportScreenState extends State<CustomerReportScreen> {
       if (mounted) {
         if (res.success && res.data != null) {
           final data = res.data!;
-          final summaryJson = data['summary'] as Map<String, dynamic>?;
-          final topJson = data['top_customers'] as List<dynamic>?;
-          final detailsJson = data['details']?['data'] as List<dynamic>?;
+          final summaryJson = data['summary'] is Map ? Map<String, dynamic>.from(data['summary']) : null;
+          final topJson = data['top_customers'] is List ? (data['top_customers'] as List<dynamic>) : null;
+          final detailsData = data['details'];
+          List<dynamic>? detailsJson;
+          if (detailsData is Map && detailsData['data'] is List) {
+            detailsJson = detailsData['data'] as List<dynamic>;
+          } else if (detailsData is List) {
+            detailsJson = detailsData;
+          }
 
           setState(() {
             _totalCustomers = int.tryParse(summaryJson?['total_customers']?.toString() ?? '') ?? 0;

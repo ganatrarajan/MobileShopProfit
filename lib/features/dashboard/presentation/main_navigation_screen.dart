@@ -6,6 +6,8 @@ import '../../sales/presentation/quick_sale_screen.dart';
 import '../../sales/presentation/sales_list_screen.dart';
 import 'dashboard_screen.dart';
 
+import '../../subscription/utils/subscription_guard.dart';
+
 class MainNavigationScreen extends StatefulWidget {
   final int initialIndex;
 
@@ -37,7 +39,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     _salesListKey.currentState?.fetchSales();
   }
 
-  void _onTabTapped(int index) {
+  Future<void> _onTabTapped(int index) async {
+    if (index == 2) {
+      final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'make quick sales');
+      if (!ok) return;
+    }
+
     setState(() {
       _currentIndex = index;
     });

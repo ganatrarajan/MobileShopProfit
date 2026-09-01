@@ -6,6 +6,8 @@ import '../../../core/widgets/custom_text_field.dart';
 import '../data/inventory_repository.dart';
 import '../models/inventory_item.dart';
 
+import '../../subscription/utils/subscription_guard.dart';
+
 class AddEditInventoryItemScreen extends StatefulWidget {
   final InventoryItem? item;
   const AddEditInventoryItemScreen({super.key, this.item});
@@ -75,6 +77,13 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
     if (item != null) {
       _itemType = item.itemType;
     }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (mounted && !_isEditing) {
+        final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create inventory items');
+        if (!ok && mounted) Navigator.pop(context);
+      }
+    });
   }
 
   @override

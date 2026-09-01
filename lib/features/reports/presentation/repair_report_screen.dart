@@ -53,8 +53,14 @@ class _RepairReportScreenState extends State<RepairReportScreen> {
       if (mounted) {
         if (res.success && res.data != null) {
           final data = res.data!;
-          final summaryJson = data['summary'] as Map<String, dynamic>?;
-          final detailsJson = data['details']?['data'] as List<dynamic>?;
+          final summaryJson = data['summary'] is Map ? Map<String, dynamic>.from(data['summary']) : null;
+          final detailsData = data['details'];
+          List<dynamic>? detailsJson;
+          if (detailsData is Map && detailsData['data'] is List) {
+            detailsJson = detailsData['data'] as List<dynamic>;
+          } else if (detailsData is List) {
+            detailsJson = detailsData;
+          }
 
           setState(() {
             _summary = summaryJson != null ? RepairReportSummary.fromJson(summaryJson) : null;

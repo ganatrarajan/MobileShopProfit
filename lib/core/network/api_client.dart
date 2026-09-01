@@ -171,12 +171,14 @@ class ApiClient {
       final message = jsonResponseBody['message'] ?? 'Request failed with status code ${response.statusCode}';
 
       if (response.statusCode == 403 || response.statusCode == 401) {
-        _authStorage.clearSession();
-        AppRoutes.navigatorKey.currentState?.pushNamedAndRemoveUntil(
-          AppRoutes.login,
-          (route) => false,
-          arguments: message,
-        );
+        if (message.toLowerCase().contains('deactivated')) {
+          _authStorage.clearSession();
+          AppRoutes.navigatorKey.currentState?.pushNamedAndRemoveUntil(
+            AppRoutes.login,
+            (route) => false,
+            arguments: message,
+          );
+        }
       }
 
       throw ApiException(

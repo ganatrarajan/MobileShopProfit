@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/custom_text_field.dart';
+import '../../subscription/utils/subscription_guard.dart';
 import '../data/customer_repository.dart';
 import '../models/customer.dart';
 
@@ -28,6 +29,17 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> {
   final CustomerRepository _repository = CustomerRepository();
   bool _isLoading = false;
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (mounted) {
+        final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'add customers');
+        if (!ok && mounted) Navigator.pop(context);
+      }
+    });
+  }
 
   Future<void> _handleSaveCustomer() async {
     if (!_formKey.currentState!.validate()) return;

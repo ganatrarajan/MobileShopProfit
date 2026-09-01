@@ -7,6 +7,8 @@ import '../../inventory/models/inventory_item.dart';
 import '../data/sale_repository.dart';
 import '../models/sale.dart';
 
+import '../../subscription/utils/subscription_guard.dart';
+
 class QuickSaleScreen extends StatefulWidget {
   final VoidCallback? onSuccess;
   const QuickSaleScreen({super.key, this.onSuccess});
@@ -41,6 +43,12 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
   void initState() {
     super.initState();
     _fetchInventoryItems();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (mounted) {
+        final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'make quick sales');
+        if (!ok && mounted) Navigator.pop(context);
+      }
+    });
   }
 
   @override

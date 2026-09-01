@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../data/expense_repository.dart';
+import '../../subscription/utils/subscription_guard.dart';
 import '../models/expense.dart';
 import '../models/expense_category.dart';
 
@@ -442,6 +443,8 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
         floatingActionButton: FloatingActionButton.extended(
           heroTag: 'fab_expense_tab',
           onPressed: () async {
+            final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'manage expenses');
+            if (!ok) return;
             final res = await Navigator.pushNamed(context, AppRoutes.addExpense);
             if (res == true) _fetchExpenses();
           },
@@ -463,6 +466,8 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'fab_expense_list',
         onPressed: () async {
+          final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'manage expenses');
+          if (!ok) return;
           final res = await Navigator.pushNamed(context, AppRoutes.addExpense);
           if (res == true) _fetchExpenses();
         },

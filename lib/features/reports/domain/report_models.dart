@@ -80,7 +80,9 @@ class RepairReportSummary {
       cancelled: int.tryParse(json['cancelled']?.toString() ?? '') ?? 0,
       repairRevenue: double.tryParse(json['repair_revenue']?.toString() ?? '') ?? 0.0,
       averageRepairValue: double.tryParse(json['average_repair_value']?.toString() ?? '') ?? 0.0,
-      statusDistribution: (json['status_distribution'] as Map<String, dynamic>?) ?? {},
+      statusDistribution: json['status_distribution'] is Map
+          ? Map<String, dynamic>.from(json['status_distribution'])
+          : {},
     );
   }
 }

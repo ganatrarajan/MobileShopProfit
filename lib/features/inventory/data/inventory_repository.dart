@@ -164,7 +164,7 @@ class InventoryRepository {
 
   /// Get single item details
   Future<ApiResponse<InventoryItem>> getItemDetails(int id) async {
-    final response = await _apiClient.get('/');
+    final response = await _apiClient.get('${ApiEndpoints.inventory}/$id');
 
     if (response.success && response.data != null) {
       final dynamic rawData = response.data;
@@ -209,7 +209,7 @@ class InventoryRepository {
       if (isActive != null) 'is_active': isActive,
     };
 
-    final response = await _apiClient.put('/', body: body);
+    final response = await _apiClient.put('${ApiEndpoints.inventory}/$id', body: body);
 
     if (response.success && response.data != null) {
       final dynamic rawData = response.data;
@@ -225,7 +225,7 @@ class InventoryRepository {
 
   /// Delete inventory item
   Future<ApiResponse<void>> deleteItem(int id) async {
-    final response = await _apiClient.delete('/');
+    final response = await _apiClient.delete('${ApiEndpoints.inventory}/$id');
     return ApiResponse<void>(
       success: response.success,
       message: response.message,
@@ -251,7 +251,7 @@ class InventoryRepository {
       if (serialNumber != null && serialNumber.isNotEmpty) 'serial_number': serialNumber,
     };
 
-    final response = await _apiClient.post('//stock', body: body);
+    final response = await _apiClient.post('${ApiEndpoints.inventory}/$id/stock', body: body);
 
     if (response.success && response.data != null) {
       final dynamic rawData = response.data;
@@ -278,7 +278,7 @@ class InventoryRepository {
       'notes': notes,
     };
 
-    final response = await _apiClient.post('//adjustment', body: body);
+    final response = await _apiClient.post('${ApiEndpoints.inventory}/$id/adjustment', body: body);
 
     if (response.success && response.data != null) {
       final dynamic rawData = response.data;

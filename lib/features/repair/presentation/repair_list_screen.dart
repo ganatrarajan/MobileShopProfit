@@ -3,6 +3,7 @@ import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/status_badge.dart';
+import '../../subscription/utils/subscription_guard.dart';
 import '../data/repair_repository.dart';
 import '../models/repair.dart';
 
@@ -708,6 +709,8 @@ class RepairListScreenState extends State<RepairListScreen> {
           IconButton(
             icon: const Icon(Icons.add_rounded),
             onPressed: () async {
+              final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create repair tickets');
+              if (!ok) return;
               final result = await Navigator.pushNamed(context, AppRoutes.createRepair);
               if (result == true) {
                 _fetchRepairs();
@@ -720,6 +723,8 @@ class RepairListScreenState extends State<RepairListScreen> {
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'fab_repair_list',
         onPressed: () async {
+          final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create repair tickets');
+          if (!ok) return;
           final result = await Navigator.pushNamed(context, AppRoutes.createRepair);
           if (result == true) {
             _fetchRepairs();

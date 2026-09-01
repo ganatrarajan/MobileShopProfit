@@ -7,6 +7,8 @@ import '../data/expense_repository.dart';
 import '../models/expense.dart';
 import '../models/expense_category.dart';
 
+import '../../subscription/utils/subscription_guard.dart';
+
 class AddEditExpenseScreen extends StatefulWidget {
   final Expense? expense;
 
@@ -57,6 +59,13 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
         _selectedDate = DateTime.tryParse(exp.expenseDate) ?? DateTime.now();
       }
     }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (mounted && !_isEditing) {
+        final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create expenses');
+        if (!ok && mounted) Navigator.pop(context);
+      }
+    });
   }
 
   @override

@@ -7,6 +7,7 @@ import '../../profit_intelligence/data/profit_intelligence_repository.dart';
 import '../../profit_intelligence/domain/profit_intelligence_models.dart';
 import '../data/dashboard_repository.dart';
 import '../models/dashboard_data.dart';
+import '../../subscription/utils/subscription_guard.dart';
 import 'widgets/dashboard_drawer.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -689,13 +690,25 @@ class DashboardScreenState extends State<DashboardScreen> {
   Widget _buildFastActionsGrid() {
     return Row(
       children: [
-        _buildActionTile('⚡ Quick Sale', Icons.flash_on_rounded, Colors.orange.shade800, () => _navigateToTab(2, AppRoutes.quickSale)),
+        _buildActionTile('⚡ Quick Sale', Icons.flash_on_rounded, Colors.orange.shade800, () async {
+          final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'make quick sales');
+          if (ok && mounted) _navigateToTab(2, AppRoutes.quickSale);
+        }),
         const SizedBox(width: 8),
-        _buildActionTile('📱 Add Repair', Icons.handyman_rounded, Colors.blue.shade700, () => Navigator.pushNamed(context, AppRoutes.createRepair)),
+        _buildActionTile('📱 Add Repair', Icons.handyman_rounded, Colors.blue.shade700, () async {
+          final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create repair tickets');
+          if (ok && mounted) Navigator.pushNamed(context, AppRoutes.createRepair);
+        }),
         const SizedBox(width: 8),
-        _buildActionTile('🧾 Create Invoice', Icons.add_shopping_cart_rounded, Colors.green.shade700, () => Navigator.pushNamed(context, AppRoutes.createSale)),
+        _buildActionTile('🧾 Create Invoice', Icons.add_shopping_cart_rounded, Colors.green.shade700, () async {
+          final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create sales invoices');
+          if (ok && mounted) Navigator.pushNamed(context, AppRoutes.createSale);
+        }),
         const SizedBox(width: 8),
-        _buildActionTile('💸 Add Expense', Icons.post_add_rounded, Colors.purple.shade700, () => Navigator.pushNamed(context, AppRoutes.addExpense)),
+        _buildActionTile('💸 Add Expense', Icons.post_add_rounded, Colors.purple.shade700, () async {
+          final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'manage expenses');
+          if (ok && mounted) Navigator.pushNamed(context, AppRoutes.addExpense);
+        }),
       ],
     );
   }
@@ -848,6 +861,15 @@ class DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _showSubscriptionExpiryDialog(int daysRemaining) {
+    final bool isExpired = daysRemaining <= 0;
+    final Color mainColor = isExpired ? Colors.red.shade700 : Colors.orange.shade800;
+    final Color bgLightColor = isExpired ? Colors.red.shade50 : Colors.orange.shade50;
+    final IconData iconData = isExpired ? Icons.error_outline_rounded : Icons.timer_outlined;
+    final String titleText = isExpired ? '⏰ Subscription Expired!' : '⏰ Subscription Expiring Soon!';
+    final String bodyText = isExpired
+        ? 'Your shop subscription plan has expired. Please renew your plan to create or edit records in your shop.'
+        : 'Only $daysRemaining days remaining on your active subscription plan! Please renew your plan now to continue uninterrupted access to sales billing, repair tracking, and profit intelligence.';
+
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -861,20 +883,20 @@ class DashboardScreenState extends State<DashboardScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
+                  color: bgLightColor,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.timer_outlined, size: 40, color: Colors.orange.shade800),
+                child: Icon(iconData, size: 40, color: mainColor),
               ),
               const SizedBox(height: 16),
-              const Text(
-                '⏰ Subscription Expiring Soon!',
+              Text(
+                titleText,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
               ),
               const SizedBox(height: 10),
               Text(
-                'Only $daysRemaining days remaining on your active subscription plan! Please renew your plan now to continue uninterrupted access to sales billing, repair tracking, and profit intelligence.',
+                bodyText,
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
               ),
@@ -883,7 +905,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange.shade800,
+                    backgroundColor: mainColor,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -899,7 +921,7 @@ class DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 8),
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Remind Me Later', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+                child: Text(isExpired ? 'Dismiss' : 'Remind Me Later', style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
               ),
             ],
           ),
