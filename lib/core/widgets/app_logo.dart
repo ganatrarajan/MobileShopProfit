@@ -22,10 +22,10 @@ class AppLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double iconDimension = switch (size) {
-      AppLogoSize.small => 32.0,
-      AppLogoSize.medium => 44.0,
-      AppLogoSize.large => 68.0,
-      AppLogoSize.splash => 96.0,
+      AppLogoSize.small => 36.0,
+      AppLogoSize.medium => 48.0,
+      AppLogoSize.large => 72.0,
+      AppLogoSize.splash => 100.0,
     };
 
     final double titleFontSize = switch (size) {
@@ -49,44 +49,24 @@ class AppLogo extends StatelessWidget {
       width: iconDimension,
       height: iconDimension,
       decoration: BoxDecoration(
-        gradient: AppColors.brandGradient,
-        borderRadius: BorderRadius.circular(iconDimension * 0.28),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(iconDimension * 0.22),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.35),
-            blurRadius: iconDimension * 0.3,
-            offset: Offset(0, iconDimension * 0.12),
+            color: AppColors.primary.withOpacity(0.2),
+            blurRadius: iconDimension * 0.25,
+            offset: Offset(0, iconDimension * 0.08),
           ),
         ],
       ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Smartphone Outline
-          Icon(
-            Icons.phone_android_rounded,
-            size: iconDimension * 0.58,
-            color: Colors.white,
-          ),
-          // Profit Rupee Growth Badge overlay
-          Positioned(
-            right: iconDimension * 0.08,
-            bottom: iconDimension * 0.08,
-            child: Container(
-              padding: EdgeInsets.all(iconDimension * 0.05),
-              decoration: BoxDecoration(
-                color: AppColors.accent,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: iconDimension * 0.04),
-              ),
-              child: Icon(
-                Icons.trending_up_rounded,
-                size: iconDimension * 0.28,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(iconDimension * 0.22),
+        child: Image.asset(
+          'assets/images/app_logo.png',
+          width: iconDimension,
+          height: iconDimension,
+          fit: BoxFit.contain,
+        ),
       ),
     );
 
@@ -99,7 +79,7 @@ class AppLogo extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         logoIcon,
-        SizedBox(width: iconDimension * 0.3),
+        SizedBox(width: iconDimension * 0.25),
         Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -114,11 +94,11 @@ class AppLogo extends StatelessWidget {
                 ),
                 children: [
                   TextSpan(
-                    text: 'Mobile ',
+                    text: 'Repair',
                     style: TextStyle(color: textColor),
                   ),
                   TextSpan(
-                    text: 'Profits',
+                    text: 'Hub',
                     style: TextStyle(
                       color: isDarkBackground ? Colors.amber : AppColors.primary,
                       fontWeight: FontWeight.w900,

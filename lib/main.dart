@@ -64,7 +64,7 @@ class _MobileShopProfitAppState extends State<MobileShopProfitApp> with WidgetsB
       valueListenable: ThemeNotifier.instance,
       builder: (context, mode, child) {
         return MaterialApp(
-          title: 'Mobile Profits',
+          title: 'RepairHub',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,

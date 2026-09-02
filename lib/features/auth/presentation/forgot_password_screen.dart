@@ -14,47 +14,14 @@ class ForgotPasswordScreen extends StatefulWidget {
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _loginController = TextEditingController();
-  final _tokenController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
   final _authRepository = AuthRepository();
   bool _isLoading = false;
-  bool _codeGenerated = false;
   String? _message;
 
-  Future<void> _handleRequestResetCode() async {
-    if (_loginController.text.trim().isEmpty) {
-      setState(() => _message = 'Please enter your mobile or email');
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-      _message = null;
-    });
-
-    try {
-      final response = await _authRepository.requestPasswordReset(login: _loginController.text.trim());
-      if (mounted) {
-        if (response.success && response.data != null) {
-          setState(() {
-            _codeGenerated = true;
-            _tokenController.text = response.data['reset_token'] ?? '';
-            _message = 'Reset code generated: ${response.data['reset_token']}';
-          });
-        } else {
-          setState(() => _message = response.message);
-        }
-      }
-    } catch (e) {
-      if (mounted) setState(() => _message = e.toString());
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _handleResetPassword() async {
+  Future<void> _handleUpdatePassword() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -63,9 +30,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     });
 
     try {
-      final response = await _authRepository.resetPassword(
+      final response = await _authRepository.requestPasswordReset(
         login: _loginController.text.trim(),
-        token: _tokenController.text.trim(),
         password: _newPasswordController.text,
         passwordConfirmation: _confirmPasswordController.text,
       );
@@ -73,7 +39,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       if (mounted) {
         if (response.success) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Password updated successfully. Please log in.')),
+            SnackBar(
+              content: Text(response.message.isNotEmpty ? response.message : 'Password updated successfully. Please log in.'),
+              backgroundColor: AppColors.accent,
+            ),
           );
           Navigator.pop(context);
         } else {
@@ -90,7 +59,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   @override
   void dispose() {
     _loginController.dispose();
-    _tokenController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -113,12 +81,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Password Recovery',
+                  'Password Reset',
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  'Enter your mobile number or email to receive a reset verification code.',
+                  'Enter your registered mobile number, new password, and confirm to update directly.',
                   style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 24),
@@ -126,67 +94,53 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: _codeGenerated ? AppColors.accentLight : AppColors.errorLight,
+                      color: AppColors.errorLight,
                       borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.error.withOpacity(0.3)),
                     ),
                     child: Text(
                       _message!,
-                      style: TextStyle(color: _codeGenerated ? AppColors.accent : AppColors.error, fontSize: 13),
+                      style: const TextStyle(color: AppColors.error, fontSize: 13, fontWeight: FontWeight.w600),
                     ),
                   ),
                   const SizedBox(height: 16),
                 ],
                 CustomTextField(
-                  label: 'Registered Mobile or Email',
-                  hint: 'e.g. 9876543210',
+                  label: 'Registered Mobile Number or Email *',
+                  hint: 'e.g. 9876543210 or owner@shop.com',
                   controller: _loginController,
                   prefixIcon: Icons.phone_android_rounded,
-                  readOnly: _codeGenerated,
+                  validator: (val) => (val == null || val.trim().isEmpty) ? 'Please enter registered mobile or email' : null,
                 ),
                 const SizedBox(height: 16),
-                if (!_codeGenerated) ...[
-                  CustomButton(
-                    text: 'Get Reset Code',
-                    isLoading: _isLoading,
-                    onPressed: _handleRequestResetCode,
-                  ),
-                ] else ...[
-                  CustomTextField(
-                    label: 'Reset Verification Code *',
-                    hint: '6-digit code',
-                    controller: _tokenController,
-                    prefixIcon: Icons.key_rounded,
-                    validator: (val) => (val == null || val.isEmpty) ? 'Enter reset code' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  CustomTextField(
-                    label: 'New Password *',
-                    hint: 'At least 8 characters',
-                    controller: _newPasswordController,
-                    isPassword: true,
-                    prefixIcon: Icons.lock_outline_rounded,
-                    validator: (val) => (val == null || val.length < 8) ? 'Min 8 characters' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  CustomTextField(
-                    label: 'Confirm New Password *',
-                    hint: 'Re-enter password',
-                    controller: _confirmPasswordController,
-                    isPassword: true,
-                    prefixIcon: Icons.lock_clock_outlined,
-                    validator: (val) {
-                      if (val != _newPasswordController.text) return 'Passwords do not match';
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  CustomButton(
-                    text: 'Reset Password & Save',
-                    isLoading: _isLoading,
-                    onPressed: _handleResetPassword,
-                    icon: Icons.check_rounded,
-                  ),
-                ],
+                CustomTextField(
+                  label: 'New Password *',
+                  hint: 'Enter new password',
+                  controller: _newPasswordController,
+                  isPassword: true,
+                  prefixIcon: Icons.lock_outline_rounded,
+                  validator: (val) => (val == null || val.length < 6) ? 'Password must be at least 6 characters' : null,
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  label: 'Confirm New Password *',
+                  hint: 'Re-enter new password',
+                  controller: _confirmPasswordController,
+                  isPassword: true,
+                  prefixIcon: Icons.lock_clock_outlined,
+                  validator: (val) {
+                    if (val == null || val.isEmpty) return 'Please confirm your new password';
+                    if (val != _newPasswordController.text) return 'Passwords do not match';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 28),
+                CustomButton(
+                  text: 'Update Password',
+                  isLoading: _isLoading,
+                  onPressed: _handleUpdatePassword,
+                  icon: Icons.check_rounded,
+                ),
               ],
             ),
           ),

@@ -9,6 +9,7 @@ import 'widgets/change_password_dialog.dart';
 import 'widgets/contact_support_dialog.dart';
 import 'widgets/feedback_dialog.dart';
 import 'widgets/report_problem_dialog.dart';
+import 'pages/dynamic_page_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -187,6 +188,87 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   const SizedBox(height: 24),
 
+                  // Legal & Policies Section
+                  _buildSectionHeader('Legal & Information'),
+                  const SizedBox(height: 8),
+                  CustomCard(
+                    padding: const EdgeInsets.all(4),
+                    child: Column(
+                      children: [
+                        _buildSettingTile(
+                          icon: Icons.privacy_tip_outlined,
+                          title: 'Privacy Policy',
+                          subtitle: 'Data collection & privacy protection rules',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const DynamicPageScreen(
+                                  slug: 'privacy-policy',
+                                  defaultTitle: 'Privacy Policy',
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        const Divider(height: 1),
+                        _buildSettingTile(
+                          icon: Icons.gavel_rounded,
+                          title: 'Terms & Conditions',
+                          subtitle: 'Platform usage & SaaS agreement',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const DynamicPageScreen(
+                                  slug: 'terms-and-conditions',
+                                  defaultTitle: 'Terms & Conditions',
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        const Divider(height: 1),
+                        _buildSettingTile(
+                          icon: Icons.assignment_return_outlined,
+                          title: 'Refund & Cancellation Policy',
+                          subtitle: 'Subscription refund rules & support',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const DynamicPageScreen(
+                                  slug: 'refund-policy',
+                                  defaultTitle: 'Refund & Cancellation Policy',
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        const Divider(height: 1),
+                        _buildSettingTile(
+                          icon: Icons.delete_forever_outlined,
+                          iconColor: AppColors.warning,
+                          title: 'Request Account Deletion',
+                          subtitle: 'Data deletion policy & request process',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const DynamicPageScreen(
+                                  slug: 'delete-account',
+                                  defaultTitle: 'Account Deletion Policy',
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
                   // Help Section
                   _buildSectionHeader('Help'),
                   const SizedBox(height: 8),
@@ -245,7 +327,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         SizedBox(height: 4),
                         Text(
-                          'App Preferences � Security � Support',
+                          'App Preferences • Dynamic Legal Pages • Support',
                           style: TextStyle(fontSize: 10, color: AppColors.textMuted),
                         ),
                       ],

@@ -227,10 +227,10 @@ class AuthRepository {
     return response;
   }
 
-  Future<ApiResponse<dynamic>> requestPasswordReset({required String login}) async {
+  Future<ApiResponse<dynamic>> requestPasswordReset({required String login, String? password, String? passwordConfirmation}) async {
     return await _apiClient.post(
       ApiEndpoints.forgotPassword,
-      body: {'login': login},
+      body: {'login': login, if (password != null) 'password': password, if (passwordConfirmation != null) 'password_confirmation': passwordConfirmation},
     );
   }
 

@@ -9,7 +9,6 @@ import '../data/auth_repository.dart';
 
 class LoginScreen extends StatefulWidget {
   final String? errorMessage;
-
   const LoginScreen({super.key, this.errorMessage});
 
   @override
@@ -18,8 +17,8 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _loginController = TextEditingController(text: '7405989816');
-  final _passwordController = TextEditingController(text: '12345678');
+  final _loginController = TextEditingController();
+  final _passwordController = TextEditingController();
   final _authRepository = AuthRepository();
 
   bool _isLoading = false;
@@ -157,7 +156,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ],
                         CustomTextField(
                           label: 'Mobile Number or Email',
-                          hint: 'e.g. 7405989816',
+                          hint: 'Enter registered mobile or email',
                           controller: _loginController,
                           keyboardType: TextInputType.emailAddress,
                           prefixIcon: Icons.phone_android_rounded,
