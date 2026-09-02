@@ -129,31 +129,25 @@ class AuthController extends Controller
         $loginInput = $request->login;
         $fieldType = filter_var($loginInput, FILTER_VALIDATE_EMAIL) ? 'email' : 'mobile';
 
-        $user = User::where($fieldType, $loginInput)->first();
+        $user = User::where($fieldType, $loginInput)
+            ->orWhere('mobile', $loginInput)
+            ->orWhere('phone', $loginInput)
+            ->first();
 
         if (! $user) {
-            return $this->errorResponse('No owner account found with this mobile/email', 404);
+            return $this->errorResponse('No account found matching this mobile number or email', 404);
         }
 
-        $resetToken = Str::random(6); // 6-character reset code/token
+        if ($request->filled('password')) {
+            $user->update([
+                'password' => Hash::make($request->password),
+            ]);
+            $user->tokens()->delete();
 
-        DB::table('password_reset_tokens')->updateOrInsert(
-            ['email_or_mobile' => $loginInput],
-            [
-                'token'      => Hash::make($resetToken),
-                'created_at' => now(),
-            ]
-        );
-
-        $responsePayload = [];
-        if (config('app.env') === 'local' && config('app.debug')) {
-            $responsePayload['reset_token'] = $resetToken;
+            return $this->successResponse(null, 'Password updated successfully. Please log in with your new password.');
         }
 
-        return $this->successResponse(
-            $responsePayload,
-            'Password reset code generated successfully. Please check your registered email/mobile.'
-        );
+        return $this->successResponse(null, 'Mobile/email account verified. Please enter new password.');
     }
 
     /**

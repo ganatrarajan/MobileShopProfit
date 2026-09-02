@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\Admin\AdminAuditLogController;
 use App\Http\Controllers\Api\V1\Admin\AdminAuthController;
 use App\Http\Controllers\Api\V1\Admin\AdminDashboardController;
+use App\Http\Controllers\Api\V1\Admin\AdminPageController;
 use App\Http\Controllers\Api\V1\Admin\AdminPaymentController;
 use App\Http\Controllers\Api\V1\Admin\AdminPaymentGatewayController;
 use App\Http\Controllers\Api\V1\Admin\AdminPlanController;
@@ -11,6 +12,7 @@ use App\Http\Controllers\Api\V1\Admin\AdminShopController;
 use App\Http\Controllers\Api\V1\Admin\AdminSubscriptionController;
 use App\Http\Controllers\Api\V1\Admin\AdminSupportController;
 use App\Http\Controllers\Api\V1\Admin\AdminUserController;
+use App\Http\Controllers\Api\V1\PublicPageApiController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CustomerController;
 use App\Http\Controllers\Api\V1\DashboardController;
@@ -52,6 +54,12 @@ Route::prefix('v1')->group(function () {
             'timestamp' => now()->toIso8601String(),
         ]);
     });
+
+    // Public Content & Legal Pages APIs (Unauthenticated)
+    Route::get('/public/pages', [PublicPageApiController::class, 'index']);
+    Route::get('/public/pages/{slug}', [PublicPageApiController::class, 'getPage']);
+    Route::get('/public/settings', [PublicPageApiController::class, 'getSettings']);
+    Route::post('/public/delete-account-request', [PublicPageApiController::class, 'requestAccountDeletion']);
 
     // Public Razorpay Webhook Callback Endpoint
     Route::post('/webhooks/razorpay', [WebhookController::class, 'handleRazorpay']);
@@ -103,6 +111,13 @@ Route::prefix('v1')->group(function () {
         Route::put('/support/{id}/status', [AdminSupportController::class, 'updateStatus']);
         Route::get('/support/contact-info', [AdminSupportController::class, 'getContactInfo']);
         Route::post('/support/contact-info', [AdminSupportController::class, 'saveContactInfo']);
+
+        // Admin Dynamic Pages & CMS Management
+        Route::get('/pages', [AdminPageController::class, 'index']);
+        Route::get('/pages/{slug}', [AdminPageController::class, 'show']);
+        Route::put('/pages/{slug}', [AdminPageController::class, 'update']);
+        Route::get('/system-settings', [AdminPageController::class, 'getSettings']);
+        Route::post('/system-settings', [AdminPageController::class, 'saveSettings']);
 
         // Admin Audit Action Logs
         Route::get('/audit-logs', [AdminAuditLogController::class, 'index']);

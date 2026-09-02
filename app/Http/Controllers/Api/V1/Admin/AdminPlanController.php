@@ -7,6 +7,7 @@ use App\Models\Plan;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 class AdminPlanController extends Controller
@@ -42,6 +43,8 @@ class AdminPlanController extends Controller
             'sort_order'     => $request->sort_order ?? 0,
         ]);
 
+        Cache::forget('public_plans_list');
+
         return $this->successResponse($plan, 'Plan created successfully', 201);
     }
 
@@ -70,6 +73,8 @@ class AdminPlanController extends Controller
             'sort_order'     => $request->sort_order ?? $plan->sort_order,
         ]);
 
+        Cache::forget('public_plans_list');
+
         return $this->successResponse($plan, 'Plan updated successfully');
     }
 
@@ -83,6 +88,8 @@ class AdminPlanController extends Controller
 
         $plan->status = ($plan->status === 'active') ? 'inactive' : 'active';
         $plan->save();
+
+        Cache::forget('public_plans_list');
 
         return $this->successResponse($plan, 'Plan status updated to ' . $plan->status);
     }
