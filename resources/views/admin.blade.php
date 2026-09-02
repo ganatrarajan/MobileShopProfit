@@ -495,6 +495,7 @@
                 <li><a href="#subscriptions" class="nav-item" onclick="switchNav('subscriptions')">💳 Subscriptions</a></li>
                 <li><a href="#payments" class="nav-item" onclick="switchNav('payments')">🧾 Real Payments</a></li>
                 <li><a href="#plans" class="nav-item" onclick="switchNav('plans')">🏷️ Plans & Pricing</a></li>
+                <li><a href="#pages" class="nav-item" onclick="switchNav('pages')">📄 Legal Pages & CMS</a></li>
                 <li><a href="#revenue" class="nav-item" onclick="switchNav('revenue')">📈 Revenue Analytics</a></li>
                 <li><a href="#gateway" class="nav-item" onclick="switchNav('gateway')">⚙️ Gateway Settings</a></li>
                 <li><a href="#support" class="nav-item" onclick="switchNav('support')">💬 Support & Tickets</a></li>
@@ -615,6 +616,7 @@
                 'subscriptions': 'Subscriptions Management',
                 'payments': 'Real Payment Transactions',
                 'plans': 'Plans & Pricing',
+                'pages': 'Website & Legal Pages CMS',
                 'revenue': 'Platform Revenue Analytics',
                 'gateway': 'Razorpay Gateway Settings',
                 'support': 'Support Tickets & Feedback',
@@ -628,6 +630,7 @@
             else if (route === 'subscriptions') loadSubscriptionsView();
             else if (route === 'payments') loadPaymentsView();
             else if (route === 'plans') loadPlansView();
+            else if (route === 'pages') loadPagesView();
             else if (route === 'revenue') loadRevenueView();
             else if (route === 'gateway') loadGatewayView();
             else if (route === 'support') loadSupportView();
@@ -1554,6 +1557,109 @@
                     ${renderPagination(pageData, 'loadAuditView', search, action)}
                 </div>
             `;
+        }
+
+        // 11. WEBSITE & LEGAL PAGES CMS VIEW
+        async function loadPagesView() {
+            const content = document.getElementById('content-area');
+            content.innerHTML = '<div style="padding:20px; color:#64748b;">Loading dynamic legal pages...</div>';
+            const data = await apiFetch('/pages');
+            if (!data || !data.success) return;
+            const pages = data.data || [];
+
+            content.innerHTML = `
+                <div style="margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <h2 style="font-size:18px; font-weight:700; color:#0f172a;">Website & Legal Pages</h2>
+                        <p style="font-size:13px; color:#64748b; margin-top:2px;">Manage Privacy Policy, Terms & Conditions, Refund Policy, and Account Deletion content live on your website and Mobile App.</p>
+                    </div>
+                </div>
+                <div class="card-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Page Title</th>
+                                <th>URL Slug</th>
+                                <th>Status</th>
+                                <th>Last Updated</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${pages.length === 0 ? `<tr><td colspan="5" style="text-align:center; padding:30px; color:#94a3b8;">No dynamic pages found.</td></tr>` : ''}
+                            ${pages.map(p => `
+                                <tr>
+                                    <td><strong>${p.title}</strong></td>
+                                    <td><code style="background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:12px; color:#0284c7;">/${p.slug}</code></td>
+                                    <td>
+                                        <span class="badge ${p.status === 'published' ? 'badge-active' : 'badge-inactive'}">${p.status}</span>
+                                    </td>
+                                    <td>${new Date(p.updated_at).toLocaleString()}</td>
+                                    <td>
+                                        <button class="btn-sm" style="background:#2563eb; color:white; border:none;" onclick="openEditPageModal('${p.slug}')">✏️ Edit Page</button>
+                                        <a href="/${p.slug}" target="_blank" class="btn-sm" style="text-decoration:none; margin-left:4px;">🌐 View Live</a>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        async function openEditPageModal(slug) {
+            const data = await apiFetch(`/pages/${slug}`);
+            if (!data || !data.success) {
+                alert('Failed to load page content.');
+                return;
+            }
+            const page = data.data;
+
+            const html = `
+                <form id="edit-page-form" onsubmit="handleSavePage(event, '${slug}')">
+                    <div class="form-group">
+                        <label>Page Title *</label>
+                        <input type="text" id="page-edit-title" class="form-control" value="${(page.title || '').replace(/"/g, '&quot;')}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Meta Description (SEO)</label>
+                        <input type="text" id="page-edit-meta" class="form-control" value="${(page.meta_description || '').replace(/"/g, '&quot;')}">
+                    </div>
+                    <div class="form-group">
+                        <label>Publication Status *</label>
+                        <select id="page-edit-status" class="form-control">
+                            <option value="published" ${page.status === 'published' ? 'selected' : ''}>Published (Live on Website & Mobile App)</option>
+                            <option value="draft" ${page.status === 'draft' ? 'selected' : ''}>Draft (Hidden)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Page HTML / Body Content *</label>
+                        <textarea id="page-edit-content" class="form-control" rows="12" style="font-family:monospace; font-size:13px; line-height:1.5;" required>${(page.content || '')}</textarea>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                        <button type="button" class="btn-sm" onclick="closeModal()">Cancel</button>
+                        <button type="submit" class="btn-primary" style="width:auto; padding:8px 20px;">Save & Publish Changes</button>
+                    </div>
+                </form>
+            `;
+            openModal(`Edit ${page.title} (/${slug})`, html);
+        }
+
+        async function handleSavePage(e, slug) {
+            e.preventDefault();
+            const title = document.getElementById('page-edit-title').value;
+            const meta_description = document.getElementById('page-edit-meta').value;
+            const status = document.getElementById('page-edit-status').value;
+            const content = document.getElementById('page-edit-content').value;
+
+            const res = await apiFetch(`/pages/${slug}`, 'PUT', { title, meta_description, status, content });
+            if (res && res.success) {
+                closeModal();
+                alert('Page updated and published successfully! Live website and Flutter app updated.');
+                loadPagesView();
+            } else {
+                alert(res.message || 'Error updating page.');
+            }
         }
 
         // MODAL HELPERS
