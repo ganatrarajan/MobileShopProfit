@@ -613,19 +613,14 @@
             <form onsubmit="handleLogin(event)">
                 <div class="form-group">
                     <label>Admin Mobile / Email</label>
-                    <input type="text" id="login-input" class="form-control" placeholder="admin@mobileprofits.com or 9999999999" value="admin@mobileprofits.com" required>
+                    <input type="text" id="login-input" class="form-control" placeholder="Enter admin mobile or email" required>
                 </div>
                 <div class="form-group">
                     <label>Password</label>
-                    <input type="password" id="password-input" class="form-control" placeholder="Enter admin password" value="password123" required>
+                    <input type="password" id="password-input" class="form-control" placeholder="Enter admin password" required>
                 </div>
                 <button type="submit" id="login-submit-btn" class="btn-primary">Sign In to Dashboard</button>
             </form>
-            <div style="margin-top:16px; font-size:12px; color:#64748b; text-align:center; background:#f8fafc; padding:10px; border-radius:8px; border:1px solid #e2e8f0; line-height:1.5;">
-                🔑 <strong>Super Admin Credentials:</strong><br>
-                Email: <code style="color:#0284c7; background:#e0f2fe; padding:2px 5px; border-radius:4px;">admin@mobileprofits.com</code> | Mobile: <code style="color:#0284c7; background:#e0f2fe; padding:2px 5px; border-radius:4px;">9999999999</code><br>
-                Password: <code style="color:#15803d; background:#dcfce7; padding:2px 5px; border-radius:4px;">password123</code>
-            </div>
         </div>
     </div>
 
