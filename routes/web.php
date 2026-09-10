@@ -12,6 +12,7 @@ Route::get('/delete-account', [PublicPageController::class, 'deleteAccount'])->n
 Route::get('/contact', [PublicPageController::class, 'contact'])->name('contact');
 
 // Admin Panel Web Application SPA
-Route::get('/admin/{any?}', function () {
+Route::get('/admin_login/{any?}', function () {
     return view('admin');
 })->where('any', '.*');
+
