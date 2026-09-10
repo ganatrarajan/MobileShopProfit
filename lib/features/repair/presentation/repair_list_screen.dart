@@ -1,4 +1,7 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import '../../../core/utils/whatsapp_helper.dart';
+import '../../../core/utils/date_helper.dart';
+import '../../../core/widgets/whatsapp_icon.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/custom_card.dart';
@@ -333,7 +336,7 @@ class RepairListScreenState extends State<RepairListScreen> {
                   Expanded(
                     child: _buildSummaryMetric(
                       title: 'Total Value',
-                      value: '₹ ${_totalRepairVolume.toStringAsFixed(0)}',
+                      value: '\u20B9 ${_totalRepairVolume.toStringAsFixed(0)}',
                       icon: Icons.build_circle_rounded,
                       color: Colors.white,
                     ),
@@ -342,7 +345,7 @@ class RepairListScreenState extends State<RepairListScreen> {
                   Expanded(
                     child: _buildSummaryMetric(
                       title: 'Advance/Paid',
-                      value: '₹ ${_totalPaidSum.toStringAsFixed(0)}',
+                      value: '\u20B9 ${_totalPaidSum.toStringAsFixed(0)}',
                       icon: Icons.check_circle_rounded,
                       color: Colors.greenAccent.shade400,
                     ),
@@ -351,7 +354,7 @@ class RepairListScreenState extends State<RepairListScreen> {
                   Expanded(
                     child: _buildSummaryMetric(
                       title: 'Total Due',
-                      value: '₹ ${_totalDueSum.toStringAsFixed(0)}',
+                      value: '\u20B9 ${_totalDueSum.toStringAsFixed(0)}',
                       icon: Icons.pending_actions_rounded,
                       color: Colors.amberAccent.shade200,
                     ),
@@ -502,31 +505,39 @@ class RepairListScreenState extends State<RepairListScreen> {
                                       Row(
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
-                                          Row(
-                                            children: [
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                decoration: BoxDecoration(
-                                                  color: AppColors.primary.withOpacity(0.1),
-                                                  borderRadius: BorderRadius.circular(6),
-                                                ),
-                                                child: Text(
-                                                  repair.jobNumber,
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 13,
-                                                    color: AppColors.primary,
+                                          Expanded(
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                                  decoration: BoxDecoration(
+                                                    color: AppColors.primary.withOpacity(0.1),
+                                                    borderRadius: BorderRadius.circular(6),
+                                                  ),
+                                                  child: Text(
+                                                    repair.jobNumber,
+                                                    style: const TextStyle(
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 12,
+                                                      color: AppColors.primary,
+                                                    ),
+                                                    overflow: TextOverflow.ellipsis,
                                                   ),
                                                 ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                repair.dateReceived,
-                                                style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
-                                              ),
-                                            ],
+                                                const SizedBox(width: 6),
+                                                Flexible(
+                                                  child: Text(DateHelper.formatDate(repair.dateReceived),
+                                                    style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
+                                          const SizedBox(width: 4),
                                           Row(
+                                            mainAxisSize: MainAxisSize.min,
                                             children: [
                                               StatusBadge(
                                                 label: statusLabel,
@@ -534,6 +545,15 @@ class RepairListScreenState extends State<RepairListScreen> {
                                                 textColor: statusColor,
                                               ),
                                               const SizedBox(width: 4),
+                                              InkWell(
+                                                onTap: () => WhatsAppHelper.sendRepairWhatsAppMessage(context, repair),
+                                                borderRadius: BorderRadius.circular(16),
+                                                child: const Padding(
+                                                  padding: EdgeInsets.all(4.0),
+                                                  child: WhatsAppIcon(size: 22),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 2),
                                               InkWell(
                                                 onTap: () => _confirmDeleteRepair(repair),
                                                 child: Padding(
@@ -652,7 +672,7 @@ class RepairListScreenState extends State<RepairListScreen> {
                                                 style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
                                               ),
                                               Text(
-                                                '₹ ${repair.netCost.toStringAsFixed(2)}',
+                                                '\u20B9 ${repair.netCost.toStringAsFixed(2)}',
                                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.primary),
                                               ),
                                             ],
@@ -672,8 +692,8 @@ class RepairListScreenState extends State<RepairListScreen> {
                                                   ),
                                                   Text(
                                                     repair.amountDue > 0
-                                                        ? '₹ ${repair.amountDue.toStringAsFixed(2)}'
-                                                        : '₹ ${repair.amountPaid.toStringAsFixed(2)}',
+                                                        ? '\u20B9 ${repair.amountDue.toStringAsFixed(2)}'
+                                                        : '\u20B9 ${repair.amountPaid.toStringAsFixed(2)}',
                                                     style: TextStyle(
                                                       fontWeight: FontWeight.bold,
                                                       fontSize: 14,

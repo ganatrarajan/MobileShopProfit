@@ -1,4 +1,6 @@
-import '../../technician/data/technician_repository.dart';
+﻿import '../../technician/data/technician_repository.dart';
+import '../../../core/utils/whatsapp_helper.dart';
+import '../../../core/widgets/whatsapp_icon.dart';
 import '../../technician/models/technician.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
@@ -10,6 +12,7 @@ import '../../customer/models/customer.dart';
 import '../../device/data/device_repository.dart';
 import '../../device/models/device.dart';
 import '../data/repair_repository.dart';
+import '../models/repair.dart';
 
 class CreateRepairScreen extends StatefulWidget {
   const CreateRepairScreen({super.key});
@@ -498,13 +501,99 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
 
       if (mounted) {
         if (response.success && response.data != null) {
+          var createdRepair = response.data!;
+          if (createdRepair.customer == null && _selectedCustomer != null) {
+            createdRepair = Repair(
+              id: createdRepair.id,
+              shopId: createdRepair.shopId,
+              customerId: createdRepair.customerId,
+              deviceId: createdRepair.deviceId,
+              technicianId: createdRepair.technicianId,
+              technicianName: createdRepair.technicianName,
+              jobNumber: createdRepair.jobNumber,
+              dateReceived: createdRepair.dateReceived,
+              expectedDeliveryDate: createdRepair.expectedDeliveryDate,
+              deliveredDate: createdRepair.deliveredDate,
+              problemDescription: createdRepair.problemDescription,
+              deviceCondition: createdRepair.deviceCondition,
+              conditionNotes: createdRepair.conditionNotes,
+              accessoriesReceived: createdRepair.accessoriesReceived,
+              accessoriesNotes: createdRepair.accessoriesNotes,
+              pinPasscode: createdRepair.pinPasscode,
+              estimatedCost: createdRepair.estimatedCost,
+              finalCost: createdRepair.finalCost,
+              labourCost: createdRepair.labourCost,
+              amountPaid: createdRepair.amountPaid,
+              amountDue: createdRepair.amountDue,
+              repairStatus: createdRepair.repairStatus,
+              customerNotes: createdRepair.customerNotes,
+              internalNotes: createdRepair.internalNotes,
+              createdBy: createdRepair.createdBy,
+              creatorName: createdRepair.creatorName,
+              customer: _selectedCustomer,
+              device: _selectedDevice,
+              parts: createdRepair.parts,
+              payments: createdRepair.payments,
+              createdAt: createdRepair.createdAt,
+              updatedAt: createdRepair.updatedAt,
+            );
+          }
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Job Card ${response.data!.jobNumber} created successfully!'),
+              content: Text('Job Card  created successfully!'),
               backgroundColor: Colors.green.shade700,
             ),
           );
-          Navigator.pop(context, true);
+
+          await showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Row(
+                children: [
+                  Icon(Icons.check_circle_rounded, color: Colors.green, size: 24),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Job Card Created'),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Job Card  has been created successfully.'),
+                  const SizedBox(height: 12),
+                  const Text('Would you like to send a WhatsApp notification to the customer now?'),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Skip / Done'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    await WhatsAppHelper.sendRepairWhatsAppMessage(context, createdRepair);
+                  },
+                  icon: const WhatsAppIcon(size: 18, showBackground: false),
+                  label: const Text('Send WhatsApp'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF25D366),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ],
+            ),
+          );
+
+          if (mounted) {
+            Navigator.pop(context, true);
+          }
         } else {
           setState(() => _errorMessage = response.message);
         }
@@ -949,7 +1038,7 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
                       children: [
                         Expanded(
                           child: CustomTextField(
-                            label: 'Estimated Cost (₹)',
+                            label: 'Estimated Cost (\u20B9)',
                             hint: '0.00',
                             controller: _estimatedCostController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -958,7 +1047,7 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: CustomTextField(
-                            label: 'Advance Paid (₹)',
+                            label: 'Advance Paid (\u20B9)',
                             hint: '0.00',
                             controller: _advancePaymentController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
