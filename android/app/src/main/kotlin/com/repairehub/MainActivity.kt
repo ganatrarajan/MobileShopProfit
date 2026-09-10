@@ -1,4 +1,4 @@
-package com.example.mobile_repair
+package com.repairehub
 
 import io.flutter.embedding.android.FlutterActivity
 
