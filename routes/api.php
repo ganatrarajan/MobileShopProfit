@@ -2,16 +2,24 @@
 
 use App\Http\Controllers\Api\V1\Admin\AdminAuditLogController;
 use App\Http\Controllers\Api\V1\Admin\AdminAuthController;
+use App\Http\Controllers\Api\V1\Admin\AdminCustomerController;
 use App\Http\Controllers\Api\V1\Admin\AdminDashboardController;
+use App\Http\Controllers\Api\V1\Admin\AdminExpenseController;
+use App\Http\Controllers\Api\V1\Admin\AdminInventoryController;
 use App\Http\Controllers\Api\V1\Admin\AdminPageController;
 use App\Http\Controllers\Api\V1\Admin\AdminPaymentController;
 use App\Http\Controllers\Api\V1\Admin\AdminPaymentGatewayController;
 use App\Http\Controllers\Api\V1\Admin\AdminPlanController;
+use App\Http\Controllers\Api\V1\Admin\AdminRepairController;
+use App\Http\Controllers\Api\V1\Admin\AdminReportController;
 use App\Http\Controllers\Api\V1\Admin\AdminRevenueController;
+use App\Http\Controllers\Api\V1\Admin\AdminSaleController;
 use App\Http\Controllers\Api\V1\Admin\AdminShopController;
 use App\Http\Controllers\Api\V1\Admin\AdminSubscriptionController;
 use App\Http\Controllers\Api\V1\Admin\AdminSupportController;
+use App\Http\Controllers\Api\V1\Admin\AdminTechnicianController;
 use App\Http\Controllers\Api\V1\Admin\AdminUserController;
+use App\Http\Controllers\Api\V1\Admin\AdminWarrantyController;
 use App\Http\Controllers\Api\V1\PublicPageApiController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CustomerController;
@@ -121,6 +129,22 @@ Route::prefix('v1')->group(function () {
 
         // Admin Audit Action Logs
         Route::get('/audit-logs', [AdminAuditLogController::class, 'index']);
+
+        // Admin Global Data Views & Operations
+        Route::get('/customers', [AdminCustomerController::class, 'index']);
+        Route::get('/customers/{id}', [AdminCustomerController::class, 'show']);
+        Route::get('/sales', [AdminSaleController::class, 'index']);
+        Route::get('/sales/{id}', [AdminSaleController::class, 'show']);
+        Route::get('/repairs', [AdminRepairController::class, 'index']);
+        Route::get('/repairs/{id}', [AdminRepairController::class, 'show']);
+        Route::get('/inventory', [AdminInventoryController::class, 'index']);
+        Route::get('/inventory/{id}', [AdminInventoryController::class, 'show']);
+        Route::get('/expenses', [AdminExpenseController::class, 'index']);
+        Route::get('/warranties', [AdminWarrantyController::class, 'index']);
+        Route::get('/technicians', [AdminTechnicianController::class, 'index']);
+
+        // Admin Platform Business Intelligence Reports
+        Route::get('/reports/summary', [AdminReportController::class, 'summary']);
     });
 
     // Authentication Routes (Public & Rate Limited)

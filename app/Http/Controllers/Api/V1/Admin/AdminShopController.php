@@ -86,6 +86,32 @@ class AdminShopController extends Controller
         $shopData['devices_count'] = $devicesCount;
         $shopData['inventory_items_count'] = $inventoryCount;
 
+        // Fetch recent records for deep-dive tabs
+        $shopData['recent_sales'] = Sale::withoutGlobalScope('shop')
+            ->where('shop_id', $id)
+            ->latest('sale_date')
+            ->take(10)
+            ->get();
+
+        $shopData['recent_repairs'] = Repair::withoutGlobalScope('shop')
+            ->where('shop_id', $id)
+            ->with(['device', 'technician'])
+            ->latest('date_received')
+            ->take(10)
+            ->get();
+
+        $shopData['recent_customers'] = Customer::withoutGlobalScope('shop')
+            ->where('shop_id', $id)
+            ->latest()
+            ->take(10)
+            ->get();
+
+        $shopData['recent_inventory'] = InventoryItem::withoutGlobalScope('shop')
+            ->where('shop_id', $id)
+            ->latest()
+            ->take(10)
+            ->get();
+
         // Fallback for mobile and email from shop phone or owner user record
         $shopData['contact_mobile'] = $shop->phone ?: ($shop->mobile ?: ($shop->user ? ($shop->user->mobile ?: $shop->user->phone) : null));
         $shopData['contact_email'] = $shop->email ?: ($shop->user ? $shop->user->email : null);
