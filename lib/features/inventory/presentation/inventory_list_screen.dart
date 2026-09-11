@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_empty_state.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../data/inventory_repository.dart';
@@ -241,9 +242,26 @@ class InventoryListScreenState extends State<InventoryListScreen> {
           child: _isLoading
               ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
               : _errorMessage != null
-                  ? Center(child: Text(_errorMessage!, style: const TextStyle(color: AppColors.error)))
+                  ? AppEmptyState(
+                      icon: Icons.error_outline,
+                      title: 'Unable to Load Inventory',
+                      description: _errorMessage!,
+                      actionLabel: 'Retry',
+                      onActionPressed: _fetchInventory,
+                    )
                   : _items.isEmpty
-                      ? const Center(child: Text('No inventory items found'))
+                      ? AppEmptyState(
+                          icon: Icons.inventory_2_outlined,
+                          title: 'No inventory items yet',
+                          description: 'Add parts, accessories, or products to track stock and add to repair jobs.',
+                          actionLabel: '+ Add Item',
+                          onActionPressed: () async {
+                            final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'add inventory items');
+                            if (!ok) return;
+                            await Navigator.pushNamed(context, AppRoutes.addInventoryItem);
+                            _fetchInventory();
+                          },
+                        )
                       : RefreshIndicator(
                           onRefresh: _fetchInventory,
                           child: ListView.builder(

@@ -42,8 +42,7 @@ class ApiClient {
       return _handleResponse(response, fromJson);
     } catch (e) {
       debugPrint('[API GET Error]: ${e.toString()}');
-      if (e is ApiException) rethrow;
-      throw ApiException(message: 'Failed to connect to local Laravel server: ${e.toString()}');
+      _handleCatchError(e);
     }
   }
 
@@ -68,8 +67,7 @@ class ApiClient {
       return _handleResponse(response, fromJson);
     } catch (e) {
       debugPrint('[API POST Error]: ${e.toString()}');
-      if (e is ApiException) rethrow;
-      throw ApiException(message: 'Failed to connect to local Laravel server: ${e.toString()}');
+      _handleCatchError(e);
     }
   }
 
@@ -105,8 +103,7 @@ class ApiClient {
       return _handleResponse(response, fromJson);
     } catch (e) {
       debugPrint('[API Multipart Error]: ${e.toString()}');
-      if (e is ApiException) rethrow;
-      throw ApiException(message: 'Failed to upload file to local server: ${e.toString()}');
+      _handleCatchError(e);
     }
   }
 
@@ -128,8 +125,7 @@ class ApiClient {
       return _handleResponse(response, fromJson);
     } catch (e) {
       debugPrint('[API PUT Error]: ${e.toString()}');
-      if (e is ApiException) rethrow;
-      throw ApiException(message: 'Failed to connect to local Laravel server: ${e.toString()}');
+      _handleCatchError(e);
     }
   }
 
@@ -146,9 +142,31 @@ class ApiClient {
       return _handleResponse(response, fromJson);
     } catch (e) {
       debugPrint('[API DELETE Error]: ${e.toString()}');
-      if (e is ApiException) rethrow;
-      throw ApiException(message: 'Failed to connect to local Laravel server: ${e.toString()}');
+      _handleCatchError(e);
     }
+  }
+
+  Never _handleCatchError(dynamic e) {
+    if (e is ApiException) throw e;
+
+    final errStr = e.toString().toLowerCase();
+    if (errStr.contains('socketexception') ||
+        errStr.contains('clientexception') ||
+        errStr.contains('failed host lookup') ||
+        errStr.contains('connection refused') ||
+        errStr.contains('connection timed out') ||
+        errStr.contains('network is unreachable') ||
+        errStr.contains('timeout')) {
+      throw ApiException(
+        message: 'No Internet Connection. Please check your network connection and try again.',
+        statusCode: 503,
+      );
+    }
+
+    throw ApiException(
+      message: 'Server unreachable or connection error. Please try again later.',
+      statusCode: 500,
+    );
   }
 
   ApiResponse<T> _handleResponse<T>(

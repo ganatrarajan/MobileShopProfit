@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/app_feedback.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../inventory/data/inventory_repository.dart';
 import '../../inventory/models/inventory_item.dart';
+import '../../inventory/presentation/widgets/quick_add_inventory_modal.dart';
 import '../data/sale_repository.dart';
 import '../models/sale.dart';
-
 import '../../subscription/utils/subscription_guard.dart';
 
 class QuickSaleScreen extends StatefulWidget {
@@ -22,10 +23,16 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
   final SaleRepository _saleRepository = SaleRepository();
   final InventoryRepository _inventoryRepository = InventoryRepository();
 
+  final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _customerNameController = TextEditingController();
   final TextEditingController _customerMobileController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
+
+  // Quick Item Mode controllers
+  String _saleMode = 'inventory'; // 'inventory' or 'quick'
+  final TextEditingController _quickItemNameController = TextEditingController();
+  final TextEditingController _quickItemPriceController = TextEditingController();
 
   List<InventoryItem> _inventoryItems = [];
   InventoryItem? _selectedItem;
@@ -53,11 +60,26 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _searchController.dispose();
     _customerNameController.dispose();
     _customerMobileController.dispose();
     _notesController.dispose();
+    _quickItemNameController.dispose();
+    _quickItemPriceController.dispose();
     super.dispose();
+  }
+
+  void _showFormError(String errorMsg) {
+    AppFeedback.showError(context, error: errorMsg);
+    setState(() => _errorMessage = errorMsg);
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 
   Future<void> _fetchInventoryItems([String? query]) async {
@@ -106,31 +128,35 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
     });
   }
 
-  double get _total => (_quantity * _unitPrice) - _discount;
+  double get _effectiveUnitPrice {
+    if (_saleMode == 'quick') {
+      return double.tryParse(_quickItemPriceController.text.trim()) ?? 0.0;
+    }
+    return _unitPrice;
+  }
+
+  double get _total => (_quantity * _effectiveUnitPrice) - _discount;
 
   Future<void> _submitQuickSale() async {
-    if (_selectedItem == null) {
-      setState(() => _errorMessage = 'Please select an inventory item for Quick Sale.');
-      return;
-    }
-
     if (_quantity <= 0) {
-      setState(() => _errorMessage = 'Quantity must be at least 1.');
+      _showFormError('Quantity must be at least 1.');
       return;
     }
 
-    if (_quantity > _selectedItem!.currentStock) {
-      setState(() => _errorMessage = 'Insufficient stock. Only ${_selectedItem!.currentStock} available.');
-      return;
-    }
+    SaleItem saleItem;
 
-    setState(() {
-      _isSubmitting = true;
-      _errorMessage = null;
-    });
+    if (_saleMode == 'inventory') {
+      if (_selectedItem == null) {
+        _showFormError('Please select an inventory item for Quick Sale.');
+        return;
+      }
 
-    try {
-      final saleItem = SaleItem(
+      if (_quantity > _selectedItem!.currentStock) {
+        _showFormError('Insufficient stock. Only ${_selectedItem!.currentStock} available.');
+        return;
+      }
+
+      saleItem = SaleItem(
         inventoryItemId: _selectedItem!.id,
         productName: _selectedItem!.name,
         itemType: _selectedItem!.itemType,
@@ -141,7 +167,36 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
         costPrice: _selectedItem!.purchasePrice,
         discount: _discount,
       );
+    } else {
+      final name = _quickItemNameController.text.trim();
+      final price = double.tryParse(_quickItemPriceController.text.trim());
 
+      if (name.isEmpty) {
+        _showFormError('Please enter item name for Quick Item.');
+        return;
+      }
+      if (price == null || price < 0) {
+        _showFormError('Please enter a valid price for Quick Item.');
+        return;
+      }
+
+      saleItem = SaleItem(
+        inventoryItemId: null,
+        productName: name,
+        itemType: 'accessory',
+        quantity: _quantity,
+        unitPrice: price,
+        costPrice: 0.0,
+        discount: _discount,
+      );
+    }
+
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+
+    try {
       final res = await _saleRepository.createSale(
         saleType: 'quick',
         customerId: null, // Optional for Quick Sale
@@ -155,11 +210,10 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
 
       if (mounted) {
         if (res.success && res.data != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('⚡ Quick Sale #${res.data!.invoiceNumber} completed successfully! Stock updated.'),
-              backgroundColor: Colors.green.shade700,
-            ),
+          AppFeedback.showSuccess(
+            context,
+            title: '⚡ Quick Sale Completed',
+            message: 'Invoice #${res.data!.invoiceNumber} completed successfully.',
           );
           setState(() {
             _selectedItem = null;
@@ -170,6 +224,8 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
             _customerMobileController.clear();
             _notesController.clear();
             _searchController.clear();
+            _quickItemNameController.clear();
+            _quickItemPriceController.clear();
             _isSubmitting = false;
           });
           _fetchInventoryItems();
@@ -180,18 +236,14 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
             Navigator.pop(context, true);
           }
         } else {
-          setState(() {
-            _errorMessage = res.message;
-            _isSubmitting = false;
-          });
+          _showFormError(res.message);
+          setState(() => _isSubmitting = false);
         }
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _errorMessage = e.toString();
-          _isSubmitting = false;
-        });
+        _showFormError(e.toString());
+        setState(() => _isSubmitting = false);
       }
     }
   }
@@ -212,6 +264,7 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
         elevation: 0,
       ),
       body: SingleChildScrollView(
+        controller: _scrollController,
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -225,121 +278,207 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
               const SizedBox(height: 14),
             ],
 
-            // 1. Inventory Item Picker Card
+            // 1. Item Selection Card (From Inventory vs Quick Item)
             CustomCard(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Select Inventory Item *', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                  const Text('Add Sale Item *', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
-                  TextField(
-                    controller: _searchController,
-                    onChanged: (q) => _fetchInventoryItems(q.trim()),
-                    decoration: InputDecoration(
-                      hintText: 'Search covers, chargers, screen guards...',
-                      prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                      filled: true,
-                      fillColor: Colors.grey.shade50,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-                    ),
+
+                  // Mode Selector Tabs
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ChoiceChip(
+                          avatar: Icon(
+                            Icons.inventory_2_rounded,
+                            size: 16,
+                            color: _saleMode == 'inventory' ? Colors.white : AppColors.primary,
+                          ),
+                          label: const Center(child: Text('From Inventory', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                          selected: _saleMode == 'inventory',
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _saleMode = 'inventory';
+                              });
+                            }
+                          },
+                          selectedColor: AppColors.primary,
+                          backgroundColor: Colors.grey.shade100,
+                          labelStyle: TextStyle(color: _saleMode == 'inventory' ? Colors.white : AppColors.textPrimary),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ChoiceChip(
+                          avatar: Icon(
+                            Icons.flash_on_rounded,
+                            size: 16,
+                            color: _saleMode == 'quick' ? Colors.white : AppColors.primary,
+                          ),
+                          label: const Center(child: Text('Quick Item', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                          selected: _saleMode == 'quick',
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _saleMode = 'quick';
+                                _selectedItem = null;
+                              });
+                            }
+                          },
+                          selectedColor: AppColors.primary,
+                          backgroundColor: Colors.grey.shade100,
+                          labelStyle: TextStyle(color: _saleMode == 'quick' ? Colors.white : AppColors.textPrimary),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
 
-                  if (_isLoadingItems)
-                    const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(strokeWidth: 2)))
-                  else if (_inventoryError != null)
-                    Text(_inventoryError!, style: const TextStyle(color: AppColors.error, fontSize: 12))
-                  else if (_inventoryItems.isEmpty)
-                    const Padding(padding: EdgeInsets.all(12), child: Text('No items found in stock.', style: TextStyle(color: AppColors.textMuted)))
-                  else
-                    Container(
-                      height: 160,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade200),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: ListView.separated(
-                        itemCount: _inventoryItems.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (context, idx) {
-                          final item = _inventoryItems[idx];
-                          final isSelected = _selectedItem?.id == item.id;
-                          final isOut = item.isOutOfStock;
-
-                          return ListTile(
-                            dense: true,
-                            tileColor: isSelected ? AppColors.primary.withOpacity(0.08) : null,
-                            title: Text(
-                              item.name,
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isOut ? Colors.grey : AppColors.textPrimary),
+                  if (_saleMode == 'inventory') ...[
+                    // Search bar with + New item quick button
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _searchController,
+                            onChanged: (q) => _fetchInventoryItems(q.trim()),
+                            decoration: InputDecoration(
+                              hintText: 'Search covers, chargers, screen guards...',
+                              prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                              filled: true,
+                              fillColor: Colors.grey.shade50,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              isDense: true,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
                             ),
-                            subtitle: Text('Stock: ${item.currentStock} ${item.unit} | ₹${item.sellingPrice.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11)),
-                            trailing: isOut
-                                ? const Text('OUT OF STOCK', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold, fontSize: 10))
-                                : Icon(isSelected ? Icons.check_circle_rounded : Icons.add_circle_outline_rounded, color: isSelected ? Colors.green : AppColors.primary, size: 20),
-                            onTap: () => _selectItem(item),
-                          );
-                        },
-                      ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            final newItem = await QuickAddInventoryModal.show(context);
+                            if (newItem != null) {
+                              await _fetchInventoryItems();
+                              _selectItem(newItem);
+                            }
+                          },
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          label: const Text('New', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary.withOpacity(0.1),
+                            foregroundColor: AppColors.primary,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              side: BorderSide(color: AppColors.primary.withOpacity(0.3)),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
+                    const SizedBox(height: 10),
+
+                    if (_isLoadingItems)
+                      const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(strokeWidth: 2)))
+                    else if (_inventoryError != null)
+                      Text(_inventoryError!, style: const TextStyle(color: AppColors.error, fontSize: 12))
+                    else if (_inventoryItems.isEmpty)
+                      const Padding(padding: EdgeInsets.all(12), child: Text('No items found in stock.', style: TextStyle(color: AppColors.textMuted)))
+                    else
+                      Container(
+                        height: 160,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade200),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: ListView.separated(
+                          itemCount: _inventoryItems.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (context, idx) {
+                            final item = _inventoryItems[idx];
+                            final isSelected = _selectedItem?.id == item.id;
+                            final isOut = item.isOutOfStock;
+
+                            return ListTile(
+                              dense: true,
+                              tileColor: isSelected ? AppColors.primary.withOpacity(0.08) : null,
+                              title: Text(
+                                item.name,
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isOut ? Colors.grey : AppColors.textPrimary),
+                              ),
+                              subtitle: Text('Stock: ${item.currentStock} ${item.unit} | ₹${item.sellingPrice.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11)),
+                              trailing: isOut
+                                  ? const Text('OUT OF STOCK', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold, fontSize: 10))
+                                  : Icon(isSelected ? Icons.check_circle_rounded : Icons.add_circle_outline_rounded, color: isSelected ? Colors.green : AppColors.primary, size: 20),
+                              onTap: () => _selectItem(item),
+                            );
+                          },
+                        ),
+                      ),
+                  ] else ...[
+                    // Quick Item Entry Mode
+                    CustomTextField(
+                      label: 'Item Name / Description *',
+                      hint: 'e.g. Temper Glass, Charging Cable, Cover',
+                      controller: _quickItemNameController,
+                      prefixIcon: Icons.shopping_bag_outlined,
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: CustomTextField(
+                            label: 'Selling Price (₹) *',
+                            hint: 'e.g. 150',
+                            controller: _quickItemPriceController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            prefixIcon: Icons.currency_rupee_rounded,
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
             const SizedBox(height: 14),
 
-            // Selected Item & Quantity Card
-            if (_selectedItem != null) ...[
-              CustomCard(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(_selectedItem!.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary)),
-                              Text('Available Stock: ${_selectedItem!.currentStock} ${_selectedItem!.unit}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                            ],
-                          ),
-                        ),
-                        Text('₹${_unitPrice.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.green)),
-                      ],
+            // Quantity selector (used for both modes)
+            CustomCard(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  const Text('Quantity:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.remove_circle_outline_rounded, color: AppColors.primary),
+                    onPressed: _quantity > 1 ? () => setState(() => _quantity--) : null,
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
                     ),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        const Text('Quantity:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                        const Spacer(),
-                        IconButton(
-                          icon: const Icon(Icons.remove_circle_outline_rounded, color: AppColors.primary),
-                          onPressed: _quantity > 1 ? () => setState(() => _quantity--) : null,
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: Text('$_quantity', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.primary),
-                          onPressed: _quantity < _selectedItem!.currentStock ? () => setState(() => _quantity++) : null,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                    child: Text('$_quantity', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.primary),
+                    onPressed: (_saleMode == 'inventory' && _selectedItem != null && _quantity >= _selectedItem!.currentStock)
+                        ? null
+                        : () => setState(() => _quantity++),
+                  ),
+                ],
               ),
-              const SizedBox(height: 14),
-            ],
+            ),
+            const SizedBox(height: 14),
 
             // 2. Optional Customer Information (Stored on sale only, no permanent customer creation)
             CustomCard(

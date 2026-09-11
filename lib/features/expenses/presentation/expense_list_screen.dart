@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_empty_state.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../data/expense_repository.dart';
 import '../../subscription/utils/subscription_guard.dart';
@@ -339,20 +340,20 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                       ),
                     )
                   : _expenses.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.receipt_outlined, size: 60, color: AppColors.textMuted),
-                              const SizedBox(height: 12),
-                              Text(
-                                'No expenses found for $_dateFilterLabel',
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text('Tap (+ Add Expense) to record your shop expenses', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                            ],
-                          ),
+                      ? AppEmptyState(
+                          icon: Icons.receipt_long_outlined,
+                          title: 'No expenses recorded yet',
+                          message: 'Track shop rent, utilities, technician payouts, and daily operational costs.',
+                          actionLabel: 'Record Expense',
+                          onAction: () async {
+                            final allowed = await SubscriptionGuard.checkLimitAndAlert(
+                              context,
+                              FeatureLimitType.createExpense,
+                            );
+                            if (allowed && context.mounted) {
+                              Navigator.pushNamed(context, AppRoutes.addExpense).then((_) => _fetchExpenses());
+                            }
+                          },
                         )
                       : RefreshIndicator(
                           onRefresh: _fetchExpenses,

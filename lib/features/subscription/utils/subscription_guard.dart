@@ -3,8 +3,40 @@ import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../data/subscription_repository.dart';
 
+enum FeatureLimitType {
+  createSale,
+  createRepair,
+  createExpense,
+  createWarranty,
+  createCustomer,
+  createInventory,
+}
+
+enum LimitType {
+  repair,
+  sale,
+  expense,
+  warranty,
+  customer,
+  inventory,
+}
+
 class SubscriptionGuard {
   static final SubscriptionRepository _repository = SubscriptionRepository();
+
+  /// Alias method for checking limit with callback
+  static Future<bool> checkLimit(BuildContext context, dynamic limit, VoidCallback onAllowed) async {
+    final allowed = await checkAndGuard(context, actionName: limit.toString());
+    if (allowed) {
+      onAllowed();
+    }
+    return allowed;
+  }
+
+  /// Alias method for checking limit and showing alert
+  static Future<bool> checkLimitAndAlert(BuildContext context, FeatureLimitType feature) async {
+    return checkAndGuard(context, actionName: feature.name);
+  }
 
   /// Checks if subscription is active. If expired, shows renewal popup dialog and returns false.
   /// If active/valid, returns true.

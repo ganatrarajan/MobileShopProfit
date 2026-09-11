@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/app_feedback.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/custom_text_field.dart';
@@ -17,6 +18,7 @@ class AddEditInventoryItemScreen extends StatefulWidget {
 class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen> {
   final _formKey = GlobalKey<FormState>();
   final _inventoryRepository = InventoryRepository();
+  final ScrollController _scrollController = ScrollController();
 
   late TextEditingController _nameController;
   late TextEditingController _categoryController;
@@ -93,11 +95,27 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
     _imei1Controller.dispose();
     _imei2Controller.dispose();
     _serialController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
+  void _showFormError(String errorMsg) {
+    AppFeedback.showError(context, error: errorMsg);
+    setState(() => _errorMessage = errorMsg);
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
   Future<void> _submitForm() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      _showFormError('Please check the highlighted errors in the form.');
+      return;
+    }
 
     final name = _nameController.text.trim();
     final purchasePrice = double.tryParse(_purchasePriceController.text.trim()) ?? 0.0;
@@ -106,7 +124,7 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
     final minimumStock = int.tryParse(_minimumStockController.text.trim()) ?? 2;
 
     if (name.isEmpty) {
-      setState(() => _errorMessage = 'Item name is required.');
+      _showFormError('Item name is required.');
       return;
     }
 
@@ -134,12 +152,15 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
 
         if (mounted) {
           if (res.success && res.data != null) {
+            AppFeedback.showSuccess(
+              context,
+              title: '✅ Item Updated',
+              message: '$name has been updated successfully.',
+            );
             Navigator.pop(context, true);
           } else {
-            setState(() {
-              _errorMessage = res.message;
-              _isSubmitting = false;
-            });
+            _showFormError(res.message);
+            setState(() => _isSubmitting = false);
           }
         }
       } else {
@@ -163,21 +184,22 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
 
         if (mounted) {
           if (res.success && res.data != null) {
+            AppFeedback.showSuccess(
+              context,
+              title: '✅ Item Added',
+              message: '$name has been added to inventory.',
+            );
             Navigator.pop(context, true);
           } else {
-            setState(() {
-              _errorMessage = res.message;
-              _isSubmitting = false;
-            });
+            _showFormError(res.message);
+            setState(() => _isSubmitting = false);
           }
         }
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _errorMessage = e.toString();
-          _isSubmitting = false;
-        });
+        _showFormError(e.toString());
+        setState(() => _isSubmitting = false);
       }
     }
   }
@@ -192,6 +214,7 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
         elevation: 0,
       ),
       body: SingleChildScrollView(
+        controller: _scrollController,
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,

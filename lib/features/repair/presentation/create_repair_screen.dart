@@ -1,16 +1,22 @@
-﻿import '../../technician/data/technician_repository.dart';
-import '../../../core/utils/whatsapp_helper.dart';
-import '../../../core/widgets/whatsapp_icon.dart';
-import '../../technician/models/technician.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/app_feedback.dart';
+import '../../../core/utils/whatsapp_helper.dart';
+import '../../../core/widgets/app_empty_state.dart';
+import '../../../core/widgets/app_searchable_bottom_sheet.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/custom_text_field.dart';
+import '../../../core/widgets/whatsapp_icon.dart';
 import '../../customer/data/customer_repository.dart';
 import '../../customer/models/customer.dart';
+import '../../customer/presentation/widgets/quick_add_customer_modal.dart';
 import '../../device/data/device_repository.dart';
 import '../../device/models/device.dart';
+import '../../device/presentation/widgets/quick_add_device_modal.dart';
+import '../../technician/data/technician_repository.dart';
+import '../../technician/models/technician.dart';
+import '../../technician/presentation/widgets/quick_add_technician_modal.dart';
 import '../data/repair_repository.dart';
 import '../models/repair.dart';
 
@@ -23,6 +29,7 @@ class CreateRepairScreen extends StatefulWidget {
 
 class _CreateRepairScreenState extends State<CreateRepairScreen> {
   final _formKey = GlobalKey<FormState>();
+  final ScrollController _scrollController = ScrollController();
   final _repairRepository = RepairRepository();
   final _customerRepository = CustomerRepository();
   final _deviceRepository = DeviceRepository();
@@ -59,9 +66,11 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
     'Back glass damaged',
     'Camera damaged',
     'Water damage',
-    'No visible damage',
+    'Power button issue',
+    'Charging port issue',
+    'Battery issue',
     'Speaker issue',
-    'Other',
+    'No network',
   ];
   final Set<String> _selectedConditions = {};
 
@@ -89,18 +98,32 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _problemController.dispose();
     _conditionNotesController.dispose();
     _accessoriesNotesController.dispose();
     _pinPasscodeController.dispose();
     _estimatedCostController.dispose();
+    _technicianEarningController.dispose();
     _advancePaymentController.dispose();
     _customerNotesController.dispose();
     _internalNotesController.dispose();
     super.dispose();
   }
 
-    Future<void> _loadTechnicians() async {
+  void _showFormError(String errorMsg) {
+    AppFeedback.showError(context, error: errorMsg);
+    setState(() => _errorMessage = errorMsg);
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  Future<void> _loadTechnicians() async {
     setState(() => _isLoadingTechnicians = true);
     try {
       final res = await _technicianRepository.getTechnicians(status: 'active');
@@ -164,7 +187,7 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
             }).toList();
 
             return Container(
-              height: MediaQuery.of(context).size.height * 0.7,
+              height: MediaQuery.of(context).size.height * 0.75,
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
@@ -180,13 +203,37 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Select Customer',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      const Expanded(
+                        child: Text(
+                          'Select Customer',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded),
-                        onPressed: () => Navigator.pop(ctx),
+                      Row(
+                        children: [
+                          TextButton.icon(
+                            onPressed: () async {
+                              final newCust = await QuickAddCustomerModal.show(context);
+                              if (newCust != null && mounted) {
+                                setState(() {
+                                  _customerList.insert(0, newCust);
+                                  _selectedCustomer = newCust;
+                                  _selectedDevice = null;
+                                  _deviceList = [];
+                                });
+                                _loadDevicesForCustomer(newCust.id);
+                                Navigator.pop(ctx);
+                              }
+                            },
+                            icon: const Icon(Icons.add, size: 16),
+                            label: const Text('+ Add Customer', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded),
+                            onPressed: () => Navigator.pop(ctx),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -207,7 +254,25 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
                     child: _isLoadingCustomers
                         ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
                         : filteredCustomers.isEmpty
-                            ? const Center(child: Text('No customers found', style: TextStyle(color: AppColors.textSecondary)))
+                            ? AppEmptyState(
+                                icon: Icons.person_off_outlined,
+                                title: 'No Customers Found',
+                                description: 'Add your first customer to continue creating repair job.',
+                                actionLabel: '+ Add Customer',
+                                onActionPressed: () async {
+                                  final newCust = await QuickAddCustomerModal.show(context);
+                                  if (newCust != null && mounted) {
+                                    setState(() {
+                                      _customerList.insert(0, newCust);
+                                      _selectedCustomer = newCust;
+                                      _selectedDevice = null;
+                                      _deviceList = [];
+                                    });
+                                    _loadDevicesForCustomer(newCust.id);
+                                    Navigator.pop(ctx);
+                                  }
+                                },
+                              )
                             : ListView.separated(
                                 itemCount: filteredCustomers.length,
                                 separatorBuilder: (_, __) => const Divider(height: 1),
@@ -268,7 +333,7 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
             }).toList();
 
             return Container(
-              height: MediaQuery.of(context).size.height * 0.7,
+              height: MediaQuery.of(context).size.height * 0.75,
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
@@ -284,13 +349,38 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Select Customer Device',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      const Expanded(
+                        child: Text(
+                          'Select Customer Device',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded),
-                        onPressed: () => Navigator.pop(ctx),
+                      Row(
+                        children: [
+                          TextButton.icon(
+                            onPressed: () async {
+                              final newDev = await QuickAddDeviceModal.show(
+                                context,
+                                customerId: _selectedCustomer!.id,
+                                customerName: _selectedCustomer!.name,
+                              );
+                              if (newDev != null && mounted) {
+                                setState(() {
+                                  _deviceList.insert(0, newDev);
+                                  _selectedDevice = newDev;
+                                });
+                                Navigator.pop(ctx);
+                              }
+                            },
+                            icon: const Icon(Icons.add, size: 16),
+                            label: const Text('+ Add Device', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded),
+                            onPressed: () => Navigator.pop(ctx),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -311,7 +401,26 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
                     child: _isLoadingDevices
                         ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
                         : filteredDevices.isEmpty
-                            ? const Center(child: Text('No devices found', style: TextStyle(color: AppColors.textSecondary)))
+                            ? AppEmptyState(
+                                icon: Icons.devices_other_outlined,
+                                title: 'No Devices Found',
+                                description: 'Add a device for ${_selectedCustomer?.name} to proceed.',
+                                actionLabel: '+ Add Device',
+                                onActionPressed: () async {
+                                  final newDev = await QuickAddDeviceModal.show(
+                                    context,
+                                    customerId: _selectedCustomer!.id,
+                                    customerName: _selectedCustomer!.name,
+                                  );
+                                  if (newDev != null && mounted) {
+                                    setState(() {
+                                      _deviceList.insert(0, newDev);
+                                      _selectedDevice = newDev;
+                                    });
+                                    Navigator.pop(ctx);
+                                  }
+                                },
+                              )
                             : ListView.separated(
                                 itemCount: filteredDevices.length,
                                 separatorBuilder: (_, __) => const Divider(height: 1),
@@ -369,7 +478,7 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
             }).toList();
 
             return Container(
-              height: MediaQuery.of(context).size.height * 0.7,
+              height: MediaQuery.of(context).size.height * 0.75,
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
@@ -385,13 +494,34 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Select Technician',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      const Expanded(
+                        child: Text(
+                          'Select Technician',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded),
-                        onPressed: () => Navigator.pop(ctx),
+                      Row(
+                        children: [
+                          TextButton.icon(
+                            onPressed: () async {
+                              final newTech = await QuickAddTechnicianModal.show(context);
+                              if (newTech != null && mounted) {
+                                setState(() {
+                                  _technicianList.insert(0, newTech);
+                                  _selectedTechnician = newTech;
+                                });
+                                Navigator.pop(ctx);
+                              }
+                            },
+                            icon: const Icon(Icons.add, size: 16),
+                            label: const Text('+ Add Tech', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded),
+                            onPressed: () => Navigator.pop(ctx),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -412,7 +542,22 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
                     child: _isLoadingTechnicians
                         ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
                         : filteredTechs.isEmpty
-                            ? const Center(child: Text('No technicians found', style: TextStyle(color: AppColors.textSecondary)))
+                            ? AppEmptyState(
+                                icon: Icons.engineering_outlined,
+                                title: 'No Technicians Found',
+                                description: 'Add your first technician to assign repair jobs.',
+                                actionLabel: '+ Add Technician',
+                                onActionPressed: () async {
+                                  final newTech = await QuickAddTechnicianModal.show(context);
+                                  if (newTech != null && mounted) {
+                                    setState(() {
+                                      _technicianList.insert(0, newTech);
+                                      _selectedTechnician = newTech;
+                                    });
+                                    Navigator.pop(ctx);
+                                  }
+                                },
+                              )
                             : ListView.separated(
                                 itemCount: filteredTechs.length,
                                 separatorBuilder: (_, __) => const Divider(height: 1),
@@ -450,20 +595,23 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
   }
 
   Future<void> _submitRepair() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      _showFormError('Please fill out all required fields marked with *');
+      return;
+    }
 
     if (_selectedCustomer == null) {
-      setState(() => _errorMessage = 'Please select a customer for this repair.');
+      _showFormError('Please select or add a customer for this repair.');
       return;
     }
 
     if (_selectedDevice == null) {
-      setState(() => _errorMessage = 'Please select a customer device for this repair.');
+      _showFormError('Please select or add a device for this repair.');
       return;
     }
 
     if (_problemController.text.trim().isEmpty) {
-      setState(() => _errorMessage = 'Please describe the customer complaint / problem.');
+      _showFormError('Please describe the repair issue/problem.');
       return;
     }
 
@@ -474,18 +622,20 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
 
     try {
       final estimatedCost = double.tryParse(_estimatedCostController.text.trim()) ?? 0.0;
+      final technicianEarning = double.tryParse(_technicianEarningController.text.trim()) ?? 0.0;
       final advancePayment = double.tryParse(_advancePaymentController.text.trim()) ?? 0.0;
 
-      final dateStr = _expectedDeliveryDate != null
-          ? '${_expectedDeliveryDate!.year}-${_expectedDeliveryDate!.month.toString().padLeft(2, '0')}-${_expectedDeliveryDate!.day.toString().padLeft(2, '0')}'
-          : null;
+      String? dateStr;
+      if (_expectedDeliveryDate != null) {
+        dateStr = _expectedDeliveryDate!.toIso8601String().split('T')[0];
+      }
 
       final response = await _repairRepository.createRepair(
         customerId: _selectedCustomer!.id,
         deviceId: _selectedDevice!.id,
         technicianId: _selectedTechnician?.id,
-        technicianEarning: double.tryParse(_technicianEarningController.text) ?? 0.0,
         problemDescription: _problemController.text.trim(),
+        technicianEarning: technicianEarning,
         deviceCondition: _selectedConditions.toList(),
         conditionNotes: _conditionNotesController.text.trim(),
         accessoriesReceived: _selectedAccessories.toList(),
@@ -595,12 +745,12 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
             Navigator.pop(context, true);
           }
         } else {
-          setState(() => _errorMessage = response.message);
+          _showFormError(response.message);
         }
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _errorMessage = e.toString());
+        _showFormError(e.toString());
       }
     } finally {
       if (mounted) {
@@ -619,6 +769,7 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
         elevation: 0,
       ),
       body: SingleChildScrollView(
+        controller: _scrollController,
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
@@ -1058,22 +1209,49 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
                     const SizedBox(height: 12),
                     const Text('Advance Payment Method', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
-                      value: _paymentMethod,
-                      decoration: InputDecoration(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      items: const [
-                        DropdownMenuItem(value: 'cash', child: Text('Cash')),
-                        DropdownMenuItem(value: 'upi', child: Text('UPI / PhonePe / GPay')),
-                        DropdownMenuItem(value: 'card', child: Text('Credit / Debit Card')),
-                        DropdownMenuItem(value: 'bank_transfer', child: Text('Bank Transfer')),
-                        DropdownMenuItem(value: 'other', child: Text('Other')),
-                      ],
-                      onChanged: (val) {
-                        if (val != null) setState(() => _paymentMethod = val);
+                    InkWell(
+                      onTap: () async {
+                        final methodMap = {
+                          'Cash': 'cash',
+                          'UPI / PhonePe / GPay': 'upi',
+                          'Credit / Debit Card': 'card',
+                          'Bank Transfer': 'bank_transfer',
+                          'Other': 'other',
+                        };
+                        final currentLabel = methodMap.entries.firstWhere((e) => e.value == _paymentMethod, orElse: () => const MapEntry('Cash', 'cash')).key;
+
+                        final selected = await AppSearchableBottomSheet.show(
+                          context,
+                          title: 'Select Advance Payment Method',
+                          options: ['Cash', 'UPI / PhonePe / GPay', 'Credit / Debit Card', 'Bank Transfer', 'Other'],
+                          selectedValues: [currentLabel],
+                          searchHint: 'Search payment method...',
+                        );
+                        if (selected != null && selected is String && methodMap.containsKey(selected)) {
+                          setState(() => _paymentMethod = methodMap[selected]!);
+                        }
                       },
+                      borderRadius: BorderRadius.circular(10),
+                      child: InputDecorator(
+                        decoration: InputDecoration(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          prefixIcon: const Icon(Icons.payments_rounded, color: AppColors.primary),
+                          suffixIcon: const Icon(Icons.arrow_drop_down_rounded, size: 28, color: AppColors.primary),
+                        ),
+                        child: Text(
+                          _paymentMethod == 'upi'
+                              ? 'UPI / PhonePe / GPay'
+                              : _paymentMethod == 'card'
+                                  ? 'Credit / Debit Card'
+                                  : _paymentMethod == 'bank_transfer'
+                                      ? 'Bank Transfer'
+                                      : _paymentMethod == 'other'
+                                          ? 'Other'
+                                          : 'Cash',
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                        ),
+                      ),
                     ),
                   ],
                 ),

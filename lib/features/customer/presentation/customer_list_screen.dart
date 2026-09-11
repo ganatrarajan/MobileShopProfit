@@ -2,6 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/app_feedback.dart';
+import '../../../core/widgets/app_dialogs.dart';
+import '../../../core/widgets/app_empty_state.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../subscription/utils/subscription_guard.dart';
 import '../data/customer_repository.dart';
@@ -76,43 +79,30 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
   }
 
   Future<void> _deleteCustomer(Customer customer) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Customer?'),
-        content: Text('Are you sure you want to delete ${customer.name}? This action cannot be undone.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+    final confirm = await AppDialogs.showConfirmation(
+      context,
+      title: 'Delete Customer?',
+      message: 'This will remove ${customer.name} from your active customer list.',
+      confirmLabel: 'Delete Customer',
     );
 
-    if (confirm == true) {
+    if (confirm) {
       try {
         final res = await _repository.deleteCustomer(customer.id);
         if (mounted) {
           if (res.success) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Customer deleted successfully')),
+            AppFeedback.showSuccess(
+              context,
+              title: '✅ Customer Deleted',
+              message: '${customer.name} has been deleted successfully.',
             );
             _fetchCustomers(query: _searchController.text);
           } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(res.message), backgroundColor: AppColors.error),
-            );
+            AppFeedback.showError(context, error: res.message);
           }
         }
       } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to delete: $e'), backgroundColor: AppColors.error),
-          );
-        }
+        if (mounted) AppFeedback.showError(context, error: e);
       }
     }
   }
@@ -196,50 +186,17 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                       ),
                     )
                   : _customers.isEmpty
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(32.0),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(20),
-                                  decoration: const BoxDecoration(
-                                    color: AppColors.accentLight,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(Icons.people_outline_rounded, size: 48, color: AppColors.accent),
-                                ),
-                                const SizedBox(height: 16),
-                                const Text(
-                                  'No customers yet',
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                                ),
-                                const SizedBox(height: 6),
-                                const Text(
-                                  'Add your first customer to start managing your shop.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-                                ),
-                                const SizedBox(height: 20),
-                                ElevatedButton.icon(
-                                  onPressed: () async {
-                                    final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'add customers');
-                                    if (!ok) return;
-                                    await Navigator.pushNamed(context, AppRoutes.addCustomer);
-                                    _fetchCustomers(query: _searchController.text);
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.primary,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                  ),
-                                  icon: const Icon(Icons.person_add_rounded, size: 18),
-                                  label: const Text('Add Customer'),
-                                ),
-                              ],
-                            ),
-                          ),
+                      ? AppEmptyState(
+                          icon: Icons.people_outline_rounded,
+                          title: 'No customers yet',
+                          description: 'Add your first customer to manage their devices, repairs and billing.',
+                          actionLabel: '+ Add Customer',
+                          onActionPressed: () async {
+                            final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'add customers');
+                            if (!ok) return;
+                            await Navigator.pushNamed(context, AppRoutes.addCustomer);
+                            _fetchCustomers(query: _searchController.text);
+                          },
                         )
                       : ListView.builder(
                           padding: const EdgeInsets.all(16),

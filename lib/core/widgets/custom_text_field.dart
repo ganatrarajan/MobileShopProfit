@@ -12,6 +12,7 @@ class CustomTextField extends StatefulWidget {
   final bool readOnly;
   final void Function(String)? onChanged;
   final int maxLines;
+  final bool isRequired;
 
   const CustomTextField({
     super.key,
@@ -25,6 +26,7 @@ class CustomTextField extends StatefulWidget {
     this.readOnly = false,
     this.onChanged,
     this.maxLines = 1,
+    this.isRequired = false,
   });
 
   @override
@@ -40,16 +42,42 @@ class _CustomTextFieldState extends State<CustomTextField> {
     final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
     final labelColor = isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
 
+    final cleanLabel = widget.label.replaceAll('*', '').replaceAll('(', '').replaceAll(')', '').replaceAll('₹', '').trim();
+    final isDecimalNumber = widget.keyboardType == const TextInputType.numberWithOptions(decimal: true) ||
+        widget.keyboardType == const TextInputType.numberWithOptions(signed: true, decimal: true);
+    final isNumber = widget.keyboardType == TextInputType.number;
+
+    final String effectiveHint = widget.hint ??
+        (isDecimalNumber
+            ? '0.00'
+            : isNumber
+                ? '0'
+                : 'Enter $cleanLabel...');
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          widget.label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: labelColor,
-            letterSpacing: 0.1,
+        RichText(
+          text: TextSpan(
+            text: widget.label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: labelColor,
+              letterSpacing: 0.1,
+              fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
+            ),
+            children: widget.isRequired
+                ? const [
+                    TextSpan(
+                      text: ' *',
+                      style: TextStyle(
+                        color: AppColors.error,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ]
+                : [],
           ),
         ),
         const SizedBox(height: 6),
@@ -63,8 +91,8 @@ class _CustomTextFieldState extends State<CustomTextField> {
           validator: widget.validator,
           style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: textColor),
           decoration: InputDecoration(
-            hintText: widget.hint,
-            hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 14),
+            hintText: effectiveHint,
+            hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13, fontWeight: FontWeight.normal),
             prefixIcon: widget.prefixIcon != null
                 ? Icon(widget.prefixIcon, size: 20, color: AppColors.primary)
                 : null,

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../../../core/utils/whatsapp_helper.dart';
 import '../../../core/utils/date_helper.dart';
 import '../../../core/widgets/whatsapp_icon.dart';
@@ -136,7 +136,7 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(res.message ?? 'Failed to update status'), backgroundColor: AppColors.error),
+            SnackBar(content: Text(res.message), backgroundColor: AppColors.error),
           );
         }
       }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_searchable_bottom_sheet.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../repair/models/repair.dart';
@@ -122,22 +123,46 @@ class _TechnicianDetailsScreenState extends State<TechnicianDetailsScreen> {
                   prefixIcon: Icons.currency_rupee_rounded,
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: selectedMethod,
-                  decoration: InputDecoration(
-                    labelText: 'Payment Method',
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'cash', child: Text('Cash')),
-                    DropdownMenuItem(value: 'upi', child: Text('UPI / GPay / PhonePe')),
-                    DropdownMenuItem(value: 'bank_transfer', child: Text('Bank Transfer')),
-                    DropdownMenuItem(value: 'other', child: Text('Other')),
-                  ],
-                  onChanged: (val) {
-                    if (val != null) setDialogState(() => selectedMethod = val);
+                InkWell(
+                  onTap: () async {
+                    final methodMap = {
+                      'Cash': 'cash',
+                      'UPI / PhonePe / GPay': 'upi',
+                      'Bank Transfer': 'bank_transfer',
+                      'Other': 'other',
+                    };
+                    final currentLabel = methodMap.entries.firstWhere((e) => e.value == selectedMethod, orElse: () => const MapEntry('Cash', 'cash')).key;
+
+                    final selected = await AppSearchableBottomSheet.show(
+                      context,
+                      title: 'Select Payment Method',
+                      options: ['Cash', 'UPI / PhonePe / GPay', 'Bank Transfer', 'Other'],
+                      selectedValues: [currentLabel],
+                      searchHint: 'Search payment method...',
+                    );
+                    if (selected != null && selected is String && methodMap.containsKey(selected)) {
+                      setDialogState(() => selectedMethod = methodMap[selected]!);
+                    }
                   },
+                  borderRadius: BorderRadius.circular(10),
+                  child: InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: 'Payment Method',
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      suffixIcon: const Icon(Icons.arrow_drop_down_rounded, size: 28, color: AppColors.primary),
+                    ),
+                    child: Text(
+                      selectedMethod == 'upi'
+                          ? 'UPI / PhonePe / GPay'
+                          : selectedMethod == 'bank_transfer'
+                              ? 'Bank Transfer'
+                              : selectedMethod == 'other'
+                                  ? 'Other'
+                                  : 'Cash',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 CustomTextField(

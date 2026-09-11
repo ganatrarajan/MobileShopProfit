@@ -2,6 +2,7 @@ import '../../technician/data/technician_repository.dart';
 import '../../technician/models/technician.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/app_feedback.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/custom_text_field.dart';
@@ -20,6 +21,7 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
   final _formKey = GlobalKey<FormState>();
   final _repairRepository = RepairRepository();
   final _technicianRepository = TechnicianRepository();
+  final ScrollController _scrollController = ScrollController();
   Technician? _selectedTechnician;
   List<Technician> _technicianList = [];
   bool _isLoadingTechnicians = false;
@@ -166,7 +168,77 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
     _labourCostController.dispose();
     _customerNotesController.dispose();
     _internalNotesController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _showFormError(String errorMsg) {
+    AppFeedback.showError(context, error: errorMsg);
+    setState(() => _errorMessage = errorMsg);
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  Future<void> _submitUpdate() async {
+    if (!_formKey.currentState!.validate()) {
+      _showFormError('Please check the highlighted errors in the form.');
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final estimatedCost = double.tryParse(_estimatedCostController.text.trim()) ?? 0.0;
+      final finalCost = double.tryParse(_finalCostController.text.trim()) ?? 0.0;
+      final labourCost = double.tryParse(_labourCostController.text.trim()) ?? 0.0;
+
+      final dateStr = _expectedDeliveryDate != null
+          ? '${_expectedDeliveryDate!.year}-${_expectedDeliveryDate!.month.toString().padLeft(2, '0')}-${_expectedDeliveryDate!.day.toString().padLeft(2, '0')}'
+          : null;
+
+      final res = await _repairRepository.updateRepair(
+        id: widget.repair.id,
+        technicianId: _selectedTechnician?.id,
+        technicianEarning: double.tryParse(_technicianEarningController.text) ?? 0.0,
+        problemDescription: _problemController.text.trim(),
+        deviceCondition: _selectedConditions.toList(),
+        conditionNotes: _conditionNotesController.text.trim(),
+        accessoriesReceived: _selectedAccessories.toList(),
+        accessoriesNotes: _accessoriesNotesController.text.trim(),
+        pinPasscode: _pinPasscodeController.text.trim(),
+        expectedDeliveryDate: dateStr,
+        estimatedCost: estimatedCost,
+        finalCost: finalCost,
+        labourCost: labourCost,
+        customerNotes: _customerNotesController.text.trim(),
+        internalNotes: _internalNotesController.text.trim(),
+      );
+
+      if (mounted) {
+        if (res.success && res.data != null) {
+          AppFeedback.showSuccess(
+            context,
+            title: '✅ Job Card Updated',
+            message: 'Job Card #${widget.repair.jobNumber} updated successfully.',
+          );
+          Navigator.pop(context, true);
+        } else {
+          _showFormError(res.message);
+        }
+      }
+    } catch (e) {
+      if (mounted) _showFormError(e.toString());
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   void _showTechnicianSearchBottomSheet() {
@@ -270,61 +342,6 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
     );
   }
 
-  Future<void> _submitUpdate() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() {
-      _isSubmitting = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final estimatedCost = double.tryParse(_estimatedCostController.text.trim()) ?? 0.0;
-      final finalCost = double.tryParse(_finalCostController.text.trim()) ?? 0.0;
-      final labourCost = double.tryParse(_labourCostController.text.trim()) ?? 0.0;
-
-      final dateStr = _expectedDeliveryDate != null
-          ? '${_expectedDeliveryDate!.year}-${_expectedDeliveryDate!.month.toString().padLeft(2, '0')}-${_expectedDeliveryDate!.day.toString().padLeft(2, '0')}'
-          : null;
-
-      final res = await _repairRepository.updateRepair(
-        id: widget.repair.id,
-        technicianId: _selectedTechnician?.id,
-        technicianEarning: double.tryParse(_technicianEarningController.text) ?? 0.0,
-        problemDescription: _problemController.text.trim(),
-        deviceCondition: _selectedConditions.toList(),
-        conditionNotes: _conditionNotesController.text.trim(),
-        accessoriesReceived: _selectedAccessories.toList(),
-        accessoriesNotes: _accessoriesNotesController.text.trim(),
-        pinPasscode: _pinPasscodeController.text.trim(),
-        expectedDeliveryDate: dateStr,
-        estimatedCost: estimatedCost,
-        finalCost: finalCost,
-        labourCost: labourCost,
-        customerNotes: _customerNotesController.text.trim(),
-        internalNotes: _internalNotesController.text.trim(),
-      );
-
-      if (mounted) {
-        if (res.success && res.data != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Job Card ${widget.repair.jobNumber} updated successfully.'),
-              backgroundColor: Colors.green.shade700,
-            ),
-          );
-          Navigator.pop(context, true);
-        } else {
-          setState(() => _errorMessage = res.message);
-        }
-      }
-    } catch (e) {
-      if (mounted) setState(() => _errorMessage = e.toString());
-    } finally {
-      if (mounted) setState(() => _isSubmitting = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -335,6 +352,7 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
         elevation: 0,
       ),
       body: SingleChildScrollView(
+        controller: _scrollController,
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
@@ -493,6 +511,7 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
                     const SizedBox(height: 12),
                     CustomTextField(
                       label: 'Condition Notes',
+                      hint: 'Enter device condition notes...',
                       controller: _conditionNotesController,
                     ),
                   ],
@@ -531,6 +550,7 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
                     const SizedBox(height: 12),
                     CustomTextField(
                       label: 'Accessories Notes',
+                      hint: 'Enter accessories received notes...',
                       controller: _accessoriesNotesController,
                     ),
                   ],
@@ -551,6 +571,7 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
                         Expanded(
                           child: CustomTextField(
                             label: 'Estimated Cost (\u{20B9})',
+                            hint: '0.00',
                             controller: _estimatedCostController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           ),
@@ -559,6 +580,7 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
                         Expanded(
                           child: CustomTextField(
                             label: 'Final Cost (\u{20B9})',
+                            hint: '0.00',
                             controller: _finalCostController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           ),
@@ -568,6 +590,7 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
                     const SizedBox(height: 12),
                     CustomTextField(
                       label: 'Labour Amount (\u{20B9})',
+                      hint: '0.00',
                       controller: _labourCostController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     ),
@@ -587,6 +610,8 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
                       obscureText: _obscurePin,
                       decoration: InputDecoration(
                         labelText: 'PIN / Pattern Passcode',
+                        hintText: 'Enter PIN or pattern lock...',
+                        hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                         suffixIcon: IconButton(
                           icon: Icon(_obscurePin ? Icons.visibility_off : Icons.visibility),
@@ -597,12 +622,14 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
                     const SizedBox(height: 12),
                     CustomTextField(
                       label: 'Customer Notes',
+                      hint: 'Enter customer notes...',
                       controller: _customerNotesController,
                       maxLines: 2,
                     ),
                     const SizedBox(height: 12),
                     CustomTextField(
                       label: 'Internal Technician Log',
+                      hint: 'Enter internal technician notes...',
                       controller: _internalNotesController,
                       maxLines: 2,
                     ),

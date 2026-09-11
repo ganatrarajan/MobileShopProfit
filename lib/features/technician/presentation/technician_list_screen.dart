@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_empty_state.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../data/technician_repository.dart';
 import '../models/technician.dart';
@@ -260,35 +261,12 @@ class _TechnicianListScreenState extends State<TechnicianListScreen> {
                         ),
                       )
                     : _technicians.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.engineering_rounded, size: 64, color: Colors.grey.shade300),
-                                const SizedBox(height: 12),
-                                const Text(
-                                  'No technicians found',
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                                ),
-                                const SizedBox(height: 4),
-                                const Text(
-                                  'Add technicians to assign repair job cards',
-                                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-                                ),
-                                const SizedBox(height: 20),
-                                ElevatedButton.icon(
-                                  onPressed: _openAddDialog,
-                                  icon: const Icon(Icons.add_rounded, color: Colors.white),
-                                  label: const Text('Add Technician', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.primary,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                  ),
-                                ),
-                              ],
-                            ),
+                        ? AppEmptyState(
+                            icon: Icons.engineering_rounded,
+                            title: 'No technicians found',
+                            message: 'Add shop technicians to assign repair job cards and track commission.',
+                            actionLabel: 'Add Technician',
+                            onAction: _openAddDialog,
                           )
                         : RefreshIndicator(
                             onRefresh: _fetchTechnicians,

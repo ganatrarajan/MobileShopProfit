@@ -1,11 +1,14 @@
-﻿import 'package:flutter/material.dart';
-import '../../../core/utils/whatsapp_helper.dart';
-import '../../../core/utils/date_helper.dart';
-import '../../../core/widgets/whatsapp_icon.dart';
+import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/app_feedback.dart';
+import '../../../core/utils/date_helper.dart';
+import '../../../core/utils/whatsapp_helper.dart';
+import '../../../core/widgets/app_dialogs.dart';
+import '../../../core/widgets/app_empty_state.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/status_badge.dart';
+import '../../../core/widgets/whatsapp_icon.dart';
 import '../../subscription/utils/subscription_guard.dart';
 import '../data/repair_repository.dart';
 import '../models/repair.dart';
@@ -58,6 +61,7 @@ class RepairListScreenState extends State<RepairListScreen> {
     'delivered': Colors.green.shade800,
     'cancelled': Colors.red.shade700,
   };
+
 
   @override
   void initState() {
@@ -270,51 +274,28 @@ class RepairListScreenState extends State<RepairListScreen> {
   }
 
   Future<void> _confirmDeleteRepair(Repair repair) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
-            children: [
-              Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 24),
-              SizedBox(width: 8),
-              Text('Delete Job Card'),
-            ],
-          ),
-          content: Text('Are you sure you want to delete job card ${repair.jobNumber}? This action cannot be undone.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
+    final confirm = await AppDialogs.showConfirmation(
+      context,
+      title: 'Delete Job Card',
+      message: 'Are you sure you want to delete job card ${repair.jobNumber}? This action cannot be undone.',
+      confirmLabel: 'Delete Job Card',
+      isDanger: true,
     );
 
     if (confirm == true) {
       final res = await _repairRepository.deleteRepair(repair.id);
       if (mounted) {
         if (res.success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Job Card ${repair.jobNumber} deleted successfully.'),
-              backgroundColor: Colors.green.shade700,
-            ),
+          AppFeedback.showSuccess(
+            context,
+            title: 'Job Card Deleted',
+            message: 'Job Card ${repair.jobNumber} deleted successfully.',
           );
           _fetchRepairs();
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(res.message),
-              backgroundColor: AppColors.error,
-            ),
+          AppFeedback.showError(
+            context,
+            error: res.message,
           );
         }
       }
@@ -441,34 +422,24 @@ class RepairListScreenState extends State<RepairListScreen> {
           child: _isLoading
               ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
               : _errorMessage != null
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(_errorMessage!, style: const TextStyle(color: AppColors.error)),
-                          const SizedBox(height: 12),
-                          ElevatedButton(
-                            onPressed: _fetchRepairs,
-                            child: const Text('Retry'),
-                          ),
-                        ],
-                      ),
+                  ? AppEmptyState(
+                      icon: Icons.error_outline,
+                      title: 'Unable to Load Repairs',
+                      description: _errorMessage!,
+                      actionLabel: 'Retry',
+                      onActionPressed: _fetchRepairs,
                     )
                   : _repairs.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.build_circle_outlined, size: 60, color: AppColors.textMuted),
-                              const SizedBox(height: 12),
-                              Text(
-                                'No repair job cards found for $_dateFilterLabel',
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text('Tap Create Repair (+) to log a new job card', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                            ],
-                          ),
+                      ? AppEmptyState(
+                          icon: Icons.build_circle_outlined,
+                          title: 'No repairs yet',
+                          description: 'Create your first repair job to start tracking customer devices.',
+                          actionLabel: '+ Create Repair',
+                          onActionPressed: () {
+                            SubscriptionGuard.checkLimit(context, LimitType.repair, () {
+                              Navigator.pushNamed(context, AppRoutes.createRepair).then((_) => _fetchRepairs());
+                            });
+                          },
                         )
                       : RefreshIndicator(
                           onRefresh: _fetchRepairs,

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/app_error_mapper.dart';
+import '../../../core/utils/app_feedback.dart';
 import '../data/technician_repository.dart';
 import '../models/technician.dart';
 
@@ -63,10 +65,15 @@ class _AddEditTechnicianDialogState extends State<AddEditTechnicianDialog> {
         );
         if (mounted) {
           if (response.success && response.data != null) {
+            AppFeedback.showSuccess(
+              context,
+              title: 'Technician Added',
+              message: '${response.data!.name} has been added successfully.',
+            );
             Navigator.pop(context, true);
           } else {
             setState(() {
-              _errorMessage = response.message;
+              _errorMessage = AppErrorMapper.mapMessage(response.message);
               _isSaving = false;
             });
           }
@@ -81,10 +88,15 @@ class _AddEditTechnicianDialogState extends State<AddEditTechnicianDialog> {
         );
         if (mounted) {
           if (response.success && response.data != null) {
+            AppFeedback.showSuccess(
+              context,
+              title: 'Technician Updated',
+              message: '${response.data!.name} details updated.',
+            );
             Navigator.pop(context, true);
           } else {
             setState(() {
-              _errorMessage = response.message;
+              _errorMessage = AppErrorMapper.mapMessage(response.message);
               _isSaving = false;
             });
           }
@@ -93,7 +105,7 @@ class _AddEditTechnicianDialogState extends State<AddEditTechnicianDialog> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString();
+          _errorMessage = AppErrorMapper.mapMessage(e.toString());
           _isSaving = false;
         });
       }

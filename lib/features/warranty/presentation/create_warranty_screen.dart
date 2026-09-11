@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/app_error_mapper.dart';
+import '../../../core/utils/app_feedback.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../customer/data/customer_repository.dart';
 import '../../customer/models/customer.dart';
+import '../../customer/presentation/widgets/quick_add_customer_modal.dart';
 import '../../device/data/device_repository.dart';
 import '../../device/models/device.dart';
 import '../../repair/data/repair_repository.dart';
@@ -38,6 +41,7 @@ class _CreateWarrantyScreenState extends State<CreateWarrantyScreen> {
   final _deviceRepository = DeviceRepository();
   final _saleRepository = SaleRepository();
   final _repairRepository = RepairRepository();
+  final ScrollController _scrollController = ScrollController();
 
   Customer? _selectedCustomer;
   Device? _selectedDevice;
@@ -76,6 +80,18 @@ class _CreateWarrantyScreenState extends State<CreateWarrantyScreen> {
     'Full Mobile Device',
   ];
 
+  void _showFormError(String errorMsg) {
+    AppFeedback.showError(context, error: errorMsg);
+    setState(() => _errorMessage = errorMsg);
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -100,6 +116,7 @@ class _CreateWarrantyScreenState extends State<CreateWarrantyScreen> {
     _customDurationController.dispose();
     _termsController.dispose();
     _notesController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -201,13 +218,39 @@ class _CreateWarrantyScreenState extends State<CreateWarrantyScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Select Customer',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      const Expanded(
+                        child: Text(
+                          'Select Customer',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded),
-                        onPressed: () => Navigator.pop(ctx),
+                      Row(
+                        children: [
+                          TextButton.icon(
+                            onPressed: () async {
+                              final newCust = await QuickAddCustomerModal.show(context);
+                              if (newCust != null) {
+                                _loadCustomers();
+                                setState(() {
+                                  _selectedCustomer = newCust;
+                                  _selectedDevice = null;
+                                  _selectedSale = null;
+                                  _selectedRepair = null;
+                                });
+                                _loadDevicesForCustomer(newCust.id);
+                                _loadSalesOrRepairs();
+                                Navigator.pop(ctx);
+                              }
+                            },
+                            icon: const Icon(Icons.add_rounded, size: 18),
+                            label: const Text('Add New', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded),
+                            onPressed: () => Navigator.pop(ctx),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -372,16 +415,209 @@ class _CreateWarrantyScreenState extends State<CreateWarrantyScreen> {
     );
   }
 
+  void _showSaleSearchBottomSheet() {
+    if (_selectedCustomer == null) return;
+    String filterQuery = '';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final filtered = _saleList.where((s) {
+              final q = filterQuery.toLowerCase();
+              return s.invoiceNumber.toLowerCase().contains(q) || s.saleDate.contains(q);
+            }).toList();
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.7,
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Link Sale Invoice',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  TextField(
+                    onChanged: (val) => setModalState(() => filterQuery = val),
+                    decoration: InputDecoration(
+                      hintText: 'Search by invoice number or date...',
+                      hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 14),
+                      prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: _isLoadingSalesOrRepairs
+                        ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                        : filtered.isEmpty
+                            ? const Center(child: Text('No sale invoices found for customer', style: TextStyle(color: AppColors.textSecondary)))
+                            : ListView.separated(
+                                itemCount: filtered.length,
+                                separatorBuilder: (_, __) => const Divider(height: 1),
+                                itemBuilder: (context, idx) {
+                                  final sale = filtered[idx];
+                                  final isSelected = _selectedSale?.id == sale.id;
+                                  return ListTile(
+                                    title: Text(
+                                      'Invoice #${sale.invoiceNumber}',
+                                      style: TextStyle(
+                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                        color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    subtitle: Text('₹${sale.grandTotal.toStringAsFixed(2)} • Date: ${sale.saleDate}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                                    trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,
+                                    onTap: () {
+                                      setState(() => _selectedSale = sale);
+                                      Navigator.pop(ctx);
+                                    },
+                                  );
+                                },
+                              ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showRepairSearchBottomSheet() {
+    if (_selectedCustomer == null) return;
+    String filterQuery = '';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final filtered = _repairList.where((r) {
+              final q = filterQuery.toLowerCase();
+              return r.jobNumber.toLowerCase().contains(q) || r.problemDescription.toLowerCase().contains(q);
+            }).toList();
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.7,
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Link Repair Job Card',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  TextField(
+                    onChanged: (val) => setModalState(() => filterQuery = val),
+                    decoration: InputDecoration(
+                      hintText: 'Search job number or problem...',
+                      hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 14),
+                      prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: _isLoadingSalesOrRepairs
+                        ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                        : filtered.isEmpty
+                            ? const Center(child: Text('No repair job cards found for customer', style: TextStyle(color: AppColors.textSecondary)))
+                            : ListView.separated(
+                                itemCount: filtered.length,
+                                separatorBuilder: (_, __) => const Divider(height: 1),
+                                itemBuilder: (context, idx) {
+                                  final repair = filtered[idx];
+                                  final isSelected = _selectedRepair?.id == repair.id;
+                                  return ListTile(
+                                    title: Text(
+                                      'Job #${repair.jobNumber}',
+                                      style: TextStyle(
+                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                        color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    subtitle: Text('₹${repair.netCost.toStringAsFixed(2)} • ${repair.problemDescription}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                                    trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,
+                                    onTap: () {
+                                      setState(() => _selectedRepair = repair);
+                                      Navigator.pop(ctx);
+                                    },
+                                  );
+                                },
+                              ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _submitWarranty() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      _showFormError('Please check the highlighted errors in the form.');
+      return;
+    }
 
     if (_selectedCustomer == null) {
-      setState(() => _errorMessage = 'Please select a customer for this warranty.');
+      _showFormError('Please select a customer for this warranty.');
       return;
     }
 
     if (_selectedDevice == null) {
-      setState(() => _errorMessage = 'Please select a device for this warranty.');
+      _showFormError('Please select a device for this warranty.');
       return;
     }
 
@@ -390,7 +626,7 @@ class _CreateWarrantyScreenState extends State<CreateWarrantyScreen> {
         : _selectedDurationDays;
 
     if (durationDays <= 0) {
-      setState(() => _errorMessage = 'Please specify a valid warranty duration in days.');
+      _showFormError('Please specify a valid warranty duration in days.');
       return;
     }
 
@@ -428,20 +664,19 @@ class _CreateWarrantyScreenState extends State<CreateWarrantyScreen> {
 
       if (mounted) {
         if (res.success && res.data != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Warranty ${res.data!.warrantyNumber} created successfully!'),
-              backgroundColor: Colors.green.shade700,
-            ),
+          AppFeedback.showSuccess(
+            context,
+            title: 'Warranty Issued',
+            message: 'Warranty ${res.data!.warrantyNumber} created successfully!',
           );
           Navigator.pop(context, true);
         } else {
-          setState(() => _errorMessage = res.message);
+          _showFormError(AppErrorMapper.mapMessage(res.message));
         }
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _errorMessage = e.toString());
+        _showFormError(AppErrorMapper.mapMessage(e.toString()));
       }
     } finally {
       if (mounted) {
@@ -462,6 +697,7 @@ class _CreateWarrantyScreenState extends State<CreateWarrantyScreen> {
         elevation: 0,
       ),
       body: SingleChildScrollView(
+        controller: _scrollController,
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
@@ -630,40 +866,54 @@ class _CreateWarrantyScreenState extends State<CreateWarrantyScreen> {
                     if (_selectedCustomer != null) ...[
                       const SizedBox(height: 12),
                       if (_warrantyType == 'sale') ...[
-                        DropdownButtonFormField<Sale>(
-                          value: _selectedSale,
-                          isExpanded: true,
-                          hint: _isLoadingSalesOrRepairs ? const Text('Loading sale invoices...') : const Text('Link to Sale Invoice (Optional)'),
-                          decoration: InputDecoration(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                            prefixIcon: const Icon(Icons.receipt_long_rounded, color: AppColors.primary),
+                        InkWell(
+                          onTap: _showSaleSearchBottomSheet,
+                          borderRadius: BorderRadius.circular(10),
+                          child: InputDecorator(
+                            decoration: InputDecoration(
+                              labelText: 'Link to Sale Invoice (Optional)',
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                              prefixIcon: const Icon(Icons.receipt_long_rounded, color: AppColors.primary),
+                              suffixIcon: const Icon(Icons.search_rounded, size: 22, color: AppColors.primary),
+                            ),
+                            child: Text(
+                              _selectedSale != null
+                                  ? 'Invoice #${_selectedSale!.invoiceNumber} - ₹${_selectedSale!.grandTotal.toStringAsFixed(2)} (${_selectedSale!.saleDate})'
+                                  : (_isLoadingSalesOrRepairs ? 'Loading sale invoices...' : 'Tap to search & link sale invoice (${_saleList.length} available)'),
+                              style: TextStyle(
+                                color: _selectedSale == null ? AppColors.textMuted : AppColors.textPrimary,
+                                fontSize: 14,
+                                fontWeight: _selectedSale != null ? FontWeight.w600 : FontWeight.normal,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                          items: _saleList.map((s) {
-                            return DropdownMenuItem<Sale>(
-                              value: s,
-                              child: Text('Invoice #${s.invoiceNumber} - ₹${s.grandTotal.toStringAsFixed(2)} (${s.saleDate})', overflow: TextOverflow.ellipsis),
-                            );
-                          }).toList(),
-                          onChanged: (val) => setState(() => _selectedSale = val),
                         ),
                       ] else ...[
-                        DropdownButtonFormField<Repair>(
-                          value: _selectedRepair,
-                          isExpanded: true,
-                          hint: _isLoadingSalesOrRepairs ? const Text('Loading repair job cards...') : const Text('Link to Repair Job Card (Optional)'),
-                          decoration: InputDecoration(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                            prefixIcon: const Icon(Icons.build_circle_rounded, color: AppColors.primary),
+                        InkWell(
+                          onTap: _showRepairSearchBottomSheet,
+                          borderRadius: BorderRadius.circular(10),
+                          child: InputDecorator(
+                            decoration: InputDecoration(
+                              labelText: 'Link to Repair Job Card (Optional)',
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                              prefixIcon: const Icon(Icons.build_circle_rounded, color: AppColors.primary),
+                              suffixIcon: const Icon(Icons.search_rounded, size: 22, color: AppColors.primary),
+                            ),
+                            child: Text(
+                              _selectedRepair != null
+                                  ? 'Job #${_selectedRepair!.jobNumber} - ₹${_selectedRepair!.netCost.toStringAsFixed(2)} (${_selectedRepair!.dateReceived})'
+                                  : (_isLoadingSalesOrRepairs ? 'Loading repair job cards...' : 'Tap to search & link job card (${_repairList.length} available)'),
+                              style: TextStyle(
+                                color: _selectedRepair == null ? AppColors.textMuted : AppColors.textPrimary,
+                                fontSize: 14,
+                                fontWeight: _selectedRepair != null ? FontWeight.w600 : FontWeight.normal,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                          items: _repairList.map((r) {
-                            return DropdownMenuItem<Repair>(
-                              value: r,
-                              child: Text('Job #${r.jobNumber} - ₹${r.netCost.toStringAsFixed(2)} (${r.dateReceived})', overflow: TextOverflow.ellipsis),
-                            );
-                          }).toList(),
-                          onChanged: (val) => setState(() => _selectedRepair = val),
                         ),
                       ],
                     ],

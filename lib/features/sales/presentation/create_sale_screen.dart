@@ -1,16 +1,22 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/app_error_mapper.dart';
+import '../../../core/utils/app_feedback.dart';
+import '../../../core/widgets/app_searchable_bottom_sheet.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../customer/data/customer_repository.dart';
 import '../../customer/models/customer.dart';
+import '../../customer/presentation/widgets/quick_add_customer_modal.dart';
 import '../../device/data/device_repository.dart';
 import '../../device/models/device.dart';
+import '../../device/presentation/widgets/quick_add_device_modal.dart';
 import '../data/sale_repository.dart';
 import '../models/sale.dart';
 import '../../inventory/data/inventory_repository.dart';
 import '../../inventory/models/inventory_item.dart';
+import '../../inventory/presentation/widgets/quick_add_inventory_modal.dart';
 
 class CreateSaleScreen extends StatefulWidget {
   const CreateSaleScreen({super.key});
@@ -25,6 +31,7 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
   final _customerRepository = CustomerRepository();
   final _deviceRepository = DeviceRepository();
 
+  final ScrollController _scrollController = ScrollController();
   final _discountController = TextEditingController(text: '0');
   final _taxController = TextEditingController(text: '0');
   final _paymentAmountController = TextEditingController();
@@ -51,11 +58,24 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _discountController.dispose();
     _taxController.dispose();
     _paymentAmountController.dispose();
     _notesController.dispose();
     super.dispose();
+  }
+
+  void _showFormError(String errorMsg) {
+    AppFeedback.showError(context, error: errorMsg);
+    setState(() => _errorMessage = errorMsg);
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 
   Future<void> _loadCustomers() async {
@@ -163,13 +183,36 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Select Customer',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      const Expanded(
+                        child: Text(
+                          'Select Customer',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded),
-                        onPressed: () => Navigator.pop(ctx),
+                      Row(
+                        children: [
+                          TextButton.icon(
+                            onPressed: () async {
+                              final newCust = await QuickAddCustomerModal.show(context);
+                              if (newCust != null) {
+                                _loadCustomers();
+                                setState(() {
+                                  _selectedCustomer = newCust;
+                                  _selectedDevice = null;
+                                });
+                                _loadDevicesForCustomer(newCust.id);
+                                Navigator.pop(ctx);
+                              }
+                            },
+                            icon: const Icon(Icons.add_rounded, size: 18),
+                            label: const Text('Add New', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded),
+                            onPressed: () => Navigator.pop(ctx),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -266,13 +309,36 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Select Customer Device',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      const Expanded(
+                        child: Text(
+                          'Select Customer Device',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded),
-                        onPressed: () => Navigator.pop(ctx),
+                      Row(
+                        children: [
+                          TextButton.icon(
+                            onPressed: () async {
+                              final newDev = await QuickAddDeviceModal.show(context, initialCustomer: _selectedCustomer);
+                              if (newDev != null) {
+                                if (_selectedCustomer != null) {
+                                  _loadDevicesForCustomer(_selectedCustomer!.id);
+                                }
+                                setState(() {
+                                  _selectedDevice = newDev;
+                                });
+                                Navigator.pop(ctx);
+                              }
+                            },
+                            icon: const Icon(Icons.add_rounded, size: 18),
+                            label: const Text('Add New', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded),
+                            onPressed: () => Navigator.pop(ctx),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -506,17 +572,53 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                       if (saleMode == 'inventory') ...[
                         // INVENTORY SELECTION MODE
                         const SizedBox(height: 6),
-                        TextField(
-                          controller: searchCtrl,
-                          onChanged: (q) => fetchInventory(setDialogState, query: q.trim()),
-                          decoration: InputDecoration(
-                            hintText: 'Search Name, SKU, Brand, Model...',
-                            hintStyle: const TextStyle(fontSize: 12),
-                            prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            isDense: true,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: searchCtrl,
+                                onChanged: (q) => fetchInventory(setDialogState, query: q.trim()),
+                                decoration: InputDecoration(
+                                  hintText: 'Search Name, SKU, Brand...',
+                                  hintStyle: const TextStyle(fontSize: 12),
+                                  prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  isDense: true,
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            InkWell(
+                              onTap: () async {
+                                final newItem = await QuickAddInventoryModal.show(context);
+                                if (newItem != null) {
+                                  await fetchInventory(setDialogState);
+                                  setDialogState(() {
+                                    selectedInvItem = newItem;
+                                    priceCtrl.text = newItem.sellingPrice.toStringAsFixed(2);
+                                  });
+                                }
+                              },
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.add_rounded, size: 16, color: AppColors.primary),
+                                    SizedBox(width: 2),
+                                    Text('New', style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 10),
                         if (isLoadingInv)
@@ -801,7 +903,7 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
 
   Future<void> _submitSale() async {
     if (_items.isEmpty) {
-      setState(() => _errorMessage = 'Please add at least one sale item.');
+      _showFormError('Please add at least one sale item.');
       return;
     }
 
@@ -828,20 +930,19 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
 
       if (mounted) {
         if (response.success && response.data != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Invoice ${response.data!.invoiceNumber} generated successfully!'),
-              backgroundColor: Colors.green.shade700,
-            ),
+          AppFeedback.showSuccess(
+            context,
+            title: 'Invoice Created',
+            message: 'Invoice ${response.data!.invoiceNumber} generated successfully!',
           );
           Navigator.pop(context, true);
         } else {
-          setState(() => _errorMessage = response.message);
+          _showFormError(AppErrorMapper.mapMessage(response.message));
         }
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _errorMessage = e.toString());
+        _showFormError(AppErrorMapper.mapMessage(e.toString()));
       }
     } finally {
       if (mounted) {
@@ -860,6 +961,7 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
         elevation: 0,
       ),
       body: SingleChildScrollView(
+        controller: _scrollController,
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
@@ -1352,22 +1454,49 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                     const SizedBox(height: 12),
                     const Text('Payment Method', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
-                      value: _paymentMethod,
-                      decoration: InputDecoration(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      items: const [
-                        DropdownMenuItem(value: 'cash', child: Text('Cash')),
-                        DropdownMenuItem(value: 'upi', child: Text('UPI / PhonePe / GPay')),
-                        DropdownMenuItem(value: 'card', child: Text('Credit / Debit Card')),
-                        DropdownMenuItem(value: 'bank_transfer', child: Text('Bank Transfer')),
-                        DropdownMenuItem(value: 'other', child: Text('Other')),
-                      ],
-                      onChanged: (val) {
-                        if (val != null) setState(() => _paymentMethod = val);
+                    InkWell(
+                      onTap: () async {
+                        final methodMap = {
+                          'Cash': 'cash',
+                          'UPI / PhonePe / GPay': 'upi',
+                          'Credit / Debit Card': 'card',
+                          'Bank Transfer': 'bank_transfer',
+                          'Other': 'other',
+                        };
+                        final currentLabel = methodMap.entries.firstWhere((e) => e.value == _paymentMethod, orElse: () => const MapEntry('Cash', 'cash')).key;
+
+                        final selected = await AppSearchableBottomSheet.show(
+                          context,
+                          title: 'Select Payment Method',
+                          options: ['Cash', 'UPI / PhonePe / GPay', 'Credit / Debit Card', 'Bank Transfer', 'Other'],
+                          selectedValues: [currentLabel],
+                          searchHint: 'Search payment method...',
+                        );
+                        if (selected != null && selected is String && methodMap.containsKey(selected)) {
+                          setState(() => _paymentMethod = methodMap[selected]!);
+                        }
                       },
+                      borderRadius: BorderRadius.circular(10),
+                      child: InputDecorator(
+                        decoration: InputDecoration(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          prefixIcon: const Icon(Icons.payments_rounded, color: AppColors.primary),
+                          suffixIcon: const Icon(Icons.arrow_drop_down_rounded, size: 28, color: AppColors.primary),
+                        ),
+                        child: Text(
+                          _paymentMethod == 'upi'
+                              ? 'UPI / PhonePe / GPay'
+                              : _paymentMethod == 'card'
+                                  ? 'Credit / Debit Card'
+                                  : _paymentMethod == 'bank_transfer'
+                                      ? 'Bank Transfer'
+                                      : _paymentMethod == 'other'
+                                          ? 'Other'
+                                          : 'Cash',
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Builder(

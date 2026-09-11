@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/storage/preferences_storage.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/app_feedback.dart';
+import '../../../core/widgets/app_searchable_bottom_sheet.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/custom_text_field.dart';
@@ -17,6 +20,7 @@ class AddDeviceScreen extends StatefulWidget {
 
 class _AddDeviceScreenState extends State<AddDeviceScreen> {
   final _formKey = GlobalKey<FormState>();
+  final ScrollController _scrollController = ScrollController();
   final _brandController = TextEditingController();
   final _modelController = TextEditingController();
   final _variantController = TextEditingController();
@@ -42,6 +46,18 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
   String? _selectedModel;
 
   final List<String> _deviceTypes = ['Mobile', 'Tablet', 'Laptop', 'Other'];
+
+  void _showFormError(String errorMsg) {
+    AppFeedback.showError(context, error: errorMsg);
+    setState(() => _errorMessage = errorMsg);
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -279,6 +295,40 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
     );
   }
 
+  Future<void> _showRamRomPickerBottomSheet() async {
+    final prefs = PreferencesStorage();
+    final combinations = await prefs.getRamRomCombinations();
+
+    List<String> currentSelected = [];
+    if (_variantController.text.trim().isNotEmpty) {
+      currentSelected = _variantController.text
+          .split(',')
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+    }
+
+    final result = await AppSearchableBottomSheet.show(
+      context,
+      title: 'Select RAM & ROM (Storage)',
+      options: combinations,
+      selectedValues: currentSelected,
+      isMultiSelect: true,
+      searchHint: 'Search e.g. 8 GB / 128 GB...',
+      addCustomHint: '+ Add Custom Combination (e.g. 18 GB / 1 TB)',
+      onAddCustomOption: (newComb) async {
+        await prefs.addRamRomCombination(newComb);
+      },
+    );
+
+    if (result != null && result is List) {
+      final selectedList = List<String>.from(result);
+      setState(() {
+        _variantController.text = selectedList.join(', ');
+      });
+    }
+  }
+
   Future<void> _pickPurchaseDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -295,7 +345,10 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
   }
 
   Future<void> _handleSaveDevice() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      _showFormError('Please fill out all required device fields.');
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -324,26 +377,22 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
 
       if (mounted) {
         if (response.success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Device added successfully')),
+          AppFeedback.showSuccess(
+            context,
+            title: '✅ Device Added',
+            message: '${_brandController.text.trim()} ${_modelController.text.trim()} added successfully.',
           );
           Navigator.pop(context, true);
         } else {
-          setState(() {
-            _errorMessage = response.message;
-          });
+          _showFormError(response.message);
         }
       }
     } catch (e) {
       if (mounted) {
         if (e is ApiException) {
-          setState(() {
-            _errorMessage = e.message;
-          });
+          _showFormError(e.message);
         } else {
-          setState(() {
-            _errorMessage = e.toString();
-          });
+          _showFormError(e.toString());
         }
       }
     } finally {
@@ -394,6 +443,7 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _brandController.dispose();
     _modelController.dispose();
     _variantController.dispose();
@@ -416,6 +466,7 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
+          controller: _scrollController,
           padding: const EdgeInsets.all(20.0),
           child: Form(
             key: _formKey,
@@ -642,13 +693,33 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
 
                       const SizedBox(height: 14),
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: CustomTextField(
-                              label: 'Variant / RAM / Storage',
-                              hint: 'e.g. 8GB / 128GB',
-                              controller: _variantController,
-                              prefixIcon: Icons.memory_rounded,
+                            child: InkWell(
+                              onTap: _showRamRomPickerBottomSheet,
+                              borderRadius: BorderRadius.circular(10),
+                              child: InputDecorator(
+                                decoration: InputDecoration(
+                                  labelText: 'Variant / RAM / Storage',
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                  prefixIcon: const Icon(Icons.memory_rounded, color: AppColors.primary),
+                                  suffixIcon: const Icon(Icons.arrow_drop_down_rounded, size: 28, color: AppColors.primary),
+                                ),
+                                child: Text(
+                                  _variantController.text.trim().isNotEmpty
+                                      ? _variantController.text.trim()
+                                      : 'Tap to select RAM & ROM',
+                                  style: TextStyle(
+                                    color: _variantController.text.trim().isNotEmpty ? AppColors.textPrimary : AppColors.textMuted,
+                                    fontSize: 13,
+                                    fontWeight: _variantController.text.trim().isNotEmpty ? FontWeight.w600 : FontWeight.normal,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 12),

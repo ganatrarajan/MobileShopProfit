@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_searchable_bottom_sheet.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../data/repair_repository.dart';
 import '../models/repair.dart';
@@ -143,22 +144,49 @@ class _CollectRepairPaymentDialogState extends State<CollectRepairPaymentDialog>
             const SizedBox(height: 12),
             const Text('Payment Method', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             const SizedBox(height: 6),
-            DropdownButtonFormField<String>(
-              value: _paymentMethod,
-              decoration: InputDecoration(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              items: const [
-                DropdownMenuItem(value: 'cash', child: Text('Cash')),
-                DropdownMenuItem(value: 'upi', child: Text('UPI / PhonePe / GPay')),
-                DropdownMenuItem(value: 'card', child: Text('Credit / Debit Card')),
-                DropdownMenuItem(value: 'bank_transfer', child: Text('Bank Transfer')),
-                DropdownMenuItem(value: 'other', child: Text('Other')),
-              ],
-              onChanged: (val) {
-                if (val != null) setState(() => _paymentMethod = val);
+            InkWell(
+              onTap: () async {
+                final methodMap = {
+                  'Cash': 'cash',
+                  'UPI / PhonePe / GPay': 'upi',
+                  'Credit / Debit Card': 'card',
+                  'Bank Transfer': 'bank_transfer',
+                  'Other': 'other',
+                };
+                final currentLabel = methodMap.entries.firstWhere((e) => e.value == _paymentMethod, orElse: () => const MapEntry('Cash', 'cash')).key;
+
+                final selected = await AppSearchableBottomSheet.show(
+                  context,
+                  title: 'Select Payment Method',
+                  options: ['Cash', 'UPI / PhonePe / GPay', 'Credit / Debit Card', 'Bank Transfer', 'Other'],
+                  selectedValues: [currentLabel],
+                  searchHint: 'Search payment method...',
+                );
+                if (selected != null && selected is String && methodMap.containsKey(selected)) {
+                  setState(() => _paymentMethod = methodMap[selected]!);
+                }
               },
+              borderRadius: BorderRadius.circular(10),
+              child: InputDecorator(
+                decoration: InputDecoration(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  prefixIcon: const Icon(Icons.payments_rounded, color: AppColors.primary, size: 20),
+                  suffixIcon: const Icon(Icons.arrow_drop_down_rounded, size: 28, color: AppColors.primary),
+                ),
+                child: Text(
+                  _paymentMethod == 'upi'
+                      ? 'UPI / PhonePe / GPay'
+                      : _paymentMethod == 'card'
+                          ? 'Credit / Debit Card'
+                          : _paymentMethod == 'bank_transfer'
+                              ? 'Bank Transfer'
+                              : _paymentMethod == 'other'
+                                  ? 'Other'
+                                  : 'Cash',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                ),
+              ),
             ),
             const SizedBox(height: 12),
             CustomTextField(

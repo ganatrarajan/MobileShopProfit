@@ -10,6 +10,7 @@ class CustomCard extends StatelessWidget {
   final VoidCallback? onTap;
   final double borderRadius;
   final List<BoxShadow>? boxShadow;
+  final double? width;
 
   const CustomCard({
     super.key,
@@ -21,6 +22,7 @@ class CustomCard extends StatelessWidget {
     this.onTap,
     this.borderRadius = 16.0,
     this.boxShadow,
+    this.width,
   });
 
   @override
@@ -29,6 +31,7 @@ class CustomCard extends StatelessWidget {
     final borderColor = AppColors.border;
 
     Widget content = Container(
+      width: width ?? double.infinity,
       decoration: BoxDecoration(
         color: gradient == null ? cardBgColor : null,
         gradient: gradient,

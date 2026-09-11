@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/app_error_mapper.dart';
+import '../../../core/utils/app_feedback.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/custom_text_field.dart';
+import '../../inventory/presentation/widgets/quick_add_category_modal.dart';
 import '../data/expense_repository.dart';
 import '../models/expense.dart';
 import '../models/expense_category.dart';
@@ -19,6 +22,7 @@ class AddEditExpenseScreen extends StatefulWidget {
 class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
   final ExpenseRepository _expenseRepository = ExpenseRepository();
   final _formKey = GlobalKey<FormState>();
+  final ScrollController _scrollController = ScrollController();
 
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
@@ -65,6 +69,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
     _amountController.dispose();
     _refNumberController.dispose();
     _notesController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -213,13 +218,42 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Select Expense Category',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      const Expanded(
+                        child: Text(
+                          'Select Expense Category',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded),
-                        onPressed: () => Navigator.pop(ctx),
+                      Row(
+                        children: [
+                          TextButton.icon(
+                            onPressed: () async {
+                              final newCatName = await QuickAddCategoryModal.show(
+                                context,
+                                title: 'Add Expense Category',
+                                label: 'Category Name',
+                                hint: 'e.g. Tea & Snacks, License',
+                              );
+                              if (newCatName != null && newCatName.trim().isNotEmpty) {
+                                final res = await _expenseRepository.createExpenseCategory(newCatName.trim());
+                                await _fetchCategories();
+                                if (res.success && res.data != null) {
+                                  setState(() {
+                                    _selectedCategory = res.data;
+                                  });
+                                }
+                                if (mounted && Navigator.canPop(ctx)) Navigator.pop(ctx);
+                              }
+                            },
+                            icon: const Icon(Icons.add_rounded, size: 18),
+                            label: const Text('Add New', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded),
+                            onPressed: () => Navigator.pop(ctx),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -275,17 +309,32 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
     );
   }
 
+  void _showFormError(String errorMsg) {
+    AppFeedback.showError(context, error: errorMsg);
+    setState(() => _errorMessage = errorMsg);
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
   Future<void> _submitExpense() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      _showFormError('Please check the highlighted errors in the form.');
+      return;
+    }
 
     if (_selectedCategory == null) {
-      setState(() => _errorMessage = 'Please select an expense category.');
+      _showFormError('Please select an expense category.');
       return;
     }
 
     final amt = double.tryParse(_amountController.text.trim());
     if (amt == null || amt <= 0) {
-      setState(() => _errorMessage = 'Amount must be greater than 0.');
+      _showFormError('Amount must be greater than 0.');
       return;
     }
 
@@ -313,15 +362,15 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
 
         if (mounted) {
           if (res.success) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Expense updated successfully!'), backgroundColor: Colors.green.shade700),
+            AppFeedback.showSuccess(
+              context,
+              title: _isEditing ? 'Expense Updated' : 'Expense Recorded',
+              message: _isEditing ? 'Expense updated successfully!' : 'Expense recorded successfully!',
             );
             Navigator.pop(context, true);
           } else {
-            setState(() {
-              _errorMessage = res.message;
-              _isSubmitting = false;
-            });
+            _showFormError(AppErrorMapper.mapMessage(res.message));
+            setState(() => _isSubmitting = false);
           }
         }
       } else {
@@ -339,24 +388,22 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
 
         if (mounted) {
           if (res.success) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Expense recorded successfully!'), backgroundColor: Colors.green.shade700),
+            AppFeedback.showSuccess(
+              context,
+              title: 'Expense Recorded',
+              message: 'Expense recorded successfully!',
             );
             Navigator.pop(context, true);
           } else {
-            setState(() {
-              _errorMessage = res.message;
-              _isSubmitting = false;
-            });
+            _showFormError(AppErrorMapper.mapMessage(res.message));
+            setState(() => _isSubmitting = false);
           }
         }
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _errorMessage = e.toString();
-          _isSubmitting = false;
-        });
+        _showFormError(AppErrorMapper.mapMessage(e.toString()));
+        setState(() => _isSubmitting = false);
       }
     }
   }
@@ -371,6 +418,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
         elevation: 0,
       ),
       body: SingleChildScrollView(
+        controller: _scrollController,
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
@@ -442,6 +490,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
                       label: 'Title *',
                       hint: 'e.g. August Electricity Bill, Shop Rent',
                       controller: _titleController,
+                      isRequired: true,
                       validator: (val) => val == null || val.trim().isEmpty ? 'Enter expense title' : null,
                     ),
                     const SizedBox(height: 14),
@@ -454,6 +503,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
                             label: 'Amount (₹) *',
                             hint: 'e.g. 4850',
                             controller: _amountController,
+                            isRequired: true,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             validator: (val) {
                               if (val == null || val.trim().isEmpty) return 'Enter amount';

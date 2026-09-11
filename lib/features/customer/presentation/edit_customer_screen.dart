@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/app_feedback.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/custom_text_field.dart';
@@ -25,8 +26,21 @@ class _EditCustomerScreenState extends State<EditCustomerScreen> {
   late TextEditingController _notesController;
 
   final CustomerRepository _repository = CustomerRepository();
+  final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
   String? _errorMessage;
+
+  void _showFormError(String errorMsg) {
+    AppFeedback.showError(context, error: errorMsg);
+    setState(() => _errorMessage = errorMsg);
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -41,7 +55,10 @@ class _EditCustomerScreenState extends State<EditCustomerScreen> {
   }
 
   Future<void> _handleUpdateCustomer() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      _showFormError('Please check the highlighted errors in the form.');
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -63,21 +80,19 @@ class _EditCustomerScreenState extends State<EditCustomerScreen> {
       if (mounted) {
         if (response.success && response.data != null) {
           final updatedCustomer = Customer.fromJson(response.data);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Customer updated successfully')),
+          AppFeedback.showSuccess(
+            context,
+            title: '✅ Customer Updated',
+            message: 'Customer details updated successfully.',
           );
           Navigator.pop(context, updatedCustomer);
         } else {
-          setState(() {
-            _errorMessage = response.message;
-          });
+          _showFormError(response.message);
         }
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _errorMessage = e.toString();
-        });
+        _showFormError(e.toString());
       }
     } finally {
       if (mounted) {
@@ -90,6 +105,7 @@ class _EditCustomerScreenState extends State<EditCustomerScreen> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _nameController.dispose();
     _mobileController.dispose();
     _alternateMobileController.dispose();
@@ -111,6 +127,7 @@ class _EditCustomerScreenState extends State<EditCustomerScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
+          controller: _scrollController,
           padding: const EdgeInsets.all(20.0),
           child: Form(
             key: _formKey,

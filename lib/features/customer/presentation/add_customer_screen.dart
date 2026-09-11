@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/app_feedback.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/custom_text_field.dart';
@@ -26,8 +27,21 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> {
   final _notesController = TextEditingController();
 
   final CustomerRepository _repository = CustomerRepository();
+  final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
   String? _errorMessage;
+
+  void _showFormError(String errorMsg) {
+    AppFeedback.showError(context, error: errorMsg);
+    setState(() => _errorMessage = errorMsg);
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -35,7 +49,10 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> {
   }
 
   Future<void> _handleSaveCustomer() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      _showFormError('Please check the highlighted errors in the form.');
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -43,8 +60,9 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> {
     });
 
     try {
+      final nameStr = _nameController.text.trim();
       final response = await _repository.createCustomer(
-        name: _nameController.text.trim(),
+        name: nameStr,
         mobile: _mobileController.text.trim(),
         alternateMobile: _alternateMobileController.text.trim().isNotEmpty ? _alternateMobileController.text.trim() : null,
         email: _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : null,
@@ -55,14 +73,14 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> {
 
       if (mounted) {
         if (response.success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Customer added successfully')),
+          AppFeedback.showSuccess(
+            context,
+            title: '✅ Customer Added',
+            message: '$nameStr has been added successfully.',
           );
           Navigator.pop(context, true);
         } else {
-          setState(() {
-            _errorMessage = response.message;
-          });
+          _showFormError(response.message);
         }
       }
     } catch (e) {
@@ -71,13 +89,9 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> {
           final existingCustomer = Customer.fromJson(e.errors['existing_customer']);
           _showDuplicateCustomerDialog(existingCustomer);
         } else if (e is ApiException) {
-          setState(() {
-            _errorMessage = e.message;
-          });
+          _showFormError(e.message);
         } else {
-          setState(() {
-            _errorMessage = e.toString();
-          });
+          _showFormError(e.toString());
         }
       }
     } finally {
@@ -128,6 +142,7 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _nameController.dispose();
     _mobileController.dispose();
     _alternateMobileController.dispose();
@@ -149,6 +164,7 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
+          controller: _scrollController,
           padding: const EdgeInsets.all(20.0),
           child: Form(
             key: _formKey,
@@ -174,23 +190,24 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> {
                       const Text('Required Details', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                       const SizedBox(height: 14),
                       CustomTextField(
-                        label: 'Customer Full Name *',
+                        label: 'Customer Full Name',
                         hint: 'e.g. Ramesh Patel',
                         controller: _nameController,
+                        isRequired: true,
                         prefixIcon: Icons.person_outline_rounded,
-                        validator: (val) => (val == null || val.isEmpty) ? 'Enter customer name' : null,
+                        validator: (val) => (val == null || val.trim().isEmpty) ? 'Please enter customer full name.' : null,
                       ),
                       const SizedBox(height: 14),
                       CustomTextField(
-                        label: 'Mobile Number (10 Digits) *',
+                        label: 'Mobile Number',
                         hint: 'e.g. 9876543210',
                         controller: _mobileController,
+                        isRequired: true,
                         keyboardType: TextInputType.phone,
                         prefixIcon: Icons.phone_android_rounded,
                         validator: (val) {
-                          if (val == null || val.isEmpty) return 'Enter mobile number';
-                          final regExp = RegExp(r'^[6-9]\d{9}$');
-                          if (!regExp.hasMatch(val)) return 'Enter valid 10-digit Indian mobile number (starts 6-9)';
+                          if (val == null || val.trim().isEmpty) return 'Please enter mobile number.';
+                          if (val.trim().length < 8) return 'Please enter a valid mobile number.';
                           return null;
                         },
                       ),

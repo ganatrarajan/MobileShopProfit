@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../../core/storage/preferences_storage.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/app_feedback.dart';
+import '../../../core/widgets/app_searchable_bottom_sheet.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/custom_text_field.dart';
@@ -16,6 +19,7 @@ class EditDeviceScreen extends StatefulWidget {
 
 class _EditDeviceScreenState extends State<EditDeviceScreen> {
   final _formKey = GlobalKey<FormState>();
+  final ScrollController _scrollController = ScrollController();
   late TextEditingController _brandController;
   late TextEditingController _modelController;
   late TextEditingController _variantController;
@@ -32,6 +36,18 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
   String? _errorMessage;
 
   final List<String> _deviceTypes = ['Mobile', 'Tablet', 'Laptop', 'Other'];
+
+  void _showFormError(String errorMsg) {
+    AppFeedback.showError(context, error: errorMsg);
+    setState(() => _errorMessage = errorMsg);
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -53,6 +69,40 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
     }
   }
 
+  Future<void> _showRamRomPickerBottomSheet() async {
+    final prefs = PreferencesStorage();
+    final combinations = await prefs.getRamRomCombinations();
+
+    List<String> currentSelected = [];
+    if (_variantController.text.trim().isNotEmpty) {
+      currentSelected = _variantController.text
+          .split(',')
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+    }
+
+    final result = await AppSearchableBottomSheet.show(
+      context,
+      title: 'Select RAM & ROM (Storage)',
+      options: combinations,
+      selectedValues: currentSelected,
+      isMultiSelect: true,
+      searchHint: 'Search e.g. 8 GB / 128 GB...',
+      addCustomHint: '+ Add Custom Combination (e.g. 18 GB / 1 TB)',
+      onAddCustomOption: (newComb) async {
+        await prefs.addRamRomCombination(newComb);
+      },
+    );
+
+    if (result != null && result is List) {
+      final selectedList = List<String>.from(result);
+      setState(() {
+        _variantController.text = selectedList.join(', ');
+      });
+    }
+  }
+
   Future<void> _pickPurchaseDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -69,7 +119,10 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
   }
 
   Future<void> _handleUpdateDevice() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      _showFormError('Please check the highlighted errors in the form.');
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -99,21 +152,19 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
       if (mounted) {
         if (response.success && response.data != null) {
           final updatedDevice = Device.fromJson(response.data);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Device details updated successfully')),
+          AppFeedback.showSuccess(
+            context,
+            title: '✅ Device Updated',
+            message: 'Device details updated successfully.',
           );
           Navigator.pop(context, updatedDevice);
         } else {
-          setState(() {
-            _errorMessage = response.message;
-          });
+          _showFormError(response.message);
         }
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _errorMessage = e.toString();
-        });
+        _showFormError(e.toString());
       }
     } finally {
       if (mounted) {
@@ -163,6 +214,7 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _brandController.dispose();
     _modelController.dispose();
     _variantController.dispose();
@@ -185,6 +237,7 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
+          controller: _scrollController,
           padding: const EdgeInsets.all(20.0),
           child: Form(
             key: _formKey,
@@ -228,18 +281,40 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
                       ),
                       const SizedBox(height: 14),
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: CustomTextField(
-                              label: 'Variant / Storage',
-                              controller: _variantController,
-                              prefixIcon: Icons.memory_rounded,
+                            child: InkWell(
+                              onTap: _showRamRomPickerBottomSheet,
+                              borderRadius: BorderRadius.circular(10),
+                              child: InputDecorator(
+                                decoration: InputDecoration(
+                                  labelText: 'Variant / RAM / Storage',
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                  prefixIcon: const Icon(Icons.memory_rounded, color: AppColors.primary),
+                                  suffixIcon: const Icon(Icons.arrow_drop_down_rounded, size: 28, color: AppColors.primary),
+                                ),
+                                child: Text(
+                                  _variantController.text.trim().isNotEmpty
+                                      ? _variantController.text.trim()
+                                      : 'Tap to select RAM & ROM',
+                                  style: TextStyle(
+                                    color: _variantController.text.trim().isNotEmpty ? AppColors.textPrimary : AppColors.textMuted,
+                                    fontSize: 13,
+                                    fontWeight: _variantController.text.trim().isNotEmpty ? FontWeight.w600 : FontWeight.normal,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: CustomTextField(
                               label: 'Color',
+                              hint: 'e.g. Black / Blue',
                               controller: _colorController,
                               prefixIcon: Icons.color_lens_outlined,
                             ),
@@ -259,6 +334,7 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
                       const SizedBox(height: 14),
                       CustomTextField(
                         label: 'IMEI 1 (15 Digits)',
+                        hint: 'Primary 15-digit IMEI',
                         controller: _imei1Controller,
                         keyboardType: TextInputType.number,
                         prefixIcon: Icons.qr_code_2_rounded,
@@ -273,6 +349,7 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
                       const SizedBox(height: 14),
                       CustomTextField(
                         label: 'IMEI 2 (Dual SIM)',
+                        hint: 'Secondary 15-digit IMEI',
                         controller: _imei2Controller,
                         keyboardType: TextInputType.number,
                         prefixIcon: Icons.qr_code_2_rounded,
@@ -287,6 +364,7 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
                       const SizedBox(height: 14),
                       CustomTextField(
                         label: 'Serial Number',
+                        hint: 'Manufacturer Serial #',
                         controller: _serialController,
                         prefixIcon: Icons.tag_rounded,
                       ),
@@ -323,6 +401,7 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
                       const SizedBox(height: 14),
                       CustomTextField(
                         label: 'Notes',
+                        hint: 'Enter device notes...',
                         controller: _notesController,
                         prefixIcon: Icons.note_alt_outlined,
                       ),

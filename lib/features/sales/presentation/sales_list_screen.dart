@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_empty_state.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../subscription/utils/subscription_guard.dart';
@@ -463,20 +464,20 @@ class SalesListScreenState extends State<SalesListScreen> {
                       ),
                     )
                   : _sales.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.receipt_long_outlined, size: 60, color: AppColors.textMuted),
-                              const SizedBox(height: 12),
-                              Text(
-                                'No sales found for $_dateFilterLabel',
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text('Tap Create Sale (+) to generate a new invoice', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                            ],
-                          ),
+                      ? AppEmptyState(
+                          icon: Icons.receipt_long_outlined,
+                          title: 'No sales found',
+                          message: 'No sales invoices matching $_dateFilterLabel.',
+                          actionLabel: 'Create Sale',
+                          onAction: () async {
+                            final allowed = await SubscriptionGuard.checkLimitAndAlert(
+                              context,
+                              FeatureLimitType.createSale,
+                            );
+                            if (allowed && context.mounted) {
+                              Navigator.pushNamed(context, AppRoutes.createSale).then((_) => _fetchSales());
+                            }
+                          },
                         )
                       : RefreshIndicator(
                           onRefresh: _fetchSales,

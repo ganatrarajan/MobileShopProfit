@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/app_error_mapper.dart';
+import '../../../core/utils/app_feedback.dart';
+import '../../../core/widgets/app_dialogs.dart';
+import '../../../core/widgets/app_empty_state.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../data/warranty_repository.dart';
@@ -111,42 +115,28 @@ class _WarrantyListScreenState extends State<WarrantyListScreen> {
   }
 
   Future<void> _confirmDeleteWarranty(Warranty warranty) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
-            children: [
-              Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 24),
-              SizedBox(width: 8),
-              Text('Delete Warranty'),
-            ],
-          ),
-          content: Text('Are you sure you want to delete warranty ${warranty.warrantyNumber}? All associated claims will also be deleted.'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
+    final confirm = await AppDialogs.showConfirmation(
+      context,
+      title: 'Delete Warranty',
+      message: 'Are you sure you want to delete warranty ${warranty.warrantyNumber}? All associated claims will also be deleted.',
+      confirmLabel: 'Delete Warranty',
+      isDanger: true,
     );
 
     if (confirm == true) {
       final res = await _warrantyRepository.deleteWarranty(warranty.id);
       if (mounted) {
         if (res.success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Warranty ${warranty.warrantyNumber} deleted.'), backgroundColor: Colors.green.shade700),
+          AppFeedback.showSuccess(
+            context,
+            title: 'Warranty Deleted',
+            message: 'Warranty ${warranty.warrantyNumber} has been deleted.',
           );
           _fetchWarranties();
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(res.message), backgroundColor: AppColors.error),
+          AppFeedback.showError(
+            context,
+            message: AppErrorMapper.mapMessage(res.message),
           );
         }
       }
@@ -278,17 +268,20 @@ class _WarrantyListScreenState extends State<WarrantyListScreen> {
                       ),
                     )
                   : _warranties.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
-                              Icon(Icons.verified_outlined, size: 60, color: AppColors.textMuted),
-                              SizedBox(height: 12),
-                              Text('No warranty records found', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
-                              SizedBox(height: 4),
-                              Text('Tap Create Warranty (+) to issue a new warranty', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                            ],
-                          ),
+                      ? AppEmptyState(
+                          icon: Icons.verified_outlined,
+                          title: 'No warranty records found',
+                          message: 'Issue digital repair & sales warranties to protect customers and boost shop trust.',
+                          actionLabel: 'Create Warranty',
+                          onAction: () async {
+                            final allowed = await SubscriptionGuard.checkLimitAndAlert(
+                              context,
+                              FeatureLimitType.createWarranty,
+                            );
+                            if (allowed && context.mounted) {
+                              Navigator.pushNamed(context, AppRoutes.createWarranty).then((_) => _fetchWarranties());
+                            }
+                          },
                         )
                       : RefreshIndicator(
                           onRefresh: _fetchWarranties,

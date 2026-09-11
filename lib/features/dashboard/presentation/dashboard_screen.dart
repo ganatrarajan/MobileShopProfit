@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/storage/auth_storage.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/app_error_mapper.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../profit_intelligence/data/profit_intelligence_repository.dart';
 import '../../profit_intelligence/domain/profit_intelligence_models.dart';
@@ -140,7 +141,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           }
         } else {
           setState(() {
-            _errorMessage = res.message;
+            _errorMessage = AppErrorMapper.mapMessage(res.message);
             _isLoading = false;
           });
         }
@@ -148,7 +149,7 @@ class DashboardScreenState extends State<DashboardScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString();
+          _errorMessage = AppErrorMapper.mapMessage(e.toString());
           _isLoading = false;
         });
       }

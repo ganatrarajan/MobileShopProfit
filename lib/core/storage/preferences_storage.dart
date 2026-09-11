@@ -56,4 +56,43 @@ class PreferencesStorage {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyAppLockPin, pin);
   }
+
+  static const String _keyRamRomCombinations = 'pref_ram_rom_combinations';
+
+  static const List<String> defaultRamRomCombinations = [
+    '2 GB / 32 GB',
+    '3 GB / 32 GB',
+    '3 GB / 64 GB',
+    '4 GB / 64 GB',
+    '4 GB / 128 GB',
+    '6 GB / 64 GB',
+    '6 GB / 128 GB',
+    '8 GB / 128 GB',
+    '8 GB / 256 GB',
+    '12 GB / 256 GB',
+    '12 GB / 512 GB',
+    '16 GB / 512 GB',
+    '16 GB / 1 TB',
+  ];
+
+  Future<List<String>> getRamRomCombinations() async {
+    final prefs = await SharedPreferences.getInstance();
+    final customList = prefs.getStringList(_keyRamRomCombinations);
+    if (customList == null || customList.isEmpty) {
+      return List.from(defaultRamRomCombinations);
+    }
+    final set = <String>{...defaultRamRomCombinations, ...customList};
+    return set.toList();
+  }
+
+  Future<void> addRamRomCombination(String combination) async {
+    final clean = combination.trim();
+    if (clean.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    final existing = await getRamRomCombinations();
+    if (!existing.contains(clean)) {
+      existing.add(clean);
+      await prefs.setStringList(_keyRamRomCombinations, existing);
+    }
+  }
 }
