@@ -1,4 +1,4 @@
-﻿class DateHelper {
+class DateHelper {
   static const List<String> _months = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
@@ -16,7 +16,7 @@
     }
   }
 
-  /// Formats date & time: e.g. "10 Sep 2026, 05:16 PM"
+  /// Formats date & time: e.g. "12 - Sep - 2026, 05:16 PM"
   static String formatDateTime(String? raw) {
     if (raw == null || raw.trim().isEmpty) return '';
     final dt = parseToLocal(raw);
@@ -33,10 +33,10 @@
     final hourStr = hour.toString().padLeft(2, '0');
     final minuteStr = dt.minute.toString().padLeft(2, '0');
 
-    return '$day $month $year, $hourStr:$minuteStr $ampm';
+    return '$day - $month - $year, $hourStr:$minuteStr $ampm';
   }
 
-  /// Formats date only: e.g. "10 Sep 2026"
+  /// Formats date only: e.g. "12 - Sep - 2026"
   static String formatDate(String? raw) {
     if (raw == null || raw.trim().isEmpty) return '';
     final dt = parseToLocal(raw);
@@ -46,7 +46,7 @@
     final month = _months[dt.month - 1];
     final year = dt.year;
 
-    return '$day $month $year';
+    return '$day - $month - $year';
   }
 
   /// Formats time only: e.g. "05:16 PM"
@@ -63,5 +63,15 @@
     final minuteStr = dt.minute.toString().padLeft(2, '0');
 
     return '$hourStr:$minuteStr $ampm';
+  }
+
+  /// Smart format: Formats as "dd - Month - yyyy, hh:mm AM/PM" if time is present, else "dd - Month - yyyy"
+  static String formatSmart(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return '';
+    final dt = parseToLocal(raw);
+    if (dt == null) return raw;
+
+    final hasTime = raw.contains('T') || raw.contains(':') || (dt.hour != 0 || dt.minute != 0);
+    return hasTime ? formatDateTime(raw) : formatDate(raw);
   }
 }

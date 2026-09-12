@@ -1,4 +1,5 @@
-﻿import '../../warranty/models/warranty.dart';
+import '../../../core/utils/date_helper.dart';
+import '../../warranty/models/warranty.dart';
 import '../data/sale_repository.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
@@ -9,6 +10,9 @@ import '../../warranty/presentation/widgets/quick_add_warranty_modal.dart';
 
 import '../../warranty/data/warranty_repository.dart';
 import '../models/sale.dart';
+import '../../../core/utils/whatsapp_helper.dart';
+import '../../../core/widgets/whatsapp_icon.dart';
+import 'sale_invoice_pdf_screen.dart';
 import 'collect_payment_dialog.dart';
 
 class SaleDetailsScreen extends StatefulWidget {
@@ -199,6 +203,16 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
         elevation: 0,
         actions: [
           IconButton(
+            icon: const Icon(Icons.picture_as_pdf_rounded, color: Colors.white),
+            onPressed: () => SaleInvoicePdfScreen.show(context, _sale),
+            tooltip: 'Print / View PDF Invoice',
+          ),
+          IconButton(
+            icon: const WhatsAppIcon(size: 22),
+            onPressed: () => WhatsAppHelper.sendSaleWhatsAppMessage(context, _sale),
+            tooltip: 'Send WhatsApp Bill',
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: _refreshDetails,
             tooltip: 'Refresh',
@@ -235,7 +249,7 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'Date: ${_sale.saleDate.length >= 10 ? _sale.saleDate.substring(0, 10) : _sale.saleDate}',
+                                  'Date: ${DateHelper.formatSmart(_sale.saleDate)}',
                                   style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                                 ),
                               ],
@@ -258,11 +272,45 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Icon(Icons.person_rounded, color: AppColors.accent, size: 18),
-                            SizedBox(width: 8),
-                            Text('Customer Information', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                            const Row(
+                              children: [
+                                Icon(Icons.person_rounded, color: AppColors.accent, size: 18),
+                                SizedBox(width: 8),
+                                Text('Customer Information', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                            if (_sale.customer?.mobile.isNotEmpty == true || (_sale.customerMobile != null && _sale.customerMobile!.isNotEmpty)) ...[
+                              InkWell(
+                                onTap: () => WhatsAppHelper.sendSaleWhatsAppMessage(context, _sale),
+                                borderRadius: BorderRadius.circular(20),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF25D366).withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(color: const Color(0xFF25D366).withOpacity(0.3)),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      WhatsAppIcon(size: 18),
+                                      SizedBox(width: 5),
+                                      Text(
+                                        'WhatsApp',
+                                        style: TextStyle(
+                                          color: Color(0xFF128C7E),
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                         const SizedBox(height: 8),
@@ -443,8 +491,8 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                     padding: const EdgeInsets.all(12),
                     child: Column(
                       children: [
-                        Row(
-                          children: const [
+                        const Row(
+                          children: [
                             Expanded(flex: 4, child: Text('Item', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMuted))),
                             Expanded(flex: 1, child: Text('Qty', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMuted))),
                             Expanded(flex: 2, child: Text('Price', textAlign: TextAlign.right, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMuted))),
@@ -514,6 +562,43 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                   ),
                   const SizedBox(height: 14),
 
+                  // PDF & WhatsApp Action Buttons Card
+                  CustomCard(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () => SaleInvoicePdfScreen.show(context, _sale),
+                            icon: const Icon(Icons.picture_as_pdf_rounded, size: 18),
+                            label: const Text('PDF Bill', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue.shade800,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () => WhatsAppHelper.sendSaleWhatsAppMessage(context, _sale),
+                            icon: const WhatsAppIcon(size: 18, showBackground: false),
+                            label: const Text('WhatsApp Bill', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF25D366),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
                   // Collect Payment Action Button
                   if (_sale.amountDue > 0) ...[
                     SizedBox(
@@ -564,7 +649,7 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                                           ),
                                           Text(
-                                            p.paymentDate != null && p.paymentDate!.length >= 10 ? p.paymentDate!.substring(0, 10) : '',
+                                            DateHelper.formatSmart(p.paymentDate),
                                             style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
                                           ),
                                           if (p.notes != null && p.notes!.isNotEmpty)

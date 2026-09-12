@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_error_mapper.dart';
 import '../../../core/utils/app_feedback.dart';
@@ -14,6 +14,7 @@ import '../../device/models/device.dart';
 import '../../device/presentation/widgets/quick_add_device_modal.dart';
 import '../data/sale_repository.dart';
 import '../../warranty/data/warranty_repository.dart';
+import '../../../core/utils/whatsapp_helper.dart';
 import '../models/sale.dart';
 import '../../inventory/data/inventory_repository.dart';
 import '../../inventory/models/inventory_item.dart';

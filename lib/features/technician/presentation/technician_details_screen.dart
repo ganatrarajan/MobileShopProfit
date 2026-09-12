@@ -1,3 +1,4 @@
+import '../../../core/utils/date_helper.dart';
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
@@ -612,7 +613,7 @@ class _TechnicianDetailsScreenState extends State<TechnicianDetailsScreen> {
                   padding: const EdgeInsets.all(8),
                   child: Column(
                     children: _paymentHistory.map((p) {
-                      final formattedDate = p.paymentDate.split('T').first;
+                      final formattedDate = DateHelper.formatSmart(p.paymentDate);
                       return ListTile(
                         dense: true,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),

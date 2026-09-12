@@ -1,3 +1,4 @@
+import '../../../core/utils/date_helper.dart';
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
@@ -7,6 +8,9 @@ import '../../../core/widgets/status_badge.dart';
 import '../../subscription/utils/subscription_guard.dart';
 import '../data/sale_repository.dart';
 import '../models/sale.dart';
+import '../../../core/utils/whatsapp_helper.dart';
+import '../../../core/widgets/whatsapp_icon.dart';
+import 'sale_invoice_pdf_screen.dart';
 
 class SalesListScreen extends StatefulWidget {
   final bool isTab;
@@ -167,8 +171,8 @@ class SalesListScreenState extends State<SalesListScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: const [
+                const Row(
+                  children: [
                     Icon(Icons.calendar_month_rounded, color: AppColors.primary),
                     SizedBox(width: 8),
                     Text('Select Date Filter', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -511,42 +515,71 @@ class SalesListScreenState extends State<SalesListScreen> {
                                       Row(
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
-                                          Row(
-                                            children: [
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                decoration: BoxDecoration(
-                                                  color: sale.isQuickSale ? Colors.amber.shade900.withOpacity(0.12) : AppColors.primary.withOpacity(0.1),
-                                                  borderRadius: BorderRadius.circular(6),
-                                                ),
-                                                child: Text(
-                                                  sale.isQuickSale ? '⚡ ${sale.invoiceNumber}' : sale.invoiceNumber,
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 13,
-                                                    color: sale.isQuickSale ? Colors.amber.shade900 : AppColors.primary,
+                                          Expanded(
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Flexible(
+                                                  child: Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                                    decoration: BoxDecoration(
+                                                      color: sale.isQuickSale ? Colors.amber.shade900.withOpacity(0.12) : AppColors.primary.withOpacity(0.1),
+                                                      borderRadius: BorderRadius.circular(6),
+                                                    ),
+                                                    child: Text(
+                                                      sale.isQuickSale ? '⚡ ${sale.invoiceNumber}' : sale.invoiceNumber,
+                                                      style: TextStyle(
+                                                        fontWeight: FontWeight.bold,
+                                                        fontSize: 12,
+                                                        color: sale.isQuickSale ? Colors.amber.shade900 : AppColors.primary,
+                                                      ),
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
                                                   ),
                                                 ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                sale.saleDate.length >= 10 ? sale.saleDate.substring(0, 10) : sale.saleDate,
-                                                style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
-                                              ),
-                                            ],
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  DateHelper.formatSmart(sale.saleDate),
+                                                  style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                                ),
+                                              ],
+                                            ),
                                           ),
+                                          const SizedBox(width: 4),
                                           Row(
+                                            mainAxisSize: MainAxisSize.min,
                                             children: [
                                               StatusBadge(
                                                 label: statusLabel,
                                                 backgroundColor: statusColor.withOpacity(0.12),
                                                 textColor: statusColor,
                                               ),
-                                              const SizedBox(width: 4),
+                                              if (customerMobile.isNotEmpty) ...[
+                                                const SizedBox(width: 2),
+                                                InkWell(
+                                                  onTap: () => WhatsAppHelper.sendSaleWhatsAppMessage(context, sale),
+                                                  borderRadius: BorderRadius.circular(16),
+                                                  child: const Padding(
+                                                    padding: EdgeInsets.all(3.0),
+                                                    child: WhatsAppIcon(size: 18),
+                                                  ),
+                                                ),
+                                              ],
+                                              const SizedBox(width: 2),
+                                              InkWell(
+                                                onTap: () => SaleInvoicePdfScreen.show(context, sale),
+                                                borderRadius: BorderRadius.circular(16),
+                                                child: const Padding(
+                                                  padding: EdgeInsets.all(3.0),
+                                                  child: Icon(Icons.picture_as_pdf_rounded, size: 18, color: Colors.redAccent),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 2),
                                               InkWell(
                                                 onTap: () => _confirmDeleteSale(sale),
+                                                borderRadius: BorderRadius.circular(16),
                                                 child: Padding(
-                                                  padding: const EdgeInsets.all(4.0),
+                                                  padding: const EdgeInsets.all(3.0),
                                                   child: Icon(Icons.delete_outline_rounded, size: 18, color: Colors.grey.shade400),
                                                 ),
                                               ),
@@ -659,7 +692,7 @@ class SalesListScreenState extends State<SalesListScreen> {
             icon: const Icon(Icons.add_rounded),
             onPressed: () async {
               final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create sales invoices');
-              if (!ok) return;
+              if (!ok || !context.mounted) return;
               final result = await Navigator.pushNamed(context, AppRoutes.createSale);
               if (result == true) {
                 _fetchSales();
@@ -673,7 +706,7 @@ class SalesListScreenState extends State<SalesListScreen> {
         heroTag: null,
         onPressed: () async {
           final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create sales invoices');
-          if (!ok) return;
+          if (!ok || !context.mounted) return;
           final result = await Navigator.pushNamed(context, AppRoutes.createSale);
           if (result == true) {
             _fetchSales();

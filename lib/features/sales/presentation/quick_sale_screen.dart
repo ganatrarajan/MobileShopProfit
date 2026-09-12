@@ -8,6 +8,7 @@ import '../../inventory/models/inventory_item.dart';
 import '../../inventory/presentation/widgets/quick_add_inventory_modal.dart';
 import '../data/sale_repository.dart';
 import '../../warranty/data/warranty_repository.dart';
+import '../../../core/utils/whatsapp_helper.dart';
 import '../models/sale.dart';
 import '../../subscription/utils/subscription_guard.dart';
 
@@ -238,6 +239,9 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
             title: '⚡ Quick Sale Completed',
             message: 'Invoice #${res.data!.invoiceNumber} completed successfully.',
           );
+          if (mounted && ((createdSale.customerMobile != null && createdSale.customerMobile!.trim().isNotEmpty) || (createdSale.customer?.mobile != null && createdSale.customer!.mobile.trim().isNotEmpty))) {
+            await WhatsAppHelper.showWhatsAppSalePromptDialog(context, createdSale);
+          }
           setState(() {
             _selectedItem = null;
             _quantity = 1;

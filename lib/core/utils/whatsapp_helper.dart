@@ -1,256 +1,202 @@
-﻿import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'pdf_invoice_builder.dart';
+import 'date_helper.dart';
+import '../theme/app_colors.dart';
+import '../../features/sales/models/sale.dart';
 import '../../features/repair/models/repair.dart';
 import '../storage/auth_storage.dart';
 import '../widgets/whatsapp_icon.dart';
 
 class WhatsAppHelper {
-  static const Map<String, String> _statusLabels = {
-    'received': 'Received',
-    'diagnosing': 'Diagnosing / In Inspection',
-    'waiting_customer': 'Waiting Customer Approval',
-    'waiting_parts': 'Waiting for Parts',
-    'repairing': 'Under Repair',
-    'ready': 'Ready for Pickup',
-    'delivered': 'Delivered',
-    'cancelled': 'Cancelled',
-  };
-
-  /// Formats raw phone number for WhatsApp wa.me link.
-  /// Handles Indian numbers (10 digits -> prepends 91, 11 digits starting with 0 -> strips 0 and prepends 91).
-  /// Strips all non-digit characters (+, -, spaces, brackets).
+  /// Formats phone numbers by stripping non-digit characters and adding standard country code if missing.
   static String? formatPhoneNumber(String? rawPhone) {
-    if (rawPhone == null || rawPhone.trim().isEmpty) return null;
-    String digits = rawPhone.replaceAll(RegExp(r'\D'), '');
-    if (digits.isEmpty) return null;
-
-    if (digits.length == 10) return '91$digits';
-    if (digits.length == 11 && digits.startsWith('0')) return '91${digits.substring(1)}';
-    if (digits.length == 12 && digits.startsWith('91')) return digits;
-    if (digits.length >= 10) return digits;
-    return null;
+    if (rawPhone == null) return null;
+    String clean = rawPhone.replaceAll(RegExp(r'[^\d+]'), '');
+    if (clean.isEmpty) return null;
+    if (clean.startsWith('+')) return clean.substring(1);
+    if (clean.length == 10) return '91$clean';
+    return clean;
   }
 
-  /// Premium professional registration message template.
-  static String buildRepairCreatedMessage(Repair repair, {String? shopName}) {
-    final customerName = repair.customer?.name.trim().isNotEmpty == true
-        ? repair.customer!.name.trim()
-        : 'Customer';
+  // ==========================================
+  // SALE WHATSAPP METHODS
+  // ==========================================
 
-    final effectiveShopName = shopName?.trim().isNotEmpty == true
-        ? shopName!.trim()
-        : 'Mobile Repair Shop';
-
-    final jobCardNumber = repair.jobNumber.isNotEmpty ? repair.jobNumber : 'JOB-${repair.id}';
-
-    String deviceName = 'Device';
-    if (repair.device != null) {
-      final brand = repair.device!.brand.trim();
-      final model = repair.device!.model.trim();
-      if (brand.isNotEmpty || model.isNotEmpty) {
-        deviceName = '$brand $model'.trim();
-      }
-    }
-
-    final amountVal = repair.netCost > 0 ? repair.netCost : repair.estimatedCost;
-    final amountFormatted = amountVal % 1 == 0
-        ? amountVal.toInt().toString()
-        : amountVal.toStringAsFixed(2);
-
-    return 'Hello $customerName 👋\n\n'
-        'Thank you for choosing *$effectiveShopName*! 📍\n\n'
-        '📋 *Job Card:* #$jobCardNumber\n'
-        '📱 *Device:* $deviceName\n'
-        '💰 *Est. Amount:* \u20B9$amountFormatted\n\n'
-        '🔧 Your repair is registered. We will notify you as work progresses.\n\n'
-        'Thank you for your trust! 🤝';
-  }
-
-  /// Premium professional status update message template.
-  static String buildRepairStatusMessage(
-    Repair repair,
-    String statusKey, {
-    String? statusNotes,
+  /// Builds a formatted text summary for a Sale invoice matching the user's exact default template.
+  static String buildSaleWhatsAppMessage(
+    Sale sale, {
     String? shopName,
   }) {
-    final customerName = repair.customer?.name.trim().isNotEmpty == true
-        ? repair.customer!.name.trim()
-        : 'Customer';
+    final customerName = sale.customerName?.trim().isNotEmpty == true
+        ? sale.customerName!.trim()
+        : (sale.customer?.name.trim().isNotEmpty == true ? sale.customer!.name.trim() : 'Customer');
 
     final effectiveShopName = shopName?.trim().isNotEmpty == true
         ? shopName!.trim()
-        : 'Mobile Repair Shop';
+        : 'Raju mobile';
 
-    final jobCardNumber = repair.jobNumber.isNotEmpty ? repair.jobNumber : 'JOB-${repair.id}';
+    final invoiceNum = sale.invoiceNumber.isNotEmpty ? sale.invoiceNumber : 'INV-${sale.id}';
+    final rawDate = sale.saleDate.isNotEmpty ? sale.saleDate : DateTime.now().toIso8601String();
+    final dateStr = DateHelper.formatDateTime(rawDate);
 
-    String deviceName = 'Device';
-    if (repair.device != null) {
-      final brand = repair.device!.brand.trim();
-      final model = repair.device!.model.trim();
-      if (brand.isNotEmpty || model.isNotEmpty) {
-        deviceName = '$brand $model'.trim();
+    final sb = StringBuffer();
+    sb.writeln('Hello $customerName 👋');
+    sb.writeln('');
+    sb.writeln('Thank you for shopping at *$effectiveShopName*! 🛍️');
+    sb.writeln('');
+    sb.writeln('🧾 INVOICE SUMMARY');
+    sb.writeln('* Invoice No: #$invoiceNum');
+    sb.writeln('* Date: $dateStr');
+    sb.writeln('');
+    sb.writeln('📦 ITEMS PURCHASED:');
+
+    for (var i = 0; i < sale.items.length; i++) {
+      final item = sale.items[i];
+      final brandModel = '${item.brand ?? ''} ${item.model ?? ''}'.trim();
+      final itemTitle = brandModel.isNotEmpty
+          ? '${item.productName} ($brandModel)'
+          : item.productName;
+      sb.writeln('  ${i + 1}. $itemTitle x ${item.quantity} - ₹${item.total.toStringAsFixed(0)}');
+    }
+
+    sb.writeln('');
+    sb.writeln('💳 PAYMENT BREAKDOWN:');
+    sb.writeln('* Grand Total: ₹${sale.grandTotal.toStringAsFixed(2)}');
+    sb.writeln('* Amount Paid: ₹${sale.amountPaid.toStringAsFixed(2)}');
+
+    if (sale.amountDue > 0) {
+      sb.writeln('* Balance Due: ₹${sale.amountDue.toStringAsFixed(2)} ⚠️');
+    } else {
+      sb.writeln('* Status: PAID IN FULL ✅');
+    }
+
+    if (sale.warranty != null) {
+      sb.writeln('');
+      sb.writeln('🛡️ WARRANTY COVERAGE:');
+      sb.writeln('* Warranty No: ${sale.warranty!.warrantyNumber}');
+      sb.writeln('* Duration: ${sale.warranty!.durationDays} Days');
+      sb.writeln('* Valid Until: ${DateHelper.formatDate(sale.warranty!.warrantyEndDate)}');
+      if (sale.warranty!.warrantyTerms != null && sale.warranty!.warrantyTerms!.isNotEmpty) {
+        sb.writeln('* Terms: ${sale.warranty!.warrantyTerms}');
       }
     }
 
-    final dueVal = repair.amountDue > 0 ? repair.amountDue : (repair.netCost > 0 ? repair.netCost : repair.estimatedCost);
-    final dueFormatted = dueVal % 1 == 0
-        ? dueVal.toInt().toString()
-        : dueVal.toStringAsFixed(2);
-
-    final statusLabel = _statusLabels[statusKey] ?? statusKey.toUpperCase();
-
-    if (statusKey == 'ready') {
-      return 'Hello $customerName 👋\n\n'
-          'Great news from *$effectiveShopName*! 🎉\n\n'
-          '📱 *Device:* $deviceName\n'
-          '📋 *Job Card:* #$jobCardNumber\n'
-          '✅ *Status:* READY FOR PICKUP\n'
-          '💰 *Amount Payable:* \u20B9$dueFormatted\n\n'
-          '📍 Please visit our shop to collect your device. Thank you! 🤝';
-    } else if (statusKey == 'repairing' || statusKey == 'diagnosing') {
-      return 'Hello $customerName 👋\n\n'
-          'Repair update from *$effectiveShopName*:\n\n'
-          '📱 *Device:* $deviceName\n'
-          '📋 *Job Card:* #$jobCardNumber\n'
-          '🔧 *Status:* $statusLabel\n\n'
-          'We are working on your device and will notify you once ready! 📱✨';
-    } else if (statusKey == 'delivered') {
-      return 'Hello $customerName 👋\n\n'
-          'Your device *$deviceName* (Job Card: #$jobCardNumber) has been delivered successfully! ✅\n\n'
-          'Thank you for choosing *$effectiveShopName*. Have a great day! 🤝✨';
-    } else if (statusKey == 'cancelled') {
-      final notesText = statusNotes != null && statusNotes.trim().isNotEmpty ? ' (${statusNotes.trim()})' : '';
-      return 'Hello $customerName 👋\n\n'
-          'Job Card update from *$effectiveShopName*:\n\n'
-          '📱 *Device:* $deviceName\n'
-          '📋 *Job Card:* #$jobCardNumber\n'
-          '⚠️ *Status:* Cancelled$notesText\n\n'
-          'Please contact us or visit shop for details. Thank you! 🤝';
-    } else {
-      final notesText = statusNotes != null && statusNotes.trim().isNotEmpty ? ' (${statusNotes.trim()})' : '';
-      return 'Hello $customerName 👋\n\n'
-          'Job Card update from *$effectiveShopName*:\n\n'
-          '📱 *Device:* $deviceName\n'
-          '📋 *Job Card:* #$jobCardNumber\n'
-          '🔧 *Status:* $statusLabel$notesText\n\n'
-          'Thank you for your patience! 🤝';
+    if (sale.notes != null && sale.notes!.trim().isNotEmpty) {
+      sb.writeln('');
+      sb.writeln('📝 Notes: ${sale.notes!.trim()}');
     }
+
+    sb.writeln('');
+    sb.writeln('Thank you for your business! Have a wonderful day! 🤝✨');
+
+    return sb.toString();
   }
 
-  /// Opens WhatsApp with menu choice (Job Card Receipt vs Status Update) if repair status > received.
-  static Future<bool> sendRepairWhatsAppMessage(
+  /// Opens a bottom sheet giving choice between Direct Chat (auto-fill phone) or Share PDF Invoice File.
+  static Future<void> sendSaleWhatsAppMessage(
     BuildContext context,
-    Repair repair, {
+    Sale sale, {
     String? shopName,
   }) async {
-    if (repair.repairStatus != 'received') {
-      final statusLabel = _statusLabels[repair.repairStatus] ?? repair.repairStatus.toUpperCase();
-      
-      final choice = await showModalBottomSheet<String>(
-        context: context,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        builder: (ctx) => Container(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+    final rawPhone = sale.customerMobile ?? sale.customer?.mobile;
+    final formattedPhone = formatPhoneNumber(rawPhone);
+    final customerName = sale.customerName ?? sale.customer?.name ?? 'Customer';
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return Container(
+          padding: const EdgeInsets.all(20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Row(
+              Row(
                 children: [
-                  WhatsAppIcon(size: 24),
-                  SizedBox(width: 8),
-                  Text('Send WhatsApp Message', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const WhatsAppIcon(size: 26),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'WhatsApp Invoice',
+                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          '$customerName ${formattedPhone != null ? "($formattedPhone)" : ""}',
+                          style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
+              const Divider(height: 1),
+              const SizedBox(height: 10),
+
+              // Option 1: Direct Chat (Auto-fill Number)
               ListTile(
-                leading: const Icon(Icons.receipt_long_rounded, color: Colors.blue),
-                title: const Text('Job Card Receipt Message', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                subtitle: const Text('Send initial registration details & job card #', style: TextStyle(fontSize: 12)),
-                onTap: () => Navigator.pop(ctx, 'created'),
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF25D366).withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF25D366)),
+                ),
+                title: const Text('Direct Chat Message', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                subtitle: const Text('Opens chat directly with auto-filled phone number & text bill', style: TextStyle(fontSize: 11)),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await _launchDirectSaleWhatsApp(context, sale, shopName: shopName);
+                },
               ),
+
+              const SizedBox(height: 6),
+
+              // Option 2: Share PDF Invoice File
               ListTile(
-                leading: const Icon(Icons.published_with_changes_rounded, color: Color(0xFF25D366)),
-                title: Text('Status Update Message ($statusLabel)', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                subtitle: Text('Notify customer that repair is $statusLabel', style: const TextStyle(fontSize: 12)),
-                onTap: () => Navigator.pop(ctx, 'status'),
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.picture_as_pdf_rounded, color: AppColors.primary),
+                ),
+                title: const Text('Share PDF Invoice File', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                subtitle: const Text('Generates & attaches the PDF Bill file to share on WhatsApp', style: TextStyle(fontSize: 11)),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await _shareSalePdfInvoice(context, sale, shopName: shopName);
+                },
               ),
+
+              const SizedBox(height: 10),
             ],
           ),
-        ),
-      );
-
-      if (choice == 'status') {
-        return sendRepairStatusWhatsAppMessage(context, repair, repair.repairStatus, shopName: shopName);
-      } else if (choice != 'created') {
-        return false;
-      }
-    }
-
-    return _launchWhatsApp(
-      context: context,
-      repair: repair,
-      messageBuilder: (sName) => buildRepairCreatedMessage(repair, shopName: sName),
-      shopName: shopName,
-    );
-  }
-
-  /// Opens WhatsApp with status update message.
-  static Future<bool> sendRepairStatusWhatsAppMessage(
-    BuildContext context,
-    Repair repair,
-    String statusKey, {
-    String? statusNotes,
-    String? shopName,
-  }) async {
-    return _launchWhatsApp(
-      context: context,
-      repair: repair,
-      messageBuilder: (sName) => buildRepairStatusMessage(
-        repair,
-        statusKey,
-        statusNotes: statusNotes,
-        shopName: sName,
-      ),
-      shopName: shopName,
-    );
-  }
-
-  static Future<bool> _launchWhatsApp({
-    required BuildContext context,
-    required Repair repair,
-    required String Function(String? sName) messageBuilder,
-    String? shopName,
-  }) async {
-    final rawPhone = repair.customer?.mobile;
-    final formattedPhone = formatPhoneNumber(rawPhone);
-
-    if (formattedPhone == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(
-              children: [
-                Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Customer mobile number is required to send WhatsApp message.',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.orange.shade800,
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 4),
-          ),
         );
-      }
-      return false;
-    }
+      },
+    );
+  }
+
+  /// Helper: Direct WhatsApp chat launch with auto-filled phone number & text
+  static Future<bool> _launchDirectSaleWhatsApp(
+    BuildContext context,
+    Sale sale, {
+    String? shopName,
+  }) async {
+    final rawPhone = sale.customerMobile ?? sale.customer?.mobile;
+    final formattedPhone = formatPhoneNumber(rawPhone);
 
     String? dynamicShopName = shopName;
     if (dynamicShopName == null || dynamicShopName.trim().isEmpty) {
@@ -262,31 +208,308 @@ class WhatsAppHelper {
       } catch (_) {}
     }
 
-    final message = messageBuilder(dynamicShopName);
-    final encodedMessage = Uri.encodeComponent(message);
-    final urlString = 'https://wa.me/$formattedPhone?text=$encodedMessage';
-    final uri = Uri.parse(urlString);
+    final messageText = buildSaleWhatsAppMessage(sale, shopName: dynamicShopName);
 
+    if (formattedPhone != null) {
+      final encodedMessage = Uri.encodeComponent(messageText);
+      final whatsappUri = Uri.parse('whatsapp://send?phone=$formattedPhone&text=$encodedMessage');
+      final wameUri = Uri.parse('https://wa.me/$formattedPhone?text=$encodedMessage');
+
+      try {
+        bool launched = false;
+        if (await canLaunchUrl(whatsappUri)) {
+          launched = await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
+        }
+        if (!launched && await canLaunchUrl(wameUri)) {
+          launched = await launchUrl(wameUri, mode: LaunchMode.externalApplication);
+        }
+        if (!launched) {
+          launched = await launchUrl(wameUri, mode: LaunchMode.platformDefault);
+        }
+        if (launched) return true;
+      } catch (_) {}
+    }
+
+    if (context.mounted) {
+      return await _shareSalePdfInvoice(context, sale, shopName: shopName);
+    }
+    return false;
+  }
+
+  /// Helper: Shares the PDF Invoice File
+  static Future<bool> _shareSalePdfInvoice(
+    BuildContext context,
+    Sale sale, {
+    String? shopName,
+  }) async {
     try {
-      final launched = await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
-      );
-
-      if (!launched) {
-        await launchUrl(uri, mode: LaunchMode.platformDefault);
+      String? dynamicShopName = shopName;
+      if (dynamicShopName == null || dynamicShopName.trim().isEmpty) {
+        try {
+          final shop = await AuthStorage().getShop();
+          if (shop != null && shop['name'] != null && shop['name'].toString().trim().isNotEmpty) {
+            dynamicShopName = shop['name'].toString().trim();
+          }
+        } catch (_) {}
       }
+
+      final invoiceNum = sale.invoiceNumber.isNotEmpty ? sale.invoiceNumber : '${sale.id}';
+      final pdfBytes = await PdfInvoiceBuilder.generateInvoicePdf(sale);
+      final tempDir = await getTemporaryDirectory();
+      final invoiceFileName = 'Invoice_$invoiceNum.pdf';
+      final file = File('${tempDir.path}/$invoiceFileName');
+      await file.writeAsBytes(pdfBytes);
+
+      final messageText = buildSaleWhatsAppMessage(sale, shopName: dynamicShopName);
+
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'application/pdf', name: invoiceFileName)],
+        subject: 'Invoice #$invoiceNum',
+        text: messageText,
+      );
       return true;
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Could not open WhatsApp: ${e.toString()}'),
+            content: Text('Could not share PDF invoice: ${e.toString()}'),
             backgroundColor: Colors.red.shade700,
           ),
         );
       }
       return false;
+    }
+  }
+
+  /// Prompts user after sale creation to optionally send WhatsApp bill.
+  static Future<void> showWhatsAppSalePromptDialog(BuildContext context, Sale sale) async {
+    await sendSaleWhatsAppMessage(context, sale);
+  }
+
+  // ==========================================
+  // REPAIR WHATSAPP METHODS
+  // ==========================================
+
+  /// Builds a formatted WhatsApp text message for a Repair job.
+  static String buildRepairWhatsAppMessage(
+    Repair repair, {
+    String? shopName,
+  }) {
+    final customerName = repair.customer?.name.trim().isNotEmpty == true
+        ? repair.customer!.name.trim()
+        : 'Customer';
+
+    final effectiveShopName = shopName?.trim().isNotEmpty == true
+        ? shopName!.trim()
+        : 'Mobile Repair & Electronics Shop';
+
+    final jobNum = repair.jobNumber.isNotEmpty ? repair.jobNumber : 'REP-${repair.id}';
+    final dateStr = repair.dateReceived.isNotEmpty ? DateHelper.formatDate(repair.dateReceived) : DateHelper.formatDate(DateTime.now().toIso8601String());
+    final deviceStr = '${repair.device?.brand ?? ''} ${repair.device?.model ?? ''}'.trim();
+
+    final sb = StringBuffer();
+    sb.writeln('Hello $customerName 👋');
+    sb.writeln('');
+    sb.writeln('Thank you for choosing *$effectiveShopName* for your device repair!');
+    sb.writeln('');
+    sb.writeln('🛠️ REPAIR TICKET SUMMARY');
+    sb.writeln('* Job No: #$jobNum');
+    sb.writeln('* Date: $dateStr');
+    if (deviceStr.isNotEmpty) {
+      sb.writeln('* Device: $deviceStr');
+    }
+    if (repair.problemDescription.isNotEmpty) {
+      sb.writeln('* Problem: ${repair.problemDescription}');
+    }
+    sb.writeln('* Status: ${repair.repairStatus.toUpperCase()}');
+    sb.writeln('');
+    sb.writeln('💳 PAYMENT DETAILS');
+    sb.writeln('* Total Cost: ₹${repair.netCost.toStringAsFixed(2)}');
+    sb.writeln('* Advance Paid: ₹${repair.amountPaid.toStringAsFixed(2)}');
+    if (repair.amountDue > 0) {
+      sb.writeln('* Balance Due: ₹${repair.amountDue.toStringAsFixed(2)} ⚠️');
+    } else {
+      sb.writeln('* Status: PAID IN FULL ✅');
+    }
+
+    sb.writeln('');
+    sb.writeln('Thank you for your trust! We will keep you updated on the repair progress. 🤝✨');
+
+    return sb.toString();
+  }
+
+  /// Sends a direct or shareable WhatsApp message for a Repair ticket.
+  static Future<bool> sendRepairWhatsAppMessage(
+    BuildContext context,
+    Repair repair, {
+    String? shopName,
+  }) async {
+    final rawPhone = repair.customer?.mobile;
+    final formattedPhone = formatPhoneNumber(rawPhone);
+
+    String? dynamicShopName = shopName;
+    if (dynamicShopName == null || dynamicShopName.trim().isEmpty) {
+      try {
+        final shop = await AuthStorage().getShop();
+        if (shop != null && shop['name'] != null && shop['name'].toString().trim().isNotEmpty) {
+          dynamicShopName = shop['name'].toString().trim();
+        }
+      } catch (_) {}
+    }
+
+    final message = buildRepairWhatsAppMessage(repair, shopName: dynamicShopName);
+    final encodedMessage = Uri.encodeComponent(message);
+
+    if (formattedPhone != null) {
+      final whatsappUri = Uri.parse('whatsapp://send?phone=$formattedPhone&text=$encodedMessage');
+      final wameUri = Uri.parse('https://wa.me/$formattedPhone?text=$encodedMessage');
+
+      try {
+        bool launched = false;
+        if (await canLaunchUrl(whatsappUri)) {
+          launched = await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
+        }
+        if (!launched && await canLaunchUrl(wameUri)) {
+          launched = await launchUrl(wameUri, mode: LaunchMode.externalApplication);
+        }
+        if (!launched) {
+          launched = await launchUrl(wameUri, mode: LaunchMode.platformDefault);
+        }
+        if (launched) return true;
+      } catch (_) {}
+    }
+
+    // Fallback to text share
+    try {
+      await Share.share(message, subject: 'Repair Ticket #${repair.jobNumber}');
+      return true;
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not send WhatsApp message: ${e.toString()}'),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      }
+      return false;
+    }
+  }
+
+  /// Sends status update message on WhatsApp for a Repair job.
+  static Future<bool> sendRepairStatusWhatsAppMessage(
+    BuildContext context,
+    Repair repair,
+    String? newStatus, {
+    String? statusNotes,
+  }) async {
+    final statusToReport = newStatus ?? repair.repairStatus;
+    final rawPhone = repair.customer?.mobile;
+    final formattedPhone = formatPhoneNumber(rawPhone);
+
+    String shopName = 'Mobile Repair & Electronics Shop';
+    try {
+      final shop = await AuthStorage().getShop();
+      if (shop != null && shop['name'] != null && shop['name'].toString().trim().isNotEmpty) {
+        shopName = shop['name'].toString().trim();
+      }
+    } catch (_) {}
+
+    final customerName = repair.customer?.name.trim().isNotEmpty == true
+        ? repair.customer!.name.trim()
+        : 'Customer';
+
+    final jobNum = repair.jobNumber.isNotEmpty ? repair.jobNumber : 'REP-${repair.id}';
+    final deviceStr = '${repair.device?.brand ?? ''} ${repair.device?.model ?? ''}'.trim();
+
+    final sb = StringBuffer();
+    sb.writeln('Hello $customerName 👋');
+    sb.writeln('');
+    sb.writeln('Update from *$shopName* regarding your repair job *#$jobNum* ($deviceStr):');
+    sb.writeln('');
+    sb.writeln('🔔 Status Updated To: ${statusToReport.toUpperCase()}');
+    if (statusNotes != null && statusNotes.trim().isNotEmpty) {
+      sb.writeln('📝 Notes: ${statusNotes.trim()}');
+    }
+    if (statusToReport.toLowerCase() == 'completed' || statusToReport.toLowerCase() == 'ready') {
+      sb.writeln('🎉 Your device is repaired and ready for pickup!');
+      if (repair.amountDue > 0) {
+        sb.writeln('* Remaining Balance: ₹${repair.amountDue.toStringAsFixed(2)}');
+      }
+    }
+    sb.writeln('');
+    sb.writeln('Thank you for your patience! 🤝✨');
+
+    final message = sb.toString();
+    final encodedMessage = Uri.encodeComponent(message);
+
+    if (formattedPhone != null) {
+      final whatsappUri = Uri.parse('whatsapp://send?phone=$formattedPhone&text=$encodedMessage');
+      final wameUri = Uri.parse('https://wa.me/$formattedPhone?text=$encodedMessage');
+
+      try {
+        bool launched = false;
+        if (await canLaunchUrl(whatsappUri)) {
+          launched = await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
+        }
+        if (!launched && await canLaunchUrl(wameUri)) {
+          launched = await launchUrl(wameUri, mode: LaunchMode.externalApplication);
+        }
+        if (!launched) {
+          launched = await launchUrl(wameUri, mode: LaunchMode.platformDefault);
+        }
+        if (launched) return true;
+      } catch (_) {}
+    }
+
+    try {
+      await Share.share(message, subject: 'Repair Status Update #${repair.jobNumber}');
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Prompts user after repair creation to optionally send WhatsApp notification.
+  static Future<void> showWhatsAppPromptDialog(BuildContext context, Repair repair) async {
+    final phone = repair.customer?.mobile;
+    if (phone == null || phone.trim().isEmpty) return;
+
+    final customerName = repair.customer?.name ?? 'Customer';
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            WhatsAppIcon(size: 24),
+            SizedBox(width: 10),
+            Text('Send WhatsApp Update?', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text('Would you like to send repair job details to $customerName ($phone) on WhatsApp?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Skip', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF25D366),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const WhatsAppIcon(size: 18, showBackground: false),
+            label: const Text('Send WhatsApp', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true && context.mounted) {
+      await sendRepairWhatsAppMessage(context, repair);
     }
   }
 }

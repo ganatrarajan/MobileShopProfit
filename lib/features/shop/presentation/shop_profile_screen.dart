@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/app_feedback.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../auth/data/auth_repository.dart';
+import '../../../core/storage/auth_storage.dart';
 
 class ShopProfileScreen extends StatefulWidget {
   const ShopProfileScreen({super.key});
@@ -27,6 +29,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
   final _stateController = TextEditingController();
   final _pincodeController = TextEditingController();
   final _gstController = TextEditingController();
+  final _termsController = TextEditingController();
 
   final _authRepository = AuthRepository();
   final ImagePicker _picker = ImagePicker();
@@ -35,6 +38,8 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
   bool _isSaving = false;
   String? _logoUrl;
   File? _newLogoFile;
+  String? _signatureUrl;
+  File? _newSignatureFile;
   String? _message;
 
   @override
@@ -59,6 +64,15 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
         _pincodeController.text = shop['pincode'] ?? '';
         _gstController.text = shop['gst_number'] ?? '';
         _logoUrl = shop['logo_url'];
+        final localShop = await AuthStorage().getShop();
+        final savedTerms = shop['terms_and_conditions'] ?? shop['terms'] ?? localShop?['terms_and_conditions'];
+        _termsController.text = savedTerms ?? "1. Goods once sold will be covered strictly as per warranty terms.\n2. Physical damage, liquid exposure, or unauthorized tampering voids all warranty.\n3. Please present this bill for any warranty claims or queries.";
+        if (localShop != null) {
+          _signatureUrl = localShop['signature_path'] ?? localShop['signature_url'];
+          if (_logoUrl == null || _logoUrl!.isEmpty) {
+            _logoUrl = localShop['logo_path'] ?? localShop['logo_url'];
+          }
+        }
       }
     } catch (e) {
       if (mounted) setState(() => _message = 'Failed to load shop: ${e.toString()}');
@@ -85,12 +99,25 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
         final response = await _authRepository.uploadShopLogo(image.path);
         if (mounted) {
           if (response.success && response.data != null) {
+            final logoPath = response.data['logo_url'] ?? image.path;
             setState(() {
-              _logoUrl = response.data['logo_url'];
+              _logoUrl = logoPath;
             });
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Shop logo uploaded successfully')),
+            final shopData = await AuthStorage().getShop() ?? {};
+            shopData['logo_path'] = image.path;
+            shopData['logo_url'] = logoPath;
+            await AuthStorage().saveSession(
+              token: (await AuthStorage().getToken()) ?? '',
+              user: (await AuthStorage().getUser()) ?? {},
+              shop: shopData,
             );
+            if (mounted) {
+              AppFeedback.showSuccess(
+                context,
+                title: 'Shop Logo Updated',
+                message: 'Shop logo uploaded and saved successfully!',
+              );
+            }
           }
         }
       }
@@ -105,12 +132,57 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to pick logo: ${e.toString()}')),
+        AppFeedback.showError(
+          context,
+          title: 'Logo Upload Failed',
+          error: e.toString(),
         );
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+    Future<void> _pickAndUploadSignature() async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 800,
+        maxHeight: 400,
+        imageQuality: 85,
+      );
+
+      if (image != null) {
+        setState(() {
+          _newSignatureFile = File(image.path);
+          _signatureUrl = image.path;
+        });
+
+        final shopData = await AuthStorage().getShop() ?? {};
+        shopData['signature_path'] = image.path;
+        shopData['signature_url'] = image.path;
+        await AuthStorage().saveSession(
+          token: (await AuthStorage().getToken()) ?? '',
+          user: (await AuthStorage().getUser()) ?? {},
+          shop: shopData,
+        );
+
+        if (mounted) {
+          AppFeedback.showSuccess(
+            context,
+            title: 'Signature Saved',
+            message: 'Shop signature image updated successfully!',
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        AppFeedback.showError(
+          context,
+          title: 'Signature Selection Failed',
+          error: e.toString(),
+        );
+      }
     }
   }
 
@@ -136,17 +208,37 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
         gstNumber: _gstController.text.trim().isNotEmpty ? _gstController.text.trim() : null,
       );
 
+      final shopData = await AuthStorage().getShop() ?? {};
+      shopData['terms_and_conditions'] = _termsController.text.trim();
+      await AuthStorage().saveSession(
+        token: (await AuthStorage().getToken()) ?? '',
+        user: (await AuthStorage().getUser()) ?? {},
+        shop: shopData,
+      );
+
       if (mounted) {
         if (response.success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Shop profile updated successfully')),
+          AppFeedback.showSuccess(
+            context,
+            title: 'Profile Updated',
+            message: 'Shop details and invoice terms saved successfully!',
           );
         } else {
-          setState(() => _message = response.message);
+          AppFeedback.showError(
+            context,
+            title: 'Update Failed',
+            error: response.message,
+          );
         }
       }
     } catch (e) {
-      if (mounted) setState(() => _message = e.toString());
+      if (mounted) {
+        AppFeedback.showError(
+          context,
+          title: 'Update Error',
+          error: e.toString(),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -164,6 +256,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
     _stateController.dispose();
     _pincodeController.dispose();
     _gstController.dispose();
+    _termsController.dispose();
     super.dispose();
   }
 
@@ -197,28 +290,89 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
                       const SizedBox(height: 16),
                     ],
 
-                    // Shop Logo Header
-                    Center(
+                    // Shop Logo & Signature Header Card
+                    CustomCard(
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          GestureDetector(
-                            onTap: _pickAndUploadLogo,
-                            child: CircleAvatar(
-                              radius: 46,
-                              backgroundColor: AppColors.primaryLight,
-                              backgroundImage: _newLogoFile != null
-                                  ? FileImage(_newLogoFile!)
-                                  : (_logoUrl != null ? NetworkImage(_logoUrl!) as ImageProvider : null),
-                              child: (_newLogoFile == null && _logoUrl == null)
-                                  ? const Icon(Icons.storefront_rounded, size: 40, color: Colors.white)
-                                  : null,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          TextButton.icon(
-                            onPressed: _pickAndUploadLogo,
-                            icon: const Icon(Icons.camera_alt_outlined, size: 16, color: AppColors.accent),
-                            label: const Text('Change Shop Logo', style: TextStyle(color: AppColors.accent, fontSize: 13)),
+                          const Text('Branding & Invoicing Assets', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                          const SizedBox(height: 14),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              // Shop Logo Uploader
+                              Column(
+                                children: [
+                                  GestureDetector(
+                                    onTap: _pickAndUploadLogo,
+                                    child: CircleAvatar(
+                                      radius: 40,
+                                      backgroundColor: AppColors.primaryLight,
+                                      backgroundImage: _newLogoFile != null
+                                          ? FileImage(_newLogoFile!)
+                                          : (_logoUrl != null && _logoUrl!.isNotEmpty
+                                              ? (_logoUrl!.startsWith('http')
+                                                  ? NetworkImage(_logoUrl!) as ImageProvider
+                                                  : FileImage(File(_logoUrl!)))
+                                              : null),
+                                      child: (_newLogoFile == null && (_logoUrl == null || _logoUrl!.isEmpty))
+                                          ? const Icon(Icons.storefront_rounded, size: 36, color: Colors.white)
+                                          : null,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  TextButton.icon(
+                                    onPressed: _pickAndUploadLogo,
+                                    icon: const Icon(Icons.camera_alt_outlined, size: 15, color: AppColors.accent),
+                                    label: const Text('Shop Logo', style: TextStyle(color: AppColors.accent, fontSize: 12, fontWeight: FontWeight.bold)),
+                                  ),
+                                ],
+                              ),
+                              Container(height: 80, width: 1, color: AppColors.border),
+                              // Shop Signature Uploader
+                              Column(
+                                children: [
+                                  GestureDetector(
+                                    onTap: _pickAndUploadSignature,
+                                    child: Container(
+                                      width: 110,
+                                      height: 70,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(color: AppColors.border, width: 1.2),
+                                      ),
+                                      child: _newSignatureFile != null
+                                          ? ClipRRect(
+                                              borderRadius: BorderRadius.circular(8),
+                                              child: Image.file(_newSignatureFile!, fit: BoxFit.contain),
+                                            )
+                                          : (_signatureUrl != null && _signatureUrl!.isNotEmpty
+                                              ? ClipRRect(
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  child: _signatureUrl!.startsWith('http')
+                                                      ? Image.network(_signatureUrl!, fit: BoxFit.contain)
+                                                      : Image.file(File(_signatureUrl!), fit: BoxFit.contain),
+                                                )
+                                              : const Column(
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(Icons.draw_rounded, size: 26, color: AppColors.textMuted),
+                                                    SizedBox(height: 2),
+                                                    Text('Add Sign', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                                                  ],
+                                                )),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  TextButton.icon(
+                                    onPressed: _pickAndUploadSignature,
+                                    icon: const Icon(Icons.gesture_rounded, size: 15, color: AppColors.accent),
+                                    label: const Text('Shop Signature', style: TextStyle(color: AppColors.accent, fontSize: 12, fontWeight: FontWeight.bold)),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -232,21 +386,21 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
                           const Text('General Information', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                           const SizedBox(height: 14),
                           CustomTextField(
-                            label: 'Shop Name *',
+                            label: 'Shop Name',
                             controller: _nameController,
                             prefixIcon: Icons.storefront_rounded,
-                            validator: (val) => (val == null || val.isEmpty) ? 'Enter shop name' : null,
+                            
                           ),
                           const SizedBox(height: 14),
                           CustomTextField(
-                            label: 'Owner Name *',
+                            label: 'Owner Name',
                             controller: _ownerController,
                             prefixIcon: Icons.person_outline_rounded,
-                            validator: (val) => (val == null || val.isEmpty) ? 'Enter owner name' : null,
+                            
                           ),
                           const SizedBox(height: 14),
                           CustomTextField(
-                            label: 'Mobile Number *',
+                            label: 'Mobile Number',
                             controller: _mobileController,
                             keyboardType: TextInputType.phone,
                             prefixIcon: Icons.phone_android_rounded,
@@ -270,7 +424,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
                           const Text('Address & Tax', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                           const SizedBox(height: 14),
                           CustomTextField(
-                            label: 'Address *',
+                            label: 'Address',
                             controller: _addressController,
                             prefixIcon: Icons.location_on_outlined,
                           ),
@@ -279,7 +433,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
                             children: [
                               Expanded(
                                 child: CustomTextField(
-                                  label: 'City *',
+                                  label: 'City',
                                   controller: _cityController,
                                   prefixIcon: Icons.location_city_outlined,
                                 ),
@@ -287,7 +441,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: CustomTextField(
-                                  label: 'State *',
+                                  label: 'State',
                                   controller: _stateController,
                                   prefixIcon: Icons.map_outlined,
                                 ),
@@ -296,7 +450,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
                           ),
                           const SizedBox(height: 14),
                           CustomTextField(
-                            label: 'Pincode *',
+                            label: 'Pincode',
                             controller: _pincodeController,
                             keyboardType: TextInputType.number,
                             prefixIcon: Icons.pin_drop_outlined,
@@ -306,6 +460,26 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
                             label: 'GST Number',
                             controller: _gstController,
                             prefixIcon: Icons.description_outlined,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    CustomCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Invoice Terms & Conditions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                          const SizedBox(height: 4),
+                          const Text('These custom terms will appear on your PDF invoice bills.', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                          const SizedBox(height: 14),
+                          CustomTextField(
+                            label: 'Invoice Terms (One per line)',
+                            controller: _termsController,
+                            maxLines: 4,
+                            prefixIcon: Icons.gavel_rounded,
+                            hint: "1. Goods once sold will be covered strictly as per warranty terms.\n2. Physical damage voids warranty.\n3. Present bill for claims.",
                           ),
                         ],
                       ),

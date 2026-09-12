@@ -163,29 +163,36 @@ class AuthRepository {
   }
 
   Future<ApiResponse<dynamic>> updateShop({
-    required String name,
-    required String ownerName,
-    required String mobile,
-    required String address,
-    required String city,
-    required String state,
-    required String pincode,
+    String? name,
+    String? ownerName,
+    String? mobile,
+    String? address,
+    String? city,
+    String? state,
+    String? pincode,
     String? phone,
     String? email,
     String? gstNumber,
   }) async {
+    final shopName = (name != null && name.trim().isNotEmpty) ? name.trim() : 'My Mobile Shop';
+    final shopOwner = (ownerName != null && ownerName.trim().isNotEmpty) ? ownerName.trim() : 'Shop Owner';
+    final shopMobile = (mobile != null && mobile.trim().isNotEmpty) ? mobile.trim() : '9999999999';
+    final shopAddress = (address != null && address.trim().isNotEmpty) ? address.trim() : 'Main Market';
+    final shopCity = (city != null && city.trim().isNotEmpty) ? city.trim() : 'City';
+    final shopState = (state != null && state.trim().isNotEmpty) ? state.trim() : 'State';
+    final shopPincode = (pincode != null && pincode.trim().isNotEmpty) ? pincode.trim() : '360001';
+
     final response = await _apiClient.put(
       ApiEndpoints.shop,
       body: {
-        'name': name,
-        'owner_name': ownerName,
-        'mobile': mobile,
-        'phone': phone ?? mobile,
+        'name': shopName,
+        'owner_name': shopOwner,
+        'phone': (phone != null && phone.trim().isNotEmpty) ? phone.trim() : shopMobile,
         'email': email,
-        'address': address,
-        'city': city,
-        'state': state,
-        'pincode': pincode,
+        'address': shopAddress,
+        'city': shopCity,
+        'state': shopState,
+        'pincode': shopPincode,
         'gst_number': gstNumber,
       },
     );
