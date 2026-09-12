@@ -1,8 +1,13 @@
+﻿import '../../warranty/models/warranty.dart';
+import '../data/sale_repository.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/status_badge.dart';
-import '../data/sale_repository.dart';
+import '../../warranty/presentation/warranty_details_screen.dart';
+import '../../warranty/presentation/widgets/quick_add_warranty_modal.dart';
+
+import '../../warranty/data/warranty_repository.dart';
 import '../models/sale.dart';
 import 'collect_payment_dialog.dart';
 
@@ -15,7 +20,9 @@ class SaleDetailsScreen extends StatefulWidget {
 }
 
 class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
+  
   final SaleRepository _saleRepository = SaleRepository();
+  final WarrantyRepository _warrantyRepository = WarrantyRepository();
   late Sale _sale;
   bool _isLoading = false;
 
@@ -32,8 +39,54 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
       final response = await _saleRepository.getSaleDetails(_sale.id);
       if (mounted) {
         if (response.success && response.data != null) {
+          var fetchedSale = response.data!;
+          if (fetchedSale.warranty != null &&
+              fetchedSale.warranty!.saleId == fetchedSale.id &&
+              (fetchedSale.warranty!.status == 'active' || fetchedSale.warranty!.status == 'expiring_soon')) {
+            // Keep backend relation
+          } else {
+            final wRes = await _warrantyRepository.getWarranties(saleId: fetchedSale.id);
+            Warranty? matchingWarranty;
+            if (wRes.success && wRes.data != null && wRes.data!.isNotEmpty) {
+              final activeW = wRes.data!.where((w) =>
+                  w.saleId == fetchedSale.id &&
+                  (w.status == 'active' || w.status == 'expiring_soon')).toList();
+              if (activeW.isNotEmpty) {
+                matchingWarranty = activeW.first;
+              }
+            }
+
+            fetchedSale = Sale(
+              id: fetchedSale.id,
+              shopId: fetchedSale.shopId,
+              saleType: fetchedSale.saleType,
+              customerId: fetchedSale.customerId,
+              customerName: fetchedSale.customerName,
+              customerMobile: fetchedSale.customerMobile,
+              deviceId: fetchedSale.deviceId,
+              invoiceNumber: fetchedSale.invoiceNumber,
+              saleDate: fetchedSale.saleDate,
+              subtotal: fetchedSale.subtotal,
+              discount: fetchedSale.discount,
+              taxAmount: fetchedSale.taxAmount,
+              grandTotal: fetchedSale.grandTotal,
+              amountPaid: fetchedSale.amountPaid,
+              amountDue: fetchedSale.amountDue,
+              paymentStatus: fetchedSale.paymentStatus,
+              notes: fetchedSale.notes,
+              createdBy: fetchedSale.createdBy,
+              creatorName: fetchedSale.creatorName,
+              customer: fetchedSale.customer,
+              device: fetchedSale.device,
+              items: fetchedSale.items,
+              payments: fetchedSale.payments,
+              warranty: matchingWarranty,
+              createdAt: fetchedSale.createdAt,
+              updatedAt: fetchedSale.updatedAt,
+            );
+          }
           setState(() {
-            _sale = response.data!;
+            _sale = fetchedSale;
             _isLoading = false;
           });
         } else {
@@ -246,6 +299,143 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                   ),
                   const SizedBox(height: 14),
 
+                  // Warranty Status Card
+                  CustomCard(
+                    padding: const EdgeInsets.all(16),
+                    child: _sale.warranty != null
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Row(
+                                    children: [
+                                      Icon(Icons.verified_user_rounded, color: Colors.green, size: 20),
+                                      SizedBox(width: 8),
+                                      Text('Warranty Active', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.green)),
+                                    ],
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: _sale.warranty!.status == 'active' ? Colors.green.shade100 : Colors.orange.shade100,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      _sale.warranty!.status.toUpperCase(),
+                                      style: TextStyle(
+                                        color: _sale.warranty!.status == 'active' ? Colors.green.shade900 : Colors.orange.shade900,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Warranty #: ${_sale.warranty!.warrantyNumber}',
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                              ),
+                              Text(
+                                'Valid until: ${_sale.warranty!.warrantyEndDate} (${_sale.warranty!.daysRemaining} days remaining)',
+                                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                              ),
+                              if (_sale.warranty!.warrantyTerms != null && _sale.warranty!.warrantyTerms!.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Coverage: ${_sale.warranty!.warrantyTerms}',
+                                  style: const TextStyle(fontSize: 12, color: AppColors.textMuted, fontStyle: FontStyle.italic),
+                                ),
+                              ],
+                              const SizedBox(height: 12),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton.icon(
+                                  onPressed: () async {
+                                    await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => WarrantyDetailsScreen(warranty: _sale.warranty!),
+                                      ),
+                                    );
+                                    if (mounted) {
+                                      _refreshDetails();
+                                    }
+                                  },
+                                  icon: const Icon(Icons.shield_rounded, size: 16),
+                                  label: const Text('View Warranty', style: TextStyle(fontWeight: FontWeight.bold)),
+                                ),
+                              ),
+                            ],
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Expanded(
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.shield_outlined, color: AppColors.textSecondary, size: 20),
+                                    SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text('No Warranty Linked', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+                                          Text('Add a warranty for this sale', style: TextStyle(fontSize: 11, color: AppColors.textMuted), overflow: TextOverflow.ellipsis),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              ElevatedButton.icon(
+                                onPressed: () async {
+                                  final newW = await QuickWarrantyModal.show(context, sale: _sale);
+                                  if (newW != null) {
+                                    setState(() {
+                                      _sale = Sale(
+                                        id: _sale.id,
+                                        shopId: _sale.shopId,
+                                        customerId: _sale.customerId,
+                                        invoiceNumber: _sale.invoiceNumber,
+                                        saleDate: _sale.saleDate,
+                                        subtotal: _sale.subtotal,
+                                        discount: _sale.discount,
+                                        taxAmount: _sale.taxAmount,
+                                        grandTotal: _sale.grandTotal,
+                                        amountPaid: _sale.amountPaid,
+                                        amountDue: _sale.amountDue,
+                                        paymentStatus: _sale.paymentStatus,
+//                                         paymentMethod: _sale.paymentMethod,
+                                        notes: _sale.notes,
+                                        createdBy: _sale.createdBy,
+                                        customer: _sale.customer,
+                                        device: _sale.device,
+                                        items: _sale.items,
+                                        payments: _sale.payments,
+                                        warranty: newW,
+                                        createdAt: _sale.createdAt,
+                                        updatedAt: _sale.updatedAt,
+                                      );
+                                    });
+                                    _refreshDetails();
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                icon: const Icon(Icons.add_rounded, size: 16, color: Colors.white),
+                                label: const Text('Add Warranty', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          ),
+                  ),
+                  const SizedBox(height: 14),
                   // Line Items Table
                   const Text('Invoice Items', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                   const SizedBox(height: 8),

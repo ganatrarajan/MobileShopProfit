@@ -1,3 +1,4 @@
+﻿import '../../warranty/data/warranty_repository.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_feedback.dart';
@@ -30,7 +31,11 @@ class CreateRepairScreen extends StatefulWidget {
 class _CreateRepairScreenState extends State<CreateRepairScreen> {
   final _formKey = GlobalKey<FormState>();
   final ScrollController _scrollController = ScrollController();
-  final _repairRepository = RepairRepository();
+    final _repairRepository = RepairRepository();
+  final _warrantyRepository = WarrantyRepository();
+  bool _addWarrantyOnCreate = false;
+  int _selectedWarrantyDays = 180;
+  final _warrantyTermsController = TextEditingController();
   final _customerRepository = CustomerRepository();
   final _deviceRepository = DeviceRepository();
   final _technicianRepository = TechnicianRepository();
@@ -651,7 +656,21 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
 
       if (mounted) {
         if (response.success && response.data != null) {
-          var createdRepair = response.data!;
+                    var createdRepair = response.data!;
+          if (_addWarrantyOnCreate && _selectedCustomer != null && _selectedDevice != null) {
+            try {
+              final startDateStr = DateTime.now().toIso8601String().split('T')[0];
+              await _warrantyRepository.createWarranty(
+                customerId: _selectedCustomer!.id,
+                deviceId: _selectedDevice!.id,
+                warrantyType: 'repair',
+                durationDays: _selectedWarrantyDays,
+                repairId: createdRepair.id,
+                warrantyStartDate: startDateStr,
+                warrantyTerms: _warrantyTermsController.text.trim(),
+              );
+            } catch (_) {}
+          }
           if (createdRepair.customer == null && _selectedCustomer != null) {
             createdRepair = Repair(
               id: createdRepair.id,
@@ -741,9 +760,9 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
             ),
           );
 
-          if (mounted) {
-            Navigator.pop(context, true);
-          }
+            if (mounted) {
+              Navigator.pop(context, true);
+            }
         } else {
           _showFormError(response.message);
         }
@@ -1283,6 +1302,74 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
                 ),
               ),
               const SizedBox(height: 24),
+
+                            // 8. Include Warranty Card
+              CustomCard(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.shield_outlined, color: AppColors.primary, size: 22),
+                            SizedBox(width: 8),
+                            Text('Include Warranty', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                          ],
+                        ),
+                        Switch.adaptive(
+                          value: _addWarrantyOnCreate,
+                          onChanged: (val) => setState(() => _addWarrantyOnCreate = val),
+                          activeColor: AppColors.primary,
+                        ),
+                      ],
+                    ),
+                    if (_addWarrantyOnCreate) ...[
+                      const SizedBox(height: 12),
+                      const Text('Warranty Duration', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          {'label': '7 Days', 'days': 7},
+                          {'label': '15 Days', 'days': 15},
+                          {'label': '30 Days (1 Mo)', 'days': 30},
+                          {'label': '90 Days (3 Mo)', 'days': 90},
+                          {'label': '180 Days (6 Mo)', 'days': 180},
+                          {'label': '365 Days (1 Yr)', 'days': 365},
+                        ].map((p) {
+                          final days = p['days'] as int;
+                          final isSelected = _selectedWarrantyDays == days;
+                          return ChoiceChip(
+                            label: Text(p['label'] as String),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              if (selected) setState(() => _selectedWarrantyDays = days);
+                            },
+                            selectedColor: AppColors.primary.withOpacity(0.2),
+                            checkmarkColor: AppColors.primary,
+                            labelStyle: TextStyle(
+                              fontSize: 12,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 12),
+                      CustomTextField(
+                        label: 'Warranty Terms / Coverage (Optional)',
+                        hint: 'e.g. Display & Touch Repair Warranty',
+                        controller: _warrantyTermsController,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
 
               CustomButton(
                 text: 'Save Repair & Generate Job Card',

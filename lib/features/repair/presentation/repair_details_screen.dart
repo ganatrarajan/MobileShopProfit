@@ -1,11 +1,16 @@
+﻿import '../../warranty/models/warranty.dart';
+import '../data/repair_repository.dart';
 import 'package:flutter/material.dart';
-import '../../../core/utils/whatsapp_helper.dart';
-import '../../../core/utils/date_helper.dart';
-import '../../../core/widgets/whatsapp_icon.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/date_helper.dart';
+import '../../../core/utils/whatsapp_helper.dart';
 import '../../../core/widgets/custom_card.dart';
-import '../data/repair_repository.dart';
+import '../../../core/widgets/whatsapp_icon.dart';
+import '../../warranty/presentation/warranty_details_screen.dart';
+import '../../warranty/presentation/widgets/quick_add_warranty_modal.dart';
+
+import '../../warranty/data/warranty_repository.dart';
 import '../models/repair.dart';
 import 'add_repair_part_dialog.dart';
 import 'collect_repair_payment_dialog.dart';
@@ -20,7 +25,9 @@ class RepairDetailsScreen extends StatefulWidget {
 }
 
 class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
+  
   final RepairRepository _repairRepository = RepairRepository();
+  final WarrantyRepository _warrantyRepository = WarrantyRepository();
   late Repair _repair;
   bool _isLoading = false;
 
@@ -59,8 +66,69 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
       final res = await _repairRepository.getRepairDetails(_repair.id);
       if (mounted) {
         if (res.success && res.data != null) {
+          var fetchedRepair = res.data!;
+          // Ensure warranty belongs strictly to this repair and is active
+          if (fetchedRepair.warranty != null &&
+              fetchedRepair.warranty!.repairId == fetchedRepair.id &&
+              (fetchedRepair.warranty!.status == 'active' || fetchedRepair.warranty!.status == 'expiring_soon')) {
+            // Keep backend warranty relation
+          } else {
+            // Fallback query filtering strictly by repairId
+            final wRes = await _warrantyRepository.getWarranties(repairId: fetchedRepair.id);
+            Warranty? matchingWarranty;
+            if (wRes.success && wRes.data != null && wRes.data!.isNotEmpty) {
+              final activeW = wRes.data!.where((w) =>
+                  w.repairId == fetchedRepair.id &&
+                  (w.status == 'active' || w.status == 'expiring_soon')).toList();
+              if (activeW.isNotEmpty) {
+                matchingWarranty = activeW.first;
+              }
+            }
+
+            fetchedRepair = Repair(
+              id: fetchedRepair.id,
+              shopId: fetchedRepair.shopId,
+              customerId: fetchedRepair.customerId,
+              deviceId: fetchedRepair.deviceId,
+              technicianId: fetchedRepair.technicianId,
+              technicianName: fetchedRepair.technicianName,
+              technicianEarning: fetchedRepair.technicianEarning,
+              technicianPaidAmount: fetchedRepair.technicianPaidAmount,
+              technicianPayable: fetchedRepair.technicianPayable,
+              shopShare: fetchedRepair.shopShare,
+              technicianPaymentStatus: fetchedRepair.technicianPaymentStatus,
+              jobNumber: fetchedRepair.jobNumber,
+              dateReceived: fetchedRepair.dateReceived,
+              expectedDeliveryDate: fetchedRepair.expectedDeliveryDate,
+              deliveredDate: fetchedRepair.deliveredDate,
+              problemDescription: fetchedRepair.problemDescription,
+              deviceCondition: fetchedRepair.deviceCondition,
+              conditionNotes: fetchedRepair.conditionNotes,
+              accessoriesReceived: fetchedRepair.accessoriesReceived,
+              accessoriesNotes: fetchedRepair.accessoriesNotes,
+              pinPasscode: fetchedRepair.pinPasscode,
+              estimatedCost: fetchedRepair.estimatedCost,
+              finalCost: fetchedRepair.finalCost,
+              labourCost: fetchedRepair.labourCost,
+              amountPaid: fetchedRepair.amountPaid,
+              amountDue: fetchedRepair.amountDue,
+              repairStatus: fetchedRepair.repairStatus,
+              customerNotes: fetchedRepair.customerNotes,
+              internalNotes: fetchedRepair.internalNotes,
+              createdBy: fetchedRepair.createdBy,
+              creatorName: fetchedRepair.creatorName,
+              customer: fetchedRepair.customer,
+              device: fetchedRepair.device,
+              parts: fetchedRepair.parts,
+              payments: fetchedRepair.payments,
+              warranty: matchingWarranty,
+              createdAt: fetchedRepair.createdAt,
+              updatedAt: fetchedRepair.updatedAt,
+            );
+          }
+
           setState(() {
-            _repair = res.data!;
+            _repair = fetchedRepair;
             _isLoading = false;
           });
         } else {
@@ -441,6 +509,159 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
                     ),
                     const SizedBox(height: 16),
 
+                    // Warranty Status Card
+                    CustomCard(
+                      padding: const EdgeInsets.all(16),
+                      child: _repair.warranty != null
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Row(
+                                      children: [
+                                        Icon(Icons.verified_user_rounded, color: Colors.green, size: 20),
+                                        SizedBox(width: 8),
+                                        Text('Warranty Active', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.green)),
+                                      ],
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: _repair.warranty!.status == 'active' ? Colors.green.shade100 : Colors.orange.shade100,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        _repair.warranty!.status.toUpperCase(),
+                                        style: TextStyle(
+                                          color: _repair.warranty!.status == 'active' ? Colors.green.shade900 : Colors.orange.shade900,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Warranty #: ${_repair.warranty!.warrantyNumber}',
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                ),
+                                Text(
+                                  'Valid until: ${_repair.warranty!.warrantyEndDate} (${_repair.warranty!.daysRemaining} days remaining)',
+                                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                                ),
+                                if (_repair.warranty!.warrantyTerms != null && _repair.warranty!.warrantyTerms!.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Coverage: ${_repair.warranty!.warrantyTerms}',
+                                    style: const TextStyle(fontSize: 12, color: AppColors.textMuted, fontStyle: FontStyle.italic),
+                                  ),
+                                ],
+                                const SizedBox(height: 12),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TextButton.icon(
+                                    onPressed: () async {
+                                      await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => WarrantyDetailsScreen(warranty: _repair.warranty!),
+                                        ),
+                                      );
+                                      if (mounted) {
+                                        _refreshDetails();
+                                      }
+                                    },
+                                    icon: const Icon(Icons.shield_rounded, size: 16),
+                                    label: const Text('View Warranty', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Expanded(
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.shield_outlined, color: AppColors.textSecondary, size: 20),
+                                      SizedBox(width: 8),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text('No Warranty Linked', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+                                            Text('Add a warranty for this repair', style: TextStyle(fontSize: 11, color: AppColors.textMuted), overflow: TextOverflow.ellipsis),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                ElevatedButton.icon(
+                                  onPressed: () async {
+                                    final newW = await QuickWarrantyModal.show(context, repair: _repair);
+                                    if (newW != null) {
+                                      setState(() {
+                                        _repair = Repair(
+                                          id: _repair.id,
+                                          shopId: _repair.shopId,
+                                          customerId: _repair.customerId,
+                                          deviceId: _repair.deviceId,
+                                          technicianId: _repair.technicianId,
+                                          technicianName: _repair.technicianName,
+                                          technicianEarning: _repair.technicianEarning,
+                                          technicianPaidAmount: _repair.technicianPaidAmount,
+                                          technicianPayable: _repair.technicianPayable,
+                                          shopShare: _repair.shopShare,
+                                          technicianPaymentStatus: _repair.technicianPaymentStatus,
+                                          jobNumber: _repair.jobNumber,
+                                          dateReceived: _repair.dateReceived,
+                                          expectedDeliveryDate: _repair.expectedDeliveryDate,
+                                          deliveredDate: _repair.deliveredDate,
+                                          problemDescription: _repair.problemDescription,
+                                          deviceCondition: _repair.deviceCondition,
+                                          conditionNotes: _repair.conditionNotes,
+                                          accessoriesReceived: _repair.accessoriesReceived,
+                                          accessoriesNotes: _repair.accessoriesNotes,
+                                          pinPasscode: _repair.pinPasscode,
+                                          estimatedCost: _repair.estimatedCost,
+                                          finalCost: _repair.finalCost,
+                                          labourCost: _repair.labourCost,
+                                          amountPaid: _repair.amountPaid,
+                                          amountDue: _repair.amountDue,
+                                          repairStatus: _repair.repairStatus,
+                                          customerNotes: _repair.customerNotes,
+                                          internalNotes: _repair.internalNotes,
+                                          createdBy: _repair.createdBy,
+                                          creatorName: _repair.creatorName,
+                                          customer: _repair.customer,
+                                          device: _repair.device,
+                                          parts: _repair.parts,
+                                          payments: _repair.payments,
+                                          warranty: newW,
+                                          createdAt: _repair.createdAt,
+                                          updatedAt: _repair.updatedAt,
+                                        );
+                                      });
+                                      _refreshDetails();
+                                    }
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primary,
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  ),
+                                  icon: const Icon(Icons.add_rounded, size: 16, color: Colors.white),
+                                  label: const Text('Add Warranty', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold)),
+                                ),
+                              ],
+                            ),
+                    ),
+                    const SizedBox(height: 16),
                     // 2. Customer Info Card
                     CustomCard(
                       padding: const EdgeInsets.all(16),

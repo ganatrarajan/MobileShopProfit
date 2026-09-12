@@ -127,6 +127,12 @@ class _WarrantyListScreenState extends State<WarrantyListScreen> {
       final res = await _warrantyRepository.deleteWarranty(warranty.id);
       if (mounted) {
         if (res.success) {
+          setState(() {
+            _warranties.removeWhere((w) => w.id == warranty.id);
+            _activeCount = _warranties.where((w) => w.status == 'active').length;
+            _expiringSoonCount = _warranties.where((w) => w.status == 'expiring_soon').length;
+            _expiredCount = _warranties.where((w) => w.status == 'expired').length;
+          });
           AppFeedback.showSuccess(
             context,
             title: 'Warranty Deleted',

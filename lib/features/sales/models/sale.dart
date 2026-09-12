@@ -1,3 +1,4 @@
+import '../../warranty/models/warranty.dart';
 import '../../customer/models/customer.dart';
 import '../../device/models/device.dart';
 
@@ -184,6 +185,7 @@ class Sale {
   final Device? device;
   final List<SaleItem> items;
   final List<SalePayment> payments;
+  final Warranty? warranty;
   final String? createdAt;
   final String? updatedAt;
 
@@ -221,6 +223,7 @@ class Sale {
     this.device,
     this.items = const [],
     this.payments = const [],
+    this.warranty,
     this.createdAt,
     this.updatedAt,
   });
@@ -258,6 +261,9 @@ class Sale {
       payments: json['payments'] != null && json['payments'] is List
           ? (json['payments'] as List).map((p) => SalePayment.fromJson(p as Map<String, dynamic>)).toList()
           : [],
+      warranty: json['warranty'] != null && json['warranty'] is Map<String, dynamic>
+          ? Warranty.fromJson(json['warranty'] as Map<String, dynamic>)
+          : null,
       createdAt: json['created_at']?.toString(),
       updatedAt: json['updated_at']?.toString(),
     );

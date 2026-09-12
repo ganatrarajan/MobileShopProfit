@@ -1,3 +1,4 @@
+import '../../warranty/models/warranty.dart';
 import '../../customer/models/customer.dart';
 import '../../device/models/device.dart';
 
@@ -171,6 +172,7 @@ class Repair {
   final Device? device;
   final List<RepairPart> parts;
   final List<RepairPayment> payments;
+  final Warranty? warranty;
   final String? createdAt;
   final String? updatedAt;
 
@@ -210,6 +212,7 @@ class Repair {
     this.device,
     this.parts = const [],
     this.payments = const [],
+    this.warranty,
     this.createdAt,
     this.updatedAt,
   });
@@ -261,6 +264,9 @@ class Repair {
       payments: json['payments'] != null && json['payments'] is List
           ? (json['payments'] as List).map((p) => RepairPayment.fromJson(p as Map<String, dynamic>)).toList()
           : [],
+      warranty: json['warranty'] != null && json['warranty'] is Map<String, dynamic>
+          ? Warranty.fromJson(json['warranty'] as Map<String, dynamic>)
+          : null,
       createdAt: json['created_at']?.toString(),
       updatedAt: json['updated_at']?.toString(),
     );
