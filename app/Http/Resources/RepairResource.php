@@ -58,6 +58,9 @@ class RepairResource extends JsonResource
             }),
             'parts' => RepairPartResource::collection($this->whenLoaded('parts')),
             'payments' => RepairPaymentResource::collection($this->whenLoaded('payments')),
+            'warranty' => $this->whenLoaded('warranty', function () {
+                return ($this->warranty && !$this->warranty->trashed()) ? new WarrantyResource($this->warranty) : null;
+            }),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

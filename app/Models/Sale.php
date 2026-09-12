@@ -76,6 +76,16 @@ class Sale extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function warranty()
+    {
+        return $this->hasOne(Warranty::class)->whereNull('warranties.deleted_at')->latestOfMany();
+    }
+
+    public function warranties()
+    {
+        return $this->hasMany(Warranty::class)->whereNull('warranties.deleted_at');
+    }
+
     public function recalculatePaymentStatus(): void
     {
         $paid = (float) $this->payments()->sum('amount');
@@ -93,5 +103,14 @@ class Sale extends Model
             'amount_due' => $due,
             'payment_status' => $status,
         ]);
+    }
+
+    protected static function booted(): void
+    {
+        static::deleting(function ($sale) {
+            foreach ($sale->warranties()->get() as $warranty) {
+                $warranty->delete();
+            }
+        });
     }
 }

@@ -15,9 +15,20 @@ use Illuminate\Support\Facades\DB;
 class WarrantyClaimController extends Controller
 {
     /**
+     * Resolve ID whether passed as model instance or scalar ID.
+     */
+    private function resolveId(mixed $param): int
+    {
+        if ($param instanceof WarrantyClaim || $param instanceof Warranty) {
+            return (int) $param->id;
+        }
+        return (int) $param;
+    }
+
+    /**
      * Display listing of warranty claims for a shop or specific warranty.
      */
-    public function index(Request $request, ?int $warrantyId = null): JsonResponse
+    public function index(Request $request, mixed $warrantyId = null): JsonResponse
     {
         $user = $request->user();
         if (!$user->shop_id) {
@@ -28,10 +39,12 @@ class WarrantyClaimController extends Controller
         }
 
         $query = WarrantyClaim::forShop($user->shop_id)
+            ->whereHas('warranty')
             ->with(['warranty', 'customer', 'device', 'creator']);
 
-        if ($warrantyId) {
-            $query->where('warranty_id', $warrantyId);
+        if ($warrantyId !== null) {
+            $id = $this->resolveId($warrantyId);
+            $query->where('warranty_id', $id);
         }
 
         if ($request->filled('search')) {
@@ -72,10 +85,11 @@ class WarrantyClaimController extends Controller
     /**
      * File a new warranty claim against a warranty.
      */
-    public function store(StoreWarrantyClaimRequest $request, int $warrantyId): JsonResponse
+    public function store(StoreWarrantyClaimRequest $request, mixed $warrantyId): JsonResponse
     {
         $user = $request->user();
-        $warranty = Warranty::forShop($user->shop_id)->find($warrantyId);
+        $id = $this->resolveId($warrantyId);
+        $warranty = Warranty::forShop($user->shop_id)->find($id);
 
         if (!$warranty) {
             return response()->json([
@@ -121,14 +135,15 @@ class WarrantyClaimController extends Controller
     /**
      * Display details of a specific warranty claim.
      */
-    public function show(Request $request, int $id): JsonResponse
+    public function show(Request $request, mixed $claim): JsonResponse
     {
         $user = $request->user();
-        $claim = WarrantyClaim::forShop($user->shop_id)
+        $id = $this->resolveId($claim);
+        $claimRecord = WarrantyClaim::forShop($user->shop_id)
             ->with(['warranty.customer', 'warranty.device', 'customer', 'device', 'creator'])
             ->find($id);
 
-        if (!$claim) {
+        if (!$claimRecord) {
             return response()->json([
                 'success' => false,
                 'message' => 'Warranty claim record not found or unauthorized.',
@@ -137,19 +152,20 @@ class WarrantyClaimController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => new WarrantyClaimResource($claim),
+            'data' => new WarrantyClaimResource($claimRecord),
         ]);
     }
 
     /**
      * Update claim status and resolution.
      */
-    public function update(UpdateWarrantyClaimStatusRequest $request, int $id): JsonResponse
+    public function update(UpdateWarrantyClaimStatusRequest $request, mixed $claim): JsonResponse
     {
         $user = $request->user();
-        $claim = WarrantyClaim::forShop($user->shop_id)->find($id);
+        $id = $this->resolveId($claim);
+        $claimRecord = WarrantyClaim::forShop($user->shop_id)->find($id);
 
-        if (!$claim) {
+        if (!$claimRecord) {
             return response()->json([
                 'success' => false,
                 'message' => 'Warranty claim record not found or unauthorized.',
@@ -173,35 +189,36 @@ class WarrantyClaimController extends Controller
             $updateData['notes'] = $validated['notes'];
         }
 
-        if (in_array($newStatus, ['resolved', 'closed']) && !$claim->resolved_at) {
+        if (in_array($newStatus, ['resolved', 'closed']) && !$claimRecord->resolved_at) {
             $updateData['resolved_at'] = now();
         }
 
-        $claim->update($updateData);
+        $claimRecord->update($updateData);
 
         return response()->json([
             'success' => true,
             'message' => "Warranty claim updated to {$newStatus}.",
-            'data' => new WarrantyClaimResource($claim->load(['warranty', 'customer', 'device', 'creator'])),
+            'data' => new WarrantyClaimResource($claimRecord->load(['warranty', 'customer', 'device', 'creator'])),
         ]);
     }
 
     /**
      * Delete warranty claim.
      */
-    public function destroy(Request $request, int $id): JsonResponse
+    public function destroy(Request $request, mixed $claim): JsonResponse
     {
         $user = $request->user();
-        $claim = WarrantyClaim::forShop($user->shop_id)->find($id);
+        $id = $this->resolveId($claim);
+        $claimRecord = WarrantyClaim::forShop($user->shop_id)->find($id);
 
-        if (!$claim) {
+        if (!$claimRecord) {
             return response()->json([
                 'success' => false,
                 'message' => 'Warranty claim record not found or unauthorized.',
             ], 404);
         }
 
-        $claim->delete();
+        $claimRecord->delete();
 
         return response()->json([
             'success' => true,

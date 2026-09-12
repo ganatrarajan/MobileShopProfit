@@ -62,6 +62,13 @@ class StoreSaleRequest extends FormRequest
             'payment_amount' => ['nullable', 'numeric', 'min:0'],
             'payment_method' => ['nullable', 'string', 'in:cash,upi,card,bank_transfer,other'],
             'payment_notes' => ['nullable', 'string', 'max:500'],
+
+            'create_warranty' => ['nullable', 'boolean'],
+            'has_warranty' => ['nullable', 'boolean'],
+            'warranty_duration_days' => ['nullable', 'integer', 'min:1', 'max:3650'],
+            'duration_days' => ['nullable', 'integer', 'min:1', 'max:3650'],
+            'warranty_terms' => ['nullable', 'string', 'max:2000'],
+            'warranty_notes' => ['nullable', 'string', 'max:2000'],
         ];
     }
 

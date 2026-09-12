@@ -55,4 +55,21 @@ class Customer extends Model
     {
         return $this->hasMany(Repair::class);
     }
+
+    /**
+     * Get the warranties belonging to the customer.
+     */
+    public function warranties(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Warranty::class)->whereNull('warranties.deleted_at');
+    }
+
+    protected static function booted(): void
+    {
+        static::deleting(function ($customer) {
+            foreach ($customer->warranties()->get() as $warranty) {
+                $warranty->delete();
+            }
+        });
+    }
 }

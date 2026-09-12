@@ -17,7 +17,13 @@ class AdminWarrantyController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Warranty::withoutGlobalScope('shop')->with(['shop', 'customer', 'device', 'claims']);
+        $query = Warranty::withoutGlobalScope('shop')
+            ->whereNull('warranties.deleted_at')
+            ->with(['shop', 'customer', 'device', 'claims']);
+
+        if ($request->boolean('with_trashed')) {
+            $query->withTrashed();
+        }
 
         if ($request->filled('search')) {
             $search = $request->search;

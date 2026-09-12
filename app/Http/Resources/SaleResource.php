@@ -38,6 +38,9 @@ class SaleResource extends JsonResource
             }),
             'items' => SaleItemResource::collection($this->whenLoaded('items')),
             'payments' => SalePaymentResource::collection($this->whenLoaded('payments')),
+            'warranty' => $this->whenLoaded('warranty', function () {
+                return ($this->warranty && !$this->warranty->trashed()) ? new WarrantyResource($this->warranty) : null;
+            }),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

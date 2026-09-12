@@ -209,6 +209,8 @@ Route::prefix('v1')->group(function () {
 
         // Warranties Module
         Route::apiResource('warranties', WarrantyController::class);
+        Route::match(['delete', 'post'], '/warranties/{warranty}/delete', [WarrantyController::class, 'destroy']);
+        Route::match(['delete', 'post'], '/warranties/{warranty}', [WarrantyController::class, 'destroy']);
         Route::get('/warranties/{warranty}/claims', [WarrantyClaimController::class, 'index']);
         Route::post('/warranties/{warranty}/claims', [WarrantyClaimController::class, 'store']);
         Route::apiResource('warranty-claims', WarrantyClaimController::class);
