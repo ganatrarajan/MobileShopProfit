@@ -512,4 +512,174 @@ class WhatsAppHelper {
       await sendRepairWhatsAppMessage(context, repair);
     }
   }
+
+  /// Shows a modal bottom sheet allowing user to select WhatsApp message type:
+  /// 1. Status Update Message
+  /// 2. Complete Ticket / Bill Summary
+  
+  /// Helper: Shares the Repair PDF Job Sheet / Ticket File
+  static Future<bool> shareRepairPdfInvoice(
+    BuildContext context,
+    Repair repair, {
+    String? shopName,
+  }) async {
+    try {
+      String? dynamicShopName = shopName;
+      if (dynamicShopName == null || dynamicShopName.trim().isEmpty) {
+        try {
+          final shop = await AuthStorage().getShop();
+          if (shop != null && shop['name'] != null && shop['name'].toString().trim().isNotEmpty) {
+            dynamicShopName = shop['name'].toString().trim();
+          }
+        } catch (_) {}
+      }
+
+      final jobNum = repair.jobNumber.isNotEmpty ? repair.jobNumber : '${repair.id}';
+      final pdfBytes = await PdfInvoiceBuilder.generateRepairPdf(repair);
+      final tempDir = await getTemporaryDirectory();
+      final pdfFileName = 'Repair_Ticket_$jobNum.pdf';
+      final file = File('${tempDir.path}/$pdfFileName');
+      await file.writeAsBytes(pdfBytes);
+
+      final messageText = buildRepairWhatsAppMessage(repair, shopName: dynamicShopName);
+
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'application/pdf', name: pdfFileName)],
+        subject: 'Repair Ticket #$jobNum',
+        text: messageText,
+      );
+      return true;
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not share PDF repair ticket: ${e.toString()}'),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      }
+      return false;
+    }
+  }
+
+  /// Shows a modal bottom sheet allowing user to select WhatsApp message type:
+  /// 1. Share Repair PDF Bill File
+  /// 2. Status Update Text
+  /// 3. Complete Ticket Text Summary
+  static Future<void> showRepairWhatsAppOptions(BuildContext context, Repair repair) async {
+    final rawPhone = repair.customer?.mobile;
+    final formattedPhone = formatPhoneNumber(rawPhone);
+    final customerName = repair.customer?.name.trim().isNotEmpty == true
+        ? repair.customer!.name.trim()
+        : 'Customer';
+    final currentStatusLabel = repair.repairStatus.toUpperCase();
+
+    await showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const WhatsAppIcon(size: 24),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'WhatsApp Message Options',
+                            style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            '$customerName ${rawPhone != null && rawPhone.isNotEmpty ? "($rawPhone)" : ""}',
+                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 20),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                const Divider(height: 1),
+                const SizedBox(height: 10),
+
+                // Option 1: Share PDF Bill File (WhatsApp Document)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.picture_as_pdf_rounded, color: Colors.redAccent, size: 20),
+                  ),
+                  title: const Text('Share Repair PDF Bill File', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  subtitle: const Text('Generates & attaches official PDF document on WhatsApp'),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await shareRepairPdfInvoice(context, repair);
+                  },
+                ),
+                const Divider(height: 1),
+
+                // Option 2: Text Status Update
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.published_with_changes_rounded, color: AppColors.primary, size: 20),
+                  ),
+                  title: const Text('Send Status Update Text', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  subtitle: Text('Status: $currentStatusLabel'),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await sendRepairStatusWhatsAppMessage(context, repair, repair.repairStatus);
+                  },
+                ),
+                const Divider(height: 1),
+
+                // Option 3: Complete Ticket Text Summary
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF25D366).withOpacity(0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const WhatsAppIcon(size: 20, showBackground: false),
+                  ),
+                  title: const Text('Send Complete Ticket Text', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  subtitle: const Text('Send job sheet summary text & payment details'),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await sendRepairWhatsAppMessage(context, repair);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
 }

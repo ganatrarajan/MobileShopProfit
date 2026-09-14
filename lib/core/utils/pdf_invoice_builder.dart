@@ -1,3 +1,4 @@
+import '../../features/repair/models/repair.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
@@ -619,4 +620,465 @@ class PdfInvoiceBuilder {
       ),
     );
   }
+
+  /// Generates a modern repair job sheet / bill PDF for a Repair job.
+  static Future<Uint8List> generateRepairPdf(Repair repair) async {
+    final pdf = pw.Document();
+
+    String shopName = 'Akash Enterprises';
+    String shopAddress = '';
+    String shopPhone = '';
+    String shopGstin = '';
+    String shopPan = '';
+    List<String> termsList = [];
+    Uint8List? logoBytes;
+    Uint8List? signatureBytes;
+
+    try {
+      final shop = await AuthStorage().getShop();
+      if (shop != null) {
+        if (shop['name'] != null && shop['name'].toString().trim().isNotEmpty) {
+          shopName = shop['name'].toString().trim();
+        }
+
+        final addressParts = [
+          if (shop['address'] != null && shop['address'].toString().trim().isNotEmpty) shop['address'].toString().trim(),
+          if (shop['state'] != null && shop['state'].toString().trim().isNotEmpty) shop['state'].toString().trim(),
+          if (shop['pincode'] != null && shop['pincode'].toString().trim().isNotEmpty) shop['pincode'].toString().trim(),
+        ];
+        shopAddress = addressParts.join(', ');
+
+        if (shop['mobile'] != null && shop['mobile'].toString().trim().isNotEmpty) {
+          shopPhone = shop['mobile'].toString().trim();
+        } else if (shop['phone'] != null && shop['phone'].toString().trim().isNotEmpty) {
+          shopPhone = shop['phone'].toString().trim();
+        }
+
+        if (shop['gstin'] != null && shop['gstin'].toString().trim().isNotEmpty) {
+          shopGstin = shop['gstin'].toString().trim();
+        }
+
+        if (shop['pan_number'] != null && shop['pan_number'].toString().trim().isNotEmpty) {
+          shopPan = shop['pan_number'].toString().trim();
+        } else if (shop['pan'] != null && shop['pan'].toString().trim().isNotEmpty) {
+          shopPan = shop['pan'].toString().trim();
+        }
+
+        if (shop['terms_and_conditions'] != null && shop['terms_and_conditions'].toString().trim().isNotEmpty) {
+          final termsRaw = shop['terms_and_conditions'].toString();
+          termsList = termsRaw
+              .split('\n')
+              .map((e) => e.trim())
+              .where((e) => e.isNotEmpty)
+              .toList();
+        }
+
+        final logoPath = shop['logo_path'] ?? shop['logo_url'] ?? shop['logo'];
+        logoBytes = await _loadMediaBytes(logoPath?.toString());
+
+        final sigPath = shop['signature_path'] ?? shop['signature_url'] ?? shop['signature'];
+        signatureBytes = await _loadMediaBytes(sigPath?.toString());
+      }
+    } catch (_) {}
+
+    if (termsList.isEmpty) {
+      termsList = [
+        '1. Please inspect device thoroughly before leaving premises.',
+        '2. Shop is not responsible for data loss. Backup is recommended.',
+        '3. Unclaimed devices after 30 days may be subject to storage fees.',
+      ];
+    }
+
+    final customerName = repair.customer?.name.trim().isNotEmpty == true
+        ? repair.customer!.name.trim()
+        : 'Customer';
+
+    final customerPhone = repair.customer?.mobile.trim().isNotEmpty == true
+        ? repair.customer!.mobile.trim()
+        : '';
+
+    final jobNum = repair.jobNumber.isNotEmpty ? repair.jobNumber : 'RH-REP-${repair.id}';
+    final rawDate = repair.dateReceived.isNotEmpty ? repair.dateReceived : DateTime.now().toIso8601String();
+    final dateStr = DateHelper.formatDate(rawDate);
+    final expectedDelivery = repair.expectedDeliveryDate != null && repair.expectedDeliveryDate!.isNotEmpty
+        ? DateHelper.formatDate(repair.expectedDeliveryDate!)
+        : 'N/A';
+
+    final contactParts = <String>[];
+    if (shopPhone.isNotEmpty) contactParts.add('Phone: $shopPhone');
+    if (shopGstin.isNotEmpty) contactParts.add('GSTIN: $shopGstin');
+    if (shopPan.isNotEmpty) contactParts.add('PAN: $shopPan');
+    final contactLine = contactParts.join('  |  ');
+
+    final isPaidFull = repair.amountDue <= 0;
+    final paymentStatusText = isPaidFull ? 'PAID' : (repair.amountPaid > 0 ? 'PARTIAL' : 'DUE');
+    final paymentStatusColor = isPaidFull ? PdfColors.green700 : (repair.amountPaid > 0 ? PdfColors.orange700 : PdfColors.red700);
+    final paymentStatusBg = isPaidFull ? PdfColor.fromHex('#DCFCE7') : (repair.amountPaid > 0 ? PdfColor.fromHex('#FFEDD5') : PdfColor.fromHex('#FEE2E2'));
+
+    final deviceBrandModel = '${repair.device?.brand ?? ''} ${repair.device?.model ?? ''}'.trim();
+    final serialImei = (repair.device?.serialNumber ?? (repair.device?.imei1 ?? (repair.device?.imei2 ?? 'N/A'))) ?? 'N/A';
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(26),
+        build: (pw.Context context) {
+          return pw.Stack(
+            children: [
+              // BACKGROUND WATERMARK
+              pw.Positioned.fill(
+                child: pw.Center(
+                  child: pw.Transform.rotate(
+                    angle: -0.38,
+                    child: pw.Text(
+                      'REPAIREHUB',
+                      style: pw.TextStyle(
+                        fontSize: 64,
+                        fontWeight: pw.FontWeight.bold,
+                        color: watermarkColor,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  // 1. TOP HEADER SECTION
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Expanded(
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text(
+                              shopName,
+                              style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: headerNavy),
+                            ),
+                            if (shopAddress.isNotEmpty) ...[
+                              pw.SizedBox(height: 2),
+                              pw.Text(shopAddress, style: pw.TextStyle(fontSize: 8.5, color: textMuted)),
+                            ],
+                            if (contactLine.isNotEmpty) ...[
+                              pw.SizedBox(height: 2),
+                              pw.Text(contactLine, style: pw.TextStyle(fontSize: 8.5, color: textMuted)),
+                            ],
+                          ],
+                        ),
+                      ),
+                      if (logoBytes != null) ...[
+                        pw.SizedBox(width: 12),
+                        pw.Container(
+                          height: 42,
+                          width: 80,
+                          child: pw.Image(pw.MemoryImage(logoBytes), fit: pw.BoxFit.contain),
+                        ),
+                      ],
+                    ],
+                  ),
+
+                  pw.SizedBox(height: 10),
+                  pw.Divider(color: PdfColors.grey300, thickness: 0.8),
+                  pw.SizedBox(height: 8),
+
+                  // 2. REPAIR TICKET TITLE & BADGES
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text(
+                            'REPAIR JOB TICKET',
+                            style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: brandBlue),
+                          ),
+                          pw.Text(
+                            'Job No: #$jobNum',
+                            style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: textDark),
+                          ),
+                        ],
+                      ),
+                      pw.Row(
+                        children: [
+                          pw.Container(
+                            decoration: pw.BoxDecoration(
+                              color: cardBgBlue,
+                              borderRadius: pw.BorderRadius.circular(4),
+                              border: pw.Border.all(color: borderBlue, width: 0.6),
+                            ),
+                            padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            child: pw.Text(
+                              'Status: ${repair.repairStatus.toUpperCase()}',
+                              style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: brandBlue),
+                            ),
+                          ),
+                          pw.SizedBox(width: 6),
+                          pw.Container(
+                            decoration: pw.BoxDecoration(
+                              color: paymentStatusBg,
+                              borderRadius: pw.BorderRadius.circular(4),
+                            ),
+                            padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            child: pw.Text(
+                              paymentStatusText,
+                              style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: paymentStatusColor),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+
+                  pw.SizedBox(height: 10),
+
+                  // 3. CUSTOMER & DEVICE INFO BOXES
+                  pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      // Customer Box
+                      pw.Expanded(
+                        child: pw.Container(
+                          padding: const pw.EdgeInsets.all(8),
+                          decoration: pw.BoxDecoration(
+                            color: cardBgBlue,
+                            borderRadius: pw.BorderRadius.circular(6),
+                            border: pw.Border.all(color: borderBlue, width: 0.6),
+                          ),
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text('CUSTOMER DETAILS', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: brandBlue)),
+                              pw.SizedBox(height: 4),
+                              pw.Text('Name: $customerName', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: textDark)),
+                              if (customerPhone.isNotEmpty)
+                                pw.Text('Phone: $customerPhone', style: pw.TextStyle(fontSize: 8.5, color: textDark)),
+                              pw.Text('Date Received: $dateStr', style: pw.TextStyle(fontSize: 8.5, color: textDark)),
+                              pw.Text('Target Delivery: $expectedDelivery', style: pw.TextStyle(fontSize: 8.5, color: textDark)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      pw.SizedBox(width: 8),
+                      // Device Box
+                      pw.Expanded(
+                        child: pw.Container(
+                          padding: const pw.EdgeInsets.all(8),
+                          decoration: pw.BoxDecoration(
+                            color: cardBgBlue,
+                            borderRadius: pw.BorderRadius.circular(6),
+                            border: pw.Border.all(color: borderBlue, width: 0.6),
+                          ),
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text('DEVICE DETAILS', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: brandBlue)),
+                              pw.SizedBox(height: 4),
+                              pw.Text('Device: ${deviceBrandModel.isNotEmpty ? deviceBrandModel : "Mobile Device"}', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: textDark)),
+                              pw.Text('IMEI / Serial: $serialImei', style: pw.TextStyle(fontSize: 8.5, color: textDark)),
+                              if (repair.pinPasscode != null && repair.pinPasscode!.isNotEmpty)
+                                pw.Text('Passcode / PIN: ${repair.pinPasscode}', style: pw.TextStyle(fontSize: 8.5, color: textDark)),
+                              pw.Text('Problem: ${repair.problemDescription.isNotEmpty ? repair.problemDescription : "Repair Service"}', style: pw.TextStyle(fontSize: 8.5, color: textDark)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  pw.SizedBox(height: 12),
+
+                  // 4. PARTS & CHARGES TABLE
+                  pw.Table(
+                    border: pw.TableBorder.all(color: borderBlue, width: 0.6),
+                    columnWidths: {
+                      0: const pw.FixedColumnWidth(28),
+                      1: const pw.FlexColumnWidth(4),
+                      2: const pw.FixedColumnWidth(40),
+                      3: const pw.FixedColumnWidth(65),
+                      4: const pw.FixedColumnWidth(75),
+                    },
+                    children: [
+                      pw.TableRow(
+                        decoration: pw.BoxDecoration(color: tableHeaderBg),
+                        children: [
+                          _headerCell('#', align: pw.TextAlign.center),
+                          _headerCell('Item / Repair Description'),
+                          _headerCell('Qty', align: pw.TextAlign.center),
+                          _headerCell('Rate (Rs.)', align: pw.TextAlign.right),
+                          _headerCell('Amount (Rs.)', align: pw.TextAlign.right),
+                        ],
+                      ),
+
+                      // Service / Labour Charges Row
+                      pw.TableRow(
+                        children: [
+                          _dataCell('1', align: pw.TextAlign.center),
+                          _dataCell('Repair Labour & Technical Service Charge', isBold: true),
+                          _dataCell('1', align: pw.TextAlign.center),
+                          _dataCell(repair.labourCost > 0 ? repair.labourCost.toStringAsFixed(2) : repair.netCost.toStringAsFixed(2), align: pw.TextAlign.right),
+                          _dataCell(repair.labourCost > 0 ? repair.labourCost.toStringAsFixed(2) : repair.netCost.toStringAsFixed(2), align: pw.TextAlign.right),
+                        ],
+                      ),
+
+                      // Spare parts rows
+                      ...repair.parts.asMap().entries.map((entry) {
+                        final idx = entry.key + 2;
+                        final part = entry.value;
+                        return pw.TableRow(
+                          children: [
+                            _dataCell(idx.toString(), align: pw.TextAlign.center),
+                            _dataCell('Part: ${part.partName}'),
+                            _dataCell(part.quantity.toString(), align: pw.TextAlign.center),
+                            _dataCell(part.sellingPrice.toStringAsFixed(2), align: pw.TextAlign.right),
+                            _dataCell((part.sellingPrice * part.quantity).toStringAsFixed(2), align: pw.TextAlign.right),
+                          ],
+                        );
+                      }),
+                    ],
+                  ),
+
+                  pw.SizedBox(height: 12),
+
+                  // 5. SUMMARY & TOTALS
+                  pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      // Left Column: Terms
+                      pw.Expanded(
+                        flex: 5,
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text('Terms & Conditions:', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: headerNavy)),
+                            pw.SizedBox(height: 2),
+                            ...termsList.map(
+                              (term) => pw.Padding(
+                                padding: const pw.EdgeInsets.only(bottom: 1.5),
+                                child: pw.Text(term, style: pw.TextStyle(fontSize: 7.5, color: textMuted)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      pw.SizedBox(width: 12),
+                      // Right Column: Summary Card
+                      pw.Expanded(
+                        flex: 6,
+                        child: pw.Container(
+                          decoration: pw.BoxDecoration(
+                            color: cardBgBlue,
+                            border: pw.Border.all(color: borderBlue, width: 0.8),
+                            borderRadius: pw.BorderRadius.circular(6),
+                          ),
+                          child: pw.Column(
+                            children: [
+                              pw.Padding(
+                                padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                child: pw.Row(
+                                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    pw.Text('Total Repair Cost:', style: pw.TextStyle(fontSize: 9.5, color: textDark)),
+                                    pw.Text('Rs. ${repair.netCost.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: textDark)),
+                                  ],
+                                ),
+                              ),
+                              pw.Padding(
+                                padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                child: pw.Row(
+                                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    pw.Text('Advance Paid:', style: pw.TextStyle(fontSize: 9.5, color: textDark)),
+                                    pw.Text('Rs. ${repair.amountPaid.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: PdfColors.green700)),
+                                  ],
+                                ),
+                              ),
+                              if (repair.amountDue > 0)
+                                pw.Padding(
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                  child: pw.Row(
+                                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      pw.Text('Balance Due:', style: pw.TextStyle(fontSize: 9.5, color: textDark)),
+                                      pw.Text('Rs. ${repair.amountDue.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: PdfColors.red700)),
+                                    ],
+                                  ),
+                                ),
+
+                              // GRAND TOTAL BANNER
+                              pw.Container(
+                                decoration: pw.BoxDecoration(
+                                  color: brandBlue,
+                                  borderRadius: const pw.BorderRadius.only(
+                                    bottomLeft: pw.Radius.circular(5),
+                                    bottomRight: pw.Radius.circular(5),
+                                  ),
+                                ),
+                                padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                                child: pw.Row(
+                                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    pw.Text('Net Payable:', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
+                                    pw.Text('Rs. ${repair.netCost.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  pw.Spacer(),
+
+                  // 6. FOOTER SECTION
+                  pw.Container(
+                    padding: const pw.EdgeInsets.only(top: 8),
+                    decoration: const pw.BoxDecoration(
+                      border: pw.Border(top: pw.BorderSide(color: PdfColors.grey300, width: 0.8)),
+                    ),
+                    child: pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      children: [
+                        pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text('Thank you for choosing $shopName', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: brandBlue)),
+                            pw.SizedBox(height: 2),
+                            pw.Text('Quality Mobile Repair  |  Fast Service  |  Always Here for You', style: pw.TextStyle(fontSize: 7.5, color: textMuted)),
+                          ],
+                        ),
+                        pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.end,
+                          children: [
+                            if (signatureBytes != null) ...[
+                              pw.Container(
+                                height: 24,
+                                child: pw.Image(pw.MemoryImage(signatureBytes), fit: pw.BoxFit.contain),
+                              ),
+                              pw.SizedBox(height: 2),
+                            ],
+                            pw.Text('Authorised Signature', style: pw.TextStyle(fontSize: 8, color: textMuted)),
+                            pw.SizedBox(height: 2),
+                            pw.Container(width: 50, height: 1.5, color: brandBlue),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    return pdf.save();
+  }
+
 }

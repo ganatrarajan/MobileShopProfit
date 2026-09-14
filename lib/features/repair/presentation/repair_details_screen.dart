@@ -1,4 +1,5 @@
-﻿import '../../warranty/models/warranty.dart';
+import 'repair_invoice_pdf_screen.dart';
+import '../../warranty/models/warranty.dart';
 import '../data/repair_repository.dart';
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
@@ -306,9 +307,14 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
         elevation: 0,
         actions: [
           IconButton(
+            icon: const Icon(Icons.picture_as_pdf_rounded, color: Colors.white),
+            onPressed: () => RepairInvoicePdfScreen.show(context, _repair),
+            tooltip: 'View PDF Bill / Ticket',
+          ),
+          IconButton(
             icon: const WhatsAppIcon(size: 22),
-            onPressed: () => WhatsAppHelper.sendRepairWhatsAppMessage(context, _repair),
-            tooltip: 'Send WhatsApp Message',
+            onPressed: () => WhatsAppHelper.showRepairWhatsAppOptions(context, _repair),
+            tooltip: 'WhatsApp Options',
           ),
           IconButton(
             icon: const Icon(Icons.edit_rounded, color: Colors.white),
@@ -456,7 +462,7 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
                         const SizedBox(width: 6),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: () => WhatsAppHelper.sendRepairWhatsAppMessage(context, _repair),
+                            onPressed: () => WhatsAppHelper.showRepairWhatsAppOptions(context, _repair),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF25D366),
                               foregroundColor: Colors.white,
@@ -473,6 +479,31 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
                                 FittedBox(
                                   fit: BoxFit.scaleDown,
                                   child: Text('WhatsApp', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () => RepairInvoicePdfScreen.show(context, _repair),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.redAccent,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              elevation: 1,
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.picture_as_pdf_rounded, size: 15),
+                                SizedBox(width: 3),
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text('PDF Bill', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1),
                                 ),
                               ],
                             ),
@@ -693,7 +724,7 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
                                   ),
                                 ),
                                 InkWell(
-                                  onTap: () => WhatsAppHelper.sendRepairWhatsAppMessage(context, _repair),
+                                  onTap: () => WhatsAppHelper.showRepairWhatsAppOptions(context, _repair),
                                   borderRadius: BorderRadius.circular(20),
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),

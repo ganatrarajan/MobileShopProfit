@@ -1,3 +1,4 @@
+import 'repair_invoice_pdf_screen.dart';
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
@@ -32,7 +33,7 @@ class RepairListScreenState extends State<RepairListScreen> {
   String _selectedStatus = 'all';
 
   // Date Filtering state
-  String _datePreset = 'all_time'; // 'today', 'yesterday', 'this_month', 'all_time', 'custom'
+  String _datePreset = 'this_month'; // 'today', 'yesterday', 'this_month', 'all_time', 'custom'
   DateTimeRange? _customDateRange;
 
   double _totalRepairVolume = 0.0;
@@ -517,11 +518,20 @@ class RepairListScreenState extends State<RepairListScreen> {
                                               ),
                                               const SizedBox(width: 4),
                                               InkWell(
-                                                onTap: () => WhatsAppHelper.sendRepairWhatsAppMessage(context, repair),
+                                                onTap: () => WhatsAppHelper.showRepairWhatsAppOptions(context, repair),
                                                 borderRadius: BorderRadius.circular(16),
                                                 child: const Padding(
                                                   padding: EdgeInsets.all(4.0),
                                                   child: WhatsAppIcon(size: 22),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 2),
+                                              InkWell(
+                                                onTap: () => RepairInvoicePdfScreen.show(context, repair),
+                                                borderRadius: BorderRadius.circular(16),
+                                                child: const Padding(
+                                                  padding: EdgeInsets.all(4.0),
+                                                  child: Icon(Icons.picture_as_pdf_rounded, size: 18, color: Colors.redAccent),
                                                 ),
                                               ),
                                               const SizedBox(width: 2),

@@ -538,9 +538,12 @@ class SalesListScreenState extends State<SalesListScreen> {
                                                   ),
                                                 ),
                                                 const SizedBox(width: 4),
-                                                Text(
-                                                  DateHelper.formatSmart(sale.saleDate),
-                                                  style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                                Flexible(
+                                                  child: Text(
+                                                    DateHelper.formatSmart(sale.saleDate),
+                                                    style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
                                                 ),
                                               ],
                                             ),
@@ -592,13 +595,14 @@ class SalesListScreenState extends State<SalesListScreen> {
                                         children: [
                                           const Icon(Icons.person_outline_rounded, size: 16, color: AppColors.textSecondary),
                                           const SizedBox(width: 6),
-                                          Text(
-                                            customerName,
-                                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.textPrimary),
+                                          Expanded(
+                                            child: Text(
+                                              customerMobile.isNotEmpty ? '$customerName ($customerMobile)' : customerName,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.textPrimary),
+                                            ),
                                           ),
-                                          if (customerMobile.isNotEmpty) ...[
-                                            Text(' ($customerMobile)', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                                          ],
                                         ],
                                       ),
                                       if (sale.items.isNotEmpty) ...[
