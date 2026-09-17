@@ -216,6 +216,9 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('warranty-claims', WarrantyClaimController::class);
 
         // Inventory Module
+        Route::post('/inventory/{id}/stock', [InventoryItemController::class, 'addStock']);
+        Route::post('/inventory/{id}/adjustment', [InventoryItemController::class, 'adjustStock']);
+        Route::get('/inventory/{id}/movements', [InventoryItemController::class, 'movements']);
         Route::apiResource('inventory', InventoryItemController::class);
 
         // Expense Management

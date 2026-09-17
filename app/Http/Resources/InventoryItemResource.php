@@ -11,6 +11,16 @@ class InventoryItemResource extends JsonResource
     {
         $currentStock = $this->recalculateStock();
 
+        $openingStock = (int) ($this->opening_stock ?? 0);
+
+        $purchasedStock = (int) $this->stockMovements()
+            ->where('inventory_item_id', $this->id)
+            ->where('movement_type', '!=', 'opening_stock')
+            ->where('quantity', '>', 0)
+            ->sum('quantity');
+
+        $totalStock = max($currentStock, $openingStock + $purchasedStock);
+
         return [
             'id' => $this->id,
             'shop_id' => $this->shop_id,
@@ -22,8 +32,8 @@ class InventoryItemResource extends JsonResource
             'item_type' => $this->item_type,
             'purchase_price' => (float) $this->purchase_price,
             'selling_price' => (float) $this->selling_price,
-            'opening_stock' => (int) ($this->opening_stock ?? $currentStock),
-            'total_stock' => (int) ($this->opening_stock ?? $currentStock),
+            'opening_stock' => $openingStock,
+            'total_stock' => $totalStock,
             'current_stock' => $currentStock,
             'minimum_stock' => $this->minimum_stock,
             'unit' => $this->unit,
