@@ -88,10 +88,10 @@ class InventoryItem {
   final double purchasePrice;
   final double sellingPrice;
   final int openingStock;
+  final int totalStock;
   final int currentStock;
   final int minimumStock;
 
-  int get totalStock => openingStock;
   final String unit;
   final String? description;
   final bool isActive;
@@ -114,6 +114,7 @@ class InventoryItem {
     required this.purchasePrice,
     required this.sellingPrice,
     this.openingStock = 0,
+    required this.totalStock,
     required this.currentStock,
     required this.minimumStock,
     required this.unit,
@@ -142,6 +143,9 @@ class InventoryItem {
 
     final curStock = _parseInt(json['current_stock']);
     final opStock = json['opening_stock'] != null ? _parseInt(json['opening_stock']) : curStock;
+    final totStock = json['total_stock'] != null
+        ? _parseInt(json['total_stock'])
+        : (curStock > opStock ? curStock : opStock);
 
     return InventoryItem(
       id: _parseInt(json['id']),
@@ -155,6 +159,7 @@ class InventoryItem {
       purchasePrice: _parseDouble(json['purchase_price']),
       sellingPrice: _parseDouble(json['selling_price']),
       openingStock: opStock,
+      totalStock: totStock,
       currentStock: curStock,
       minimumStock: _parseInt(json['minimum_stock']),
       unit: json['unit']?.toString() ?? 'pcs',
