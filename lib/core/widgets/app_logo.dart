@@ -49,7 +49,7 @@ class AppLogo extends StatelessWidget {
       width: iconDimension,
       height: iconDimension,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.black,
         borderRadius: BorderRadius.circular(iconDimension * 0.22),
         boxShadow: [
           BoxShadow(
@@ -65,7 +65,7 @@ class AppLogo extends StatelessWidget {
           'assets/images/app_logo.png',
           width: iconDimension,
           height: iconDimension,
-          fit: BoxFit.contain,
+          fit: BoxFit.cover,
         ),
       ),
     );
