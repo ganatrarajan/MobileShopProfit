@@ -149,8 +149,14 @@ Route::prefix('v1')->group(function () {
 
     // Authentication Routes (Public & Rate Limited)
     Route::post('/auth/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
+    Route::post('/auth/register/send-otp', [AuthController::class, 'sendRegisterOtp'])->middleware('throttle:10,1');
+    Route::post('/auth/register/verify-otp', [AuthController::class, 'verifyRegisterOtp'])->middleware('throttle:10,1');
+    Route::post('/auth/register/resend-otp', [AuthController::class, 'resendRegisterOtp'])->middleware('throttle:10,1');
     Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
     Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:10,1');
+    Route::post('/auth/forgot-password/send-otp', [AuthController::class, 'sendForgotPasswordOtp'])->middleware('throttle:10,1');
+    Route::post('/auth/forgot-password/verify-otp', [AuthController::class, 'verifyForgotPasswordOtp'])->middleware('throttle:10,1');
+    Route::post('/auth/forgot-password/reset-with-otp', [AuthController::class, 'resetPasswordWithOtp'])->middleware('throttle:10,1');
     Route::post('/auth/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:10,1');
 
     // Protected Shop Owner Routes (Sanctum Auth)
@@ -160,6 +166,9 @@ Route::prefix('v1')->group(function () {
 
         // Auth User Profile & Password Change
         Route::get('/auth/me', [AuthController::class, 'me']);
+        Route::post('/auth/update-profile', [AuthController::class, 'updateProfile']);
+        Route::post('/auth/profile/send-otp', [AuthController::class, 'sendProfileUpdateOtp'])->middleware('throttle:10,1');
+        Route::post('/auth/profile/verify-otp', [AuthController::class, 'verifyProfileUpdateOtp'])->middleware('throttle:10,1');
         Route::post('/auth/change-password', [AuthController::class, 'changePassword']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
 

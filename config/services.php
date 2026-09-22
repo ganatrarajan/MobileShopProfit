@@ -35,4 +35,14 @@ return [
         ],
     ],
 
+    'msg91' => [
+        'auth_key'        => env('MSG91_AUTH_KEY'),
+        'widget_id'       => env('MSG91_WIDGET_ID'),
+        'template_id'     => env('MSG91_OTP_TEMPLATE_ID'),
+        'enabled'         => env('MSG91_ENABLED', true),
+        'otp_expiry'      => (int) env('MSG91_OTP_EXPIRY', 300),
+        'resend_cooldown' => (int) env('MSG91_OTP_RESEND_COOLDOWN', 60),
+        'max_attempts'    => (int) env('MSG91_OTP_MAX_ATTEMPTS', 5),
+    ],
+
 ];
