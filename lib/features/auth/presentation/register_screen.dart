@@ -34,7 +34,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     try {
-      final response = await _authRepository.registerOwner(
+      final response = await _authRepository.sendRegisterOtp(
         name: _nameController.text.trim(),
         mobile: _mobileController.text.trim(),
         email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
@@ -44,8 +44,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
 
       if (mounted) {
-        if (response.success) {
-          Navigator.pushNamedAndRemoveUntil(context, AppRoutes.dashboard, (route) => false);
+        if (response.success && response.data != null) {
+          final rawData = response.data;
+          final Map<String, dynamic> data = (rawData is Map && rawData.containsKey('data') && rawData['data'] is Map)
+              ? Map<String, dynamic>.from(rawData['data'])
+              : (rawData is Map ? Map<String, dynamic>.from(rawData) : {});
+
+          Navigator.pushNamed(
+            context,
+            AppRoutes.otpVerification,
+            arguments: {
+              'verification_id': data['verification_id'],
+              'mobile': data['mobile'] ?? _mobileController.text.trim(),
+              'cooldown_seconds': data['cooldown_seconds'] ?? 60,
+              'otp_debug': data['otp_debug'],
+            },
+          );
         } else {
           setState(() {
             _errorMessage = response.message;

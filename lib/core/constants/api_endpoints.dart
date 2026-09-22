@@ -1,6 +1,14 @@
-class ApiEndpoints {
+﻿class ApiEndpoints {
   static const String health = '/health';
   static const String register = '/auth/register';
+  static const String sendRegisterOtp = '/auth/register/send-otp';
+  static const String verifyRegisterOtp = '/auth/register/verify-otp';
+  static const String resendRegisterOtp = '/auth/register/resend-otp';
+  static const String sendProfileOtp = '/auth/profile/send-otp';
+  static const String verifyProfileOtp = '/auth/profile/verify-otp';
+  static const String sendForgotPasswordOtp = '/auth/forgot-password/send-otp';
+  static const String verifyForgotPasswordOtp = '/auth/forgot-password/verify-otp';
+  static const String resetPasswordWithOtp = '/auth/forgot-password/reset-with-otp';
   static const String login = '/auth/login';
   static const String me = '/auth/me';
   static const String profile = '/auth/profile';
@@ -28,3 +36,4 @@ class ApiEndpoints {
   static const String deviceBrands = '/device-brands';
   static const String deviceModels = '/device-models';
 }
+

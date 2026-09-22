@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -9,6 +9,7 @@ import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../../core/storage/auth_storage.dart';
+import '../../auth/presentation/otp_verification_screen.dart';
 
 class ShopProfileScreen extends StatefulWidget {
   const ShopProfileScreen({super.key});
@@ -41,6 +42,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
   String? _signatureUrl;
   File? _newSignatureFile;
   String? _message;
+  String _initialMobile = '';
 
   @override
   void initState() {
@@ -55,7 +57,8 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
         final shop = response.data as Map<String, dynamic>;
         _nameController.text = shop['name'] ?? '';
         _ownerController.text = shop['owner_name'] ?? '';
-        _mobileController.text = shop['mobile'] ?? shop['phone'] ?? '';
+        _initialMobile = (shop['mobile'] ?? shop['phone'] ?? '').toString();
+        _mobileController.text = _initialMobile;
         _phoneController.text = shop['phone'] ?? '';
         _emailController.text = shop['email'] ?? '';
         _addressController.text = shop['address'] ?? '';
@@ -75,7 +78,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
         }
       }
     } catch (e) {
-      if (mounted) setState(() => _message = 'Failed to load shop: ${e.toString()}');
+      if (mounted) setState(() => _message = 'Failed to load shop: ');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -143,7 +146,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
     }
   }
 
-    Future<void> _pickAndUploadSignature() async {
+  Future<void> _pickAndUploadSignature() async {
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
@@ -194,12 +197,73 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
       _message = null;
     });
 
+    final newMobile = _mobileController.text.trim();
+    final isMobileChanged = _initialMobile.isNotEmpty && newMobile != _initialMobile;
+
     try {
+      if (isMobileChanged) {
+        // Send MSG91 OTP for Mobile Update
+        final otpSendRes = await _authRepository.sendProfileOtp(
+          name: _ownerController.text.trim(),
+          mobile: newMobile,
+          email: _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : null,
+        );
+
+        if (!otpSendRes.success || otpSendRes.data == null) {
+          if (mounted) {
+            setState(() {
+              _isSaving = false;
+              _message = otpSendRes.message.isNotEmpty ? otpSendRes.message : 'Failed to send OTP for mobile update.';
+            });
+          }
+          return;
+        }
+
+        final data = otpSendRes.data is Map ? otpSendRes.data['data'] ?? otpSendRes.data : {};
+        final verificationId = data['verification_id']?.toString() ?? '';
+
+        if (verificationId.isEmpty) {
+          if (mounted) {
+            setState(() {
+              _isSaving = false;
+              _message = 'Invalid verification session response.';
+            });
+          }
+          return;
+        }
+
+        setState(() => _isSaving = false);
+
+        // Open OTP Verification Screen
+        final dynamic verified = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OtpVerificationScreen(
+              verificationId: verificationId,
+              mobile: newMobile,
+              cooldownSeconds: data['cooldown_seconds'] ?? 60,
+              isProfileUpdate: true,
+            ),
+          ),
+        );
+
+        if (verified != true) {
+          // Verification failed or user backed out
+          return;
+        }
+
+        setState(() {
+          _isSaving = true;
+          _initialMobile = newMobile;
+        });
+      }
+
+      // Update remaining shop details
       final response = await _authRepository.updateShop(
         name: _nameController.text.trim(),
         ownerName: _ownerController.text.trim(),
-        mobile: _mobileController.text.trim(),
-        phone: _phoneController.text.trim(),
+        mobile: newMobile,
+        phone: newMobile,
         email: _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : null,
         address: _addressController.text.trim(),
         city: _cityController.text.trim(),
@@ -221,24 +285,14 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
           AppFeedback.showSuccess(
             context,
             title: 'Profile Updated',
-            message: 'Shop details and invoice terms saved successfully!',
+            message: 'Shop profile and details saved successfully!',
           );
         } else {
-          AppFeedback.showError(
-            context,
-            title: 'Update Failed',
-            error: response.message,
-          );
+          setState(() => _message = response.message);
         }
       }
     } catch (e) {
-      if (mounted) {
-        AppFeedback.showError(
-          context,
-          title: 'Update Error',
-          error: e.toString(),
-        );
-      }
+      if (mounted) setState(() => _message = e.toString());
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -270,77 +324,88 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
         elevation: 0,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(20.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (_message != null) ...[
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.errorLight,
-                          borderRadius: BorderRadius.circular(8),
+          ? const Center(child: CircularProgressIndicator())
+          : SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (_message != null) ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppColors.errorLight,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                          ),
+                          child: Text(
+                            _message!,
+                            style: const TextStyle(color: AppColors.error, fontSize: 13, fontWeight: FontWeight.w600),
+                          ),
                         ),
-                        child: Text(_message!, style: const TextStyle(color: AppColors.error)),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
+                        const SizedBox(height: 16),
+                      ],
 
-                    // Shop Logo & Signature Header Card
-                    CustomCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Branding & Invoicing Assets', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                          const SizedBox(height: 14),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              // Shop Logo Uploader
-                              Column(
-                                children: [
-                                  GestureDetector(
-                                    onTap: _pickAndUploadLogo,
-                                    child: CircleAvatar(
-                                      radius: 40,
-                                      backgroundColor: AppColors.primaryLight,
-                                      backgroundImage: _newLogoFile != null
-                                          ? FileImage(_newLogoFile!)
-                                          : (_logoUrl != null && _logoUrl!.isNotEmpty
-                                              ? (_logoUrl!.startsWith('http')
-                                                  ? NetworkImage(_logoUrl!) as ImageProvider
-                                                  : FileImage(File(_logoUrl!)))
-                                              : null),
-                                      child: (_newLogoFile == null && (_logoUrl == null || _logoUrl!.isEmpty))
-                                          ? const Icon(Icons.storefront_rounded, size: 36, color: Colors.white)
-                                          : null,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  TextButton.icon(
-                                    onPressed: _pickAndUploadLogo,
-                                    icon: const Icon(Icons.camera_alt_outlined, size: 15, color: AppColors.accent),
-                                    label: const Text('Shop Logo', style: TextStyle(color: AppColors.accent, fontSize: 12, fontWeight: FontWeight.bold)),
-                                  ),
-                                ],
-                              ),
-                              Container(height: 80, width: 1, color: AppColors.border),
-                              // Shop Signature Uploader
-                              Column(
-                                children: [
-                                  GestureDetector(
-                                    onTap: _pickAndUploadSignature,
-                                    child: Container(
-                                      width: 110,
-                                      height: 70,
+                      CustomCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Branding & Media', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                            const SizedBox(height: 14),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                Column(
+                                  children: [
+                                    Container(
+                                      width: 90,
+                                      height: 90,
                                       decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(color: AppColors.border, width: 1.2),
+                                        color: AppColors.surface,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: AppColors.border),
+                                      ),
+                                      child: _newLogoFile != null
+                                          ? ClipRRect(
+                                              borderRadius: BorderRadius.circular(12),
+                                              child: Image.file(_newLogoFile!, fit: BoxFit.cover),
+                                            )
+                                          : (_logoUrl != null && _logoUrl!.isNotEmpty
+                                              ? ClipRRect(
+                                                  borderRadius: BorderRadius.circular(12),
+                                                  child: _logoUrl!.startsWith('http')
+                                                      ? Image.network(_logoUrl!, fit: BoxFit.cover)
+                                                      : Image.file(File(_logoUrl!), fit: BoxFit.cover),
+                                                )
+                                              : const Column(
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(Icons.storefront_rounded, size: 30, color: AppColors.textMuted),
+                                                    SizedBox(height: 4),
+                                                    Text('No Logo', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                                                  ],
+                                                )),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    TextButton.icon(
+                                      onPressed: _pickAndUploadLogo,
+                                      icon: const Icon(Icons.photo_camera_rounded, size: 15, color: AppColors.primary),
+                                      label: const Text('Shop Logo', style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.bold)),
+                                    ),
+                                  ],
+                                ),
+                                Column(
+                                  children: [
+                                    Container(
+                                      width: 120,
+                                      height: 90,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.surface,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: AppColors.border),
                                       ),
                                       child: _newSignatureFile != null
                                           ? ClipRRect(
@@ -363,136 +428,134 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
                                                   ],
                                                 )),
                                     ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  TextButton.icon(
-                                    onPressed: _pickAndUploadSignature,
-                                    icon: const Icon(Icons.gesture_rounded, size: 15, color: AppColors.accent),
-                                    label: const Text('Shop Signature', style: TextStyle(color: AppColors.accent, fontSize: 12, fontWeight: FontWeight.bold)),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    CustomCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('General Information', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                          const SizedBox(height: 14),
-                          CustomTextField(
-                            label: 'Shop Name',
-                            controller: _nameController,
-                            prefixIcon: Icons.storefront_rounded,
-                            
-                          ),
-                          const SizedBox(height: 14),
-                          CustomTextField(
-                            label: 'Owner Name',
-                            controller: _ownerController,
-                            prefixIcon: Icons.person_outline_rounded,
-                            
-                          ),
-                          const SizedBox(height: 14),
-                          CustomTextField(
-                            label: 'Mobile Number',
-                            controller: _mobileController,
-                            keyboardType: TextInputType.phone,
-                            prefixIcon: Icons.phone_android_rounded,
-                          ),
-                          const SizedBox(height: 14),
-                          CustomTextField(
-                            label: 'Email',
-                            controller: _emailController,
-                            keyboardType: TextInputType.emailAddress,
-                            prefixIcon: Icons.email_outlined,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    CustomCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Address & Tax', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                          const SizedBox(height: 14),
-                          CustomTextField(
-                            label: 'Address',
-                            controller: _addressController,
-                            prefixIcon: Icons.location_on_outlined,
-                          ),
-                          const SizedBox(height: 14),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: CustomTextField(
-                                  label: 'City',
-                                  controller: _cityController,
-                                  prefixIcon: Icons.location_city_outlined,
+                                    const SizedBox(height: 6),
+                                    TextButton.icon(
+                                      onPressed: _pickAndUploadSignature,
+                                      icon: const Icon(Icons.gesture_rounded, size: 15, color: AppColors.accent),
+                                      label: const Text('Shop Signature', style: TextStyle(color: AppColors.accent, fontSize: 12, fontWeight: FontWeight.bold)),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: CustomTextField(
-                                  label: 'State',
-                                  controller: _stateController,
-                                  prefixIcon: Icons.map_outlined,
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      CustomCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('General Information', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                            const SizedBox(height: 14),
+                            CustomTextField(
+                              label: 'Shop Name',
+                              controller: _nameController,
+                              prefixIcon: Icons.storefront_rounded,
+                            ),
+                            const SizedBox(height: 14),
+                            CustomTextField(
+                              label: 'Owner Name',
+                              controller: _ownerController,
+                              prefixIcon: Icons.person_outline_rounded,
+                            ),
+                            const SizedBox(height: 14),
+                            CustomTextField(
+                              label: 'Mobile Number',
+                              controller: _mobileController,
+                              keyboardType: TextInputType.phone,
+                              prefixIcon: Icons.phone_android_rounded,
+                            ),
+                            const SizedBox(height: 14),
+                            CustomTextField(
+                              label: 'Email',
+                              controller: _emailController,
+                              keyboardType: TextInputType.emailAddress,
+                              prefixIcon: Icons.email_outlined,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      CustomCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Address & Tax', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                            const SizedBox(height: 14),
+                            CustomTextField(
+                              label: 'Address',
+                              controller: _addressController,
+                              prefixIcon: Icons.location_on_outlined,
+                            ),
+                            const SizedBox(height: 14),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: CustomTextField(
+                                    label: 'City',
+                                    controller: _cityController,
+                                    prefixIcon: Icons.location_city_outlined,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-                          CustomTextField(
-                            label: 'Pincode',
-                            controller: _pincodeController,
-                            keyboardType: TextInputType.number,
-                            prefixIcon: Icons.pin_drop_outlined,
-                          ),
-                          const SizedBox(height: 14),
-                          CustomTextField(
-                            label: 'GST Number',
-                            controller: _gstController,
-                            prefixIcon: Icons.description_outlined,
-                          ),
-                        ],
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: CustomTextField(
+                                    label: 'State',
+                                    controller: _stateController,
+                                    prefixIcon: Icons.map_outlined,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            CustomTextField(
+                              label: 'Pincode',
+                              controller: _pincodeController,
+                              keyboardType: TextInputType.number,
+                              prefixIcon: Icons.pin_drop_outlined,
+                            ),
+                            const SizedBox(height: 14),
+                            CustomTextField(
+                              label: 'GST Number',
+                              controller: _gstController,
+                              prefixIcon: Icons.description_outlined,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
+                      const SizedBox(height: 24),
 
-                    CustomCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Invoice Terms & Conditions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                          const SizedBox(height: 4),
-                          const Text('These custom terms will appear on your PDF invoice bills.', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                          const SizedBox(height: 14),
-                          CustomTextField(
-                            label: 'Invoice Terms (One per line)',
-                            controller: _termsController,
-                            maxLines: 4,
-                            prefixIcon: Icons.gavel_rounded,
-                            hint: "1. Goods once sold will be covered strictly as per warranty terms.\n2. Physical damage voids warranty.\n3. Present bill for claims.",
-                          ),
-                        ],
+                      CustomCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Invoice Terms & Conditions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                            const SizedBox(height: 4),
+                            const Text('These custom terms will appear on your PDF invoice bills.', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                            const SizedBox(height: 14),
+                            CustomTextField(
+                              label: 'Invoice Terms (One per line)',
+                              controller: _termsController,
+                              maxLines: 4,
+                              prefixIcon: Icons.gavel_rounded,
+                              hint: "1. Goods once sold will be covered strictly as per warranty terms.\n2. Physical damage voids warranty.\n3. Present bill for claims.",
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
+                      const SizedBox(height: 24),
 
-                    CustomButton(
-                      text: 'Save Changes',
-                      isLoading: _isSaving,
-                      onPressed: _handleUpdateShop,
-                      icon: Icons.check_circle_outline_rounded,
-                    ),
-                  ],
+                      CustomButton(
+                        text: 'Save Changes',
+                        isLoading: _isSaving,
+                        onPressed: _handleUpdateShop,
+                        icon: Icons.check_circle_outline_rounded,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

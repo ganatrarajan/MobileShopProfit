@@ -1,9 +1,84 @@
-import '../../../core/constants/api_endpoints.dart';
+﻿import '../../../core/constants/api_endpoints.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_response.dart';
 import '../../../core/storage/auth_storage.dart';
 
 class AuthRepository {
+  Future<ApiResponse<dynamic>> sendRegisterOtp({
+    required String name,
+    required String mobile,
+    required String shopName,
+    required String password,
+    required String passwordConfirmation,
+    String? email,
+  }) async {
+    return await _apiClient.post(
+      ApiEndpoints.sendRegisterOtp,
+      body: {
+        'name': name,
+        'mobile': mobile,
+        'email': email,
+        'shop_name': shopName,
+        'password': password,
+        'password_confirmation': passwordConfirmation,
+      },
+    );
+  }
+
+  Future<ApiResponse<dynamic>> verifyRegisterOtp({
+    required String verificationId,
+    required String otp,
+  }) async {
+    final response = await _apiClient.post(
+      ApiEndpoints.verifyRegisterOtp,
+      body: {
+        'verification_id': verificationId,
+        'otp': otp,
+      },
+    );
+
+    if (response.success && response.data != null) {
+      final dynamic rawData = response.data;
+      Map<String, dynamic>? dataMap;
+      if (rawData is Map<String, dynamic>) {
+        dataMap = rawData.containsKey('data') && rawData['data'] is Map<String, dynamic>
+            ? rawData['data']
+            : rawData;
+      }
+
+      if (dataMap != null) {
+        final token = dataMap['token'];
+        final user = dataMap['user'];
+        final dynamic shopRaw = dataMap['shop'] ?? (user is Map ? user['shop'] : null);
+        final Map<String, dynamic> shop = (shopRaw is Map)
+            ? Map<String, dynamic>.from(shopRaw)
+            : ((user is Map && (user['shop_id'] != null || user['shop'] != null))
+                ? {'id': user['shop_id'] ?? user['shop']?['id'], 'name': user['shop']?['name'] ?? 'My Shop'}
+                : {});
+
+        if (token != null && user != null) {
+          await _authStorage.saveSession(
+            token: token.toString(),
+            user: Map<String, dynamic>.from(user),
+            shop: shop,
+          );
+        }
+      }
+    }
+
+    return response;
+  }
+
+  Future<ApiResponse<dynamic>> resendRegisterOtp({
+    required String verificationId,
+  }) async {
+    return await _apiClient.post(
+      ApiEndpoints.resendRegisterOtp,
+      body: {
+        'verification_id': verificationId,
+      },
+    );
+  }
   final ApiClient _apiClient = ApiClient();
   final AuthStorage _authStorage = AuthStorage();
 
@@ -234,6 +309,102 @@ class AuthRepository {
     return response;
   }
 
+  Future<ApiResponse<dynamic>> sendProfileOtp({
+    required String name,
+    required String mobile,
+    String? email,
+  }) async {
+    return await _apiClient.post(
+      ApiEndpoints.sendProfileOtp,
+      body: {
+        'name': name,
+        'mobile': mobile,
+        if (email != null && email.isNotEmpty) 'email': email,
+      },
+    );
+  }
+
+  Future<ApiResponse<dynamic>> verifyProfileOtp({
+    required String verificationId,
+    required String otp,
+  }) async {
+    final response = await _apiClient.post(
+      ApiEndpoints.verifyProfileOtp,
+      body: {
+        'verification_id': verificationId,
+        'otp': otp,
+      },
+    );
+
+    if (response.success && response.data != null) {
+      final dynamic rawData = response.data;
+      Map<String, dynamic>? dataMap;
+      if (rawData is Map<String, dynamic>) {
+        dataMap = rawData.containsKey('data') && rawData['data'] is Map<String, dynamic>
+            ? rawData['data']
+            : rawData;
+      }
+
+      if (dataMap != null) {
+        final token = await _authStorage.getToken();
+        final user = dataMap['user'];
+        final dynamic shopRaw = dataMap['shop'] ?? (user is Map ? user['shop'] : null);
+        final Map<String, dynamic> shop = (shopRaw is Map)
+            ? Map<String, dynamic>.from(shopRaw)
+            : {};
+
+        if (token != null && user != null) {
+          await _authStorage.saveSession(
+            token: token.toString(),
+            user: Map<String, dynamic>.from(user),
+            shop: shop,
+          );
+        }
+      }
+    }
+
+    return response;
+  }
+
+  Future<ApiResponse<dynamic>> sendForgotPasswordOtp({
+    required String mobile,
+  }) async {
+    return await _apiClient.post(
+      ApiEndpoints.sendForgotPasswordOtp,
+      body: {
+        'mobile': mobile,
+      },
+    );
+  }
+
+  Future<ApiResponse<dynamic>> verifyForgotPasswordOtp({
+    required String verificationId,
+    required String otp,
+  }) async {
+    return await _apiClient.post(
+      ApiEndpoints.verifyForgotPasswordOtp,
+      body: {
+        'verification_id': verificationId,
+        'otp': otp,
+      },
+    );
+  }
+
+  Future<ApiResponse<dynamic>> resetPasswordWithOtp({
+    required String verificationId,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    return await _apiClient.post(
+      ApiEndpoints.resetPasswordWithOtp,
+      body: {
+        'verification_id': verificationId,
+        'password': password,
+        'password_confirmation': passwordConfirmation,
+      },
+    );
+  }
+
   Future<ApiResponse<dynamic>> requestPasswordReset({required String login, String? password, String? passwordConfirmation}) async {
     return await _apiClient.post(
       ApiEndpoints.forgotPassword,
@@ -280,3 +451,4 @@ class AuthRepository {
     await _authStorage.clearSession();
   }
 }
+

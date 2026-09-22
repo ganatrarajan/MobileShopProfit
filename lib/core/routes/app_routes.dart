@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../features/auth/presentation/forgot_password_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
+import '../../features/auth/presentation/otp_verification_screen.dart';
 import '../../features/auth/presentation/splash_screen.dart';
 import '../../features/customer/models/customer.dart';
 import '../../features/customer/presentation/add_customer_screen.dart';
@@ -61,6 +62,7 @@ class AppRoutes {
   static const String splash = '/';
   static const String login = '/login';
   static const String register = '/register';
+  static const String otpVerification = '/otp-verification';
   static const String forgotPassword = '/forgot-password';
   static const String shopSetup = '/shop-setup';
 
@@ -127,6 +129,16 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => LoginScreen(errorMessage: errorMsg));
       case register:
         return MaterialPageRoute(builder: (_) => const RegisterScreen());
+      case otpVerification:
+        final args = settings.arguments as Map<String, dynamic>;
+        return MaterialPageRoute(
+          builder: (_) => OtpVerificationScreen(
+            verificationId: args['verification_id'].toString(),
+            mobile: args['mobile'].toString(),
+            cooldownSeconds: (args['cooldown_seconds'] is int) ? args['cooldown_seconds'] as int : 60,
+            otpDebug: args['otp_debug']?.toString(),
+          ),
+        );
       case forgotPassword:
         return MaterialPageRoute(builder: (_) => const ForgotPasswordScreen());
       case shopSetup:
