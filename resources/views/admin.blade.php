@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mobile Profits — Admin Panel</title>
+    <title>RepairHub — Admin Panel</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -606,7 +607,8 @@
     <div id="auth-screen">
         <div class="login-card">
             <div class="login-header">
-                <h2>Mobile Profits SaaS</h2>
+                <img src="/logo.png" alt="RepairHub Logo" style="height: 64px; width: 64px; margin: 0 auto 12px auto; display: block; border-radius: 14px; box-shadow: 0 4px 14px rgba(0,0,0,0.18);">
+                <h2>RepairHub Admin</h2>
                 <p>Platform Administrator Sign In</p>
             </div>
             <div id="login-alert" class="alert-error"></div>
@@ -631,7 +633,10 @@
     <div id="app-layout" style="display: none;">
         <aside class="sidebar">
             <div class="sidebar-brand">
-                <div>📱 <span>Mobile Profits</span></div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <img src="/logo.png" alt="RepairHub Logo" style="width:34px; height:34px; border-radius:8px; object-fit:cover;">
+                    <span style="font-weight:800; font-size:18px; letter-spacing:-0.5px; color:#ffffff;">Repair<span style="color:#60a5fa;">Hub</span></span>
+                </div>
                 <button class="sidebar-close-btn" onclick="toggleMobileSidebar()">✕</button>
             </div>
             <ul class="sidebar-menu">
