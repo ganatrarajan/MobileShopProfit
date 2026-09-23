@@ -1,7 +1,9 @@
-﻿import 'package:flutter/material.dart';
+﻿import '../../../core/utils/app_feedback.dart';
+import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_text_field.dart';
+import '../../../core/widgets/confirm_phone_dialog.dart';
 import '../data/auth_repository.dart';
 import 'otp_verification_screen.dart';
 import 'reset_password_screen.dart';
@@ -18,18 +20,52 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _mobileController = TextEditingController();
 
   final _authRepository = AuthRepository();
+  final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
   String? _message;
 
+    void _showErrorAndScrollToTop(String title, String errorMessage) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _isLoading = false;
+      _message = errorMessage;
+    });
+
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+
+    if (mounted) {
+      AppFeedback.showError(
+        context,
+        title: title,
+        error: errorMessage,
+      );
+    }
+  }
+
   Future<void> _handleSendOtp() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final mobile = _mobileController.text.trim();
+
+    final confirmed = await showConfirmPhoneDialog(
+      context: context,
+      mobileNumber: mobile,
+      title: 'Confirm Mobile Number',
+      message: 'An SMS OTP code will be sent to reset your password:',
+    );
+
+    if (confirmed != true) return;
 
     setState(() {
       _isLoading = true;
       _message = null;
     });
-
-    final mobile = _mobileController.text.trim();
 
     try {
       final response = await _authRepository.sendForgotPasswordOtp(
@@ -68,11 +104,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             setState(() => _message = 'Failed to initiate OTP session.');
           }
         } else {
-          setState(() => _message = response.message ?? 'No account found matching this mobile number.');
+          _showErrorAndScrollToTop('Password Reset Failed', response.message ?? 'No account found matching this mobile number.');
         }
       }
     } catch (e) {
-      if (mounted) setState(() => _message = e.toString());
+      _showErrorAndScrollToTop('Password Reset Failed', e.toString());
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -80,6 +116,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _mobileController.dispose();
     super.dispose();
   }
@@ -95,6 +132,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
+                  controller: _scrollController,
           padding: const EdgeInsets.all(24.0),
           child: Form(
             key: _formKey,
@@ -139,7 +177,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 28),
+                const MobileHelperBanner(
+                  message: 'An SMS OTP code will be sent to reset your password. Please verify your mobile number before submitting.',
+                ),
+                const SizedBox(height: 20),
                 CustomButton(
                   text: 'Send MSG91 OTP SMS',
                   isLoading: _isLoading,

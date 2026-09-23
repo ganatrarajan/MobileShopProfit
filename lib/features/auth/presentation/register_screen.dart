@@ -1,8 +1,10 @@
+﻿import '../../../core/utils/app_feedback.dart';
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_text_field.dart';
+import '../../../core/widgets/confirm_phone_dialog.dart';
 import '../data/auth_repository.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -22,11 +24,47 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _confirmPasswordController = TextEditingController();
 
   final _authRepository = AuthRepository();
+  final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
   String? _errorMessage;
 
+    void _showErrorAndScrollToTop(String title, String errorMessage) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _isLoading = false;
+      _errorMessage = errorMessage;
+    });
+
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+
+    if (mounted) {
+      AppFeedback.showError(
+        context,
+        title: title,
+        error: errorMessage,
+      );
+    }
+  }
+
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final mobile = _mobileController.text.trim();
+
+    final confirmed = await showConfirmPhoneDialog(
+      context: context,
+      mobileNumber: mobile,
+      title: 'Confirm Mobile Number',
+      message: 'An SMS OTP verification code will be sent to complete your registration:',
+    );
+
+    if (confirmed != true) return;
 
     setState(() {
       _isLoading = true;
@@ -36,7 +74,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     try {
       final response = await _authRepository.sendRegisterOtp(
         name: _nameController.text.trim(),
-        mobile: _mobileController.text.trim(),
+        mobile: mobile,
         email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
         shopName: _shopNameController.text.trim(),
         password: _passwordController.text,
@@ -55,7 +93,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             AppRoutes.otpVerification,
             arguments: {
               'verification_id': data['verification_id'],
-              'mobile': data['mobile'] ?? _mobileController.text.trim(),
+              'mobile': data['mobile'] ?? mobile,
               'cooldown_seconds': data['cooldown_seconds'] ?? 60,
               'otp_debug': data['otp_debug'],
             },
@@ -63,6 +101,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         } else {
           setState(() {
             _errorMessage = response.message;
+          AppFeedback.showError(context, title: 'Registration Failed', error: response.message);
           });
         }
       }
@@ -70,6 +109,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (mounted) {
         setState(() {
           _errorMessage = e.toString();
+          AppFeedback.showError(context, title: 'Registration Error', error: e.toString());
         });
       }
     } finally {
@@ -83,6 +123,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _nameController.dispose();
     _mobileController.dispose();
     _emailController.dispose();
@@ -103,6 +144,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
+                  controller: _scrollController,
           padding: const EdgeInsets.all(24.0),
           child: Form(
             key: _formKey,
@@ -147,7 +189,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   prefixIcon: Icons.phone_android_rounded,
                   validator: (val) => (val == null || val.length < 10) ? 'Enter valid 10-digit mobile' : null,
                 ),
-                const SizedBox(height: 16),
+                const MobileHelperBanner(
+                  message: 'An SMS OTP verification code will be sent to this mobile number.',
+                ),
+                const SizedBox(height: 8),
                 CustomTextField(
                   label: 'Shop Name *',
                   hint: 'e.g. City Mobile Care & Sales',

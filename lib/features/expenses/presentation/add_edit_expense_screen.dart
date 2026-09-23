@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_error_mapper.dart';
 import '../../../core/utils/app_feedback.dart';
@@ -310,6 +310,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
   }
 
   void _showFormError(String errorMsg) {
+    FocusManager.instance.primaryFocus?.unfocus();
     AppFeedback.showError(context, error: errorMsg);
     setState(() => _errorMessage = errorMsg);
     if (_scrollController.hasClients) {

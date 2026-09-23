@@ -1,5 +1,7 @@
+﻿import '../../../core/utils/app_feedback.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/custom_button.dart';
@@ -38,27 +40,25 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   String? _errorMessage;
 
   Timer? _timer;
-  int _secondsRemaining = 60;
+  late ValueNotifier<int> _secondsRemainingNotifier;
 
   @override
   void initState() {
     super.initState();
     _currentVerificationId = widget.verificationId;
-    _secondsRemaining = widget.cooldownSeconds > 0 ? widget.cooldownSeconds : 60;
+    final initialSeconds = widget.cooldownSeconds > 0 ? widget.cooldownSeconds : 60;
+    _secondsRemainingNotifier = ValueNotifier<int>(initialSeconds);
     _startCountdown();
   }
 
   void _startCountdown() {
     _timer?.cancel();
-    setState(() {
-      _secondsRemaining = widget.cooldownSeconds > 0 ? widget.cooldownSeconds : 60;
-    });
+    final initialSeconds = widget.cooldownSeconds > 0 ? widget.cooldownSeconds : 60;
+    _secondsRemainingNotifier.value = initialSeconds;
 
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_secondsRemaining > 0) {
-        setState(() {
-          _secondsRemaining--;
-        });
+      if (_secondsRemainingNotifier.value > 0) {
+        _secondsRemainingNotifier.value--;
       } else {
         _timer?.cancel();
       }
@@ -87,6 +87,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       });
       return;
     }
+
+    if (_isLoading) return;
 
     setState(() {
       _isLoading = true;
@@ -158,7 +160,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   }
 
   Future<void> _handleResend() async {
-    if (_secondsRemaining > 0 || _isResending) return;
+    if (_secondsRemainingNotifier.value > 0 || _isResending) return;
 
     setState(() {
       _isResending = true;
@@ -212,6 +214,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _secondsRemainingNotifier.dispose();
     for (var c in _controllers) {
       c.dispose();
     }
@@ -287,8 +290,12 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                       controller: _controllers[index],
                       focusNode: _focusNodes[index],
                       keyboardType: TextInputType.number,
+                      textInputAction: index < 3 ? TextInputAction.next : TextInputAction.done,
                       textAlign: TextAlign.center,
                       maxLength: 1,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
                       style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                       decoration: InputDecoration(
                         counterText: '',
@@ -305,7 +312,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                         } else if (value.isEmpty && index > 0) {
                           _focusNodes[index - 1].requestFocus();
                         }
-                        if (_otpCode.length == 4) {
+                        if (!_isLoading && _otpCode.length == 4) {
                           _handleVerify();
                         }
                       },
@@ -326,19 +333,24 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
               Center(
                 child: Column(
                   children: [
-                    if (_secondsRemaining > 0)
-                      Text(
-                        'Resend OTP in  seconds',
-                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
-                      )
-                    else
-                      TextButton.icon(
-                        onPressed: _isResending ? null : _handleResend,
-                        icon: _isResending
-                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                            : const Icon(Icons.refresh_rounded, size: 18),
-                        label: const Text('Resend OTP SMS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                      ),
+                    ValueListenableBuilder<int>(
+                      valueListenable: _secondsRemainingNotifier,
+                      builder: (context, seconds, child) {
+                        if (seconds > 0) {
+                          return Text(
+                            'Resend OTP in $seconds seconds',
+                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
+                          );
+                        }
+                        return TextButton.icon(
+                          onPressed: _isResending ? null : _handleResend,
+                          icon: _isResending
+                              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Icon(Icons.refresh_rounded, size: 18),
+                          label: const Text('Resend OTP SMS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        );
+                      },
+                    ),
                     const SizedBox(height: 12),
                     TextButton(
                       onPressed: () => Navigator.pop(context),
@@ -359,4 +371,3 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     );
   }
 }
-

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_feedback.dart';
 import '../../../core/widgets/custom_button.dart';
@@ -31,6 +31,7 @@ class _EditCustomerScreenState extends State<EditCustomerScreen> {
   String? _errorMessage;
 
   void _showFormError(String errorMsg) {
+    FocusManager.instance.primaryFocus?.unfocus();
     AppFeedback.showError(context, error: errorMsg);
     setState(() => _errorMessage = errorMsg);
     if (_scrollController.hasClients) {

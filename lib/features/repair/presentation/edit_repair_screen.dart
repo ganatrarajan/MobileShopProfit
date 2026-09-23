@@ -1,4 +1,4 @@
-import '../../technician/data/technician_repository.dart';
+﻿import '../../technician/data/technician_repository.dart';
 import '../../technician/models/technician.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
@@ -173,6 +173,7 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
   }
 
   void _showFormError(String errorMsg) {
+    FocusManager.instance.primaryFocus?.unfocus();
     AppFeedback.showError(context, error: errorMsg);
     setState(() => _errorMessage = errorMsg);
     if (_scrollController.hasClients) {

@@ -117,6 +117,7 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
   }
 
   void _showFormError(String errorMsg) {
+    FocusManager.instance.primaryFocus?.unfocus();
     AppFeedback.showError(context, error: errorMsg);
     setState(() => _errorMessage = errorMsg);
     if (_scrollController.hasClients) {

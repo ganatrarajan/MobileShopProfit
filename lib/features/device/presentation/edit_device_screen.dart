@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../../core/storage/preferences_storage.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_feedback.dart';
@@ -38,6 +38,7 @@ class _EditDeviceScreenState extends State<EditDeviceScreen> {
   final List<String> _deviceTypes = ['Mobile', 'Tablet', 'Laptop', 'Other'];
 
   void _showFormError(String errorMsg) {
+    FocusManager.instance.primaryFocus?.unfocus();
     AppFeedback.showError(context, error: errorMsg);
     setState(() => _errorMessage = errorMsg);
     if (_scrollController.hasClients) {

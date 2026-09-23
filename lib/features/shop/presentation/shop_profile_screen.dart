@@ -10,6 +10,7 @@ import '../../../core/widgets/custom_text_field.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../../core/storage/auth_storage.dart';
 import '../../auth/presentation/otp_verification_screen.dart';
+import '../../../core/widgets/confirm_phone_dialog.dart';
 
 class ShopProfileScreen extends StatefulWidget {
   const ShopProfileScreen({super.key});
@@ -34,6 +35,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
 
   final _authRepository = AuthRepository();
   final ImagePicker _picker = ImagePicker();
+  final ScrollController _scrollController = ScrollController();
 
   bool _isLoading = true;
   bool _isSaving = false;
@@ -189,6 +191,30 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
     }
   }
 
+    void _showErrorAndScrollToTop(String title, String errorMessage) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _isSaving = false;
+      _message = errorMessage;
+    });
+
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+
+    if (mounted) {
+      AppFeedback.showError(
+        context,
+        title: title,
+        error: errorMessage,
+      );
+    }
+  }
+
   Future<void> _handleUpdateShop() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -202,6 +228,16 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
 
     try {
       if (isMobileChanged) {
+        final confirmed = await showConfirmPhoneDialog(
+          context: context,
+          mobileNumber: newMobile,
+          title: 'Confirm Mobile Update',
+          message: 'An SMS OTP code will be sent to verify your new mobile number:',
+        );
+        if (confirmed != true) {
+          setState(() => _isSaving = false);
+          return;
+        }
         // Send MSG91 OTP for Mobile Update
         final otpSendRes = await _authRepository.sendProfileOtp(
           name: _ownerController.text.trim(),
@@ -288,11 +324,11 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
             message: 'Shop profile and details saved successfully!',
           );
         } else {
-          setState(() => _message = response.message);
+          _showErrorAndScrollToTop('Update Failed', response.message ?? 'Failed to update shop details.');
         }
       }
     } catch (e) {
-      if (mounted) setState(() => _message = e.toString());
+      _showErrorAndScrollToTop('Update Failed', e.toString());
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -300,6 +336,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _nameController.dispose();
     _ownerController.dispose();
     _mobileController.dispose();
@@ -327,6 +364,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
           ? const Center(child: CircularProgressIndicator())
           : SafeArea(
               child: SingleChildScrollView(
+                  controller: _scrollController,
                 padding: const EdgeInsets.all(16.0),
                 child: Form(
                   key: _formKey,
@@ -467,6 +505,10 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
                               keyboardType: TextInputType.phone,
                               prefixIcon: Icons.phone_android_rounded,
                             ),
+                            const SizedBox(height: 8),
+                            const MobileHelperBanner(
+                              message: 'SMS OTP verification will be sent if you update your mobile number.',
+                            ),
                             const SizedBox(height: 14),
                             CustomTextField(
                               label: 'Email',
@@ -562,3 +604,4 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
     );
   }
 }
+
