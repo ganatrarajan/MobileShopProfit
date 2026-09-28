@@ -1685,7 +1685,7 @@
                         </div>
                         <div class="form-group">
                             <label>Free Trial Period (Months)</label>
-                            <input type="number" id="gw-trial" class="form-control" value="${g.trial_months || 3}" min="0" max="24" required>
+                            <input type="number" id="gw-trial" class="form-control" value="${g.trial_months || 1}" min="0" max="24" required>
                         </div>
                         <div style="display:flex; gap:12px; margin-top:24px;">
                             <button type="submit" class="btn-primary" style="flex:1;">Save Gateway Settings</button>

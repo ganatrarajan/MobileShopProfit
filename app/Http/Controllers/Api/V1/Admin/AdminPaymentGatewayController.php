@@ -23,7 +23,7 @@ class AdminPaymentGatewayController extends Controller
                 'mode'                      => $config ? $config->mode : 'test',
                 'currency'                  => $config ? $config->currency : 'INR',
                 'active'                    => $config ? (bool) $config->active : true,
-                'trial_months'              => $config ? $config->trial_months : 3,
+                'trial_months'              => $config ? $config->trial_months : 1,
                 'key_secret_configured'     => $config ? !empty($config->key_secret) : false,
                 'webhook_secret_configured' => $config ? !empty($config->webhook_secret) : false,
                 'updated_at'                => $config ? $config->updated_at->toIso8601String() : null,

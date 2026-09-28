@@ -18,7 +18,7 @@ return new class extends Migration
                 $table->string('mode')->default('test'); // test, live
                 $table->string('currency')->default('INR');
                 $table->boolean('active')->default(true);
-                $table->integer('trial_months')->default(3);
+                $table->integer('trial_months')->default(1);
                 $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
                 $table->foreignId('updated_by')->nullable()->constrained('users')->nullOnDelete();
                 $table->timestamps();
