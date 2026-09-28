@@ -1,4 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_repair/features/purchase/models/purchase.dart';
+import 'package:mobile_repair/features/purchase/models/vendor.dart';
+import 'package:mobile_repair/features/purchase/presentation/add_purchase_screen.dart';
+import 'package:mobile_repair/features/purchase/presentation/purchase_details_screen.dart';
+import 'package:mobile_repair/features/purchase/presentation/purchase_list_screen.dart';
+import 'package:mobile_repair/features/purchase/presentation/vendor_details_screen.dart';
+import 'package:mobile_repair/features/purchase/presentation/vendor_list_screen.dart';
 import '../../features/auth/presentation/forgot_password_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
@@ -102,6 +109,11 @@ class AppRoutes {
   static const String addInventoryItem = '/add-inventory-item';
   static const String inventoryDetails = '/inventory-details';
   static const String editInventoryItem = '/edit-inventory-item';
+  static const String purchases = '/purchases';
+  static const String addPurchase = '/add-purchase';
+  static const String purchaseDetails = '/purchase-details';
+  static const String vendors = '/vendors';
+  static const String vendorDetails = '/vendor-details';
 
   static const String expenses = '/expenses';
   static const String addExpense = '/add-expense';
@@ -211,6 +223,19 @@ class AppRoutes {
       case warrantyClaims:
         return MaterialPageRoute(builder: (_) => const WarrantyClaimListScreen());
 
+            case purchases:
+        return MaterialPageRoute(builder: (_) => const PurchaseListScreen());
+      case addPurchase:
+        return MaterialPageRoute(builder: (_) => const AddPurchaseScreen());
+      case purchaseDetails:
+        final purchase = settings.arguments as Purchase;
+        return MaterialPageRoute(builder: (_) => PurchaseDetailsScreen(purchase: purchase));
+      case vendors:
+        return MaterialPageRoute(builder: (_) => const VendorListScreen());
+      case vendorDetails:
+        final vendor = settings.arguments as Vendor;
+        return MaterialPageRoute(builder: (_) => VendorDetailsScreen(vendor: vendor));
+
       case inventory:
         return MaterialPageRoute(builder: (_) => const InventoryListScreen());
       case addInventoryItem:
@@ -270,3 +295,10 @@ class AppRoutes {
     }
   }
 }
+
+
+
+
+
+
+

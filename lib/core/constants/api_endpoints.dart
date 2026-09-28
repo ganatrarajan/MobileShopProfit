@@ -1,4 +1,4 @@
-﻿class ApiEndpoints {
+class ApiEndpoints {
   static const String health = '/health';
   static const String register = '/auth/register';
   static const String sendRegisterOtp = '/auth/register/send-otp';
@@ -35,5 +35,8 @@
   static const String supportContactInfo = '/support/contact-info';
   static const String deviceBrands = '/device-brands';
   static const String deviceModels = '/device-models';
+  static const String vendors = '/vendors';
+  static const String purchases = '/purchases';
 }
+
 
