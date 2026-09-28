@@ -41,6 +41,11 @@ use App\Http\Controllers\Api\V1\TechnicianController;
 use App\Http\Controllers\Api\V1\TechnicianPaymentController;
 use App\Http\Controllers\Api\V1\WarrantyClaimController;
 use App\Http\Controllers\Api\V1\WarrantyController;
+use App\Http\Controllers\Api\V1\Admin\AdminVendorController;
+use App\Http\Controllers\Api\V1\Admin\AdminPurchaseController;
+use App\Http\Controllers\Api\V1\VendorController;
+use App\Http\Controllers\Api\V1\PurchaseController;
+use App\Http\Controllers\Api\V1\PurchasePaymentController;
 use App\Http\Controllers\Api\V1\WebhookController;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\EnsureShopIsActive;
@@ -142,6 +147,9 @@ Route::prefix('v1')->group(function () {
         Route::get('/expenses', [AdminExpenseController::class, 'index']);
         Route::get('/warranties', [AdminWarrantyController::class, 'index']);
         Route::get('/technicians', [AdminTechnicianController::class, 'index']);
+        Route::get('/vendors', [AdminVendorController::class, 'index']);
+        Route::get('/purchases', [AdminPurchaseController::class, 'index']);
+        Route::get('/purchases/{id}', [AdminPurchaseController::class, 'show']);
 
         // Admin Platform Business Intelligence Reports
         Route::get('/reports/summary', [AdminReportController::class, 'summary']);
@@ -229,6 +237,13 @@ Route::prefix('v1')->group(function () {
         Route::post('/inventory/{id}/adjustment', [InventoryItemController::class, 'adjustStock']);
         Route::get('/inventory/{id}/movements', [InventoryItemController::class, 'movements']);
         Route::apiResource('inventory', InventoryItemController::class);
+
+        // Purchase & Vendor Module
+        Route::apiResource('vendors', VendorController::class);
+        Route::post('/vendors/{vendor}/payments', [PurchasePaymentController::class, 'storeForVendor']);
+        Route::post('/purchases/{purchase}/add-stock', [PurchaseController::class, 'addStock']);
+        Route::post('/purchases/{purchase}/payments', [PurchasePaymentController::class, 'store']);
+        Route::apiResource('purchases', PurchaseController::class);
 
         // Expense Management
         Route::apiResource('expense-categories', ExpenseCategoryController::class);

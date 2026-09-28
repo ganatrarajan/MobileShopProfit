@@ -790,7 +790,7 @@
 
             // Map individual sub-routes to 6 main sidebar sections
             let mainSection = route;
-            if (['sales', 'repairs', 'customers', 'inventory', 'expenses', 'warranties', 'technicians', 'operations'].includes(route)) {
+            if (['sales', 'repairs', 'customers', 'inventory', 'expenses', 'warranties', 'technicians', 'purchases', 'vendors', 'operations'].includes(route)) {
                 mainSection = 'operations';
                 subTab = subTab || (route === 'operations' ? 'sales' : route);
             } else if (['subscriptions', 'payments', 'plans', 'revenue', 'billing'].includes(route)) {
@@ -827,6 +827,8 @@
                     { id: 'repairs', label: '🔧 Repair Jobs', fn: loadRepairsView },
                     { id: 'customers', label: '👥 Customer Directory', fn: loadCustomersView },
                     { id: 'inventory', label: '📦 Inventory Stock', fn: loadInventoryView },
+                    { id: 'purchases', label: '🛍️ Purchases', fn: loadPurchasesView },
+                    { id: 'vendors', label: '🏬 Vendors', fn: loadVendorsView },
                     { id: 'expenses', label: '💸 Shop Expenses', fn: loadExpensesView },
                     { id: 'warranties', label: '🛡️ Warranties', fn: loadWarrantiesView },
                     { id: 'technicians', label: '🧰 Technicians', fn: loadTechniciansView },
@@ -1493,6 +1495,130 @@
                         </tbody>
                     </table>
                     </div>
+                </div>
+            `;
+        }
+
+        // PURCHASES VIEW (Admin Data Hub)
+        async function loadPurchasesView(page = 1, search = '', paymentStatus = '', shopId = '') {
+            const content = getContentContainer();
+            const shopOptions = await getShopsDropdownOptions(shopId);
+            const data = await apiFetch(`/purchases?page=${page}&search=${encodeURIComponent(search)}&payment_status=${paymentStatus}&shop_id=${shopId}`);
+            if (!data || !data.success) return;
+            const pageData = data.data;
+            const purchases = pageData.data || [];
+
+            content.innerHTML = `
+                <div class="card-table">
+                    <div class="table-toolbar">
+                        <div style="display:flex; gap:10px; flex:1; min-width:280px;">
+                            <div class="search-box" style="flex:1;">
+                                <input type="text" id="purchases-search-input" placeholder="Search purchase #, vendor name..." value="${search}" oninput="debounceSearch(() => loadPurchasesView(1, document.getElementById('purchases-search-input').value, '${paymentStatus}', '${shopId}'))">
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                            <select class="filter-select" onchange="loadPurchasesView(1, '${search}', this.value, '${shopId}')">
+                                <option value="">Payment Status: All</option>
+                                <option value="paid" ${paymentStatus === 'paid' ? 'selected' : ''}>Paid</option>
+                                <option value="partial" ${paymentStatus === 'partial' ? 'selected' : ''}>Partial</option>
+                                <option value="pending" ${paymentStatus === 'pending' ? 'selected' : ''}>Pending</option>
+                            </select>
+                            <select class="filter-select" onchange="loadPurchasesView(1, '${search}', '${paymentStatus}', this.value)">
+                                ${shopOptions}
+                            </select>
+                            ${(search || paymentStatus || shopId) ? `<button class="btn-sm" style="background:#e2e8f0; color:#334155;" onclick="loadPurchasesView(1, '', '', '')">Clear Filters</button>` : ''}
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Purchase #</th>
+                                <th>Vendor</th>
+                                <th>Shop</th>
+                                <th>Date</th>
+                                <th>Grand Total</th>
+                                <th>Paid</th>
+                                <th>Outstanding</th>
+                                <th>Status</th>
+                                <th>Stock Added</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${purchases.length === 0 ? `<tr><td colspan="9" style="text-align:center; padding:30px; color:#94a3b8;">No purchase records found matching filter criteria.</td></tr>` : ''}
+                            ${purchases.map(p => `
+                                <tr>
+                                    <td><strong>${p.purchase_number}</strong></td>
+                                    <td>${p.vendor_name}</td>
+                                    <td>${p.vendor && p.vendor.shop ? p.vendor.shop.name : 'Shop'}</td>
+                                    <td>${p.purchase_date}</td>
+                                    <td>₹${parseFloat(p.grand_total).toFixed(2)}</td>
+                                    <td>₹${parseFloat(p.amount_paid).toFixed(2)}</td>
+                                    <td><strong style="color:${p.outstanding_amount > 0 ? '#dc2626' : '#16a34a'};">₹${parseFloat(p.outstanding_amount).toFixed(2)}</strong></td>
+                                    <td><span class="badge ${p.payment_status === 'paid' ? 'badge-active' : (p.payment_status === 'partial' ? 'badge-trial' : 'badge-inactive')}">${p.payment_status.toUpperCase()}</span></td>
+                                    <td>${p.is_stock_added ? '<span style="color:#16a34a; font-weight:600;">✓ Added</span>' : '<span style="color:#94a3b8;">Pending</span>'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    </div>
+                    ${renderPagination(pageData, 'loadPurchasesView', search, paymentStatus, shopId)}
+                </div>
+            `;
+        }
+
+        // VENDORS VIEW (Admin Data Hub)
+        async function loadVendorsView(page = 1, search = '', shopId = '') {
+            const content = getContentContainer();
+            const shopOptions = await getShopsDropdownOptions(shopId);
+            const data = await apiFetch(`/vendors?page=${page}&search=${encodeURIComponent(search)}&shop_id=${shopId}`);
+            if (!data || !data.success) return;
+            const pageData = data.data;
+            const vendors = pageData.data || [];
+
+            content.innerHTML = `
+                <div class="card-table">
+                    <div class="table-toolbar">
+                        <div style="display:flex; gap:10px; flex:1; min-width:280px;">
+                            <div class="search-box" style="flex:1;">
+                                <input type="text" id="vendors-search-input" placeholder="Search vendor name, phone, email, GST..." value="${search}" oninput="debounceSearch(() => loadVendorsView(1, document.getElementById('vendors-search-input').value, '${shopId}'))">
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                            <select class="filter-select" onchange="loadVendorsView(1, '${search}', this.value)">
+                                ${shopOptions}
+                            </select>
+                            ${(search || shopId) ? `<button class="btn-sm" style="background:#e2e8f0; color:#334155;" onclick="loadVendorsView(1, '', '')">Clear Filters</button>` : ''}
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Vendor Name</th>
+                                <th>Contact Mobile</th>
+                                <th>Email / GST</th>
+                                <th>Total Purchases</th>
+                                <th>Total Paid</th>
+                                <th>Outstanding</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${vendors.length === 0 ? `<tr><td colspan="6" style="text-align:center; padding:30px; color:#94a3b8;">No vendor suppliers found matching filter criteria.</td></tr>` : ''}
+                            ${vendors.map(v => `
+                                <tr>
+                                    <td><strong>${v.name}</strong></td>
+                                    <td>${v.phone}</td>
+                                    <td>${v.email || 'N/A'} ${v.gst_number ? `<br><small style="color:#64748b;">GST: ${v.gst_number}</small>` : ''}</td>
+                                    <td>₹${parseFloat(v.total_purchase).toFixed(2)}</td>
+                                    <td>₹${parseFloat(v.total_paid).toFixed(2)}</td>
+                                    <td><strong style="color:${v.outstanding_amount > 0 ? '#dc2626' : '#16a34a'};">₹${parseFloat(v.outstanding_amount).toFixed(2)}</strong></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    </div>
+                    ${renderPagination(pageData, 'loadVendorsView', search, shopId)}
                 </div>
             `;
         }
