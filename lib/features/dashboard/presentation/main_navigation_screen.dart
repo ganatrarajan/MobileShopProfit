@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../inventory/presentation/inventory_list_screen.dart';
+import '../../purchase/presentation/purchase_list_screen.dart';
 import '../../repair/presentation/repair_list_screen.dart';
 import '../../sales/presentation/quick_sale_screen.dart';
 import '../../sales/presentation/sales_list_screen.dart';
@@ -24,7 +24,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final GlobalKey<SalesListScreenState> _salesListKey = GlobalKey<SalesListScreenState>();
   final GlobalKey<QuickSaleScreenState> _quickSaleKey = GlobalKey<QuickSaleScreenState>();
   final GlobalKey<RepairListScreenState> _repairListKey = GlobalKey<RepairListScreenState>();
-  final GlobalKey<InventoryListScreenState> _inventoryListKey = GlobalKey<InventoryListScreenState>();
+  final GlobalKey<PurchaseListScreenState> _purchaseListKey = GlobalKey<PurchaseListScreenState>();
 
   @override
   void initState() {
@@ -63,7 +63,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         _repairListKey.currentState?.fetchRepairs();
         break;
       case 4:
-        _inventoryListKey.currentState?.fetchInventory();
+        _purchaseListKey.currentState?.fetchPurchases();
         break;
     }
   }
@@ -73,7 +73,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     SalesListScreen(key: _salesListKey),
     QuickSaleScreen(key: _quickSaleKey, onSuccess: _onQuickSaleSuccess),
     RepairListScreen(key: _repairListKey),
-    InventoryListScreen(key: _inventoryListKey),
+    PurchaseListScreen(key: _purchaseListKey),
   ];
 
   @override
@@ -157,9 +157,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 label: 'Repairs',
               ),
               const BottomNavigationBarItem(
-                icon: Icon(Icons.inventory_2_outlined),
-                activeIcon: Icon(Icons.inventory_2_rounded),
-                label: 'Inventory',
+                icon: Icon(Icons.shopping_bag_outlined),
+                activeIcon: Icon(Icons.shopping_bag_rounded),
+                label: 'Purchase',
               ),
             ],
           ),

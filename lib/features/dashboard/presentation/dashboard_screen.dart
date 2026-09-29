@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/storage/auth_storage.dart';
 import '../../../core/theme/app_colors.dart';
@@ -181,7 +181,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(shopName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            Text('Welcome back, $ownerName 👋', style: const TextStyle(fontSize: 11, color: Colors.white70)),
+            Text('Welcome back, $ownerName ðŸ‘‹', style: const TextStyle(fontSize: 11, color: Colors.white70)),
           ],
         ),
         backgroundColor: AppColors.primary,
@@ -240,7 +240,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                         if (_dashboardData!.daysRemaining <= 10 || _dashboardData!.isExpiringSoon)
                           _buildSubscriptionHighlightCard(_dashboardData!.daysRemaining),
 
-                        // 1. TOP USP: ⭐ Profit AI Business Assistant Banner
+                        // 1. TOP USP: â­ Profit AI Business Assistant Banner
                         _buildTopProfitAiBanner(),
                         const SizedBox(height: 20),
 
@@ -248,7 +248,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('⚡ Quick Actions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor, letterSpacing: -0.3)),
+                            Text('âš¡ Quick Actions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor, letterSpacing: -0.3)),
                             Text('Tap to create', style: TextStyle(fontSize: 11, color: textMutedColor)),
                           ],
                         ),
@@ -257,7 +257,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(height: 20),
 
                         // 3. Shop Performance Metrics Summary
-                        Text('📊 Shop Performance Summary', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor, letterSpacing: -0.3)),
+                        Text('ðŸ“Š Shop Performance Summary', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor, letterSpacing: -0.3)),
                         const SizedBox(height: 10),
                         _buildSalesSummaryCard(_dashboardData!.sales),
                         const SizedBox(height: 12),
@@ -274,7 +274,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(height: 24),
 
                         // 4. Organized Business Management Modules
-                        Text('📂 Business Management Modules', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor, letterSpacing: -0.3)),
+                        Text('ðŸ“‚ Business Management Modules', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor, letterSpacing: -0.3)),
                         const SizedBox(height: 4),
                         Text('Select a module to manage records, invoices, stock & customers.', style: TextStyle(fontSize: 11.5, color: textMutedColor)),
                         const SizedBox(height: 12),
@@ -312,7 +312,7 @@ class DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // TOP USP BANNER: ⭐ Profit AI Business Assistant
+  // TOP USP BANNER: â­ Profit AI Business Assistant
   Widget _buildTopProfitAiBanner() {
     final healthScore = _profitAiData?.health.score ?? 85;
     final rating = _profitAiData?.health.rating ?? 'Good';
@@ -415,7 +415,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: const [
                   Text(
-                    'Open ⭐ Profit AI Analysis',
+                    'Open â­ Profit AI Analysis',
                     style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13),
                   ),
                   Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18),
@@ -521,7 +521,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 24),
           _buildOnboardingStepTile(
             number: '1',
-            title: '⚡ Quick Accessories Sale',
+            title: 'âš¡ Quick Accessories Sale',
             desc: 'Sell tempered glass, covers, or chargers in seconds.',
             icon: Icons.flash_on_rounded,
             onTap: () => Navigator.pushNamed(context, AppRoutes.quickSale),
@@ -529,7 +529,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 12),
           _buildOnboardingStepTile(
             number: '2',
-            title: '📱 Add Repair Job',
+            title: 'ðŸ“± Add Repair Job',
             desc: 'Register customer devices for screen, battery, or board repair.',
             icon: Icons.handyman_rounded,
             onTap: () => Navigator.pushNamed(context, AppRoutes.createRepair),
@@ -537,7 +537,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 12),
           _buildOnboardingStepTile(
             number: '3',
-            title: '📦 Add Inventory Stock',
+            title: 'ðŸ“¦ Add Inventory Stock',
             desc: 'Add products, parts, and stock quantities.',
             icon: Icons.inventory_2_rounded,
             onTap: () => Navigator.pushNamed(context, AppRoutes.addInventoryItem),
@@ -602,7 +602,7 @@ class DashboardScreenState extends State<DashboardScreen> {
               ),
               InkWell(
                 onTap: () => _navigateToTab(1, AppRoutes.sales),
-                child: const Text('View All →', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                child: const Text('View All â†’', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
               ),
             ],
           ),
@@ -615,7 +615,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     Text('Total Revenue', style: TextStyle(fontSize: 11, color: textMutedColor)),
                     const SizedBox(height: 4),
-                    Text('₹${sales.totalSales.toStringAsFixed(0)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.primary)),
+                    Text('â‚¹${sales.totalSales.toStringAsFixed(0)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.primary)),
                   ],
                 ),
               ),
@@ -637,8 +637,8 @@ class DashboardScreenState extends State<DashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Collected: ₹${sales.totalCollected.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.accent)),
-              Text('Pending Due: ₹${sales.totalDue.toStringAsFixed(0)}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: sales.totalDue > 0 ? AppColors.error : textMutedColor)),
+              Text('Collected: â‚¹${sales.totalCollected.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.accent)),
+              Text('Pending Due: â‚¹${sales.totalDue.toStringAsFixed(0)}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: sales.totalDue > 0 ? AppColors.error : textMutedColor)),
             ],
           ),
         ],
@@ -681,7 +681,7 @@ class DashboardScreenState extends State<DashboardScreen> {
     final textMutedColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
 
     return CustomCard(
-      onTap: () => _navigateToTab(4, AppRoutes.inventory),
+      onTap: () => Navigator.pushNamed(context, AppRoutes.inventory),
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -701,7 +701,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 10),
           Text('Inventory Stock', style: TextStyle(fontSize: 12, color: textMutedColor)),
           const SizedBox(height: 2),
-          Text('₹${inventory.totalStockValue.toStringAsFixed(0)}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
+          Text('â‚¹${inventory.totalStockValue.toStringAsFixed(0)}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
           const SizedBox(height: 4),
           Text('${inventory.totalItems} Total Items', style: TextStyle(fontSize: 11, color: textMutedColor)),
         ],
@@ -733,7 +733,7 @@ class DashboardScreenState extends State<DashboardScreen> {
               ),
             ],
           ),
-          Text('₹${expenses.totalExpensesSum.toStringAsFixed(0)}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.error)),
+          Text('â‚¹${expenses.totalExpensesSum.toStringAsFixed(0)}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.error)),
         ],
       ),
     );
@@ -742,22 +742,22 @@ class DashboardScreenState extends State<DashboardScreen> {
   Widget _buildFastActionsGrid() {
     return Row(
       children: [
-        _buildActionTile('⚡ Quick Sale', Icons.flash_on_rounded, AppColors.warning, () async {
+        _buildActionTile('âš¡ Quick Sale', Icons.flash_on_rounded, AppColors.warning, () async {
           final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'make quick sales');
           if (ok && mounted) _navigateToTab(2, AppRoutes.quickSale);
         }),
         const SizedBox(width: 8),
-        _buildActionTile('📱 Add Repair', Icons.handyman_rounded, AppColors.primary, () async {
+        _buildActionTile('ðŸ“± Add Repair', Icons.handyman_rounded, AppColors.primary, () async {
           final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create repair tickets');
           if (ok && mounted) Navigator.pushNamed(context, AppRoutes.createRepair);
         }),
         const SizedBox(width: 8),
-        _buildActionTile('🧾 Create Invoice', Icons.add_shopping_cart_rounded, AppColors.accent, () async {
+        _buildActionTile('ðŸ§¾ Create Invoice', Icons.add_shopping_cart_rounded, AppColors.accent, () async {
           final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create sales invoices');
           if (ok && mounted) Navigator.pushNamed(context, AppRoutes.createSale);
         }),
         const SizedBox(width: 8),
-        _buildActionTile('💸 Add Expense', Icons.post_add_rounded, AppColors.secondary, () async {
+        _buildActionTile('ðŸ’¸ Add Expense', Icons.post_add_rounded, AppColors.secondary, () async {
           final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'manage expenses');
           if (ok && mounted) Navigator.pushNamed(context, AppRoutes.addExpense);
         }),
@@ -803,7 +803,7 @@ class DashboardScreenState extends State<DashboardScreen> {
     return Column(
       children: [
         _buildModuleCard(
-          title: '👥 Customers Directory',
+          title: 'ðŸ‘¥ Customers Directory',
           desc: 'Customer profiles, contact numbers & purchase/repair history',
           icon: Icons.people_alt_rounded,
           color: AppColors.primary,
@@ -811,7 +811,7 @@ class DashboardScreenState extends State<DashboardScreen> {
         ),
         const SizedBox(height: 10),
         _buildModuleCard(
-          title: '🛡️ Warranty & Rework Claims',
+          title: 'ðŸ›¡ï¸ Warranty & Rework Claims',
           desc: 'Track device repair warranties & rework claims',
           icon: Icons.verified_user_rounded,
           color: AppColors.secondary,
@@ -819,7 +819,7 @@ class DashboardScreenState extends State<DashboardScreen> {
         ),
         const SizedBox(height: 10),
         _buildModuleCard(
-          title: '📈 Reports & Business Analytics',
+          title: 'ðŸ“ˆ Reports & Business Analytics',
           desc: 'Sales reports, repair stats, expense summary & CSV exports',
           icon: Icons.analytics_rounded,
           color: AppColors.accent,
@@ -827,7 +827,7 @@ class DashboardScreenState extends State<DashboardScreen> {
         ),
         const SizedBox(height: 10),
         _buildModuleCard(
-          title: '📱 Device Models & IMEI Database',
+          title: 'ðŸ“± Device Models & IMEI Database',
           desc: 'Search customer devices, IMEI numbers & models',
           icon: Icons.phone_android_rounded,
           color: AppColors.textSecondary,
@@ -927,7 +927,7 @@ class DashboardScreenState extends State<DashboardScreen> {
     final Color mainColor = isExpired ? AppColors.error : AppColors.warning;
     final Color bgLightColor = isExpired ? AppColors.errorLight : AppColors.warning.withOpacity(0.12);
     final IconData iconData = isExpired ? Icons.error_outline_rounded : Icons.timer_outlined;
-    final String titleText = isExpired ? '⏰ Subscription Expired!' : '⏰ Subscription Expiring Soon!';
+    final String titleText = isExpired ? 'â° Subscription Expired!' : 'â° Subscription Expiring Soon!';
     final String bodyText = isExpired
         ? 'Your shop subscription plan has expired. Please renew your plan to create or edit records in your shop.'
         : 'Only $daysRemaining days remaining on your active subscription plan! Please renew your plan now to continue uninterrupted access to sales billing, repair tracking, and profit intelligence.';
@@ -1030,7 +1030,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '⏰ Subscription Expiring in $daysRemaining Days!',
+                      'â° Subscription Expiring in $daysRemaining Days!',
                       style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
                     const SizedBox(height: 2),

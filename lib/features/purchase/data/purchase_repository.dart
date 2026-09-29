@@ -1,8 +1,21 @@
-import '../../../../core/constants/api_endpoints.dart';
+﻿import '../../../../core/constants/api_endpoints.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_response.dart';
 import '../models/vendor.dart';
 import '../models/purchase.dart';
+
+double _toDouble(dynamic val) {
+  if (val == null) return 0.0;
+  if (val is num) return val.toDouble();
+  return double.tryParse(val.toString()) ?? 0.0;
+}
+
+int _toInt(dynamic val) {
+  if (val == null) return 0;
+  if (val is int) return val;
+  if (val is num) return val.toInt();
+  return int.tryParse(val.toString()) ?? 0;
+}
 
 class PurchaseResponse {
   final double totalAmount;
@@ -65,30 +78,33 @@ class PurchaseRepository {
 
     final response = await _apiClient.get(url);
 
-    if (response.success && response.data != null) {
-      final dynamic rawJson = response.data;
-      final Map<String, dynamic> bodyMap = (rawJson is Map) ? Map<String, dynamic>.from(rawJson) : {};
-
-      final dynamic dataField = bodyMap['data'];
+    if (response.success) {
+      final Map<String, dynamic> rawJsonMap = response.rawJson ?? {};
+      final dynamic dataField = rawJsonMap.containsKey('data') ? rawJsonMap['data'] : response.data;
+      
       List<Vendor> vendors = [];
 
       if (dataField is List) {
-        vendors = dataField.map((v) => Vendor.fromJson(Map<String, dynamic>.from(v))).toList();
+        vendors = dataField.map((v) => Vendor.fromJson(Map<String, dynamic>.from(v as Map))).toList();
       } else if (dataField is Map && dataField['data'] is List) {
-        vendors = (dataField['data'] as List).map((v) => Vendor.fromJson(Map<String, dynamic>.from(v))).toList();
+        vendors = (dataField['data'] as List).map((v) => Vendor.fromJson(Map<String, dynamic>.from(v as Map))).toList();
+      } else if (response.data is List) {
+        vendors = (response.data as List).map((v) => Vendor.fromJson(Map<String, dynamic>.from(v as Map))).toList();
       }
 
-      final metricsMap = bodyMap['metrics'] is Map ? Map<String, dynamic>.from(bodyMap['metrics']) : {};
-      final metaMap = bodyMap['meta'] is Map ? Map<String, dynamic>.from(bodyMap['meta']) : {};
+      final metricsMap = rawJsonMap['metrics'] is Map ? Map<String, dynamic>.from(rawJsonMap['metrics']) : {};
+      final metaMap = rawJsonMap['meta'] is Map ? Map<String, dynamic>.from(rawJsonMap['meta']) : {};
 
       final resObj = VendorResponse(
-        totalVendors: metricsMap['total_vendors'] is int ? metricsMap['total_vendors'] : vendors.length,
-        totalPurchases: (metricsMap['total_purchases'] ?? 0).toDouble(),
-        totalPaid: (metricsMap['total_paid'] ?? 0).toDouble(),
-        totalOutstanding: (metricsMap['total_outstanding'] ?? 0).toDouble(),
+        totalVendors: metricsMap['total_vendors'] != null
+            ? _toInt(metricsMap['total_vendors'])
+            : (metaMap['total'] != null ? _toInt(metaMap['total']) : vendors.length),
+        totalPurchases: _toDouble(metricsMap['total_purchases']),
+        totalPaid: _toDouble(metricsMap['total_paid']),
+        totalOutstanding: _toDouble(metricsMap['total_outstanding']),
         vendors: vendors,
-        currentPage: metaMap['current_page'] is int ? metaMap['current_page'] : 1,
-        lastPage: metaMap['last_page'] is int ? metaMap['last_page'] : 1,
+        currentPage: _toInt(metaMap['current_page']) > 0 ? _toInt(metaMap['current_page']) : 1,
+        lastPage: _toInt(metaMap['last_page']) > 0 ? _toInt(metaMap['last_page']) : 1,
       );
 
       return ApiResponse<VendorResponse>(success: true, message: response.message, data: resObj);
@@ -116,13 +132,15 @@ class PurchaseRepository {
 
     final response = await _apiClient.post(ApiEndpoints.vendors, body: body);
 
-    if (response.success && response.data != null) {
-      final dynamic rawData = response.data;
-      final Map<String, dynamic> vendorMap = (rawData is Map && rawData.containsKey('data') && rawData['data'] is Map)
-          ? Map<String, dynamic>.from(rawData['data'])
-          : Map<String, dynamic>.from(rawData);
-      final vendor = Vendor.fromJson(vendorMap);
-      return ApiResponse<Vendor>(success: true, message: response.message, data: vendor);
+    if (response.success) {
+      final dynamic rawData = response.data ?? response.rawJson?['data'];
+      if (rawData != null) {
+        final Map<String, dynamic> vendorMap = (rawData is Map && rawData.containsKey('data') && rawData['data'] is Map)
+            ? Map<String, dynamic>.from(rawData['data'])
+            : Map<String, dynamic>.from(rawData as Map);
+        final vendor = Vendor.fromJson(vendorMap);
+        return ApiResponse<Vendor>(success: true, message: response.message, data: vendor);
+      }
     }
 
     return ApiResponse<Vendor>(success: false, message: response.message);
@@ -131,13 +149,15 @@ class PurchaseRepository {
   Future<ApiResponse<Vendor>> getVendorDetails(int id) async {
     final response = await _apiClient.get('${ApiEndpoints.vendors}/$id');
 
-    if (response.success && response.data != null) {
-      final dynamic rawData = response.data;
-      final Map<String, dynamic> vendorMap = (rawData is Map && rawData.containsKey('data') && rawData['data'] is Map)
-          ? Map<String, dynamic>.from(rawData['data'])
-          : Map<String, dynamic>.from(rawData);
-      final vendor = Vendor.fromJson(vendorMap);
-      return ApiResponse<Vendor>(success: true, message: response.message, data: vendor);
+    if (response.success) {
+      final dynamic rawData = response.data ?? response.rawJson?['data'];
+      if (rawData != null) {
+        final Map<String, dynamic> vendorMap = (rawData is Map && rawData.containsKey('data') && rawData['data'] is Map)
+            ? Map<String, dynamic>.from(rawData['data'])
+            : Map<String, dynamic>.from(rawData as Map);
+        final vendor = Vendor.fromJson(vendorMap);
+        return ApiResponse<Vendor>(success: true, message: response.message, data: vendor);
+      }
     }
 
     return ApiResponse<Vendor>(success: false, message: response.message);
@@ -163,13 +183,15 @@ class PurchaseRepository {
 
     final response = await _apiClient.put('${ApiEndpoints.vendors}/$id', body: body);
 
-    if (response.success && response.data != null) {
-      final dynamic rawData = response.data;
-      final Map<String, dynamic> vendorMap = (rawData is Map && rawData.containsKey('data') && rawData['data'] is Map)
-          ? Map<String, dynamic>.from(rawData['data'])
-          : Map<String, dynamic>.from(rawData);
-      final vendor = Vendor.fromJson(vendorMap);
-      return ApiResponse<Vendor>(success: true, message: response.message, data: vendor);
+    if (response.success) {
+      final dynamic rawData = response.data ?? response.rawJson?['data'];
+      if (rawData != null) {
+        final Map<String, dynamic> vendorMap = (rawData is Map && rawData.containsKey('data') && rawData['data'] is Map)
+            ? Map<String, dynamic>.from(rawData['data'])
+            : Map<String, dynamic>.from(rawData as Map);
+        final vendor = Vendor.fromJson(vendorMap);
+        return ApiResponse<Vendor>(success: true, message: response.message, data: vendor);
+      }
     }
 
     return ApiResponse<Vendor>(success: false, message: response.message);
@@ -201,30 +223,33 @@ class PurchaseRepository {
 
     final response = await _apiClient.get(url);
 
-    if (response.success && response.data != null) {
-      final dynamic rawJson = response.data;
-      final Map<String, dynamic> bodyMap = (rawJson is Map) ? Map<String, dynamic>.from(rawJson) : {};
+    if (response.success) {
+      final Map<String, dynamic> rawJsonMap = response.rawJson ?? {};
+      final dynamic dataField = rawJsonMap.containsKey('data') ? rawJsonMap['data'] : response.data;
 
-      final dynamic dataField = bodyMap['data'];
       List<Purchase> purchases = [];
 
       if (dataField is List) {
-        purchases = dataField.map((p) => Purchase.fromJson(Map<String, dynamic>.from(p))).toList();
+        purchases = dataField.map((p) => Purchase.fromJson(Map<String, dynamic>.from(p as Map))).toList();
       } else if (dataField is Map && dataField['data'] is List) {
-        purchases = (dataField['data'] as List).map((p) => Purchase.fromJson(Map<String, dynamic>.from(p))).toList();
+        purchases = (dataField['data'] as List).map((p) => Purchase.fromJson(Map<String, dynamic>.from(p as Map))).toList();
+      } else if (response.data is List) {
+        purchases = (response.data as List).map((p) => Purchase.fromJson(Map<String, dynamic>.from(p as Map))).toList();
       }
 
-      final metricsMap = bodyMap['metrics'] is Map ? Map<String, dynamic>.from(bodyMap['metrics']) : {};
-      final metaMap = bodyMap['meta'] is Map ? Map<String, dynamic>.from(bodyMap['meta']) : {};
+      final metricsMap = rawJsonMap['metrics'] is Map ? Map<String, dynamic>.from(rawJsonMap['metrics']) : {};
+      final metaMap = rawJsonMap['meta'] is Map ? Map<String, dynamic>.from(rawJsonMap['meta']) : {};
 
       final resObj = PurchaseResponse(
-        totalAmount: (metricsMap['total_amount'] ?? 0).toDouble(),
-        totalPaid: (metricsMap['total_paid'] ?? 0).toDouble(),
-        totalOutstanding: (metricsMap['total_outstanding'] ?? 0).toDouble(),
-        totalCount: metricsMap['total_purchases'] is int ? metricsMap['total_purchases'] : purchases.length,
+        totalAmount: _toDouble(metricsMap['total_amount']),
+        totalPaid: _toDouble(metricsMap['total_paid']),
+        totalOutstanding: _toDouble(metricsMap['total_outstanding']),
+        totalCount: metricsMap['total_purchases'] != null
+            ? _toInt(metricsMap['total_purchases'])
+            : (metaMap['total'] != null ? _toInt(metaMap['total']) : purchases.length),
         purchases: purchases,
-        currentPage: metaMap['current_page'] is int ? metaMap['current_page'] : 1,
-        lastPage: metaMap['last_page'] is int ? metaMap['last_page'] : 1,
+        currentPage: _toInt(metaMap['current_page']) > 0 ? _toInt(metaMap['current_page']) : 1,
+        lastPage: _toInt(metaMap['last_page']) > 0 ? _toInt(metaMap['last_page']) : 1,
       );
 
       return ApiResponse<PurchaseResponse>(success: true, message: response.message, data: resObj);
@@ -260,13 +285,15 @@ class PurchaseRepository {
 
     final response = await _apiClient.post(ApiEndpoints.purchases, body: body);
 
-    if (response.success && response.data != null) {
-      final dynamic rawData = response.data;
-      final Map<String, dynamic> pMap = (rawData is Map && rawData.containsKey('data') && rawData['data'] is Map)
-          ? Map<String, dynamic>.from(rawData['data'])
-          : Map<String, dynamic>.from(rawData);
-      final purchase = Purchase.fromJson(pMap);
-      return ApiResponse<Purchase>(success: true, message: response.message, data: purchase);
+    if (response.success) {
+      final dynamic rawData = response.data ?? response.rawJson?['data'];
+      if (rawData != null) {
+        final Map<String, dynamic> pMap = (rawData is Map && rawData.containsKey('data') && rawData['data'] is Map)
+            ? Map<String, dynamic>.from(rawData['data'])
+            : Map<String, dynamic>.from(rawData as Map);
+        final purchase = Purchase.fromJson(pMap);
+        return ApiResponse<Purchase>(success: true, message: response.message, data: purchase);
+      }
     }
 
     return ApiResponse<Purchase>(success: false, message: response.message);
@@ -275,13 +302,15 @@ class PurchaseRepository {
   Future<ApiResponse<Purchase>> getPurchaseDetails(int id) async {
     final response = await _apiClient.get('${ApiEndpoints.purchases}/$id');
 
-    if (response.success && response.data != null) {
-      final dynamic rawData = response.data;
-      final Map<String, dynamic> pMap = (rawData is Map && rawData.containsKey('data') && rawData['data'] is Map)
-          ? Map<String, dynamic>.from(rawData['data'])
-          : Map<String, dynamic>.from(rawData);
-      final purchase = Purchase.fromJson(pMap);
-      return ApiResponse<Purchase>(success: true, message: response.message, data: purchase);
+    if (response.success) {
+      final dynamic rawData = response.data ?? response.rawJson?['data'];
+      if (rawData != null) {
+        final Map<String, dynamic> pMap = (rawData is Map && rawData.containsKey('data') && rawData['data'] is Map)
+            ? Map<String, dynamic>.from(rawData['data'])
+            : Map<String, dynamic>.from(rawData as Map);
+        final purchase = Purchase.fromJson(pMap);
+        return ApiResponse<Purchase>(success: true, message: response.message, data: purchase);
+      }
     }
 
     return ApiResponse<Purchase>(success: false, message: response.message);
@@ -290,13 +319,15 @@ class PurchaseRepository {
   Future<ApiResponse<Purchase>> updatePurchase(int id, Map<String, dynamic> data) async {
     final response = await _apiClient.put('${ApiEndpoints.purchases}/$id', body: data);
 
-    if (response.success && response.data != null) {
-      final dynamic rawData = response.data;
-      final Map<String, dynamic> pMap = (rawData is Map && rawData.containsKey('data') && rawData['data'] is Map)
-          ? Map<String, dynamic>.from(rawData['data'])
-          : Map<String, dynamic>.from(rawData);
-      final purchase = Purchase.fromJson(pMap);
-      return ApiResponse<Purchase>(success: true, message: response.message, data: purchase);
+    if (response.success) {
+      final dynamic rawData = response.data ?? response.rawJson?['data'];
+      if (rawData != null) {
+        final Map<String, dynamic> pMap = (rawData is Map && rawData.containsKey('data') && rawData['data'] is Map)
+            ? Map<String, dynamic>.from(rawData['data'])
+            : Map<String, dynamic>.from(rawData as Map);
+        final purchase = Purchase.fromJson(pMap);
+        return ApiResponse<Purchase>(success: true, message: response.message, data: purchase);
+      }
     }
 
     return ApiResponse<Purchase>(success: false, message: response.message);
@@ -310,13 +341,15 @@ class PurchaseRepository {
   Future<ApiResponse<Purchase>> addStockToPurchase(int id) async {
     final response = await _apiClient.post('${ApiEndpoints.purchases}/$id/add-stock', body: {});
 
-    if (response.success && response.data != null) {
-      final dynamic rawData = response.data;
-      final Map<String, dynamic> pMap = (rawData is Map && rawData.containsKey('data') && rawData['data'] is Map)
-          ? Map<String, dynamic>.from(rawData['data'])
-          : Map<String, dynamic>.from(rawData);
-      final purchase = Purchase.fromJson(pMap);
-      return ApiResponse<Purchase>(success: true, message: response.message, data: purchase);
+    if (response.success) {
+      final dynamic rawData = response.data ?? response.rawJson?['data'];
+      if (rawData != null) {
+        final Map<String, dynamic> pMap = (rawData is Map && rawData.containsKey('data') && rawData['data'] is Map)
+            ? Map<String, dynamic>.from(rawData['data'])
+            : Map<String, dynamic>.from(rawData as Map);
+        final purchase = Purchase.fromJson(pMap);
+        return ApiResponse<Purchase>(success: true, message: response.message, data: purchase);
+      }
     }
 
     return ApiResponse<Purchase>(success: false, message: response.message);
@@ -338,16 +371,15 @@ class PurchaseRepository {
 
     final response = await _apiClient.post('${ApiEndpoints.purchases}/$purchaseId/payments', body: body);
 
-    if (response.success && response.data != null) {
-      final dynamic rawData = response.data;
-      Map<String, dynamic> pMap = {};
-      if (rawData is Map && rawData.containsKey('purchase') && rawData['purchase'] is Map) {
-        pMap = Map<String, dynamic>.from(rawData['purchase']);
-      } else if (rawData is Map && rawData.containsKey('data') && rawData['data'] is Map) {
-        pMap = Map<String, dynamic>.from(rawData['data']);
+    if (response.success) {
+      final dynamic rawData = response.data ?? response.rawJson?['data'];
+      if (rawData != null) {
+        final Map<String, dynamic> pMap = (rawData is Map && rawData.containsKey('data') && rawData['data'] is Map)
+            ? Map<String, dynamic>.from(rawData['data'])
+            : Map<String, dynamic>.from(rawData as Map);
+        final purchase = Purchase.fromJson(pMap);
+        return ApiResponse<Purchase>(success: true, message: response.message, data: purchase);
       }
-      final purchase = pMap.isNotEmpty ? Purchase.fromJson(pMap) : null;
-      return ApiResponse<Purchase>(success: true, message: response.message, data: purchase);
     }
 
     return ApiResponse<Purchase>(success: false, message: response.message);
@@ -361,6 +393,7 @@ class PurchaseRepository {
     String? notes,
   }) async {
     final body = {
+      'vendor_id': vendorId,
       'amount': amount,
       'payment_date': paymentDate,
       'payment_method': paymentMethod,
@@ -371,4 +404,3 @@ class PurchaseRepository {
     return ApiResponse<void>(success: response.success, message: response.message);
   }
 }
-

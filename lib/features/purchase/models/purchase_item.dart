@@ -1,3 +1,16 @@
+﻿double _toDouble(dynamic val) {
+  if (val == null) return 0.0;
+  if (val is num) return val.toDouble();
+  return double.tryParse(val.toString()) ?? 0.0;
+}
+
+int _toInt(dynamic val) {
+  if (val == null) return 0;
+  if (val is int) return val;
+  if (val is num) return val.toInt();
+  return int.tryParse(val.toString()) ?? 0;
+}
+
 class PurchaseItem {
   final int? id;
   final int? purchaseId;
@@ -23,15 +36,15 @@ class PurchaseItem {
 
   factory PurchaseItem.fromJson(Map<String, dynamic> json) {
     return PurchaseItem(
-      id: json['id'] is int ? json['id'] as int : (json['id'] != null ? int.parse(json['id'].toString()) : null),
-      purchaseId: json['purchase_id'] is int ? json['purchase_id'] as int : (json['purchase_id'] != null ? int.parse(json['purchase_id'].toString()) : null),
-      inventoryItemId: json['inventory_item_id'] is int ? json['inventory_item_id'] as int : int.parse(json['inventory_item_id'].toString()),
-      itemName: json['item_name']?.toString() ?? 'Item',
+      id: json['id'] != null ? _toInt(json['id']) : null,
+      purchaseId: json['purchase_id'] != null ? _toInt(json['purchase_id']) : null,
+      inventoryItemId: _toInt(json['inventory_item_id']),
+      itemName: json['item_name']?.toString() ?? (json['inventory_item']?['name']?.toString() ?? 'Item'),
       itemCategory: json['item_category']?.toString(),
       sku: json['sku']?.toString(),
-      quantity: json['quantity'] is int ? json['quantity'] as int : int.parse((json['quantity'] ?? 0).toString()),
-      purchaseRate: (json['purchase_rate'] ?? 0).toDouble(),
-      totalAmount: (json['total_amount'] ?? 0).toDouble(),
+      quantity: _toInt(json['quantity']),
+      purchaseRate: _toDouble(json['purchase_rate']),
+      totalAmount: _toDouble(json['total_amount']),
     );
   }
 

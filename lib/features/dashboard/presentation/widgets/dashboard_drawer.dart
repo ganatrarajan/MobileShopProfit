@@ -102,16 +102,16 @@ class DashboardDrawer extends StatelessWidget {
             onTap: () => _navigateToTab(context, 1, AppRoutes.sales),
           ),
           ListTile(
-            leading: const Icon(Icons.inventory_2_rounded, color: Colors.teal),
-            title: const Text('Inventory', style: textStyle),
-            onTap: () => _navigateToTab(context, 4, AppRoutes.inventory),
-          ),
-          ListTile(
             leading: const Icon(Icons.shopping_cart_checkout_rounded, color: Colors.indigo),
             title: const Text('Purchases & Vendors', style: textStyle),
+            onTap: () => _navigateToTab(context, 4, AppRoutes.purchases),
+          ),
+          ListTile(
+            leading: const Icon(Icons.inventory_2_rounded, color: Colors.teal),
+            title: const Text('Inventory', style: textStyle),
             onTap: () {
               Navigator.pop(context);
-              Navigator.pushNamed(context, AppRoutes.purchases);
+              Navigator.pushNamed(context, AppRoutes.inventory);
             },
           ),
           ListTile(
@@ -184,4 +184,3 @@ class DashboardDrawer extends StatelessWidget {
     );
   }
 }
-

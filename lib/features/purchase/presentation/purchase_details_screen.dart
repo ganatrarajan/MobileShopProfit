@@ -32,9 +32,9 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
   Future<void> _refreshDetails() async {
     setState(() => _isLoading = true);
     final response = await _repository.getPurchaseDetails(_purchase.id);
-    setState(() => _isLoading = false);
+    if (mounted) setState(() => _isLoading = false);
     if (response.success && response.data != null) {
-      setState(() => _purchase = response.data!);
+      if (mounted) setState(() => _purchase = response.data!);
     }
   }
 
@@ -48,9 +48,9 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
   Future<void> _addStockToInventory() async {
     setState(() => _isLoading = true);
     final response = await _repository.addStockToPurchase(_purchase.id);
-    setState(() => _isLoading = false);
+    if (mounted) setState(() => _isLoading = false);
     if (response.success && response.data != null) {
-      setState(() => _purchase = response.data!);
+      if (mounted) setState(() => _purchase = response.data!);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -67,6 +67,44 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
             backgroundColor: AppColors.error,
           ),
         );
+      }
+    }
+  }
+
+  Future<void> _deletePurchase() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Purchase?'),
+        content: const Text('Are you sure you want to delete this purchase? Any added stock movements will be reverted.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      setState(() => _isLoading = true);
+      final res = await _repository.deletePurchase(_purchase.id);
+      if (mounted) setState(() => _isLoading = false);
+      if (res.success) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Purchase deleted successfully'), backgroundColor: AppColors.success),
+          );
+          Navigator.pop(context, true);
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(res.message), backgroundColor: AppColors.error),
+          );
+        }
       }
     }
   }
@@ -95,14 +133,24 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text('Purchase #${_purchase.purchaseNumber}'),
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.textPrimary,
-        elevation: 0.5,
+        title: Text(
+          'Purchase #${_purchase.purchaseNumber}',
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.delete_outline_rounded, color: Colors.white),
+            tooltip: 'Delete Purchase',
+            onPressed: _deletePurchase,
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+            tooltip: 'Refresh',
             onPressed: _refreshDetails,
           ),
         ],
@@ -128,16 +176,16 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 24),
+                            const Icon(Icons.check_circle_rounded, color: Colors.green, size: 24),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('Inventory Updated ?', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.success, fontSize: 14)),
+                                  const Text('Stock Merged to Inventory', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 13)),
                                   Text(
-                                    '${_purchase.items.fold(0, (sum, i) => sum + i.quantity)} purchased items were added to inventory stock.',
-                                    style: TextStyle(fontSize: 12, color: Colors.green.shade900),
+                                    'All items have been updated into stock inventory.',
+                                    style: TextStyle(fontSize: 11, color: Colors.green.shade900),
                                   ),
                                 ],
                               ),
@@ -158,19 +206,19 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
                           children: [
                             const Icon(Icons.info_outline_rounded, color: Colors.amber, size: 24),
                             const SizedBox(width: 12),
-                            Expanded(
+                            const Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('Stock Not Added Yet', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber, fontSize: 13)),
-                                  const Text('Items from this purchase have not been merged into inventory.', style: TextStyle(fontSize: 11)),
+                                  Text('Stock Not Added Yet', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber, fontSize: 13)),
+                                  Text('Items from this purchase have not been merged into inventory.', style: TextStyle(fontSize: 11)),
                                 ],
                               ),
                             ),
                             ElevatedButton(
-                              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
                               onPressed: _addStockToInventory,
-                              child: const Text('Add Stock', style: TextStyle(color: Colors.white, fontSize: 11)),
+                              child: const Text('Add Stock', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                             ),
                           ],
                         ),
@@ -179,7 +227,7 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
                     // PURCHASE INFO CARD
                     Card(
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      elevation: 1,
+                      elevation: 1.5,
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
@@ -188,7 +236,7 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text('Purchase #${_purchase.purchaseNumber}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                Text('Purchase #${_purchase.purchaseNumber}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.textPrimary)),
                                 _buildStatusBadge(_purchase.paymentStatus),
                               ],
                             ),
@@ -197,7 +245,7 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text('Vendor:', style: TextStyle(color: AppColors.textMuted)),
-                                Text(_purchase.vendorName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                Text(_purchase.vendorName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                               ],
                             ),
                             const SizedBox(height: 6),
@@ -228,13 +276,13 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
                     // PURCHASE ITEMS CARD
                     Card(
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      elevation: 1,
+                      elevation: 1.5,
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Items Purchased', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                            const Text('Items Purchased', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.textPrimary)),
                             const SizedBox(height: 12),
                             Table(
                               columnWidths: const {
@@ -258,8 +306,8 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
                                     children: [
                                       Padding(padding: const EdgeInsets.all(6), child: Text(item.itemName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))),
                                       Padding(padding: const EdgeInsets.all(6), child: Text('${item.quantity}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 12))),
-                                      Padding(padding: const EdgeInsets.all(6), child: Text('?${item.purchaseRate.toStringAsFixed(2)}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 12))),
-                                      Padding(padding: const EdgeInsets.all(6), child: Text('?${item.totalAmount.toStringAsFixed(2)}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text('\u20B9${item.purchaseRate.toStringAsFixed(2)}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 12))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text('\u20B9${item.totalAmount.toStringAsFixed(2)}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
                                     ],
                                   );
                                 }),
@@ -274,19 +322,19 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
                     // PAYMENT BREAKDOWN CARD
                     Card(
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      elevation: 1,
+                      elevation: 1.5,
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Payment Breakdown', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                            const Text('Payment Breakdown', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.textPrimary)),
                             const SizedBox(height: 12),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text('Subtotal:'),
-                                Text('?${_purchase.subtotal.toStringAsFixed(2)}'),
+                                Text('\u20B9${_purchase.subtotal.toStringAsFixed(2)}'),
                               ],
                             ),
                             if (_purchase.discount > 0) ...[
@@ -295,7 +343,7 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   const Text('Discount:'),
-                                  Text('- ?${_purchase.discount.toStringAsFixed(2)}', style: const TextStyle(color: AppColors.error)),
+                                  Text('- \u20B9${_purchase.discount.toStringAsFixed(2)}', style: const TextStyle(color: AppColors.error)),
                                 ],
                               ),
                             ],
@@ -305,7 +353,7 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   const Text('Additional Charges:'),
-                                  Text('+ ?${_purchase.additionalCharges.toStringAsFixed(2)}'),
+                                  Text('+ \u20B9${_purchase.additionalCharges.toStringAsFixed(2)}'),
                                 ],
                               ),
                             ],
@@ -314,7 +362,7 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text('Grand Total:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                                Text('?${_purchase.grandTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary)),
+                                Text('\u20B9${_purchase.grandTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary)),
                               ],
                             ),
                             const SizedBox(height: 8),
@@ -322,7 +370,7 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text('Amount Paid:'),
-                                Text('?${_purchase.amountPaid.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.success)),
+                                Text('\u20B9${_purchase.amountPaid.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.success)),
                               ],
                             ),
                             const SizedBox(height: 8),
@@ -330,7 +378,7 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text('Outstanding:', style: TextStyle(fontWeight: FontWeight.bold)),
-                                Text('?${_purchase.outstandingAmount.toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.bold, color: _purchase.outstandingAmount > 0 ? AppColors.error : AppColors.success)),
+                                Text('\u20B9${_purchase.outstandingAmount.toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.bold, color: _purchase.outstandingAmount > 0 ? AppColors.error : AppColors.success)),
                               ],
                             ),
                             if (_purchase.outstandingAmount > 0) ...[
@@ -343,8 +391,8 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
                                     padding: const EdgeInsets.symmetric(vertical: 12),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                   ),
-                                  icon: const Icon(Icons.payment_rounded, color: Colors.white, size: 18),
-                                  label: const Text('Add Payment', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                  icon: const Icon(Icons.payment, color: Colors.white, size: 18),
+                                  label: const Text('Record Payment', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                                   onPressed: _openAddPayment,
                                 ),
                               ),
@@ -353,7 +401,6 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 30),
                   ],
                 ),
               ),
@@ -361,4 +408,3 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
     );
   }
 }
-

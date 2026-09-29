@@ -1,3 +1,16 @@
+﻿double _toDouble(dynamic val) {
+  if (val == null) return 0.0;
+  if (val is num) return val.toDouble();
+  return double.tryParse(val.toString()) ?? 0.0;
+}
+
+int _toInt(dynamic val) {
+  if (val == null) return 0;
+  if (val is int) return val;
+  if (val is num) return val.toInt();
+  return int.tryParse(val.toString()) ?? 0;
+}
+
 class Vendor {
   final int id;
   final int shopId;
@@ -31,18 +44,18 @@ class Vendor {
 
   factory Vendor.fromJson(Map<String, dynamic> json) {
     return Vendor(
-      id: json['id'] is int ? json['id'] as int : int.parse(json['id'].toString()),
-      shopId: json['shop_id'] is int ? json['shop_id'] as int : int.parse((json['shop_id'] ?? 0).toString()),
+      id: _toInt(json['id']),
+      shopId: _toInt(json['shop_id']),
       name: json['name']?.toString() ?? '',
       phone: json['phone']?.toString() ?? '',
       email: json['email']?.toString(),
       address: json['address']?.toString(),
       gstNumber: json['gst_number']?.toString(),
       notes: json['notes']?.toString(),
-      totalPurchase: (json['total_purchase'] ?? 0).toDouble(),
-      totalPaid: (json['total_paid'] ?? 0).toDouble(),
-      outstandingAmount: (json['outstanding_amount'] ?? 0).toDouble(),
-      purchasesCount: json['purchases_count'] is int ? json['purchases_count'] as int : int.parse((json['purchases_count'] ?? 0).toString()),
+      totalPurchase: _toDouble(json['total_purchase']),
+      totalPaid: _toDouble(json['total_paid']),
+      outstandingAmount: _toDouble(json['outstanding_amount']),
+      purchasesCount: _toInt(json['purchases_count']),
       createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
     );
   }

@@ -42,7 +42,7 @@ class ApiClient {
       return _handleResponse(response, fromJson);
     } catch (e) {
       debugPrint('[API GET Error]: ${e.toString()}');
-      _handleCatchError(e);
+      return _handleCatchError<T>(e);
     }
   }
 
@@ -67,7 +67,7 @@ class ApiClient {
       return _handleResponse(response, fromJson);
     } catch (e) {
       debugPrint('[API POST Error]: ${e.toString()}');
-      _handleCatchError(e);
+      return _handleCatchError<T>(e);
     }
   }
 
@@ -103,7 +103,7 @@ class ApiClient {
       return _handleResponse(response, fromJson);
     } catch (e) {
       debugPrint('[API Multipart Error]: ${e.toString()}');
-      _handleCatchError(e);
+      return _handleCatchError<T>(e);
     }
   }
 
@@ -125,7 +125,7 @@ class ApiClient {
       return _handleResponse(response, fromJson);
     } catch (e) {
       debugPrint('[API PUT Error]: ${e.toString()}');
-      _handleCatchError(e);
+      return _handleCatchError<T>(e);
     }
   }
 
@@ -142,14 +142,13 @@ class ApiClient {
       return _handleResponse(response, fromJson);
     } catch (e) {
       debugPrint('[API DELETE Error]: ${e.toString()}');
-      _handleCatchError(e);
+      return _handleCatchError<T>(e);
     }
   }
 
-  Never _handleCatchError(dynamic e) {
-    if (e is ApiException) throw e;
-
+  ApiResponse<T> _handleCatchError<T>(dynamic e) {
     final errStr = e.toString().toLowerCase();
+    String message = 'Server unreachable or connection error. Please try again later.';
     if (errStr.contains('socketexception') ||
         errStr.contains('clientexception') ||
         errStr.contains('failed host lookup') ||
@@ -157,15 +156,14 @@ class ApiClient {
         errStr.contains('connection timed out') ||
         errStr.contains('network is unreachable') ||
         errStr.contains('timeout')) {
-      throw ApiException(
-        message: 'No Internet Connection. Please check your network connection and try again.',
-        statusCode: 503,
-      );
+      message = 'No Internet Connection. Please check your network connection and try again.';
+    } else if (e is ApiException) {
+      message = e.message;
     }
 
-    throw ApiException(
-      message: 'Server unreachable or connection error. Please try again later.',
-      statusCode: 500,
+    return ApiResponse<T>(
+      success: false,
+      message: message,
     );
   }
 
@@ -177,19 +175,21 @@ class ApiClient {
     try {
       jsonResponseBody = jsonDecode(response.body);
     } catch (_) {
-      throw ApiException(
+      return ApiResponse<T>(
+        success: false,
         message: 'Invalid response format from server (${response.statusCode})',
-        statusCode: response.statusCode,
       );
     }
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return ApiResponse.fromJson(jsonResponseBody, fromJson);
     } else {
-      final message = jsonResponseBody['message'] ?? 'Request failed with status code ${response.statusCode}';
+      final message = jsonResponseBody is Map && jsonResponseBody.containsKey('message')
+          ? jsonResponseBody['message']
+          : 'Request failed with status code ${response.statusCode}';
 
       if (response.statusCode == 403 || response.statusCode == 401) {
-        if (message.toLowerCase().contains('deactivated')) {
+        if (message.toString().toLowerCase().contains('deactivated')) {
           _authStorage.clearSession();
           AppRoutes.navigatorKey.currentState?.pushNamedAndRemoveUntil(
             AppRoutes.login,
@@ -199,10 +199,10 @@ class ApiClient {
         }
       }
 
-      throw ApiException(
-        message: message,
-        statusCode: response.statusCode,
-        errors: jsonResponseBody['errors'],
+      return ApiResponse<T>(
+        success: false,
+        message: message.toString(),
+        errors: jsonResponseBody is Map ? jsonResponseBody['errors'] : null,
       );
     }
   }

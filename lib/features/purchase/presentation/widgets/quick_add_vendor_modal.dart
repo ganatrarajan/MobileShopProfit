@@ -6,14 +6,16 @@ import '../../data/purchase_repository.dart';
 import '../../models/vendor.dart';
 
 class QuickAddVendorModal extends StatefulWidget {
-  const QuickAddVendorModal({super.key});
+  final Vendor? vendorToEdit;
 
-  static Future<Vendor?> show(BuildContext context) {
+  const QuickAddVendorModal({super.key, this.vendorToEdit});
+
+  static Future<Vendor?> show(BuildContext context, {Vendor? vendorToEdit}) {
     return showModalBottomSheet<Vendor>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const QuickAddVendorModal(),
+      builder: (_) => QuickAddVendorModal(vendorToEdit: vendorToEdit),
     );
   }
 
@@ -23,15 +25,29 @@ class QuickAddVendorModal extends StatefulWidget {
 
 class _QuickAddVendorModalState extends State<QuickAddVendorModal> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _addressController = TextEditingController();
-  final _gstController = TextEditingController();
-  final _notesController = TextEditingController();
+  late TextEditingController _nameController;
+  late TextEditingController _phoneController;
+  late TextEditingController _emailController;
+  late TextEditingController _addressController;
+  late TextEditingController _gstController;
+  late TextEditingController _notesController;
 
   final PurchaseRepository _repository = PurchaseRepository();
   bool _isLoading = false;
+
+  bool get _isEditing => widget.vendorToEdit != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final v = widget.vendorToEdit;
+    _nameController = TextEditingController(text: v?.name ?? '');
+    _phoneController = TextEditingController(text: v?.phone ?? '');
+    _emailController = TextEditingController(text: v?.email ?? '');
+    _addressController = TextEditingController(text: v?.address ?? '');
+    _gstController = TextEditingController(text: v?.gstNumber ?? '');
+    _notesController = TextEditingController(text: v?.notes ?? '');
+  }
 
   @override
   void dispose() {
@@ -49,35 +65,70 @@ class _QuickAddVendorModalState extends State<QuickAddVendorModal> {
 
     setState(() => _isLoading = true);
 
-    final response = await _repository.createVendor(
-      name: _nameController.text.trim(),
-      phone: _phoneController.text.trim(),
-      email: _emailController.text.trim(),
-      address: _addressController.text.trim(),
-      gstNumber: _gstController.text.trim(),
-      notes: _notesController.text.trim(),
-    );
+    if (_isEditing) {
+      final response = await _repository.updateVendor(
+        id: widget.vendorToEdit!.id,
+        name: _nameController.text.trim(),
+        phone: _phoneController.text.trim(),
+        email: _emailController.text.trim(),
+        address: _addressController.text.trim(),
+        gstNumber: _gstController.text.trim(),
+        notes: _notesController.text.trim(),
+      );
 
-    setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
 
-    if (response.success && response.data != null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('? Vendor Created Successfully'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-        Navigator.pop(context, response.data);
+      if (response.success && response.data != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Vendor Updated Successfully'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+          Navigator.pop(context, response.data);
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response.message.isNotEmpty ? response.message : 'Failed to update vendor.'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
       }
     } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response.message.isNotEmpty ? response.message : 'Please select or enter a vendor name.'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+      final response = await _repository.createVendor(
+        name: _nameController.text.trim(),
+        phone: _phoneController.text.trim(),
+        email: _emailController.text.trim(),
+        address: _addressController.text.trim(),
+        gstNumber: _gstController.text.trim(),
+        notes: _notesController.text.trim(),
+      );
+
+      if (mounted) setState(() => _isLoading = false);
+
+      if (response.success && response.data != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Vendor Created Successfully'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+          Navigator.pop(context, response.data);
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response.message.isNotEmpty ? response.message : 'Failed to create vendor.'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
       }
     }
   }
@@ -105,9 +156,9 @@ class _QuickAddVendorModalState extends State<QuickAddVendorModal> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    '+ Add New Vendor',
-                    style: TextStyle(
+                  Text(
+                    _isEditing ? 'Edit Vendor Details' : '+ Add New Vendor',
+                    style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: AppColors.textPrimary,
@@ -126,7 +177,7 @@ class _QuickAddVendorModalState extends State<QuickAddVendorModal> {
                 hint: 'e.g. ABC Mobile Parts',
                 validator: (val) {
                   if (val == null || val.trim().isEmpty) {
-                    return 'Please select or enter a vendor name.';
+                    return 'Please enter vendor name.';
                   }
                   return null;
                 },
@@ -164,9 +215,16 @@ class _QuickAddVendorModalState extends State<QuickAddVendorModal> {
                 hint: 'Enter supplier shop address',
                 maxLines: 2,
               ),
+              const SizedBox(height: 12),
+              CustomTextField(
+                controller: _notesController,
+                label: 'Notes (Optional)',
+                hint: 'Internal notes about supplier',
+                maxLines: 2,
+              ),
               const SizedBox(height: 20),
               CustomButton(
-                text: 'Save Vendor',
+                text: _isEditing ? 'Update Vendor' : 'Save Vendor',
                 isLoading: _isLoading,
                 onPressed: _submit,
               ),

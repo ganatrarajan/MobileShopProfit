@@ -1,3 +1,16 @@
+﻿double _toDouble(dynamic val) {
+  if (val == null) return 0.0;
+  if (val is num) return val.toDouble();
+  return double.tryParse(val.toString()) ?? 0.0;
+}
+
+int _toInt(dynamic val) {
+  if (val == null) return 0;
+  if (val is int) return val;
+  if (val is num) return val.toInt();
+  return int.tryParse(val.toString()) ?? 0;
+}
+
 class PurchasePayment {
   final int id;
   final int shopId;
@@ -21,12 +34,12 @@ class PurchasePayment {
 
   factory PurchasePayment.fromJson(Map<String, dynamic> json) {
     return PurchasePayment(
-      id: json['id'] is int ? json['id'] as int : int.parse(json['id'].toString()),
-      shopId: json['shop_id'] is int ? json['shop_id'] as int : int.parse((json['shop_id'] ?? 0).toString()),
-      purchaseId: json['purchase_id'] is int ? json['purchase_id'] as int : (json['purchase_id'] != null ? int.parse(json['purchase_id'].toString()) : null),
-      vendorId: json['vendor_id'] is int ? json['vendor_id'] as int : int.parse(json['vendor_id'].toString()),
-      amount: (json['amount'] ?? 0).toDouble(),
-      paymentDate: json['payment_date'] != null ? DateTime.parse(json['payment_date'].toString()) : DateTime.now(),
+      id: _toInt(json['id']),
+      shopId: _toInt(json['shop_id']),
+      purchaseId: json['purchase_id'] != null ? _toInt(json['purchase_id']) : null,
+      vendorId: _toInt(json['vendor_id']),
+      amount: _toDouble(json['amount']),
+      paymentDate: json['payment_date'] != null ? DateTime.tryParse(json['payment_date'].toString()) ?? DateTime.now() : DateTime.now(),
       paymentMethod: json['payment_method']?.toString() ?? 'cash',
       notes: json['notes']?.toString(),
     );

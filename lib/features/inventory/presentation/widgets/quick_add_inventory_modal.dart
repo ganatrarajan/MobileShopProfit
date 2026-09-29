@@ -7,21 +7,31 @@ import '../../data/inventory_repository.dart';
 import '../../models/inventory_item.dart';
 
 class QuickAddInventoryModal extends StatefulWidget {
-  final String? defaultItemType; // e.g. 'spare_part', 'accessory', 'product'
+  final String? defaultItemType;
+  final bool isFromPurchase;
 
   const QuickAddInventoryModal({
     super.key,
     this.defaultItemType,
+    this.isFromPurchase = false,
   });
 
-  static Future<InventoryItem?> show(BuildContext context, {String? defaultItemType}) async {
-    return await showModalBottomSheet<InventoryItem>(
+  static Future<InventoryItem?> show(
+    BuildContext context, {
+    String? defaultItemType,
+    bool isFromPurchase = false,
+  }) {
+    return showModalBottomSheet<InventoryItem>(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => QuickAddInventoryModal(defaultItemType: defaultItemType),
+      builder: (_) => QuickAddInventoryModal(
+        defaultItemType: defaultItemType,
+        isFromPurchase: isFromPurchase,
+      ),
     );
   }
 
@@ -35,16 +45,19 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
   final _sellingPriceController = TextEditingController();
   final _purchasePriceController = TextEditingController();
   final _openingStockController = TextEditingController(text: '1');
-  final _inventoryRepository = InventoryRepository();
 
   String _itemType = 'spare_part';
   bool _isSaving = false;
+  final InventoryRepository _inventoryRepository = InventoryRepository();
 
   @override
   void initState() {
     super.initState();
     if (widget.defaultItemType != null && widget.defaultItemType!.isNotEmpty) {
       _itemType = widget.defaultItemType!;
+    }
+    if (widget.isFromPurchase) {
+      _openingStockController.text = '0';
     }
   }
 
@@ -62,7 +75,7 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
 
     final sellingPrice = double.tryParse(_sellingPriceController.text.trim()) ?? 0.0;
     final purchasePrice = double.tryParse(_purchasePriceController.text.trim()) ?? 0.0;
-    final openingStock = int.tryParse(_openingStockController.text.trim()) ?? 1;
+    final openingStock = widget.isFromPurchase ? 0 : (int.tryParse(_openingStockController.text.trim()) ?? 0);
 
     setState(() => _isSaving = true);
     try {
@@ -80,8 +93,8 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
           final createdItem = response.data!;
           AppFeedback.showSuccess(
             context,
-            title: '✅ Item Added',
-            message: '${createdItem.name} has been added to inventory.',
+            title: 'Item Added',
+            message: '${createdItem.name} created. Add quantity to Purchase Order.',
           );
           Navigator.pop(context, createdItem);
         } else {
@@ -131,16 +144,18 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Quick Add Inventory Item',
+                          widget.isFromPurchase ? 'Create Item for Purchase' : 'Quick Add Inventory Item',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                             color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
                           ),
                         ),
-                        const Text(
-                          'Add a new part or product to inventory',
-                          style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                        Text(
+                          widget.isFromPurchase
+                              ? 'Item master will be created with 0 initial stock. Purchase Order quantity will add the stock.'
+                              : 'Add a new part or product to inventory',
+                          style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                         ),
                       ],
                     ),
@@ -195,7 +210,7 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
               const SizedBox(height: 14),
 
               CustomTextField(
-                label: 'Item / Part Name',
+                label: 'Item / Part Name *',
                 hint: 'e.g. iPhone 11 Display Original',
                 controller: _nameController,
                 isRequired: true,
@@ -211,7 +226,7 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
                 children: [
                   Expanded(
                     child: CustomTextField(
-                      label: 'Selling Price (₹)',
+                      label: 'Selling Price (\u20B9) *',
                       hint: '0.00',
                       controller: _sellingPriceController,
                       isRequired: true,
@@ -227,7 +242,7 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: CustomTextField(
-                      label: 'Purchase Cost (₹)',
+                      label: 'Purchase Cost (\u20B9)',
                       hint: '0.00',
                       controller: _purchasePriceController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -238,13 +253,35 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
               ),
               const SizedBox(height: 14),
 
-              CustomTextField(
-                label: 'Initial Stock Quantity',
-                hint: '1',
-                controller: _openingStockController,
-                keyboardType: TextInputType.number,
-                prefixIcon: Icons.numbers_outlined,
-              ),
+              if (!widget.isFromPurchase)
+                CustomTextField(
+                  label: 'Initial Stock Quantity',
+                  hint: '1',
+                  controller: _openingStockController,
+                  keyboardType: TextInputType.number,
+                  prefixIcon: Icons.numbers_outlined,
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.purple.shade200),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.info_outline, color: AppColors.primary, size: 18),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Stock quantity will be added when you save this Purchase Order.',
+                          style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               const SizedBox(height: 20),
 
               CustomButton(

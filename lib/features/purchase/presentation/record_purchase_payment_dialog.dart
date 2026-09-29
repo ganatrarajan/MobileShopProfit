@@ -27,7 +27,7 @@ class _RecordPurchasePaymentDialogState extends State<RecordPurchasePaymentDialo
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _amountController;
   late TextEditingController _notesController;
-  DateTime _paymentDate = DateTime.now();
+  final DateTime _paymentDate = DateTime.now();
   String _paymentMethod = 'cash';
   bool _isLoading = false;
   final PurchaseRepository _repository = PurchaseRepository();
@@ -62,7 +62,7 @@ class _RecordPurchasePaymentDialogState extends State<RecordPurchasePaymentDialo
     if (amount > widget.purchase.outstandingAmount) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Amount paid cannot exceed outstanding balance (?${widget.purchase.outstandingAmount.toStringAsFixed(2)}).'),
+          content: Text('Amount paid cannot exceed outstanding balance (\u20B9${widget.purchase.outstandingAmount.toStringAsFixed(2)}).'),
         ),
       );
       return;
@@ -78,13 +78,13 @@ class _RecordPurchasePaymentDialogState extends State<RecordPurchasePaymentDialo
       notes: _notesController.text.trim(),
     );
 
-    setState(() => _isLoading = false);
+    if (mounted) setState(() => _isLoading = false);
 
     if (response.success) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('? Payment Recorded. ?${amount.toStringAsFixed(2)} payment recorded successfully.'),
+            content: Text('Payment Recorded: \u20B9${amount.toStringAsFixed(2)} payment recorded successfully.'),
             backgroundColor: AppColors.success,
           ),
         );
@@ -120,8 +120,8 @@ class _RecordPurchasePaymentDialogState extends State<RecordPurchasePaymentDialo
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Column(
                   children: [
@@ -129,7 +129,7 @@ class _RecordPurchasePaymentDialogState extends State<RecordPurchasePaymentDialo
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text('Grand Total:', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
-                        Text('?${widget.purchase.grandTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text('\u20B9${widget.purchase.grandTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -137,7 +137,7 @@ class _RecordPurchasePaymentDialogState extends State<RecordPurchasePaymentDialo
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text('Already Paid:', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
-                        Text('?${widget.purchase.amountPaid.toStringAsFixed(2)}', style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.bold)),
+                        Text('\u20B9${widget.purchase.amountPaid.toStringAsFixed(2)}', style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.bold)),
                       ],
                     ),
                     const Divider(height: 12),
@@ -145,7 +145,7 @@ class _RecordPurchasePaymentDialogState extends State<RecordPurchasePaymentDialo
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text('Outstanding:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                        Text('?${widget.purchase.outstandingAmount.toStringAsFixed(2)}', style: const TextStyle(color: AppColors.error, fontWeight: FontWeight.bold, fontSize: 14)),
+                        Text('\u20B9${widget.purchase.outstandingAmount.toStringAsFixed(2)}', style: const TextStyle(color: AppColors.error, fontWeight: FontWeight.bold, fontSize: 14)),
                       ],
                     ),
                   ],
@@ -154,7 +154,7 @@ class _RecordPurchasePaymentDialogState extends State<RecordPurchasePaymentDialo
               const SizedBox(height: 16),
               CustomTextField(
                 controller: _amountController,
-                label: 'Payment Amount (?) *',
+                label: 'Payment Amount (\u20B9) *',
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 validator: (val) {
                   if (val == null || val.trim().isEmpty) return 'Please enter payment amount.';
@@ -200,16 +200,15 @@ class _RecordPurchasePaymentDialogState extends State<RecordPurchasePaymentDialo
         ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
           onPressed: _isLoading ? null : _submit,
           child: _isLoading
               ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-              : const Text('Save Payment', style: TextStyle(color: Colors.white)),
+              : const Text('Save Payment', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
       ],
     );
   }
 }
-
-

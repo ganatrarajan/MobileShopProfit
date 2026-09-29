@@ -1,6 +1,19 @@
-import 'vendor.dart';
+﻿import 'vendor.dart';
 import 'purchase_item.dart';
 import 'purchase_payment.dart';
+
+double _toDouble(dynamic val) {
+  if (val == null) return 0.0;
+  if (val is num) return val.toDouble();
+  return double.tryParse(val.toString()) ?? 0.0;
+}
+
+int _toInt(dynamic val) {
+  if (val == null) return 0;
+  if (val is int) return val;
+  if (val is num) return val.toInt();
+  return int.tryParse(val.toString()) ?? 0;
+}
 
 class Purchase {
   final int id;
@@ -48,30 +61,30 @@ class Purchase {
   factory Purchase.fromJson(Map<String, dynamic> json) {
     var rawItems = json['items'] as List?;
     List<PurchaseItem> itemList = rawItems != null
-        ? rawItems.map((i) => PurchaseItem.fromJson(i as Map<String, dynamic>)).toList()
+        ? rawItems.map((i) => PurchaseItem.fromJson(Map<String, dynamic>.from(i as Map))).toList()
         : [];
 
     var rawPayments = json['payments'] as List?;
     List<PurchasePayment> paymentList = rawPayments != null
-        ? rawPayments.map((p) => PurchasePayment.fromJson(p as Map<String, dynamic>)).toList()
+        ? rawPayments.map((p) => PurchasePayment.fromJson(Map<String, dynamic>.from(p as Map))).toList()
         : [];
 
     return Purchase(
-      id: json['id'] is int ? json['id'] as int : int.parse(json['id'].toString()),
-      shopId: json['shop_id'] is int ? json['shop_id'] as int : int.parse((json['shop_id'] ?? 0).toString()),
-      vendorId: json['vendor_id'] is int ? json['vendor_id'] as int : int.parse(json['vendor_id'].toString()),
+      id: _toInt(json['id']),
+      shopId: _toInt(json['shop_id']),
+      vendorId: _toInt(json['vendor_id']),
       vendorName: json['vendor_name']?.toString() ?? (json['vendor']?['name']?.toString() ?? 'Vendor'),
-      vendor: json['vendor'] != null ? Vendor.fromJson(json['vendor'] as Map<String, dynamic>) : null,
+      vendor: json['vendor'] != null && json['vendor'] is Map ? Vendor.fromJson(Map<String, dynamic>.from(json['vendor'] as Map)) : null,
       purchaseNumber: json['purchase_number']?.toString() ?? '',
-      purchaseDate: json['purchase_date'] != null ? DateTime.parse(json['purchase_date'].toString()) : DateTime.now(),
-      subtotal: (json['subtotal'] ?? 0).toDouble(),
-      discount: (json['discount'] ?? 0).toDouble(),
-      additionalCharges: (json['additional_charges'] ?? 0).toDouble(),
-      grandTotal: (json['grand_total'] ?? 0).toDouble(),
-      amountPaid: (json['amount_paid'] ?? 0).toDouble(),
-      outstandingAmount: (json['outstanding_amount'] ?? 0).toDouble(),
+      purchaseDate: json['purchase_date'] != null ? DateTime.tryParse(json['purchase_date'].toString()) ?? DateTime.now() : DateTime.now(),
+      subtotal: _toDouble(json['subtotal']),
+      discount: _toDouble(json['discount']),
+      additionalCharges: _toDouble(json['additional_charges']),
+      grandTotal: _toDouble(json['grand_total']),
+      amountPaid: _toDouble(json['amount_paid']),
+      outstandingAmount: _toDouble(json['outstanding_amount']),
       paymentStatus: json['payment_status']?.toString() ?? 'pending',
-      isStockAdded: json['is_stock_added'] == true || json['is_stock_added'] == 1,
+      isStockAdded: json['is_stock_added'] == true || json['is_stock_added'] == 1 || json['is_stock_added']?.toString() == '1',
       notes: json['notes']?.toString(),
       items: itemList,
       payments: paymentList,
