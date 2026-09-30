@@ -1,13 +1,15 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../config/env_config.dart';
 import '../routes/app_routes.dart';
 import '../storage/auth_storage.dart';
+import '../theme/app_colors.dart';
 import 'api_exception.dart';
 import 'api_response.dart';
 
 class ApiClient {
+  static bool _isSessionExpiredDialogShowing = false;
   final AuthStorage _authStorage = AuthStorage();
 
   Future<Map<String, String>> _getHeaders() async {
@@ -189,13 +191,16 @@ class ApiClient {
           : 'Request failed with status code ${response.statusCode}';
 
       if (response.statusCode == 403 || response.statusCode == 401) {
-        if (message.toString().toLowerCase().contains('deactivated')) {
+        final lowerMsg = message.toString().toLowerCase();
+        if (lowerMsg.contains('deactivated')) {
           _authStorage.clearSession();
           AppRoutes.navigatorKey.currentState?.pushNamedAndRemoveUntil(
             AppRoutes.login,
             (route) => false,
             arguments: message,
           );
+        } else if (response.statusCode == 401 || lowerMsg.contains('unauthenticated')) {
+          _handleUnauthorizedSession(message.toString());
         }
       }
 
@@ -205,5 +210,66 @@ class ApiClient {
         errors: jsonResponseBody is Map ? jsonResponseBody['errors'] : null,
       );
     }
+  }
+
+  void _handleUnauthorizedSession(String serverMessage) {
+    _authStorage.clearSession();
+
+    if (_isSessionExpiredDialogShowing) return;
+    _isSessionExpiredDialogShowing = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final context = AppRoutes.navigatorKey.currentContext;
+      if (context != null && context.mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogCtx) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Row(
+                children: [
+                  Icon(Icons.devices_rounded, color: Colors.orange, size: 28),
+                  SizedBox(width: 8),
+                  Text('Session Expired', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                ],
+              ),
+              content: const Text(
+                'You have been logged out because your account was logged in from another device.',
+                style: TextStyle(fontSize: 14),
+              ),
+              actions: [
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: () {
+                    _isSessionExpiredDialogShowing = false;
+                    Navigator.of(dialogCtx, rootNavigator: true).pop();
+                    AppRoutes.navigatorKey.currentState?.pushNamedAndRemoveUntil(
+                      AppRoutes.login,
+                      (route) => false,
+                      arguments: 'Session expired: Account logged in on another device.',
+                    );
+                  },
+                  child: const Text('Log In Again'),
+                ),
+              ],
+            );
+          },
+        ).then((_) {
+          _isSessionExpiredDialogShowing = false;
+        });
+      } else {
+        _isSessionExpiredDialogShowing = false;
+        AppRoutes.navigatorKey.currentState?.pushNamedAndRemoveUntil(
+          AppRoutes.login,
+          (route) => false,
+          arguments: 'Session expired: Account logged in on another device.',
+        );
+      }
+    });
   }
 }

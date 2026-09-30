@@ -1,4 +1,4 @@
-double _parseDouble(dynamic val) {
+﻿double _parseDouble(dynamic val) {
   if (val == null) return 0.0;
   if (val is num) return val.toDouble();
   return double.tryParse(val.toString()) ?? 0.0;
@@ -8,8 +8,42 @@ int _parseInt(dynamic val) {
   if (val == null) return 0;
   if (val is int) return val;
   if (val is num) return val.toInt();
-  final d = double.tryParse(val.toString());
-  return d != null ? d.toInt() : 0;
+  return int.tryParse(val.toString()) ?? 0;
+}
+
+class FinancialOverview {
+  final double totalSales;
+  final double totalPurchases;
+  final double totalExpenses;
+  final double netProfit;
+  final double cashCollected;
+  final double cashPaidPurchases;
+  final double cashPaidExpenses;
+  final double netCashRemaining;
+
+  FinancialOverview({
+    required this.totalSales,
+    required this.totalPurchases,
+    required this.totalExpenses,
+    required this.netProfit,
+    required this.cashCollected,
+    required this.cashPaidPurchases,
+    required this.cashPaidExpenses,
+    required this.netCashRemaining,
+  });
+
+  factory FinancialOverview.fromJson(Map<String, dynamic> json) {
+    return FinancialOverview(
+      totalSales: _parseDouble(json['total_sales']),
+      totalPurchases: _parseDouble(json['total_purchases']),
+      totalExpenses: _parseDouble(json['total_expenses']),
+      netProfit: _parseDouble(json['net_profit']),
+      cashCollected: _parseDouble(json['cash_collected']),
+      cashPaidPurchases: _parseDouble(json['cash_paid_purchases']),
+      cashPaidExpenses: _parseDouble(json['cash_paid_expenses']),
+      netCashRemaining: _parseDouble(json['net_cash_remaining']),
+    );
+  }
 }
 
 class SalesSummary {
@@ -40,6 +74,32 @@ class SalesSummary {
       regularSalesCount: _parseInt(json['regular_sales_count']),
       quickSalesCount: _parseInt(json['quick_sales_count']),
       allTimeDues: _parseDouble(json['all_time_dues']),
+    );
+  }
+}
+
+class PurchaseSummary {
+  final double totalPurchases;
+  final double totalPaid;
+  final double totalOutstanding;
+  final int totalCount;
+  final double allTimeVendorDues;
+
+  PurchaseSummary({
+    required this.totalPurchases,
+    required this.totalPaid,
+    required this.totalOutstanding,
+    required this.totalCount,
+    required this.allTimeVendorDues,
+  });
+
+  factory PurchaseSummary.fromJson(Map<String, dynamic> json) {
+    return PurchaseSummary(
+      totalPurchases: _parseDouble(json['total_purchases']),
+      totalPaid: _parseDouble(json['total_paid']),
+      totalOutstanding: _parseDouble(json['total_outstanding']),
+      totalCount: _parseInt(json['total_count']),
+      allTimeVendorDues: _parseDouble(json['all_time_vendor_dues']),
     );
   }
 }
@@ -159,7 +219,7 @@ class AttentionItem {
 }
 
 class RecentActivityItem {
-  final String type; // sale, repair, expense, stock
+  final String type; // sale, purchase, repair, expense, stock
   final String title;
   final String subtitle;
   final double amount;
@@ -193,7 +253,9 @@ class DashboardData {
   final String ownerName;
   final int daysRemaining;
   final bool isExpiringSoon;
+  final FinancialOverview financialOverview;
   final SalesSummary sales;
+  final PurchaseSummary purchases;
   final RepairSummary repairs;
   final InventorySummary inventory;
   final ExpenseSummary expenses;
@@ -209,7 +271,9 @@ class DashboardData {
     this.ownerName = 'Shop Owner',
     this.daysRemaining = 999,
     this.isExpiringSoon = false,
+    required this.financialOverview,
     required this.sales,
+    required this.purchases,
     required this.repairs,
     required this.inventory,
     required this.expenses,
@@ -248,6 +312,28 @@ class DashboardData {
     final int dRemaining = _parseInt(dataMap['days_remaining'] ?? json['days_remaining'] ?? 999);
     final bool expiring = (dataMap['is_expiring_soon'] == true || dRemaining <= 10);
 
+    final salesObj = SalesSummary.fromJson(Map<String, dynamic>.from(dataMap['sales'] ?? {}));
+    final purchasesObj = PurchaseSummary.fromJson(Map<String, dynamic>.from(dataMap['purchases'] ?? {}));
+    final expensesObj = ExpenseSummary.fromJson(Map<String, dynamic>.from(dataMap['expenses'] ?? {}));
+
+    FinancialOverview finOverview;
+    if (dataMap['financial_overview'] != null && dataMap['financial_overview'] is Map<String, dynamic>) {
+      finOverview = FinancialOverview.fromJson(Map<String, dynamic>.from(dataMap['financial_overview']));
+    } else {
+      final nProfit = salesObj.totalSales - purchasesObj.totalPurchases - expensesObj.totalExpensesSum;
+      final cRem = salesObj.totalCollected - purchasesObj.totalPaid - expensesObj.totalExpensesSum;
+      finOverview = FinancialOverview(
+        totalSales: salesObj.totalSales,
+        totalPurchases: purchasesObj.totalPurchases,
+        totalExpenses: expensesObj.totalExpensesSum,
+        netProfit: nProfit,
+        cashCollected: salesObj.totalCollected,
+        cashPaidPurchases: purchasesObj.totalPaid,
+        cashPaidExpenses: expensesObj.totalExpensesSum,
+        netCashRemaining: cRem,
+      );
+    }
+
     return DashboardData(
       period: json['period']?.toString() ?? 'this_month',
       startDate: dateRange['start_date']?.toString() ?? '',
@@ -257,10 +343,12 @@ class DashboardData {
       ownerName: oName.isNotEmpty ? oName : 'Shop Owner',
       daysRemaining: dRemaining,
       isExpiringSoon: expiring,
-      sales: SalesSummary.fromJson(Map<String, dynamic>.from(dataMap['sales'] ?? {})),
+      financialOverview: finOverview,
+      sales: salesObj,
+      purchases: purchasesObj,
       repairs: RepairSummary.fromJson(Map<String, dynamic>.from(dataMap['repairs'] ?? {})),
       inventory: InventorySummary.fromJson(Map<String, dynamic>.from(dataMap['inventory'] ?? {})),
-      expenses: ExpenseSummary.fromJson(Map<String, dynamic>.from(dataMap['expenses'] ?? {})),
+      expenses: expensesObj,
       attention: attList.map((a) => AttentionItem.fromJson(Map<String, dynamic>.from(a))).toList(),
       recentActivity: actList.map((a) => RecentActivityItem.fromJson(Map<String, dynamic>.from(a))).toList(),
     );

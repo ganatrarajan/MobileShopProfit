@@ -1,3 +1,4 @@
+﻿import '../../../core/utils/date_helper.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/status_badge.dart';
@@ -253,7 +254,7 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text('Purchase Date:', style: TextStyle(color: AppColors.textMuted)),
-                                Text(_purchase.purchaseDate.toIso8601String().split('T')[0], style: const TextStyle(fontWeight: FontWeight.w600)),
+                                Text(DateHelper.formatDate(_purchase.purchaseDate.toIso8601String()), style: const TextStyle(fontWeight: FontWeight.w600)),
                               ],
                             ),
                             if (_purchase.notes != null && _purchase.notes!.isNotEmpty) ...[
@@ -408,3 +409,4 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
     );
   }
 }
+

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/date_helper.dart';
 import '../../../core/widgets/app_empty_state.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../data/purchase_repository.dart';
@@ -24,6 +25,10 @@ class PurchaseListScreenState extends State<PurchaseListScreen> {
   bool _isLoading = false;
   String _paymentStatusFilter = 'all';
 
+  // Date Filtering state
+  String _datePreset = 'all_time'; // 'all_time', 'today', 'yesterday', 'this_month', 'custom'
+  DateTimeRange? _customDateRange;
+
   double _totalAmount = 0.0;
   double _totalPaid = 0.0;
   double _totalOutstanding = 0.0;
@@ -40,12 +45,158 @@ class PurchaseListScreenState extends State<PurchaseListScreen> {
     super.dispose();
   }
 
+  String? get _dateFrom {
+    final now = DateTime.now();
+    if (_datePreset == 'today') {
+      return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    } else if (_datePreset == 'yesterday') {
+      final y = now.subtract(const Duration(days: 1));
+      return '${y.year}-${y.month.toString().padLeft(2, '0')}-${y.day.toString().padLeft(2, '0')}';
+    } else if (_datePreset == 'this_month') {
+      return '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
+    } else if (_datePreset == 'custom' && _customDateRange != null) {
+      final s = _customDateRange!.start;
+      return '${s.year}-${s.month.toString().padLeft(2, '0')}-${s.day.toString().padLeft(2, '0')}';
+    }
+    return null; // all_time
+  }
+
+  String? get _dateTo {
+    final now = DateTime.now();
+    if (_datePreset == 'today') {
+      return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    } else if (_datePreset == 'yesterday') {
+      final y = now.subtract(const Duration(days: 1));
+      return '${y.year}-${y.month.toString().padLeft(2, '0')}-${y.day.toString().padLeft(2, '0')}';
+    } else if (_datePreset == 'this_month') {
+      return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    } else if (_datePreset == 'custom' && _customDateRange != null) {
+      final e = _customDateRange!.end;
+      return '${e.year}-${e.month.toString().padLeft(2, '0')}-${e.day.toString().padLeft(2, '0')}';
+    }
+    return null; // all_time
+  }
+
+  String get _dateFilterLabel {
+    switch (_datePreset) {
+      case 'today':
+        return 'Today';
+      case 'yesterday':
+        return 'Yesterday';
+      case 'this_month':
+        return 'This Month';
+      case 'custom':
+        if (_customDateRange != null) {
+          final s = _customDateRange!.start;
+          final e = _customDateRange!.end;
+          return '${s.day}/${s.month} - ${e.day}/${e.month}';
+        }
+        return 'Custom';
+      case 'all_time':
+      default:
+        return 'All Time';
+    }
+  }
+
+  void _showDateFilterBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: const [
+                    Icon(Icons.calendar_month_rounded, color: AppColors.primary),
+                    SizedBox(width: 8),
+                    Text('Select Date Filter', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: const Icon(Icons.all_inclusive_rounded),
+                  title: const Text('All Time'),
+                  trailing: _datePreset == 'all_time' ? const Icon(Icons.check_circle, color: AppColors.accent) : null,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    setState(() => _datePreset = 'all_time');
+                    fetchPurchases();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.today_rounded),
+                  title: const Text('Today'),
+                  trailing: _datePreset == 'today' ? const Icon(Icons.check_circle, color: AppColors.accent) : null,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    setState(() => _datePreset = 'today');
+                    fetchPurchases();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.history_rounded),
+                  title: const Text('Yesterday'),
+                  trailing: _datePreset == 'yesterday' ? const Icon(Icons.check_circle, color: AppColors.accent) : null,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    setState(() => _datePreset = 'yesterday');
+                    fetchPurchases();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.calendar_view_month_rounded),
+                  title: const Text('This Month'),
+                  trailing: _datePreset == 'this_month' ? const Icon(Icons.check_circle, color: AppColors.accent) : null,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    setState(() => _datePreset = 'this_month');
+                    fetchPurchases();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.date_range_rounded),
+                  title: const Text('Custom Date Range...'),
+                  trailing: _datePreset == 'custom' ? const Icon(Icons.check_circle, color: AppColors.accent) : null,
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    final picked = await showDateRangePicker(
+                      context: context,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now().add(const Duration(days: 1)),
+                      initialDateRange: _customDateRange,
+                    );
+                    if (picked != null) {
+                      setState(() {
+                        _customDateRange = picked;
+                        _datePreset = 'custom';
+                      });
+                      fetchPurchases();
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> fetchPurchases() async {
     setState(() => _isLoading = true);
 
     final response = await _repository.getPurchases(
       search: _searchController.text.trim(),
       paymentStatus: _paymentStatusFilter == 'all' ? null : _paymentStatusFilter,
+      dateFrom: _dateFrom,
+      dateTo: _dateTo,
     );
 
     if (mounted) {
@@ -128,7 +279,7 @@ class PurchaseListScreenState extends State<PurchaseListScreen> {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(fontSize: 10, color: Colors.white70, fontWeight: FontWeight.bold),
+                  style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w500),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -137,7 +288,7 @@ class PurchaseListScreenState extends State<PurchaseListScreen> {
           const SizedBox(height: 4),
           Text(
             value,
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color),
+            style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -149,23 +300,20 @@ class PurchaseListScreenState extends State<PurchaseListScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text(
-          'Purchase Orders',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Inventory Purchases', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.inventory_2_outlined, color: Colors.white),
-            tooltip: 'Inventory Stock',
-            onPressed: _openInventory,
+            icon: const Icon(Icons.storefront_rounded, color: Colors.white),
+            tooltip: 'Vendors',
+            onPressed: _openVendorList,
           ),
           IconButton(
-            icon: const Icon(Icons.people_alt_outlined, color: Colors.white),
-            tooltip: 'Vendors / Suppliers',
-            onPressed: _openVendorList,
+            icon: const Icon(Icons.inventory_2_rounded, color: Colors.white),
+            tooltip: 'Inventory',
+            onPressed: _openInventory,
           ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: Colors.white),
@@ -176,10 +324,10 @@ class PurchaseListScreenState extends State<PurchaseListScreen> {
       ),
       body: Column(
         children: [
-          // SUMMARY METRICS CARD HEADER
+          // SUMMARY HEADER
           Container(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             color: AppColors.primary,
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
             child: Column(
               children: [
                 Row(
@@ -188,7 +336,7 @@ class PurchaseListScreenState extends State<PurchaseListScreen> {
                       child: _buildMetricCard(
                         title: 'Total Purchases',
                         value: '\u20B9${_totalAmount.toStringAsFixed(0)}',
-                        icon: Icons.shopping_bag_outlined,
+                        icon: Icons.shopping_bag_rounded,
                         color: Colors.white,
                       ),
                     ),
@@ -197,8 +345,8 @@ class PurchaseListScreenState extends State<PurchaseListScreen> {
                       child: _buildMetricCard(
                         title: 'Total Paid',
                         value: '\u20B9${_totalPaid.toStringAsFixed(0)}',
-                        icon: Icons.check_circle_outline_rounded,
-                        color: Colors.greenAccent.shade400,
+                        icon: Icons.check_circle_rounded,
+                        color: Colors.greenAccent.shade200,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -244,8 +392,34 @@ class PurchaseListScreenState extends State<PurchaseListScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
+                    // GREEN DATE FILTER BUTTON (MATCHES REPAIR LIST DESIGN)
+                    InkWell(
+                      onTap: _showDateFilterBottomSheet,
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.accent,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.calendar_month_rounded, color: Colors.white, size: 18),
+                            const SizedBox(width: 4),
+                            Text(
+                              _dateFilterLabel,
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                            ),
+                            const SizedBox(width: 2),
+                            const Icon(Icons.arrow_drop_down_rounded, color: Colors.white, size: 18),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    // STATUS FILTER DROPDOWN
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(10),
@@ -254,7 +428,7 @@ class PurchaseListScreenState extends State<PurchaseListScreen> {
                         child: DropdownButton<String>(
                           value: _paymentStatusFilter,
                           icon: const Icon(Icons.arrow_drop_down_rounded, color: AppColors.primary),
-                          style: const TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
+                          style: const TextStyle(color: AppColors.textPrimary, fontSize: 12, fontWeight: FontWeight.w600),
                           items: const [
                             DropdownMenuItem(value: 'all', child: Text('All Status')),
                             DropdownMenuItem(value: 'paid', child: Text('Paid')),
@@ -293,6 +467,11 @@ class PurchaseListScreenState extends State<PurchaseListScreen> {
                           itemCount: _purchases.length,
                           itemBuilder: (context, index) {
                             final p = _purchases[index];
+                            final formattedDate = DateHelper.formatDate(p.purchaseDate.toIso8601String());
+                            final itemsSummary = p.items.isNotEmpty
+                                ? p.items.map((i) => '${i.itemName} (x${i.quantity})').join(', ')
+                                : null;
+
                             return Card(
                               margin: const EdgeInsets.only(bottom: 10),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -315,7 +494,32 @@ class PurchaseListScreenState extends State<PurchaseListScreen> {
                                     const SizedBox(height: 4),
                                     Text(p.vendorName, style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary, fontSize: 13)),
                                     const SizedBox(height: 2),
-                                    Text('Date: ${p.purchaseDate.toIso8601String().split('T')[0]}     ${p.items.length} item(s)', style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                                    Text('Date: $formattedDate     ${p.items.length} item(s)', style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                                    if (itemsSummary != null) ...[
+                                      const SizedBox(height: 4),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.purple.shade50,
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(color: Colors.purple.shade100),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.inventory_2_outlined, size: 12, color: Colors.purple),
+                                            const SizedBox(width: 4),
+                                            Expanded(
+                                              child: Text(
+                                                'Items: $itemsSummary',
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.purple.shade900),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                     const SizedBox(height: 8),
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,

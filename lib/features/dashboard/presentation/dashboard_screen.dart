@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/storage/auth_storage.dart';
 import '../../../core/theme/app_colors.dart';
@@ -28,6 +28,7 @@ class DashboardScreenState extends State<DashboardScreen> {
       Navigator.pushNamed(context, fallbackRoute);
     }
   }
+
   final DashboardRepository _dashboardRepository = DashboardRepository();
 
   String _selectedPeriod = 'this_month';
@@ -181,7 +182,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(shopName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            Text('Welcome back, $ownerName ðŸ‘‹', style: const TextStyle(fontSize: 11, color: Colors.white70)),
+            Text('Welcome back, $ownerName', style: const TextStyle(fontSize: 11, color: Colors.white70)),
           ],
         ),
         backgroundColor: AppColors.primary,
@@ -236,11 +237,11 @@ class DashboardScreenState extends State<DashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Subscription Expiry Highlight Card (Shown if 10 or fewer days remaining)
+                        // Subscription Expiry Highlight Card
                         if (_dashboardData!.daysRemaining <= 10 || _dashboardData!.isExpiringSoon)
                           _buildSubscriptionHighlightCard(_dashboardData!.daysRemaining),
 
-                        // 1. TOP USP: â­ Profit AI Business Assistant Banner
+                        // 1. TOP USP: Profit AI Business Assistant Banner
                         _buildTopProfitAiBanner(),
                         const SizedBox(height: 20),
 
@@ -248,7 +249,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('âš¡ Quick Actions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor, letterSpacing: -0.3)),
+                            Text('Quick Actions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor, letterSpacing: -0.3)),
                             Text('Tap to create', style: TextStyle(fontSize: 11, color: textMutedColor)),
                           ],
                         ),
@@ -256,10 +257,16 @@ class DashboardScreenState extends State<DashboardScreen> {
                         _buildFastActionsGrid(),
                         const SizedBox(height: 20),
 
-                        // 3. Shop Performance Metrics Summary
-                        Text('ðŸ“Š Shop Performance Summary', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor, letterSpacing: -0.3)),
+                        // 3. Financial Overview & Net Profit Card
+                        _buildFinancialSummaryCard(_dashboardData!.financialOverview),
+                        const SizedBox(height: 16),
+
+                        // 4. Shop Performance Metrics Summary (Outstanding, Collected & Pending Overview)
+                        Text('Shop Performance Summary', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor, letterSpacing: -0.3)),
                         const SizedBox(height: 10),
                         _buildSalesSummaryCard(_dashboardData!.sales),
+                        const SizedBox(height: 12),
+                        _buildPurchaseSummaryCard(_dashboardData!.purchases),
                         const SizedBox(height: 12),
 
                         Row(
@@ -273,15 +280,15 @@ class DashboardScreenState extends State<DashboardScreen> {
                         _buildExpenseSummaryCard(_dashboardData!.expenses),
                         const SizedBox(height: 24),
 
-                        // 4. Organized Business Management Modules
-                        Text('ðŸ“‚ Business Management Modules', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor, letterSpacing: -0.3)),
+                        // 5. Organized Business Management Modules
+                        Text('Business Management Modules', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor, letterSpacing: -0.3)),
                         const SizedBox(height: 4),
                         Text('Select a module to manage records, invoices, stock & customers.', style: TextStyle(fontSize: 11.5, color: textMutedColor)),
                         const SizedBox(height: 12),
                         _buildStructuredModulesList(),
                         const SizedBox(height: 20),
 
-                        // 5. Needs Attention Section
+                        // 6. Needs Attention Section
                         if (_dashboardData!.attention.isNotEmpty) ...[
                           Row(
                             children: [
@@ -312,7 +319,7 @@ class DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // TOP USP BANNER: â­ Profit AI Business Assistant
+  // TOP USP BANNER: Profit AI Business Assistant
   Widget _buildTopProfitAiBanner() {
     final healthScore = _profitAiData?.health.score ?? 85;
     final rating = _profitAiData?.health.rating ?? 'Good';
@@ -324,7 +331,7 @@ class DashboardScreenState extends State<DashboardScreen> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: const Color(0xFFECFDF5), // Light Emerald Green Fill
+        color: const Color(0xFFECFDF5),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: const Color(0xFFA7F3D0), width: 1.5),
         boxShadow: [
@@ -415,7 +422,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: const [
                   Text(
-                    'Open â­ Profit AI Analysis',
+                    'Open Profit AI Analysis',
                     style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13),
                   ),
                   Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18),
@@ -463,7 +470,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                     Text(
                       _selectedPeriod == 'custom' && _customDateRange != null
                           ? '${_customDateRange!.start.day}/${_customDateRange!.start.month} - ${_customDateRange!.end.day}/${_customDateRange!.end.month}'
-                          : 'Custom',
+                          : 'Custom Date',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: _selectedPeriod == 'custom' ? FontWeight.w800 : FontWeight.w600,
@@ -502,6 +509,59 @@ class DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Widget _buildSubscriptionHighlightCard(int daysRemaining) {
+    final isExpired = daysRemaining <= 0;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: isExpired ? Colors.red.shade50 : Colors.amber.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: isExpired ? Colors.red.shade200 : Colors.amber.shade300),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isExpired ? Icons.warning_rounded : Icons.timer_outlined,
+            color: isExpired ? AppColors.error : AppColors.warning,
+            size: 24,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isExpired ? 'Subscription Expired' : 'Plan Expiring Soon ($daysRemaining Days Left)',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: isExpired ? AppColors.error : Colors.amber.shade900,
+                  ),
+                ),
+                Text(
+                  isExpired ? 'Renew now to maintain full access' : 'Renew plan now to prevent feature restriction',
+                  style: TextStyle(fontSize: 11, color: isExpired ? Colors.red.shade800 : Colors.amber.shade800),
+                ),
+              ],
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isExpired ? AppColors.error : AppColors.warning,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              elevation: 0,
+            ),
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.subscription),
+            child: const Text('Renew', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildEmptyShopOnboarding() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
@@ -513,7 +573,7 @@ class DashboardScreenState extends State<DashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const SizedBox(height: 20),
-          Icon(Icons.storefront_rounded, size: 64, color: AppColors.primary),
+          const Icon(Icons.storefront_rounded, size: 64, color: AppColors.primary),
           const SizedBox(height: 16),
           Text('Welcome to Your Mobile Shop!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor)),
           const SizedBox(height: 8),
@@ -521,7 +581,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 24),
           _buildOnboardingStepTile(
             number: '1',
-            title: 'âš¡ Quick Accessories Sale',
+            title: 'Quick Accessories Sale',
             desc: 'Sell tempered glass, covers, or chargers in seconds.',
             icon: Icons.flash_on_rounded,
             onTap: () => Navigator.pushNamed(context, AppRoutes.quickSale),
@@ -529,7 +589,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 12),
           _buildOnboardingStepTile(
             number: '2',
-            title: 'ðŸ“± Add Repair Job',
+            title: 'Add Repair Job',
             desc: 'Register customer devices for screen, battery, or board repair.',
             icon: Icons.handyman_rounded,
             onTap: () => Navigator.pushNamed(context, AppRoutes.createRepair),
@@ -537,7 +597,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 12),
           _buildOnboardingStepTile(
             number: '3',
-            title: 'ðŸ“¦ Add Inventory Stock',
+            title: 'Add Inventory Stock',
             desc: 'Add products, parts, and stock quantities.',
             icon: Icons.inventory_2_rounded,
             onTap: () => Navigator.pushNamed(context, AppRoutes.addInventoryItem),
@@ -580,6 +640,114 @@ class DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Widget _buildFinancialSummaryCard(FinancialOverview fin) {
+    final isProfit = fin.netProfit >= 0;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: isProfit
+            ? const LinearGradient(
+                colors: [Color(0xFF0D9488), Color(0xFF059669)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+            : const LinearGradient(
+                colors: [Color(0xFFDC2626), Color(0xFF991B1B)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: (isProfit ? const Color(0xFF059669) : AppColors.error).withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: const [
+                  Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Net Profit & Financial Overview',
+                    style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  isProfit ? 'PROFIT' : 'LOSS',
+                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Remaining Net Profit',
+            style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 12),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '\u20B9${fin.netProfit.toStringAsFixed(2)}',
+            style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Total Sales', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 10)),
+                    const SizedBox(height: 2),
+                    Text('\u20B9${fin.totalSales.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Total Purchases', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 10)),
+                    const SizedBox(height: 2),
+                    Text('\u20B9${fin.totalPurchases.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Total Expenses', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 10)),
+                    const SizedBox(height: 2),
+                    Text('\u20B9${fin.totalExpenses.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSalesSummaryCard(SalesSummary sales) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
@@ -602,7 +770,7 @@ class DashboardScreenState extends State<DashboardScreen> {
               ),
               InkWell(
                 onTap: () => _navigateToTab(1, AppRoutes.sales),
-                child: const Text('View All â†’', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                child: const Text('View All \u2192', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
               ),
             ],
           ),
@@ -615,7 +783,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     Text('Total Revenue', style: TextStyle(fontSize: 11, color: textMutedColor)),
                     const SizedBox(height: 4),
-                    Text('â‚¹${sales.totalSales.toStringAsFixed(0)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.primary)),
+                    Text('\u20B9${sales.totalSales.toStringAsFixed(0)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.primary)),
                   ],
                 ),
               ),
@@ -623,7 +791,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Total Invoices', style: TextStyle(fontSize: 11, color: textMutedColor)),
+                    Text('Invoices', style: TextStyle(fontSize: 11, color: textMutedColor)),
                     const SizedBox(height: 4),
                     Text('${sales.totalCount}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: textColor)),
                   ],
@@ -632,14 +800,156 @@ class DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          Divider(height: 1, color: isDark ? AppColors.darkBorder : AppColors.border),
-          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkSurface : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle_outline_rounded, size: 16, color: AppColors.accent),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Collected', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                            Text('\u20B9${sales.totalCollected.toStringAsFixed(0)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.accent)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(height: 24, width: 1, color: isDark ? AppColors.darkBorder : const Color(0xFFCBD5E1)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Icon(Icons.pending_actions_rounded, size: 16, color: sales.totalDue > 0 ? AppColors.error : AppColors.textMuted),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Customer Dues', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                            Text('\u20B9${sales.totalDue.toStringAsFixed(0)}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: sales.totalDue > 0 ? AppColors.error : textColor)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPurchaseSummaryCard(PurchaseSummary purchases) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMutedColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
+
+    return CustomCard(
+      onTap: () => Navigator.pushNamed(context, AppRoutes.purchases),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Collected: â‚¹${sales.totalCollected.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.accent)),
-              Text('Pending Due: â‚¹${sales.totalDue.toStringAsFixed(0)}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: sales.totalDue > 0 ? AppColors.error : textMutedColor)),
+              Row(
+                children: [
+                  const Icon(Icons.shopping_bag_rounded, color: Colors.purple, size: 20),
+                  const SizedBox(width: 8),
+                  Text('Inventory Purchases', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor)),
+                ],
+              ),
+              const Text('View All \u2192', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.purple)),
             ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Total Purchases', style: TextStyle(fontSize: 11, color: textMutedColor)),
+                    const SizedBox(height: 4),
+                    Text('\u20B9${purchases.totalPurchases.toStringAsFixed(0)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.purple)),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Orders', style: TextStyle(fontSize: 11, color: textMutedColor)),
+                    const SizedBox(height: 4),
+                    Text('${purchases.totalCount}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: textColor)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkSurface : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      const Icon(Icons.payments_rounded, size: 16, color: Colors.purple),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Amount Paid', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                            Text('\u20B9${purchases.totalPaid.toStringAsFixed(0)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.purple)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(height: 24, width: 1, color: isDark ? AppColors.darkBorder : const Color(0xFFCBD5E1)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Icon(Icons.report_problem_rounded, size: 16, color: purchases.totalOutstanding > 0 ? AppColors.error : AppColors.textMuted),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Vendor Dues', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                            Text('\u20B9${purchases.totalOutstanding.toStringAsFixed(0)}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: purchases.totalOutstanding > 0 ? AppColors.error : textColor)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -661,15 +971,20 @@ class DashboardScreenState extends State<DashboardScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Icon(Icons.build_rounded, color: AppColors.warning, size: 20),
-              Text('${repairs.activeRepairsCount} Active', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.warning)),
+              if (repairs.readyCount > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(color: AppColors.accent.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                  child: Text('${repairs.readyCount} Ready', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.accent)),
+                ),
             ],
           ),
           const SizedBox(height: 10),
-          Text('Repairs', style: TextStyle(fontSize: 12, color: textMutedColor)),
+          Text('Active Repairs', style: TextStyle(fontSize: 12, color: textMutedColor)),
           const SizedBox(height: 2),
-          Text('${repairs.totalRepairsCount}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
+          Text('${repairs.activeRepairsCount}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor)),
           const SizedBox(height: 4),
-          Text('Delivered: ${repairs.readyCount}', style: TextStyle(fontSize: 11, color: textMutedColor)),
+          Text('${repairs.totalRepairsCount} Total Repairs', style: TextStyle(fontSize: 11, color: textMutedColor)),
         ],
       ),
     );
@@ -701,7 +1016,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 10),
           Text('Inventory Stock', style: TextStyle(fontSize: 12, color: textMutedColor)),
           const SizedBox(height: 2),
-          Text('â‚¹${inventory.totalStockValue.toStringAsFixed(0)}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
+          Text('\u20B9${inventory.totalStockValue.toStringAsFixed(0)}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor)),
           const SizedBox(height: 4),
           Text('${inventory.totalItems} Total Items', style: TextStyle(fontSize: 11, color: textMutedColor)),
         ],
@@ -722,74 +1037,91 @@ class DashboardScreenState extends State<DashboardScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.account_balance_wallet_rounded, color: AppColors.secondary, size: 20),
+              const Icon(Icons.receipt_long_rounded, color: AppColors.secondary, size: 20),
               const SizedBox(width: 10),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Shop Expenses', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor)),
-                  Text('Top: ${expenses.topCategory?.name ?? "General"}', style: TextStyle(fontSize: 11, color: textMutedColor)),
+                  Text('Shop Expenses', style: TextStyle(fontSize: 12, color: textMutedColor)),
+                  Text('\u20B9${expenses.totalExpensesSum.toStringAsFixed(0)}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
                 ],
               ),
             ],
           ),
-          Text('â‚¹${expenses.totalExpensesSum.toStringAsFixed(0)}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.error)),
+          if (expenses.topCategory != null)
+            Text('Top: ${expenses.topCategory!.name}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.secondary)),
         ],
       ),
     );
   }
 
   Widget _buildFastActionsGrid() {
-    return Row(
-      children: [
-        _buildActionTile('âš¡ Quick Sale', Icons.flash_on_rounded, AppColors.warning, () async {
-          final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'make quick sales');
-          if (ok && mounted) _navigateToTab(2, AppRoutes.quickSale);
-        }),
-        const SizedBox(width: 8),
-        _buildActionTile('ðŸ“± Add Repair', Icons.handyman_rounded, AppColors.primary, () async {
-          final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create repair tickets');
-          if (ok && mounted) Navigator.pushNamed(context, AppRoutes.createRepair);
-        }),
-        const SizedBox(width: 8),
-        _buildActionTile('ðŸ§¾ Create Invoice', Icons.add_shopping_cart_rounded, AppColors.accent, () async {
-          final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create sales invoices');
-          if (ok && mounted) Navigator.pushNamed(context, AppRoutes.createSale);
-        }),
-        const SizedBox(width: 8),
-        _buildActionTile('ðŸ’¸ Add Expense', Icons.post_add_rounded, AppColors.secondary, () async {
-          final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'manage expenses');
-          if (ok && mounted) Navigator.pushNamed(context, AppRoutes.addExpense);
-        }),
-      ],
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _buildActionTile('Quick Sale', Icons.flash_on_rounded, Colors.amber.shade800, () async {
+            final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create quick sales');
+            if (ok && mounted) Navigator.pushNamed(context, AppRoutes.quickSale);
+          }),
+          const SizedBox(width: 8),
+          _buildActionTile('Add Repair', Icons.handyman_rounded, AppColors.primary, () async {
+            final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create repair tickets');
+            if (ok && mounted) Navigator.pushNamed(context, AppRoutes.createRepair);
+          }),
+          const SizedBox(width: 8),
+          _buildActionTile('Add Purchase', Icons.add_shopping_cart_rounded, Colors.purple, () async {
+            final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'manage inventory purchases');
+            if (ok && mounted) Navigator.pushNamed(context, AppRoutes.addPurchase);
+          }),
+          const SizedBox(width: 8),
+          _buildActionTile('Add Expense', Icons.post_add_rounded, AppColors.secondary, () async {
+            final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'manage expenses');
+            if (ok && mounted) Navigator.pushNamed(context, AppRoutes.addExpense);
+          }),
+        ],
+      ),
     );
   }
 
   Widget _buildActionTile(String title, IconData icon, Color color, VoidCallback onTap) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
 
-    return Expanded(
-      child: CustomCard(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         onTap: onTap,
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkSurface : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border, width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: color.withOpacity(0.15), shape: BoxShape.circle),
-                child: Icon(icon, color: color, size: 20),
+                decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
+                child: Icon(icon, color: color, size: 18),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(width: 8),
               Text(
                 title,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textColor),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                ),
               ),
             ],
           ),
@@ -798,12 +1130,19 @@ class DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Organized Business Management Modules List
   Widget _buildStructuredModulesList() {
     return Column(
       children: [
         _buildModuleCard(
-          title: 'ðŸ‘¥ Customers Directory',
+          title: 'Inventory Purchase & Vendors',
+          desc: 'Manage supplier purchases, vendor payments & stock orders',
+          icon: Icons.shopping_bag_rounded,
+          color: Colors.purple,
+          onTap: () => Navigator.pushNamed(context, AppRoutes.purchases),
+        ),
+        const SizedBox(height: 10),
+        _buildModuleCard(
+          title: 'Customers Directory',
           desc: 'Customer profiles, contact numbers & purchase/repair history',
           icon: Icons.people_alt_rounded,
           color: AppColors.primary,
@@ -811,7 +1150,7 @@ class DashboardScreenState extends State<DashboardScreen> {
         ),
         const SizedBox(height: 10),
         _buildModuleCard(
-          title: 'ðŸ›¡ï¸ Warranty & Rework Claims',
+          title: 'Warranty & Rework Claims',
           desc: 'Track device repair warranties & rework claims',
           icon: Icons.verified_user_rounded,
           color: AppColors.secondary,
@@ -819,7 +1158,7 @@ class DashboardScreenState extends State<DashboardScreen> {
         ),
         const SizedBox(height: 10),
         _buildModuleCard(
-          title: 'ðŸ“ˆ Reports & Business Analytics',
+          title: 'Reports & Business Analytics',
           desc: 'Sales reports, repair stats, expense summary & CSV exports',
           icon: Icons.analytics_rounded,
           color: AppColors.accent,
@@ -827,7 +1166,7 @@ class DashboardScreenState extends State<DashboardScreen> {
         ),
         const SizedBox(height: 10),
         _buildModuleCard(
-          title: 'ðŸ“± Device Models & IMEI Database',
+          title: 'Device Models & IMEI Database',
           desc: 'Search customer devices, IMEI numbers & models',
           icon: Icons.phone_android_rounded,
           color: AppColors.textSecondary,
@@ -845,8 +1184,6 @@ class DashboardScreenState extends State<DashboardScreen> {
     required VoidCallback onTap,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
-    final textMutedColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
 
     return CustomCard(
       onTap: onTap,
@@ -855,7 +1192,7 @@ class DashboardScreenState extends State<DashboardScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
             child: Icon(icon, color: color, size: 22),
           ),
           const SizedBox(width: 14),
@@ -863,59 +1200,82 @@ class DashboardScreenState extends State<DashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor)),
+                Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary)),
                 const SizedBox(height: 2),
-                Text(desc, style: TextStyle(fontSize: 11.5, color: textMutedColor)),
+                Text(desc, style: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextSecondary : AppColors.textMuted)),
               ],
             ),
           ),
-          Icon(Icons.arrow_forward_ios_rounded, size: 14, color: textMutedColor),
+          const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textMuted),
         ],
       ),
     );
   }
 
   Widget _buildAttentionCard(AttentionItem item) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final type = item.type;
+    final title = item.title;
+    final subtitle = item.subtitle;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
+    Color iconColor = AppColors.warning;
+    IconData iconData = Icons.warning_amber_rounded;
+
+    if (type == 'out_of_stock' || type == 'vendor_dues') {
+      iconColor = AppColors.error;
+      iconData = Icons.error_outline_rounded;
+    } else if (type == 'ready_repair') {
+      iconColor = AppColors.accent;
+      iconData = Icons.task_alt_rounded;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
       child: CustomCard(
-        onTap: () => _handleAttentionNavigation(item),
+        onTap: () => _handleAttentionTap(item),
         padding: const EdgeInsets.all(12),
-        backgroundColor: AppColors.warning.withOpacity(0.08),
         child: Row(
           children: [
-            const Icon(Icons.warning_rounded, color: AppColors.warning, size: 20),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: iconColor.withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
+              child: Icon(iconData, color: iconColor, size: 18),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textColor)),
-                  const SizedBox(height: 2),
-                  Text(item.subtitle, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                  Text(subtitle, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted, size: 20),
+            const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
           ],
         ),
       ),
     );
   }
 
-  void _handleAttentionNavigation(AttentionItem item) {
-    switch (item.actionRoute) {
-      case 'open_inventory':
+  void _handleAttentionTap(AttentionItem item) {
+    final route = item.actionRoute;
+    switch (route) {
+      case 'inventory':
         Navigator.pushNamed(context, AppRoutes.inventory);
         break;
-      case 'open_sales':
-        Navigator.pushNamed(context, AppRoutes.sales);
-        break;
+      case 'repairs':
       case 'open_repairs':
         Navigator.pushNamed(context, AppRoutes.repairs);
+        break;
+      case 'open_purchases':
+      case 'purchases':
+        Navigator.pushNamed(context, AppRoutes.purchases);
+        break;
+      case 'sales':
+        Navigator.pushNamed(context, AppRoutes.sales);
+        break;
+      case 'warranties':
+        Navigator.pushNamed(context, AppRoutes.warranties);
         break;
       default:
         break;
@@ -923,18 +1283,10 @@ class DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _showSubscriptionExpiryDialog(int daysRemaining) {
-    final bool isExpired = daysRemaining <= 0;
-    final Color mainColor = isExpired ? AppColors.error : AppColors.warning;
-    final Color bgLightColor = isExpired ? AppColors.errorLight : AppColors.warning.withOpacity(0.12);
-    final IconData iconData = isExpired ? Icons.error_outline_rounded : Icons.timer_outlined;
-    final String titleText = isExpired ? 'â° Subscription Expired!' : 'â° Subscription Expiring Soon!';
-    final String bodyText = isExpired
-        ? 'Your shop subscription plan has expired. Please renew your plan to create or edit records in your shop.'
-        : 'Only $daysRemaining days remaining on your active subscription plan! Please renew your plan now to continue uninterrupted access to sales billing, repair tracking, and profit intelligence.';
-
+    final isExpired = daysRemaining <= 0;
     showDialog(
       context: context,
-      barrierDismissible: true,
+      barrierDismissible: !isExpired,
       builder: (ctx) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Padding(
@@ -945,121 +1297,53 @@ class DashboardScreenState extends State<DashboardScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: bgLightColor,
+                  color: isExpired ? AppColors.errorLight : AppColors.warning.withOpacity(0.12),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(iconData, size: 40, color: mainColor),
+                child: Icon(
+                  isExpired ? Icons.error_outline_rounded : Icons.timer_outlined,
+                  color: isExpired ? AppColors.error : AppColors.warning,
+                  size: 36,
+                ),
               ),
               const SizedBox(height: 16),
               Text(
-                titleText,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                isExpired ? 'Subscription Expired!' : 'Subscription Expiring Soon!',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isExpired ? AppColors.error : AppColors.warning,
+                ),
               ),
               const SizedBox(height: 10),
               Text(
-                bodyText,
+                isExpired
+                    ? 'Your shop subscription plan has expired. Please renew your plan to create or edit records in your shop.'
+                    : 'Only $daysRemaining days remaining on your active subscription plan! Please renew your plan now to continue uninterrupted access to sales billing, repair tracking, and profit intelligence.',
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
+                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: mainColor,
+                    backgroundColor: isExpired ? AppColors.error : AppColors.warning,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   onPressed: () {
                     Navigator.pop(ctx);
                     Navigator.pushNamed(context, AppRoutes.subscription);
                   },
-                  icon: const Icon(Icons.rocket_launch_rounded, size: 20),
+                  icon: const Icon(Icons.star_rounded, size: 18),
                   label: const Text('Renew Plan Now', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                 ),
               ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(isExpired ? 'Dismiss' : 'Remind Me Later', style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
-              ),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildSubscriptionHighlightCard(int daysRemaining) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.warning, Color(0xFFEA580C)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.warning.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.alarm_rounded, color: Colors.white, size: 22),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'â° Subscription Expiring in $daysRemaining Days!',
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Renew your plan to keep shop billing, repairs & AI active without interruption.',
-                      style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.9)),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: AppColors.textPrimary,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              onPressed: () => Navigator.pushNamed(context, AppRoutes.subscription),
-              icon: const Icon(Icons.shopping_cart_checkout_rounded, size: 16),
-              label: const Text('Renew Plan Now', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-            ),
-          ),
-        ],
       ),
     );
   }

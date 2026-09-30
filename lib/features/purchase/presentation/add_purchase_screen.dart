@@ -1,3 +1,4 @@
+﻿import '../../../core/utils/date_helper.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/custom_button.dart';
@@ -611,8 +612,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                 elevation: 1.5,
                 child: ListTile(
                   title: const Text('Purchase Date', style: TextStyle(fontSize: 13, color: AppColors.textMuted)),
-                  subtitle: Text(
-                    _purchaseDate.toIso8601String().split('T')[0],
+                  subtitle: Text(DateHelper.formatDate(_purchaseDate.toIso8601String()),
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.textPrimary),
                   ),
                   trailing: const Icon(Icons.calendar_today_rounded, color: AppColors.primary),
@@ -924,3 +924,4 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     );
   }
 }
+
