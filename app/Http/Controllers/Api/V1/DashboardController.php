@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Expense;
 use App\Models\InventoryItem;
+use App\Models\Purchase;
 use App\Models\Repair;
 use App\Models\Shop;
 use App\Models\Sale;
@@ -39,7 +40,7 @@ class DashboardController extends Controller
             $endDate = $now->copy()->endOfWeek();
         } elseif ($period === 'last_month') {
             $startDate = $now->copy()->subMonth()->startOfMonth();
-            $endDate = $now->copy()->subMonth()->endOfMonth();
+            $endDate = $now->copy()->endOfMonth();
         } elseif ($period === 'custom' && $request->filled('start_date') && $request->filled('end_date')) {
             $startDate = Carbon::parse($request->input('start_date'))->startOfDay();
             $endDate = Carbon::parse($request->input('end_date'))->endOfDay();
@@ -94,13 +95,23 @@ class DashboardController extends Controller
             ->orderBy('total_amount', 'desc')
             ->first();
 
-        // 5. Expiring Warranties Count (within next 30 days)
+        // 5. Purchase Aggregations
+        $purchaseQuery = Purchase::forShop($shopId)->whereDate('purchase_date', '>=', $sDateStr)->whereDate('purchase_date', '<=', $eDateStr);
+        $totalPurchases = (float) (clone $purchaseQuery)->sum('grand_total');
+        $totalPurchasePaid = (float) (clone $purchaseQuery)->sum('amount_paid');
+        $totalPurchaseOutstanding = (float) (clone $purchaseQuery)->sum('outstanding_amount');
+        $totalPurchasesCount = (int) (clone $purchaseQuery)->count();
+
+        // Total Vendor Dues Across All Time
+        $allTimeVendorDues = (float) Purchase::forShop($shopId)->where('payment_status', '!=', 'paid')->sum('outstanding_amount');
+
+        // 6. Expiring Warranties Count (within next 30 days)
         $expiringWarrantiesCount = (int) Warranty::forShop($shopId)
             ->where('status', 'active')
             ->whereBetween('warranty_end_date', [$now->format('Y-m-d'), $now->copy()->addDays(30)->format('Y-m-d')])
             ->count();
 
-        // 6. Attention Items Generation
+        // 7. Attention Items Generation
         $attention = [];
         if ($outOfStockCount > 0) {
             $attention[] = [
@@ -135,10 +146,20 @@ class DashboardController extends Controller
         if ($allTimeDues > 0) {
             $attention[] = [
                 'type' => 'customer_dues',
-                'title' => "₹" . number_format($allTimeDues, 2) . " customer dues pending",
+                'title' => "Rs. " . number_format($allTimeDues, 2) . " customer dues pending",
                 'subtitle' => 'Collect unpaid balances on invoices',
                 'amount' => $allTimeDues,
                 'action_route' => 'sales',
+                'filter' => 'unpaid',
+            ];
+        }
+        if ($allTimeVendorDues > 0) {
+            $attention[] = [
+                'type' => 'vendor_dues',
+                'title' => "Rs. " . number_format($allTimeVendorDues, 2) . " vendor dues pending",
+                'subtitle' => 'Unpaid balance on purchases',
+                'amount' => $allTimeVendorDues,
+                'action_route' => 'purchases',
                 'filter' => 'unpaid',
             ];
         }
@@ -153,7 +174,7 @@ class DashboardController extends Controller
             ];
         }
 
-        // 7. Recent Activity Merged Stream
+        // 8. Recent Activity Merged Stream
         $recentActivities = [];
 
         // Recent Sales
@@ -161,11 +182,24 @@ class DashboardController extends Controller
         foreach ($recentSales as $sale) {
             $recentActivities[] = [
                 'type' => 'sale',
-                'title' => $sale->sale_type === 'quick' ? '⚡ Quick Sale' : "🧾 Invoice #{$sale->invoice_number}",
+                'title' => $sale->sale_type === 'quick' ? 'Quick Sale' : "Invoice #{$sale->invoice_number}",
                 'subtitle' => $sale->customer_name ?? ($sale->customer?->name ?? 'Walk-in Customer'),
                 'amount' => (float) $sale->grand_total,
                 'time' => $sale->created_at?->format('d M, h:i A') ?? $sale->sale_date->format('d M'),
                 'raw_time' => $sale->created_at?->toIso8601String() ?? $sDateStr,
+            ];
+        }
+
+        // Recent Purchases
+        $recentPurchases = Purchase::forShop($shopId)->with('vendor')->latest()->take(3)->get();
+        foreach ($recentPurchases as $p) {
+            $recentActivities[] = [
+                'type' => 'purchase',
+                'title' => "Purchase #{$p->purchase_number}",
+                'subtitle' => $p->vendor_name ?? ($p->vendor?->name ?? 'Vendor'),
+                'amount' => (float) $p->grand_total,
+                'time' => $p->created_at?->format('d M, h:i A') ?? $p->purchase_date->format('d M'),
+                'raw_time' => $p->created_at?->toIso8601String() ?? $sDateStr,
             ];
         }
 
@@ -177,7 +211,7 @@ class DashboardController extends Controller
                 : ($repair->customer?->name ?? 'Mobile Device');
             $recentActivities[] = [
                 'type' => 'repair',
-                'title' => "🔧 Repair #".($repair->job_number ?? $repair->id),
+                'title' => "Repair #".($repair->job_number ?? $repair->id),
                 'subtitle' => $deviceStr,
                 'amount' => (float) $repair->estimated_cost,
                 'time' => $repair->created_at?->format('d M, h:i A') ?? '',
@@ -190,7 +224,7 @@ class DashboardController extends Controller
         foreach ($recentExpenses as $exp) {
             $recentActivities[] = [
                 'type' => 'expense',
-                'title' => "💸 " . ($exp->category?->name ?? 'Expense'),
+                'title' => ($exp->category?->name ?? 'Expense'),
                 'subtitle' => $exp->title,
                 'amount' => (float) $exp->amount,
                 'time' => $exp->created_at?->format('d M, h:i A') ?? $exp->expense_date->format('d M'),
@@ -204,8 +238,8 @@ class DashboardController extends Controller
         });
         $recentActivities = array_slice($recentActivities, 0, 6);
 
-        // 8. Empty Shop Onboarding Check
-        $isEmptyShop = ($totalSalesCount === 0 && $totalRepairsCount === 0 && $totalItems === 0 && $totalExpensesSum === 0.0);
+        // 9. Empty Shop Onboarding Check
+        $isEmptyShop = ($totalSalesCount === 0 && $totalRepairsCount === 0 && $totalItems === 0 && $totalExpensesSum === 0.0 && $totalPurchasesCount === 0);
 
         $shopObj = Shop::find($shopId);
         $subObj = \App\Models\Subscription::where('shop_id', $shopId)->latest()->first();
@@ -218,6 +252,9 @@ class DashboardController extends Controller
         $shopNameVal = $shopObj ? $shopObj->name : "My Mobile Shop";
         $ownerNameVal = ($shopObj && $shopObj->user) ? $shopObj->user->name : ($user ? $user->name : "Shop Owner");
 
+        $netProfit = $totalSales - $totalPurchases - $totalExpensesSum;
+        $netCashRemaining = $totalCollected - $totalPurchasePaid - $totalExpensesSum;
+
         return response()->json([
             'success' => true,
             'period' => $period,
@@ -228,13 +265,23 @@ class DashboardController extends Controller
             'is_empty_shop' => $isEmptyShop,
             'shop_name' => $shopNameVal,
             'owner_name' => $ownerNameVal,
-                'days_remaining' => $daysRemainingVal,
-                'is_expiring_soon' => ($daysRemainingVal <= 10),
+            'days_remaining' => $daysRemainingVal,
+            'is_expiring_soon' => ($daysRemainingVal <= 10),
             'data' => [
                 'shop_name' => $shopNameVal,
                 'owner_name' => $ownerNameVal,
                 'days_remaining' => $daysRemainingVal,
                 'is_expiring_soon' => ($daysRemainingVal <= 10),
+                'financial_overview' => [
+                    'total_sales' => round($totalSales, 2),
+                    'total_purchases' => round($totalPurchases, 2),
+                    'total_expenses' => round($totalExpensesSum, 2),
+                    'net_profit' => round($netProfit, 2),
+                    'cash_collected' => round($totalCollected, 2),
+                    'cash_paid_purchases' => round($totalPurchasePaid, 2),
+                    'cash_paid_expenses' => round($totalExpensesSum, 2),
+                    'net_cash_remaining' => round($netCashRemaining, 2),
+                ],
                 'sales' => [
                     'total_sales' => round($totalSales, 2),
                     'total_collected' => round($totalCollected, 2),
@@ -243,6 +290,13 @@ class DashboardController extends Controller
                     'regular_sales_count' => $regularSalesCount,
                     'quick_sales_count' => $quickSalesCount,
                     'all_time_dues' => round($allTimeDues, 2),
+                ],
+                'purchases' => [
+                    'total_purchases' => round($totalPurchases, 2),
+                    'total_paid' => round($totalPurchasePaid, 2),
+                    'total_outstanding' => round($totalPurchaseOutstanding, 2),
+                    'total_count' => $totalPurchasesCount,
+                    'all_time_vendor_dues' => round($allTimeVendorDues, 2),
                 ],
                 'repairs' => [
                     'active_repairs_count' => $activeRepairsCount,

@@ -250,6 +250,9 @@ class AuthController extends Controller
             }
         }
 
+        // Revoke all previous tokens for this user to enforce single active device session
+        $user->tokens()->delete();
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return $this->successResponse([
