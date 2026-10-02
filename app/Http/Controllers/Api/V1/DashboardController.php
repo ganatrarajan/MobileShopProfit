@@ -16,6 +16,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class DashboardController extends Controller
 {
@@ -96,14 +97,20 @@ class DashboardController extends Controller
             ->first();
 
         // 5. Purchase Aggregations
-        $purchaseQuery = Purchase::forShop($shopId)->whereDate('purchase_date', '>=', $sDateStr)->whereDate('purchase_date', '<=', $eDateStr);
-        $totalPurchases = (float) (clone $purchaseQuery)->sum('grand_total');
-        $totalPurchasePaid = (float) (clone $purchaseQuery)->sum('amount_paid');
-        $totalPurchaseOutstanding = (float) (clone $purchaseQuery)->sum('outstanding_amount');
-        $totalPurchasesCount = (int) (clone $purchaseQuery)->count();
+        $totalPurchases = 0.0;
+        $totalPurchasePaid = 0.0;
+        $totalPurchaseOutstanding = 0.0;
+        $totalPurchasesCount = 0;
+        $allTimeVendorDues = 0.0;
 
-        // Total Vendor Dues Across All Time
-        $allTimeVendorDues = (float) Purchase::forShop($shopId)->where('payment_status', '!=', 'paid')->sum('outstanding_amount');
+        if (Schema::hasTable('purchases')) {
+            $purchaseQuery = Purchase::forShop($shopId)->whereDate('purchase_date', '>=', $sDateStr)->whereDate('purchase_date', '<=', $eDateStr);
+            $totalPurchases = (float) (clone $purchaseQuery)->sum('grand_total');
+            $totalPurchasePaid = (float) (clone $purchaseQuery)->sum('amount_paid');
+            $totalPurchaseOutstanding = (float) (clone $purchaseQuery)->sum('outstanding_amount');
+            $totalPurchasesCount = (int) (clone $purchaseQuery)->count();
+            $allTimeVendorDues = (float) Purchase::forShop($shopId)->where('payment_status', '!=', 'paid')->sum('outstanding_amount');
+        }
 
         // 6. Expiring Warranties Count (within next 30 days)
         $expiringWarrantiesCount = (int) Warranty::forShop($shopId)
@@ -191,16 +198,18 @@ class DashboardController extends Controller
         }
 
         // Recent Purchases
-        $recentPurchases = Purchase::forShop($shopId)->with('vendor')->latest()->take(3)->get();
-        foreach ($recentPurchases as $p) {
-            $recentActivities[] = [
-                'type' => 'purchase',
-                'title' => "Purchase #{$p->purchase_number}",
-                'subtitle' => $p->vendor_name ?? ($p->vendor?->name ?? 'Vendor'),
-                'amount' => (float) $p->grand_total,
-                'time' => $p->created_at?->format('d M, h:i A') ?? $p->purchase_date->format('d M'),
-                'raw_time' => $p->created_at?->toIso8601String() ?? $sDateStr,
-            ];
+        if (Schema::hasTable('purchases')) {
+            $recentPurchases = Purchase::forShop($shopId)->with('vendor')->latest()->take(3)->get();
+            foreach ($recentPurchases as $p) {
+                $recentActivities[] = [
+                    'type' => 'purchase',
+                    'title' => "Purchase #{$p->purchase_number}",
+                    'subtitle' => $p->vendor_name ?? ($p->vendor?->name ?? 'Vendor'),
+                    'amount' => (float) $p->grand_total,
+                    'time' => $p->created_at?->format('d M, h:i A') ?? $p->purchase_date->format('d M'),
+                    'raw_time' => $p->created_at?->toIso8601String() ?? $sDateStr,
+                ];
+            }
         }
 
         // Recent Repairs
