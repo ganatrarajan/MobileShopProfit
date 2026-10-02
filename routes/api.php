@@ -72,6 +72,7 @@ Route::prefix('v1')->group(function () {
     Route::get('/public/pages', [PublicPageApiController::class, 'index']);
     Route::get('/public/pages/{slug}', [PublicPageApiController::class, 'getPage']);
     Route::get('/public/settings', [PublicPageApiController::class, 'getSettings']);
+    Route::get('/public/app-version', [PublicPageApiController::class, 'getAppVersion']);
     Route::post('/public/delete-account-request', [PublicPageApiController::class, 'requestAccountDeletion']);
 
     // Public Razorpay Webhook Callback Endpoint
@@ -131,6 +132,8 @@ Route::prefix('v1')->group(function () {
         Route::put('/pages/{slug}', [AdminPageController::class, 'update']);
         Route::get('/system-settings', [AdminPageController::class, 'getSettings']);
         Route::post('/system-settings', [AdminPageController::class, 'saveSettings']);
+        Route::get('/app-version', [AdminPageController::class, 'getAppVersion']);
+        Route::post('/app-version', [AdminPageController::class, 'saveAppVersion']);
 
         // Admin Audit Action Logs
         Route::get('/audit-logs', [AdminAuditLogController::class, 'index']);

@@ -796,9 +796,9 @@
             } else if (['subscriptions', 'payments', 'plans', 'revenue', 'billing'].includes(route)) {
                 mainSection = 'billing';
                 subTab = subTab || (route === 'billing' ? 'subscriptions' : route);
-            } else if (['pages', 'gateway', 'support', 'audit', 'users', 'settings'].includes(route)) {
+            } else if (['pages', 'gateway', 'support', 'audit', 'users', 'version', 'settings'].includes(route)) {
                 mainSection = 'settings';
-                subTab = subTab || (route === 'settings' ? 'pages' : route);
+                subTab = subTab || (route === 'settings' ? 'version' : route);
             }
 
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -842,6 +842,7 @@
                 ]);
             } else if (mainSection === 'settings') {
                 renderSubNavBar('settings', subTab, [
+                    { id: 'version', label: '📱 App Force Update', fn: loadAppVersionView },
                     { id: 'pages', label: '📄 Legal Pages CMS', fn: loadPagesView },
                     { id: 'gateway', label: '⚙️ Gateway Settings', fn: loadGatewayView },
                     { id: 'support', label: '💬 Support Tickets', fn: loadSupportView },
@@ -2046,6 +2047,97 @@
                     ${renderPagination(pageData, 'loadAuditView', search, action)}
                 </div>
             `;
+        }
+
+        // 10.5 APP VERSION & FORCE UPDATE SETTINGS VIEW
+        async function loadAppVersionView() {
+            const content = getContentContainer();
+            content.innerHTML = '<div style="padding:20px; color:#64748b;">Loading app version settings...</div>';
+            const res = await apiFetch('/app-version');
+            if (!res || !res.success) return;
+            const v = res.data || {};
+
+            content.innerHTML = `
+                <div class="card-table" style="padding:24px; max-width:680px;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+                        <div>
+                            <h3 style="font-size:18px; font-weight:700; color:#0f172a;">📱 App Version & Force Update Configuration</h3>
+                            <p style="font-size:13px; color:#64748b; margin-top:2px;">Set minimum required version and toggle force update screen for mobile app users.</p>
+                        </div>
+                    </div>
+                    <div id="ver-alert" class="alert-error" style="display:none;"></div>
+                    <div id="ver-success" style="display:none; background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; padding:12px; border-radius:8px; margin-bottom:16px; font-size:14px; font-weight:500;"></div>
+                    <form onsubmit="saveAppVersionSettings(event)">
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                            <div class="form-group">
+                                <label style="font-weight:600;">Minimum Required Version</label>
+                                <input type="text" id="ver-min" class="form-control" placeholder="e.g. 1.0.4" value="${v.min_version || '1.0.0'}" required>
+                                <small style="color:#64748b; font-size:11px;">Apps below this version will be blocked with Force Update.</small>
+                            </div>
+                            <div class="form-group">
+                                <label style="font-weight:600;">Latest Available Version</label>
+                                <input type="text" id="ver-latest" class="form-control" placeholder="e.g. 1.0.5" value="${v.latest_version || '1.0.4'}" required>
+                                <small style="color:#64748b; font-size:11px;">Current newest app release version.</small>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-top:12px;">
+                            <label style="font-weight:600;">Force Update Mode</label>
+                            <select id="ver-force" class="form-control" style="font-weight:600;">
+                                <option value="1" ${v.force_update ? 'selected' : ''}>🚨 Enabled (Force Update Screen Active for outdated app versions)</option>
+                                <option value="0" ${!v.force_update ? 'selected' : ''}>✅ Disabled (Normal operation for all versions)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" style="margin-top:12px;">
+                            <label style="font-weight:600;">App Update / Download Link (Store URL or Direct APK)</label>
+                            <input type="text" id="ver-url" class="form-control" placeholder="https://play.google.com/store/apps/details?id=com.mobileshop.profit" value="${v.update_url || ''}">
+                            <small style="color:#64748b; font-size:11px;">Target link opened when user taps 'Update Now'.</small>
+                        </div>
+
+                        <div class="form-group" style="margin-top:12px;">
+                            <label style="font-weight:600;">Update Screen Title</label>
+                            <input type="text" id="ver-title" class="form-control" placeholder="Update Required" value="${v.update_title || 'Update Required'}">
+                        </div>
+
+                        <div class="form-group" style="margin-top:12px;">
+                            <label style="font-weight:600;">Update Description / Release Notes</label>
+                            <textarea id="ver-message" class="form-control" rows="3" placeholder="A critical update is available for Mobile Shop Profit. Please update your app to continue using all features smoothly.">${v.update_message || ''}</textarea>
+                        </div>
+
+                        <div style="margin-top:24px;">
+                            <button type="submit" class="btn-primary" style="width:100%; padding:12px; font-weight:600;">Save Version Settings</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+        }
+
+        async function saveAppVersionSettings(e) {
+            e.preventDefault();
+            const alertErr = document.getElementById('ver-alert');
+            const alertSucc = document.getElementById('ver-success');
+            alertErr.style.display = 'none';
+            alertSucc.style.display = 'none';
+
+            const body = {
+                min_version: document.getElementById('ver-min').value.trim(),
+                latest_version: document.getElementById('ver-latest').value.trim(),
+                force_update: document.getElementById('ver-force').value,
+                update_url: document.getElementById('ver-url').value.trim(),
+                update_title: document.getElementById('ver-title').value.trim(),
+                update_message: document.getElementById('ver-message').value.trim(),
+            };
+
+            const res = await apiFetch('/app-version', 'POST', body);
+            if (res && res.success) {
+                alertSucc.style.display = 'block';
+                alertSucc.innerText = res.message || 'Settings updated successfully!';
+                setTimeout(() => { alertSucc.style.display = 'none'; }, 4000);
+            } else {
+                alertErr.style.display = 'block';
+                alertErr.innerText = res.message || 'Failed to update settings';
+            }
         }
 
         // 11. WEBSITE & LEGAL PAGES CMS VIEW
