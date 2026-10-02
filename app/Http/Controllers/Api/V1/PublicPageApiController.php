@@ -119,4 +119,28 @@ class PublicPageApiController extends Controller
             'message' => 'Your account deletion request has been registered. Our support team will process your request within 7 business days.',
         ]);
     }
+
+    /**
+     * Get App Version Config for Mobile App Verification
+     * GET /api/v1/public/app-version
+     */
+    public function getAppVersion()
+    {
+        $versionData = Cache::remember('public_app_version', 3600, function () {
+            $settings = SystemSetting::getAllAsMap();
+            return [
+                'min_version'    => $settings['app_min_version'] ?? '1.0.0',
+                'latest_version' => $settings['app_latest_version'] ?? '1.0.4',
+                'force_update'   => filter_var($settings['app_force_update'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                'update_url'     => $settings['app_update_url'] ?? 'https://play.google.com/store/apps',
+                'update_title'   => $settings['app_update_title'] ?? 'Update Required',
+                'update_message' => $settings['app_update_message'] ?? 'A critical update is available. Please update your app to continue using Mobile Shop Profit.',
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data'    => $versionData,
+        ]);
+    }
 }

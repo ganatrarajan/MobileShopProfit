@@ -14,8 +14,8 @@ class StoreWarrantyRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'customer_id' => ['required', 'integer', 'exists:customers,id'],
-            'device_id' => ['required', 'integer', 'exists:devices,id'],
+            'customer_id' => ['nullable', 'integer', 'exists:customers,id'],
+            'device_id' => ['nullable', 'integer', 'exists:devices,id'],
             'sale_id' => ['nullable', 'integer', 'exists:sales,id'],
             'repair_id' => ['nullable', 'integer', 'exists:repairs,id'],
             'warranty_type' => ['required', 'string', 'in:sale,repair'],

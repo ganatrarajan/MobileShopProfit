@@ -41,6 +41,11 @@ use App\Http\Controllers\Api\V1\TechnicianController;
 use App\Http\Controllers\Api\V1\TechnicianPaymentController;
 use App\Http\Controllers\Api\V1\WarrantyClaimController;
 use App\Http\Controllers\Api\V1\WarrantyController;
+use App\Http\Controllers\Api\V1\Admin\AdminVendorController;
+use App\Http\Controllers\Api\V1\Admin\AdminPurchaseController;
+use App\Http\Controllers\Api\V1\VendorController;
+use App\Http\Controllers\Api\V1\PurchaseController;
+use App\Http\Controllers\Api\V1\PurchasePaymentController;
 use App\Http\Controllers\Api\V1\WebhookController;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\EnsureShopIsActive;
@@ -67,6 +72,7 @@ Route::prefix('v1')->group(function () {
     Route::get('/public/pages', [PublicPageApiController::class, 'index']);
     Route::get('/public/pages/{slug}', [PublicPageApiController::class, 'getPage']);
     Route::get('/public/settings', [PublicPageApiController::class, 'getSettings']);
+    Route::get('/public/app-version', [PublicPageApiController::class, 'getAppVersion']);
     Route::post('/public/delete-account-request', [PublicPageApiController::class, 'requestAccountDeletion']);
 
     // Public Razorpay Webhook Callback Endpoint
@@ -126,6 +132,8 @@ Route::prefix('v1')->group(function () {
         Route::put('/pages/{slug}', [AdminPageController::class, 'update']);
         Route::get('/system-settings', [AdminPageController::class, 'getSettings']);
         Route::post('/system-settings', [AdminPageController::class, 'saveSettings']);
+        Route::get('/app-version', [AdminPageController::class, 'getAppVersion']);
+        Route::post('/app-version', [AdminPageController::class, 'saveAppVersion']);
 
         // Admin Audit Action Logs
         Route::get('/audit-logs', [AdminAuditLogController::class, 'index']);
@@ -142,6 +150,9 @@ Route::prefix('v1')->group(function () {
         Route::get('/expenses', [AdminExpenseController::class, 'index']);
         Route::get('/warranties', [AdminWarrantyController::class, 'index']);
         Route::get('/technicians', [AdminTechnicianController::class, 'index']);
+        Route::get('/vendors', [AdminVendorController::class, 'index']);
+        Route::get('/purchases', [AdminPurchaseController::class, 'index']);
+        Route::get('/purchases/{id}', [AdminPurchaseController::class, 'show']);
 
         // Admin Platform Business Intelligence Reports
         Route::get('/reports/summary', [AdminReportController::class, 'summary']);
@@ -149,8 +160,14 @@ Route::prefix('v1')->group(function () {
 
     // Authentication Routes (Public & Rate Limited)
     Route::post('/auth/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
+    Route::post('/auth/register/send-otp', [AuthController::class, 'sendRegisterOtp'])->middleware('throttle:10,1');
+    Route::post('/auth/register/verify-otp', [AuthController::class, 'verifyRegisterOtp'])->middleware('throttle:10,1');
+    Route::post('/auth/register/resend-otp', [AuthController::class, 'resendRegisterOtp'])->middleware('throttle:10,1');
     Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
     Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:10,1');
+    Route::post('/auth/forgot-password/send-otp', [AuthController::class, 'sendForgotPasswordOtp'])->middleware('throttle:10,1');
+    Route::post('/auth/forgot-password/verify-otp', [AuthController::class, 'verifyForgotPasswordOtp'])->middleware('throttle:10,1');
+    Route::post('/auth/forgot-password/reset-with-otp', [AuthController::class, 'resetPasswordWithOtp'])->middleware('throttle:10,1');
     Route::post('/auth/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:10,1');
 
     // Protected Shop Owner Routes (Sanctum Auth)
@@ -160,6 +177,9 @@ Route::prefix('v1')->group(function () {
 
         // Auth User Profile & Password Change
         Route::get('/auth/me', [AuthController::class, 'me']);
+        Route::post('/auth/update-profile', [AuthController::class, 'updateProfile']);
+        Route::post('/auth/profile/send-otp', [AuthController::class, 'sendProfileUpdateOtp'])->middleware('throttle:10,1');
+        Route::post('/auth/profile/verify-otp', [AuthController::class, 'verifyProfileUpdateOtp'])->middleware('throttle:10,1');
         Route::post('/auth/change-password', [AuthController::class, 'changePassword']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
 
@@ -209,12 +229,24 @@ Route::prefix('v1')->group(function () {
 
         // Warranties Module
         Route::apiResource('warranties', WarrantyController::class);
+        Route::match(['delete', 'post'], '/warranties/{warranty}/delete', [WarrantyController::class, 'destroy']);
+        Route::match(['delete', 'post'], '/warranties/{warranty}', [WarrantyController::class, 'destroy']);
         Route::get('/warranties/{warranty}/claims', [WarrantyClaimController::class, 'index']);
         Route::post('/warranties/{warranty}/claims', [WarrantyClaimController::class, 'store']);
         Route::apiResource('warranty-claims', WarrantyClaimController::class);
 
         // Inventory Module
+        Route::post('/inventory/{id}/stock', [InventoryItemController::class, 'addStock']);
+        Route::post('/inventory/{id}/adjustment', [InventoryItemController::class, 'adjustStock']);
+        Route::get('/inventory/{id}/movements', [InventoryItemController::class, 'movements']);
         Route::apiResource('inventory', InventoryItemController::class);
+
+        // Purchase & Vendor Module
+        Route::apiResource('vendors', VendorController::class);
+        Route::post('/vendors/{vendor}/payments', [PurchasePaymentController::class, 'storeForVendor']);
+        Route::post('/purchases/{purchase}/add-stock', [PurchaseController::class, 'addStock']);
+        Route::post('/purchases/{purchase}/payments', [PurchasePaymentController::class, 'store']);
+        Route::apiResource('purchases', PurchaseController::class);
 
         // Expense Management
         Route::apiResource('expense-categories', ExpenseCategoryController::class);

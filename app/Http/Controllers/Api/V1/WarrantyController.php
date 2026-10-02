@@ -31,9 +31,13 @@ class WarrantyController extends Controller
             ], 403);
         }
 
-        $query = Warranty::withTrashed()->forShop($user->shop_id)
+        $query = Warranty::forShop($user->shop_id)
+            ->whereNull('warranties.deleted_at')
             ->with(['customer', 'device', 'sale', 'repair', 'creator'])
             ->withCount('claims');
+        if ($request->boolean('with_trashed')) {
+            $query->withTrashed();
+        }
 
         if ($request->filled('search')) {
             $search = $request->input('search');
@@ -63,6 +67,14 @@ class WarrantyController extends Controller
 
         if ($request->filled('device_id')) {
             $query->where('device_id', $request->input('device_id'));
+        }
+
+        if ($request->filled('sale_id')) {
+            $query->where('sale_id', $request->input('sale_id'));
+        }
+
+        if ($request->filled('repair_id')) {
+            $query->where('repair_id', $request->input('repair_id'));
         }
 
         $warranties = $query->orderBy('id', 'desc')->get();
@@ -108,24 +120,30 @@ class WarrantyController extends Controller
 
         $validated = $request->validated();
 
-        // Validate customer & device ownership
-        $customer = Customer::where('shop_id', $user->shop_id)->find($validated['customer_id']);
-        if (!$customer) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Selected customer does not belong to your shop.',
-            ], 422);
+        // Validate customer & device ownership if provided
+        if (!empty($validated['customer_id'])) {
+            $customer = Customer::where('shop_id', $user->shop_id)->find($validated['customer_id']);
+            if (!$customer) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Selected customer does not belong to your shop.',
+                ], 422);
+            }
         }
 
-        $device = Device::where('shop_id', $user->shop_id)
-            ->where('customer_id', $customer->id)
-            ->find($validated['device_id']);
+        if (!empty($validated['device_id'])) {
+            $deviceQuery = Device::where('shop_id', $user->shop_id);
+            if (!empty($validated['customer_id'])) {
+                $deviceQuery->where('customer_id', $validated['customer_id']);
+            }
+            $device = $deviceQuery->find($validated['device_id']);
 
-        if (!$device) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Selected device does not belong to this customer or shop.',
-            ], 422);
+            if (!$device) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Selected device does not belong to your shop.',
+                ], 422);
+            }
         }
 
         if (!empty($validated['sale_id'])) {
@@ -162,8 +180,8 @@ class WarrantyController extends Controller
 
                 $warranty = Warranty::create([
                     'shop_id' => $user->shop_id,
-                    'customer_id' => $validated['customer_id'],
-                    'device_id' => $validated['device_id'],
+                    'customer_id' => $validated['customer_id'] ?? null,
+                    'device_id' => $validated['device_id'] ?? null,
                     'sale_id' => $validated['sale_id'] ?? null,
                     'repair_id' => $validated['repair_id'] ?? null,
                     'warranty_number' => $warrantyNumber,
@@ -194,16 +212,29 @@ class WarrantyController extends Controller
     }
 
     /**
+     * Resolve warranty ID whether passed as model instance or scalar ID.
+     */
+    private function resolveWarrantyId(mixed $warranty): int
+    {
+        if ($warranty instanceof Warranty) {
+            return (int) $warranty->id;
+        }
+        return (int) $warranty;
+    }
+
+    /**
      * Display details of a specific warranty.
      */
-    public function show(Request $request, int $id): JsonResponse
+    public function show(Request $request, mixed $warranty): JsonResponse
     {
         $user = $request->user();
-        $warranty = Warranty::withTrashed()->forShop($user->shop_id)
+        $id = $this->resolveWarrantyId($warranty);
+        $query = Warranty::forShop($user->shop_id);
+        $warrantyRecord = $query
             ->with(['customer', 'device', 'sale', 'repair', 'claims.creator', 'creator'])
             ->find($id);
 
-        if (!$warranty) {
+        if (!$warrantyRecord) {
             return response()->json([
                 'success' => false,
                 'message' => 'Warranty record not found or unauthorized.',
@@ -212,19 +243,21 @@ class WarrantyController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => new WarrantyResource($warranty),
+            'data' => new WarrantyResource($warrantyRecord),
         ]);
     }
 
     /**
      * Update warranty details.
      */
-    public function update(UpdateWarrantyRequest $request, int $id): JsonResponse
+    public function update(UpdateWarrantyRequest $request, mixed $warranty): JsonResponse
     {
         $user = $request->user();
-        $warranty = Warranty::withTrashed()->forShop($user->shop_id)->find($id);
+        $id = $this->resolveWarrantyId($warranty);
+        $query = Warranty::forShop($user->shop_id);
+        $warrantyRecord = $query->find($id);
 
-        if (!$warranty) {
+        if (!$warrantyRecord) {
             return response()->json([
                 'success' => false,
                 'message' => 'Warranty record not found or unauthorized.',
@@ -248,11 +281,11 @@ class WarrantyController extends Controller
 
         $startDate = isset($validated['warranty_start_date'])
             ? Carbon::parse($validated['warranty_start_date'])
-            : Carbon::parse($warranty->warranty_start_date);
+            : Carbon::parse($warrantyRecord->warranty_start_date);
 
         $durationDays = isset($validated['duration_days'])
             ? (int) $validated['duration_days']
-            : (int) $warranty->duration_days;
+            : (int) $warrantyRecord->duration_days;
 
         if (isset($validated['warranty_start_date']) || isset($validated['duration_days'])) {
             $updateData['warranty_start_date'] = $startDate->toDateString();
@@ -260,34 +293,33 @@ class WarrantyController extends Controller
             $updateData['warranty_end_date'] = (clone $startDate)->addDays($durationDays)->toDateString();
         }
 
-        $warranty->update($updateData);
+        $warrantyRecord->update($updateData);
 
         return response()->json([
             'success' => true,
             'message' => 'Warranty updated successfully.',
-            'data' => new WarrantyResource($warranty->load(['customer', 'device', 'sale', 'repair', 'claims', 'creator'])),
+            'data' => new WarrantyResource($warrantyRecord->load(['customer', 'device', 'sale', 'repair', 'claims', 'creator'])),
         ]);
     }
 
     /**
      * Delete warranty record.
      */
-    public function destroy(Request $request, int $id): JsonResponse
+    public function destroy(Request $request, mixed $warranty): JsonResponse
     {
         $user = $request->user();
-        $warranty = Warranty::withTrashed()->forShop($user->shop_id)->find($id);
+        $id = $this->resolveWarrantyId($warranty);
+        $warrantyRecord = Warranty::forShop($user->shop_id)->find($id);
 
-        if (!$warranty) {
+        if (!$warrantyRecord) {
             return response()->json([
                 'success' => false,
                 'message' => 'Warranty record not found or unauthorized.',
             ], 404);
         }
 
-        DB::transaction(function () use ($warranty) {
-            $warranty->claims()->delete();
-            $warranty->delete();
-        });
+        $warrantyRecord->claims()->delete();
+        $warrantyRecord->delete();
 
         return response()->json([
             'success' => true,

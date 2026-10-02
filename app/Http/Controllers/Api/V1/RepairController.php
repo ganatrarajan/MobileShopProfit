@@ -31,7 +31,7 @@ class RepairController extends Controller
         }
 
         $query = Repair::forShop($user->shop_id)
-            ->with(['customer', 'device', 'technician', 'parts', 'payments', 'creator']);
+            ->with(['customer', 'device', 'technician', 'parts', 'payments', 'creator', 'warranty']);
 
         if ($request->filled('technician_id')) {
             $query->where('technician_id', $request->input('technician_id'));
@@ -239,7 +239,7 @@ class RepairController extends Controller
                     }
                 }
 
-                return $repair->load(['customer', 'device', 'technician', 'parts', 'payments', 'creator']);
+                return $repair->load(['customer', 'device', 'technician', 'parts', 'payments', 'creator', 'warranty']);
             });
 
             return response()->json([
@@ -262,7 +262,7 @@ class RepairController extends Controller
     {
         $user = $request->user();
         $repair = Repair::forShop($user->shop_id)
-            ->with(['customer', 'device', 'technician', 'parts', 'payments.creator', 'creator'])
+            ->with(['customer', 'device', 'technician', 'parts', 'payments.creator', 'creator', 'warranty'])
             ->find($id);
 
         if (!$repair) {
@@ -351,25 +351,34 @@ class RepairController extends Controller
         ]);
     }
 
+    private function resolveRepairId(mixed $repair): int
+    {
+        if ($repair instanceof Repair) {
+            return (int) $repair->id;
+        }
+        return (int) $repair;
+    }
+
     /**
      * Delete repair job card.
      */
-    public function destroy(Request $request, int $id): JsonResponse
+    public function destroy(Request $request, mixed $repair): JsonResponse
     {
         $user = $request->user();
-        $repair = Repair::forShop($user->shop_id)->find($id);
+        $id = $this->resolveRepairId($repair);
+        $repairRecord = Repair::forShop($user->shop_id)->find($id);
 
-        if (!$repair) {
+        if (!$repairRecord) {
             return response()->json([
                 'success' => false,
                 'message' => 'Repair job card not found or unauthorized.',
             ], 404);
         }
 
-        DB::transaction(function () use ($repair) {
-            $repair->parts()->delete();
-            $repair->payments()->delete();
-            $repair->delete();
+        DB::transaction(function () use ($repairRecord) {
+            $repairRecord->parts()->delete();
+            $repairRecord->payments()->delete();
+            $repairRecord->delete();
         });
 
         return response()->json([

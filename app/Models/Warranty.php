@@ -110,4 +110,11 @@ class Warranty extends Model
         $endDate = Carbon::parse($this->warranty_end_date)->startOfDay();
         return (int) $today->diffInDays($endDate, false);
     }
+
+    protected static function booted(): void
+    {
+        static::deleting(function ($warranty) {
+            $warranty->claims()->delete();
+        });
+    }
 }

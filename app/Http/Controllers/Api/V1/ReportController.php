@@ -539,7 +539,9 @@ class ReportController extends Controller
         $shopId = $user->shop_id ?? $user->shop->id ?? null;
         [$start, $end, $period] = $this->resolveDateRange($request);
 
-        $query = Warranty::where('shop_id', $shopId)->whereBetween('created_at', [$start, $end]);
+        $query = Warranty::where('shop_id', $shopId)
+            ->whereNull('warranties.deleted_at')
+            ->whereBetween('created_at', [$start, $end]);
 
         $totalWarranties = (int) (clone $query)->count();
         $activeWarranties = (int) (clone $query)->where('status', 'active')->count();

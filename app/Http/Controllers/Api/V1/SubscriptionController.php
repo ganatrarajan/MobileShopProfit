@@ -29,7 +29,7 @@ class SubscriptionController extends Controller
         $shopCreated = $shop ? $shop->created_at : ($user->created_at ?? now());
 
         $config = PaymentGatewayConfig::where('gateway_name', 'Razorpay')->first();
-        $trialDays = 90; // Default 90 days free trial from shop creation
+        $trialDays = 30; // Default 30 days free trial from shop creation
 
         $subscription = Subscription::with('plan')
             ->where('shop_id', $user->shop_id)
@@ -38,7 +38,7 @@ class SubscriptionController extends Controller
 
         $now = now();
 
-        // Enforce trial period start = shop creation date, expiry = shop creation date + 90 days
+        // Enforce trial period start = shop creation date, expiry = shop creation date + 30 days
         if (!$subscription || $subscription->status === 'trial') {
             $startDate = Carbon::parse($shopCreated);
             $expiryDate = $startDate->copy()->addDays($trialDays);

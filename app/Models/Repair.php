@@ -107,6 +107,16 @@ class Repair extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function warranty(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Warranty::class)->whereNull('warranties.deleted_at')->latestOfMany();
+    }
+
+    public function warranties(): HasMany
+    {
+        return $this->hasMany(Warranty::class)->whereNull('warranties.deleted_at');
+    }
+
     public function getTechnicianPayableAttribute(): float
     {
         $earning = (float) $this->technician_earning;
@@ -152,5 +162,14 @@ class Repair extends Model
             'amount_due' => $due,
             'technician_paid_amount' => $techPaid,
         ]);
+    }
+
+    protected static function booted(): void
+    {
+        static::deleting(function ($repair) {
+            foreach ($repair->warranties()->get() as $warranty) {
+                $warranty->delete();
+            }
+        });
     }
 }

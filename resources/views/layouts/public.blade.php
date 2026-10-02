@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', 'Mobile Profits — All-in-One Mobile Shop & Repair Management')</title>
-    <meta name="description" content="@yield('meta_description', 'Mobile Profits is the complete SaaS solution for mobile shop owners, offering Inventory, Invoicing, Repairs, Warranty Tracking, Technician Payouts, and Profit Intelligence.')">
+    <title>@yield('title', 'RepairHub — All-in-One Mobile Shop & Repair Management')</title>
+    <meta name="description" content="@yield('meta_description', 'RepairHub is the complete SaaS solution for mobile shop owners, offering Inventory, Invoicing, Repairs, Warranty Tracking, Technician Payouts, and Profit Intelligence.')">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -48,13 +49,9 @@
     <header class="sticky top-0 z-50 glass-header">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
             <a href="{{ route('home') }}" class="flex items-center gap-3 group">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-emerald-400 p-0.5 shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform">
-                    <div class="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
-                        <svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                    </div>
-                </div>
+                <img src="/logo.png" alt="RepairHub Logo" class="w-10 h-10 rounded-xl shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform object-cover">
                 <div>
-                    <span class="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-100 to-indigo-200 bg-clip-text text-transparent">Mobile Profits</span>
+                    <span class="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-100 to-indigo-200 bg-clip-text text-transparent">RepairHub</span>
                     <span class="block text-[10px] uppercase tracking-widest text-indigo-400 font-bold -mt-1">Shop SaaS Platform</span>
                 </div>
             </a>
@@ -69,7 +66,6 @@
 
             <!-- CTA Buttons & Mobile Toggle -->
             <div class="flex items-center gap-3">
-                <a href="/admin_login" class="hidden sm:inline-flex text-sm font-semibold text-slate-300 hover:text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition-all">Admin Portal</a>
                 <a href="{{ route('home') }}#download" class="inline-flex items-center justify-center px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl font-semibold text-xs sm:text-sm text-white bg-gradient-to-r from-indigo-600 to-emerald-500 hover:from-indigo-500 hover:to-emerald-400 shadow-lg shadow-indigo-500/25 transition-all">
                     Download App
                 </a>
@@ -85,7 +81,6 @@
             <a href="{{ route('home') }}#features" class="block hover:text-indigo-400">Features</a>
             <a href="{{ route('home') }}#pricing" class="block hover:text-indigo-400">Pricing</a>
             <a href="{{ route('contact') }}" class="block hover:text-indigo-400">Contact Support</a>
-            <a href="/admin_login" class="block text-indigo-400 font-semibold pt-2 border-t border-slate-800">Admin Portal Log In</a>
         </div>
     </header>
 

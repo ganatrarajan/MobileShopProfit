@@ -47,4 +47,21 @@ class Device extends Model
     {
         return $this->belongsTo(Customer::class);
     }
+
+    /**
+     * Get the warranties belonging to the device.
+     */
+    public function warranties(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Warranty::class)->whereNull('warranties.deleted_at');
+    }
+
+    protected static function booted(): void
+    {
+        static::deleting(function ($device) {
+            foreach ($device->warranties()->get() as $warranty) {
+                $warranty->delete();
+            }
+        });
+    }
 }

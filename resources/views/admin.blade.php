@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mobile Profits — Admin Panel</title>
+    <title>RepairHub — Admin Panel</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -606,7 +607,8 @@
     <div id="auth-screen">
         <div class="login-card">
             <div class="login-header">
-                <h2>Mobile Profits SaaS</h2>
+                <img src="/logo.png" alt="RepairHub Logo" style="height: 64px; width: 64px; margin: 0 auto 12px auto; display: block; border-radius: 14px; box-shadow: 0 4px 14px rgba(0,0,0,0.18);">
+                <h2>RepairHub Admin</h2>
                 <p>Platform Administrator Sign In</p>
             </div>
             <div id="login-alert" class="alert-error"></div>
@@ -631,7 +633,10 @@
     <div id="app-layout" style="display: none;">
         <aside class="sidebar">
             <div class="sidebar-brand">
-                <div>📱 <span>Mobile Profits</span></div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <img src="/logo.png" alt="RepairHub Logo" style="width:34px; height:34px; border-radius:8px; object-fit:cover;">
+                    <span style="font-weight:800; font-size:18px; letter-spacing:-0.5px; color:#ffffff;">Repair<span style="color:#60a5fa;">Hub</span></span>
+                </div>
                 <button class="sidebar-close-btn" onclick="toggleMobileSidebar()">✕</button>
             </div>
             <ul class="sidebar-menu">
@@ -785,15 +790,15 @@
 
             // Map individual sub-routes to 6 main sidebar sections
             let mainSection = route;
-            if (['sales', 'repairs', 'customers', 'inventory', 'expenses', 'warranties', 'technicians', 'operations'].includes(route)) {
+            if (['sales', 'repairs', 'customers', 'inventory', 'expenses', 'warranties', 'technicians', 'purchases', 'vendors', 'operations'].includes(route)) {
                 mainSection = 'operations';
                 subTab = subTab || (route === 'operations' ? 'sales' : route);
             } else if (['subscriptions', 'payments', 'plans', 'revenue', 'billing'].includes(route)) {
                 mainSection = 'billing';
                 subTab = subTab || (route === 'billing' ? 'subscriptions' : route);
-            } else if (['pages', 'gateway', 'support', 'audit', 'users', 'settings'].includes(route)) {
+            } else if (['pages', 'gateway', 'support', 'audit', 'users', 'version', 'settings'].includes(route)) {
                 mainSection = 'settings';
-                subTab = subTab || (route === 'settings' ? 'pages' : route);
+                subTab = subTab || (route === 'settings' ? 'version' : route);
             }
 
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -822,6 +827,8 @@
                     { id: 'repairs', label: '🔧 Repair Jobs', fn: loadRepairsView },
                     { id: 'customers', label: '👥 Customer Directory', fn: loadCustomersView },
                     { id: 'inventory', label: '📦 Inventory Stock', fn: loadInventoryView },
+                    { id: 'purchases', label: '🛍️ Purchases', fn: loadPurchasesView },
+                    { id: 'vendors', label: '🏬 Vendors', fn: loadVendorsView },
                     { id: 'expenses', label: '💸 Shop Expenses', fn: loadExpensesView },
                     { id: 'warranties', label: '🛡️ Warranties', fn: loadWarrantiesView },
                     { id: 'technicians', label: '🧰 Technicians', fn: loadTechniciansView },
@@ -835,6 +842,7 @@
                 ]);
             } else if (mainSection === 'settings') {
                 renderSubNavBar('settings', subTab, [
+                    { id: 'version', label: '📱 App Force Update', fn: loadAppVersionView },
                     { id: 'pages', label: '📄 Legal Pages CMS', fn: loadPagesView },
                     { id: 'gateway', label: '⚙️ Gateway Settings', fn: loadGatewayView },
                     { id: 'support', label: '💬 Support Tickets', fn: loadSupportView },
@@ -1492,6 +1500,130 @@
             `;
         }
 
+        // PURCHASES VIEW (Admin Data Hub)
+        async function loadPurchasesView(page = 1, search = '', paymentStatus = '', shopId = '') {
+            const content = getContentContainer();
+            const shopOptions = await getShopsDropdownOptions(shopId);
+            const data = await apiFetch(`/purchases?page=${page}&search=${encodeURIComponent(search)}&payment_status=${paymentStatus}&shop_id=${shopId}`);
+            if (!data || !data.success) return;
+            const pageData = data.data;
+            const purchases = pageData.data || [];
+
+            content.innerHTML = `
+                <div class="card-table">
+                    <div class="table-toolbar">
+                        <div style="display:flex; gap:10px; flex:1; min-width:280px;">
+                            <div class="search-box" style="flex:1;">
+                                <input type="text" id="purchases-search-input" placeholder="Search purchase #, vendor name..." value="${search}" oninput="debounceSearch(() => loadPurchasesView(1, document.getElementById('purchases-search-input').value, '${paymentStatus}', '${shopId}'))">
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                            <select class="filter-select" onchange="loadPurchasesView(1, '${search}', this.value, '${shopId}')">
+                                <option value="">Payment Status: All</option>
+                                <option value="paid" ${paymentStatus === 'paid' ? 'selected' : ''}>Paid</option>
+                                <option value="partial" ${paymentStatus === 'partial' ? 'selected' : ''}>Partial</option>
+                                <option value="pending" ${paymentStatus === 'pending' ? 'selected' : ''}>Pending</option>
+                            </select>
+                            <select class="filter-select" onchange="loadPurchasesView(1, '${search}', '${paymentStatus}', this.value)">
+                                ${shopOptions}
+                            </select>
+                            ${(search || paymentStatus || shopId) ? `<button class="btn-sm" style="background:#e2e8f0; color:#334155;" onclick="loadPurchasesView(1, '', '', '')">Clear Filters</button>` : ''}
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Purchase #</th>
+                                <th>Vendor</th>
+                                <th>Shop</th>
+                                <th>Date</th>
+                                <th>Grand Total</th>
+                                <th>Paid</th>
+                                <th>Outstanding</th>
+                                <th>Status</th>
+                                <th>Stock Added</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${purchases.length === 0 ? `<tr><td colspan="9" style="text-align:center; padding:30px; color:#94a3b8;">No purchase records found matching filter criteria.</td></tr>` : ''}
+                            ${purchases.map(p => `
+                                <tr>
+                                    <td><strong>${p.purchase_number}</strong></td>
+                                    <td>${p.vendor_name}</td>
+                                    <td>${p.vendor && p.vendor.shop ? p.vendor.shop.name : 'Shop'}</td>
+                                    <td>${p.purchase_date}</td>
+                                    <td>₹${parseFloat(p.grand_total).toFixed(2)}</td>
+                                    <td>₹${parseFloat(p.amount_paid).toFixed(2)}</td>
+                                    <td><strong style="color:${p.outstanding_amount > 0 ? '#dc2626' : '#16a34a'};">₹${parseFloat(p.outstanding_amount).toFixed(2)}</strong></td>
+                                    <td><span class="badge ${p.payment_status === 'paid' ? 'badge-active' : (p.payment_status === 'partial' ? 'badge-trial' : 'badge-inactive')}">${p.payment_status.toUpperCase()}</span></td>
+                                    <td>${p.is_stock_added ? '<span style="color:#16a34a; font-weight:600;">✓ Added</span>' : '<span style="color:#94a3b8;">Pending</span>'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    </div>
+                    ${renderPagination(pageData, 'loadPurchasesView', search, paymentStatus, shopId)}
+                </div>
+            `;
+        }
+
+        // VENDORS VIEW (Admin Data Hub)
+        async function loadVendorsView(page = 1, search = '', shopId = '') {
+            const content = getContentContainer();
+            const shopOptions = await getShopsDropdownOptions(shopId);
+            const data = await apiFetch(`/vendors?page=${page}&search=${encodeURIComponent(search)}&shop_id=${shopId}`);
+            if (!data || !data.success) return;
+            const pageData = data.data;
+            const vendors = pageData.data || [];
+
+            content.innerHTML = `
+                <div class="card-table">
+                    <div class="table-toolbar">
+                        <div style="display:flex; gap:10px; flex:1; min-width:280px;">
+                            <div class="search-box" style="flex:1;">
+                                <input type="text" id="vendors-search-input" placeholder="Search vendor name, phone, email, GST..." value="${search}" oninput="debounceSearch(() => loadVendorsView(1, document.getElementById('vendors-search-input').value, '${shopId}'))">
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                            <select class="filter-select" onchange="loadVendorsView(1, '${search}', this.value)">
+                                ${shopOptions}
+                            </select>
+                            ${(search || shopId) ? `<button class="btn-sm" style="background:#e2e8f0; color:#334155;" onclick="loadVendorsView(1, '', '')">Clear Filters</button>` : ''}
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Vendor Name</th>
+                                <th>Contact Mobile</th>
+                                <th>Email / GST</th>
+                                <th>Total Purchases</th>
+                                <th>Total Paid</th>
+                                <th>Outstanding</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${vendors.length === 0 ? `<tr><td colspan="6" style="text-align:center; padding:30px; color:#94a3b8;">No vendor suppliers found matching filter criteria.</td></tr>` : ''}
+                            ${vendors.map(v => `
+                                <tr>
+                                    <td><strong>${v.name}</strong></td>
+                                    <td>${v.phone}</td>
+                                    <td>${v.email || 'N/A'} ${v.gst_number ? `<br><small style="color:#64748b;">GST: ${v.gst_number}</small>` : ''}</td>
+                                    <td>₹${parseFloat(v.total_purchase).toFixed(2)}</td>
+                                    <td>₹${parseFloat(v.total_paid).toFixed(2)}</td>
+                                    <td><strong style="color:${v.outstanding_amount > 0 ? '#dc2626' : '#16a34a'};">₹${parseFloat(v.outstanding_amount).toFixed(2)}</strong></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    </div>
+                    ${renderPagination(pageData, 'loadVendorsView', search, shopId)}
+                </div>
+            `;
+        }
+
         function createPlanModal() {
             openModal('Create New Plan', `
                 <form onsubmit="saveNewPlan(event)">
@@ -1680,7 +1812,7 @@
                         </div>
                         <div class="form-group">
                             <label>Free Trial Period (Months)</label>
-                            <input type="number" id="gw-trial" class="form-control" value="${g.trial_months || 3}" min="0" max="24" required>
+                            <input type="number" id="gw-trial" class="form-control" value="${g.trial_months || 1}" min="0" max="24" required>
                         </div>
                         <div style="display:flex; gap:12px; margin-top:24px;">
                             <button type="submit" class="btn-primary" style="flex:1;">Save Gateway Settings</button>
@@ -1915,6 +2047,97 @@
                     ${renderPagination(pageData, 'loadAuditView', search, action)}
                 </div>
             `;
+        }
+
+        // 10.5 APP VERSION & FORCE UPDATE SETTINGS VIEW
+        async function loadAppVersionView() {
+            const content = getContentContainer();
+            content.innerHTML = '<div style="padding:20px; color:#64748b;">Loading app version settings...</div>';
+            const res = await apiFetch('/app-version');
+            if (!res || !res.success) return;
+            const v = res.data || {};
+
+            content.innerHTML = `
+                <div class="card-table" style="padding:24px; max-width:680px;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+                        <div>
+                            <h3 style="font-size:18px; font-weight:700; color:#0f172a;">📱 App Version & Force Update Configuration</h3>
+                            <p style="font-size:13px; color:#64748b; margin-top:2px;">Set minimum required version and toggle force update screen for mobile app users.</p>
+                        </div>
+                    </div>
+                    <div id="ver-alert" class="alert-error" style="display:none;"></div>
+                    <div id="ver-success" style="display:none; background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; padding:12px; border-radius:8px; margin-bottom:16px; font-size:14px; font-weight:500;"></div>
+                    <form onsubmit="saveAppVersionSettings(event)">
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                            <div class="form-group">
+                                <label style="font-weight:600;">Minimum Required Version</label>
+                                <input type="text" id="ver-min" class="form-control" placeholder="e.g. 1.0.4" value="${v.min_version || '1.0.0'}" required>
+                                <small style="color:#64748b; font-size:11px;">Apps below this version will be blocked with Force Update.</small>
+                            </div>
+                            <div class="form-group">
+                                <label style="font-weight:600;">Latest Available Version</label>
+                                <input type="text" id="ver-latest" class="form-control" placeholder="e.g. 1.0.5" value="${v.latest_version || '1.0.4'}" required>
+                                <small style="color:#64748b; font-size:11px;">Current newest app release version.</small>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-top:12px;">
+                            <label style="font-weight:600;">Force Update Mode</label>
+                            <select id="ver-force" class="form-control" style="font-weight:600;">
+                                <option value="1" ${v.force_update ? 'selected' : ''}>🚨 Enabled (Force Update Screen Active for outdated app versions)</option>
+                                <option value="0" ${!v.force_update ? 'selected' : ''}>✅ Disabled (Normal operation for all versions)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" style="margin-top:12px;">
+                            <label style="font-weight:600;">App Update / Download Link (Store URL or Direct APK)</label>
+                            <input type="text" id="ver-url" class="form-control" placeholder="https://play.google.com/store/apps/details?id=com.mobileshop.profit" value="${v.update_url || ''}">
+                            <small style="color:#64748b; font-size:11px;">Target link opened when user taps 'Update Now'.</small>
+                        </div>
+
+                        <div class="form-group" style="margin-top:12px;">
+                            <label style="font-weight:600;">Update Screen Title</label>
+                            <input type="text" id="ver-title" class="form-control" placeholder="Update Required" value="${v.update_title || 'Update Required'}">
+                        </div>
+
+                        <div class="form-group" style="margin-top:12px;">
+                            <label style="font-weight:600;">Update Description / Release Notes</label>
+                            <textarea id="ver-message" class="form-control" rows="3" placeholder="A critical update is available for Mobile Shop Profit. Please update your app to continue using all features smoothly.">${v.update_message || ''}</textarea>
+                        </div>
+
+                        <div style="margin-top:24px;">
+                            <button type="submit" class="btn-primary" style="width:100%; padding:12px; font-weight:600;">Save Version Settings</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+        }
+
+        async function saveAppVersionSettings(e) {
+            e.preventDefault();
+            const alertErr = document.getElementById('ver-alert');
+            const alertSucc = document.getElementById('ver-success');
+            alertErr.style.display = 'none';
+            alertSucc.style.display = 'none';
+
+            const body = {
+                min_version: document.getElementById('ver-min').value.trim(),
+                latest_version: document.getElementById('ver-latest').value.trim(),
+                force_update: document.getElementById('ver-force').value,
+                update_url: document.getElementById('ver-url').value.trim(),
+                update_title: document.getElementById('ver-title').value.trim(),
+                update_message: document.getElementById('ver-message').value.trim(),
+            };
+
+            const res = await apiFetch('/app-version', 'POST', body);
+            if (res && res.success) {
+                alertSucc.style.display = 'block';
+                alertSucc.innerText = res.message || 'Settings updated successfully!';
+                setTimeout(() => { alertSucc.style.display = 'none'; }, 4000);
+            } else {
+                alertErr.style.display = 'block';
+                alertErr.innerText = res.message || 'Failed to update settings';
+            }
         }
 
         // 11. WEBSITE & LEGAL PAGES CMS VIEW
