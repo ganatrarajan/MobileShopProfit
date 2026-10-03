@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import '../../../core/config/env_config.dart';
+import '../../../core/constants/api_endpoints.dart';
+import '../../../core/models/app_version_info.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/storage/auth_storage.dart';
 import '../../../core/storage/preferences_storage.dart';
+import '../../../core/utils/version_helper.dart';
 import '../../../core/widgets/app_lock_verify_screen.dart';
 import '../../../core/widgets/app_logo.dart';
 
@@ -24,6 +29,32 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _checkAuthStatus() async {
     await Future.delayed(const Duration(milliseconds: 1000));
+
+    // Check version status & force update from API
+    try {
+      final versionResponse = await ApiClient().get(
+        ApiEndpoints.appVersion,
+        fromJson: (json) => AppVersionInfo.fromJson(json),
+      );
+
+      if (versionResponse.success && versionResponse.data != null) {
+        final versionInfo = versionResponse.data!;
+        final bool requiresUpdate = versionInfo.forceUpdate &&
+            VersionHelper.isVersionLower(EnvConfig.currentAppVersion, versionInfo.minVersion);
+
+        if (requiresUpdate && mounted) {
+          Navigator.pushReplacementNamed(
+            context,
+            AppRoutes.forceUpdate,
+            arguments: versionInfo,
+          );
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('[Splash] App version check skipped: $e');
+    }
+
     final bool loggedIn = await _authStorage.isLoggedIn();
     final user = await _authStorage.getUser();
     final shop = await _authStorage.getShop();

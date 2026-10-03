@@ -1,3 +1,5 @@
+import '../../features/auth/presentation/force_update_screen.dart';
+import '../models/app_version_info.dart';
 import 'package:flutter/material.dart';
 import '../../features/purchase/models/purchase.dart';
 import '../../features/purchase/models/vendor.dart';
@@ -66,6 +68,7 @@ import '../../features/warranty/presentation/warranty_list_screen.dart';
 class AppRoutes {
   static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
+  static const String forceUpdate = '/force-update';
   static const String splash = '/';
   static const String login = '/login';
   static const String register = '/register';
@@ -134,6 +137,9 @@ class AppRoutes {
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
+      case forceUpdate:
+        final info = settings.arguments is AppVersionInfo ? settings.arguments as AppVersionInfo : null;
+        return MaterialPageRoute(builder: (_) => ForceUpdateScreen(versionInfo: info));
       case splash:
         return MaterialPageRoute(builder: (_) => const SplashScreen());
       case login:

@@ -37,6 +37,5 @@ class ApiEndpoints {
   static const String deviceModels = '/device-models';
   static const String vendors = '/vendors';
   static const String purchases = '/purchases';
+  static const String appVersion = '/public/app-version';
 }
-
-
