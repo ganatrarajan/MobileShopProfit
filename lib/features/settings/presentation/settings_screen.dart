@@ -118,7 +118,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           icon: Icons.currency_rupee_rounded,
                           title: 'Currency',
                           subtitle: 'Primary operating currency',
-                          trailingText: '? INR',
+                          trailingText: '\u20B9 INR',
                           onTap: null,
                         ),
                       ],
