@@ -38,10 +38,12 @@ class RepairPartController extends Controller
             'notes' => $validated['notes'] ?? null,
         ]);
 
+        $repair->recalculatePaymentStatus();
+
         return response()->json([
             'success' => true,
             'message' => 'Repair part added successfully.',
-            'data' => new RepairResource($repair->fresh(['customer', 'device', 'parts', 'payments', 'creator'])),
+            'data' => new RepairResource($repair->fresh(['customer', 'device', 'technician', 'parts', 'payments', 'creator', 'warranty'])),
         ], 201);
     }
 
@@ -65,10 +67,13 @@ class RepairPartController extends Controller
         $validated = $request->validated();
         $part->update($validated);
 
+        $repair = $part->repair;
+        $repair->recalculatePaymentStatus();
+
         return response()->json([
             'success' => true,
             'message' => 'Repair part updated successfully.',
-            'data' => new RepairResource($part->repair->fresh(['customer', 'device', 'parts', 'payments', 'creator'])),
+            'data' => new RepairResource($repair->fresh(['customer', 'device', 'technician', 'parts', 'payments', 'creator', 'warranty'])),
         ]);
     }
 
@@ -92,10 +97,12 @@ class RepairPartController extends Controller
         $repair = $part->repair;
         $part->delete();
 
+        $repair->recalculatePaymentStatus();
+
         return response()->json([
             'success' => true,
             'message' => 'Repair part deleted successfully.',
-            'data' => new RepairResource($repair->fresh(['customer', 'device', 'parts', 'payments', 'creator'])),
+            'data' => new RepairResource($repair->fresh(['customer', 'device', 'technician', 'parts', 'payments', 'creator', 'warranty'])),
         ]);
     }
 }

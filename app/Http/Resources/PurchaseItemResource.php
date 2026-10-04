@@ -17,6 +17,7 @@ class PurchaseItemResource extends JsonResource
             'item_category' => $this->inventoryItem?->category,
             'sku' => $this->inventoryItem?->sku,
             'quantity' => (int) $this->quantity,
+            'current_stock' => (int) ($this->inventoryItem?->current_stock ?? 0),
             'purchase_rate' => round((float) $this->purchase_rate, 2),
             'total_amount' => round((float) $this->total_amount, 2),
         ];

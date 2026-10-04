@@ -78,8 +78,8 @@ class PublicPageApiController extends Controller
                 'support_phone'   => $settings['support_phone'] ?? '+91 98765 43210',
                 'whatsapp_number' => $settings['whatsapp_number'] ?? '+91 98765 43210',
                 'support_hours'   => $settings['support_hours'] ?? 'Mon - Sat: 9:00 AM - 8:00 PM IST',
-                'android_app_url' => $settings['android_app_url'] ?? '#',
-                'ios_app_url'     => $settings['ios_app_url'] ?? '#',
+                'android_app_url' => $settings['android_app_url'] ?? $settings['app_update_url'] ?? 'https://play.google.com/store/apps/details?id=com.repairehub',
+                'ios_app_url'     => $settings['ios_app_url'] ?? $settings['android_app_url'] ?? $settings['app_update_url'] ?? 'https://play.google.com/store/apps/details?id=com.repairehub',
                 'copyright_text'  => $settings['copyright_text'] ?? '© 2026 Mobile Profits. All rights reserved.',
             ],
         ]);
@@ -132,7 +132,7 @@ class PublicPageApiController extends Controller
                 'min_version'    => $settings['app_min_version'] ?? '1.0.0',
                 'latest_version' => $settings['app_latest_version'] ?? '1.0.4',
                 'force_update'   => filter_var($settings['app_force_update'] ?? false, FILTER_VALIDATE_BOOLEAN),
-                'update_url'     => $settings['app_update_url'] ?? 'https://play.google.com/store/apps',
+                'update_url'     => $settings['app_update_url'] ?? $settings['android_app_url'] ?? 'https://play.google.com/store/apps/details?id=com.repairehub',
                 'update_title'   => $settings['app_update_title'] ?? 'Update Required',
                 'update_message' => $settings['app_update_message'] ?? 'A critical update is available. Please update your app to continue using Mobile Shop Profit.',
             ];

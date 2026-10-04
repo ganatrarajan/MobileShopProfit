@@ -414,6 +414,58 @@ class PurchaseController extends Controller
     }
 
     /**
+     * Manually remove stock from inventory for an existing purchase if added previously.
+     */
+    public function removeStock(Request $request, int $id): JsonResponse
+    {
+        $user = $request->user();
+        $shopId = $user->shop_id ?? $user->shop?->id;
+
+        $purchase = Purchase::forShop($shopId)->with('items.inventoryItem')->find($id);
+
+        if (!$purchase) {
+            return response()->json(['success' => false, 'message' => 'Purchase not found.'], 404);
+        }
+
+        if (!$purchase->is_stock_added) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Stock for this purchase is not added in inventory.',
+            ], 400);
+        }
+
+        // Validation check: ensure each item has enough stock before removing
+        $insufficientItems = [];
+        foreach ($purchase->items as $pItem) {
+            $invItem = $pItem->inventoryItem;
+            if ($invItem) {
+                if ($invItem->current_stock < $pItem->quantity) {
+                    $insufficientItems[] = "'{$invItem->name}' (Current stock: {$invItem->current_stock}, Required to remove: {$pItem->quantity})";
+                }
+            }
+        }
+
+        if (!empty($insufficientItems)) {
+            $itemDetails = implode(', ', $insufficientItems);
+            return response()->json([
+                'success' => false,
+                'message' => "Cannot remove stock because some items have been sold/used: {$itemDetails}.",
+            ], 422);
+        }
+
+        return DB::transaction(function () use ($shopId, $purchase) {
+            $this->revertPurchaseStockMovements($shopId, $purchase);
+            $purchase->update(['is_stock_added' => false]);
+
+            return response()->json([
+                'success' => true,
+                'message' => "✓ Inventory updated. Stock removed for purchase #{$purchase->purchase_number}.",
+                'data' => new PurchaseResource($purchase->fresh(['vendor', 'items.inventoryItem', 'payments'])),
+            ]);
+        });
+    }
+
+    /**
      * Manually add stock to inventory for an existing purchase if not added already.
      */
     public function addStock(Request $request, int $id): JsonResponse

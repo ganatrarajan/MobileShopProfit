@@ -126,7 +126,7 @@ return new class extends Migration
                 ['key' => 'support_phone', 'value' => '+91 98765 43210'],
                 ['key' => 'whatsapp_number', 'value' => '+91 98765 43210'],
                 ['key' => 'support_hours', 'value' => 'Mon - Sat: 9:00 AM - 8:00 PM IST'],
-                ['key' => 'android_app_url', 'value' => '#'],
+                ['key' => 'android_app_url', 'value' => 'https://play.google.com/store/apps/details?id=com.repairehub'],
                 ['key' => 'ios_app_url', 'value' => '#'],
                 ['key' => 'copyright_text', 'value' => '© 2026 Mobile Profits. All rights reserved.'],
             ];

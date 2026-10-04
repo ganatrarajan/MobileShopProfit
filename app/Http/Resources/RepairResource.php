@@ -20,6 +20,8 @@ class RepairResource extends JsonResource
             'technician_paid_amount' => (float) $this->technician_paid_amount,
             'technician_payable' => (float) $this->technician_payable,
             'shop_share' => (float) $this->shop_share,
+            'effective_cost' => (float) $this->effective_cost,
+            'net_profit' => (float) $this->net_profit,
             'technician_payment_status' => $this->technician_payment_status,
             'job_number' => $this->job_number,
             'date_received' => $this->date_received?->format('Y-m-d'),
