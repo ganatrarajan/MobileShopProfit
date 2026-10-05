@@ -25,10 +25,10 @@ class WarrantyClaimResource extends JsonResource
             'created_by' => $this->created_by,
             'creator_name' => $this->creator?->name,
             'customer' => $this->whenLoaded('customer', function () {
-                return new CustomerResource($this->customer);
+                return $this->customer ? new CustomerResource($this->customer) : null;
             }),
             'device' => $this->whenLoaded('device', function () {
-                return new DeviceResource($this->device);
+                return $this->device ? new DeviceResource($this->device) : null;
             }),
             'warranty' => $this->whenLoaded('warranty', function () {
                 return new WarrantyResource($this->warranty);

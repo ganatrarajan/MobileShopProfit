@@ -108,8 +108,8 @@ class WarrantyClaimController extends Controller
                 return WarrantyClaim::create([
                     'shop_id' => $user->shop_id,
                     'warranty_id' => $warranty->id,
-                    'customer_id' => $warranty->customer_id,
-                    'device_id' => $warranty->device_id,
+                    'customer_id' => $validated['customer_id'] ?? $warranty->customer_id,
+                    'device_id' => $validated['device_id'] ?? $warranty->device_id,
                     'claim_number' => $claimNumber,
                     'claim_date' => $validated['claim_date'] ?? now()->toDateString(),
                     'complaint' => $validated['complaint'],
