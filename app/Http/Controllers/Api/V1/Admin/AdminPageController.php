@@ -155,7 +155,7 @@ class AdminPageController extends Controller
                 'min_version'    => $settings['app_min_version'] ?? '1.0.0',
                 'latest_version' => $settings['app_latest_version'] ?? '1.0.4',
                 'force_update'   => filter_var($settings['app_force_update'] ?? false, FILTER_VALIDATE_BOOLEAN),
-                'update_url'     => $settings['app_update_url'] ?? 'https://play.google.com/store/apps',
+                'update_url'     => $settings['app_update_url'] ?? 'https://play.google.com/store/apps/details?id=com.repairehub',
                 'update_title'   => $settings['app_update_title'] ?? 'Update Required',
                 'update_message' => $settings['app_update_message'] ?? 'A critical update is available. Please update your app to continue using Mobile Shop Profit.',
             ],
@@ -185,10 +185,12 @@ class AdminPageController extends Controller
             ], 422);
         }
 
+        $updateUrl = $request->input('update_url', 'https://play.google.com/store/apps/details?id=com.repairehub');
         SystemSetting::setByKey('app_min_version', $request->input('min_version'));
         SystemSetting::setByKey('app_latest_version', $request->input('latest_version'));
         SystemSetting::setByKey('app_force_update', filter_var($request->input('force_update'), FILTER_VALIDATE_BOOLEAN) ? '1' : '0');
-        SystemSetting::setByKey('app_update_url', $request->input('update_url', 'https://play.google.com/store/apps'));
+        SystemSetting::setByKey('app_update_url', $updateUrl);
+        SystemSetting::setByKey('android_app_url', $updateUrl);
         SystemSetting::setByKey('app_update_title', $request->input('update_title', 'Update Required'));
         SystemSetting::setByKey('app_update_message', $request->input('update_message', 'A critical update is available. Please update your app to continue.'));
 
@@ -202,7 +204,7 @@ class AdminPageController extends Controller
                 'min_version'    => SystemSetting::getByKey('app_min_version', '1.0.0'),
                 'latest_version' => SystemSetting::getByKey('app_latest_version', '1.0.4'),
                 'force_update'   => filter_var(SystemSetting::getByKey('app_force_update', '0'), FILTER_VALIDATE_BOOLEAN),
-                'update_url'     => SystemSetting::getByKey('app_update_url', 'https://play.google.com/store/apps'),
+                'update_url'     => SystemSetting::getByKey('app_update_url', 'https://play.google.com/store/apps/details?id=com.repairehub'),
                 'update_title'   => SystemSetting::getByKey('app_update_title', 'Update Required'),
                 'update_message' => SystemSetting::getByKey('app_update_message', 'A critical update is available.'),
             ],

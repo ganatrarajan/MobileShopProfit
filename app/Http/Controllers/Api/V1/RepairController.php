@@ -239,6 +239,8 @@ class RepairController extends Controller
                     }
                 }
 
+                $repair->recalculatePaymentStatus();
+
                 return $repair->load(['customer', 'device', 'technician', 'parts', 'payments', 'creator', 'warranty']);
             });
 
@@ -310,7 +312,7 @@ class RepairController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Repair job card updated successfully.',
-            'data' => new RepairResource($repair->load(['customer', 'device', 'technician', 'parts', 'payments', 'creator'])),
+            'data' => new RepairResource($repair->load(['customer', 'device', 'technician', 'parts', 'payments', 'creator', 'warranty'])),
         ]);
     }
 
@@ -347,7 +349,7 @@ class RepairController extends Controller
         return response()->json([
             'success' => true,
             'message' => "Repair status updated to {$newStatus}.",
-            'data' => new RepairResource($repair->load(['customer', 'device', 'parts', 'payments', 'creator'])),
+            'data' => new RepairResource($repair->load(['customer', 'device', 'technician', 'parts', 'payments', 'creator', 'warranty'])),
         ]);
     }
 

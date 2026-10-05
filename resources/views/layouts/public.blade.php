@@ -66,7 +66,7 @@
 
             <!-- CTA Buttons & Mobile Toggle -->
             <div class="flex items-center gap-3">
-                <a href="{{ route('home') }}#download" class="inline-flex items-center justify-center px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl font-semibold text-xs sm:text-sm text-white bg-gradient-to-r from-indigo-600 to-emerald-500 hover:from-indigo-500 hover:to-emerald-400 shadow-lg shadow-indigo-500/25 transition-all">
+                <a href="{{ $settings['android_app_url'] ?? $settings['app_update_url'] ?? 'https://play.google.com/store/apps/details?id=com.repairehub' }}" target="_blank" class="inline-flex items-center justify-center px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl font-semibold text-xs sm:text-sm text-white bg-gradient-to-r from-indigo-600 to-emerald-500 hover:from-indigo-500 hover:to-emerald-400 shadow-lg shadow-indigo-500/25 transition-all">
                     Download App
                 </a>
                 <button type="button" class="md:hidden p-2 rounded-lg text-slate-300 hover:bg-slate-800 focus:outline-none" onclick="document.getElementById('public-mobile-menu').classList.toggle('hidden')">

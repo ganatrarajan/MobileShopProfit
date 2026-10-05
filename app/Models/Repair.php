@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+use Illuminate\Support\Facades\DB;
+
 class Repair extends Model
 {
     use SoftDeletes;
@@ -60,6 +62,8 @@ class Repair extends Model
         'technician_payable',
         'shop_share',
         'technician_payment_status',
+        'effective_cost',
+        'net_profit',
     ];
 
     public function scopeForShop($query, $shopId)
@@ -117,6 +121,31 @@ class Repair extends Model
         return $this->hasMany(Warranty::class)->whereNull('warranties.deleted_at');
     }
 
+    public function getEffectiveCostAttribute(): float
+    {
+        if ((float) $this->final_cost > 0) {
+            return (float) $this->final_cost;
+        }
+
+        $partsSellingTotal = $this->relationLoaded('parts')
+            ? (float) $this->parts->sum(fn($p) => (float) $p->selling_price * (int) $p->quantity)
+            : (float) $this->parts()->sum(DB::raw('selling_price * quantity'));
+
+        $calculatedCost = $partsSellingTotal + (float) $this->labour_cost;
+        return max((float) $this->estimated_cost, $calculatedCost);
+    }
+
+    public function getNetProfitAttribute(): float
+    {
+        $effective = $this->effective_cost;
+        $partsCostTotal = $this->relationLoaded('parts')
+            ? (float) $this->parts->sum(fn($p) => (float) (($p->cost_price !== null && (float)$p->cost_price > 0) ? $p->cost_price : $p->selling_price) * (int) $p->quantity)
+            : (float) $this->parts()->sum(DB::raw('COALESCE(NULLIF(cost_price, 0), selling_price) * quantity'));
+        $earning = (float) $this->technician_earning;
+
+        return max(0.0, round($effective - $partsCostTotal - $earning, 2));
+    }
+
     public function getTechnicianPayableAttribute(): float
     {
         $earning = (float) $this->technician_earning;
@@ -126,7 +155,7 @@ class Repair extends Model
 
     public function getShopShareAttribute(): float
     {
-        $totalCost = (float) ($this->final_cost > 0 ? $this->final_cost : $this->estimated_cost);
+        $totalCost = $this->effective_cost;
         $earning = (float) $this->technician_earning;
         return max(0.0, round($totalCost - $earning, 2));
     }
@@ -151,8 +180,8 @@ class Repair extends Model
     public function recalculatePaymentStatus(): void
     {
         $totalPaid = (float) $this->payments()->sum('amount');
-        $totalCost = (float) ($this->final_cost > 0 ? $this->final_cost : $this->estimated_cost);
-        $due = max(0, $totalCost - $totalPaid);
+        $totalCost = $this->effective_cost;
+        $due = max(0.0, round($totalCost - $totalPaid, 2));
 
         $directTechPaid = (float) $this->technicianPayments()->sum('amount');
         $techPaid = max((float) $this->technician_paid_amount, $directTechPaid);

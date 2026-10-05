@@ -2091,7 +2091,7 @@
 
                         <div class="form-group" style="margin-top:12px;">
                             <label style="font-weight:600;">App Update / Download Link (Store URL or Direct APK)</label>
-                            <input type="text" id="ver-url" class="form-control" placeholder="https://play.google.com/store/apps/details?id=com.mobileshop.profit" value="${v.update_url || ''}">
+                            <input type="text" id="ver-url" class="form-control" placeholder="https://play.google.com/store/apps/details?id=com.repairehub" value="${v.update_url || ''}">
                             <small style="color:#64748b; font-size:11px;">Target link opened when user taps 'Update Now'.</small>
                         </div>
 

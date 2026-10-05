@@ -16,6 +16,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class DashboardController extends Controller
 {
@@ -53,62 +54,118 @@ class DashboardController extends Controller
         $eDateStr = $endDate->format('Y-m-d');
 
         // 1. Sales Aggregations
-        $salesQuery = Sale::forShop($shopId)->whereDate('sale_date', '>=', $sDateStr)->whereDate('sale_date', '<=', $eDateStr);
-        $totalSales = (float) (clone $salesQuery)->sum('grand_total');
-        $totalCollected = (float) (clone $salesQuery)->sum('amount_paid');
-        $totalDue = (float) (clone $salesQuery)->sum('amount_due');
-        $totalSalesCount = (int) (clone $salesQuery)->count();
-        $regularSalesCount = (int) (clone $salesQuery)->where('sale_type', 'regular')->count();
-        $quickSalesCount = (int) (clone $salesQuery)->where('sale_type', 'quick')->count();
+        $salesAgg = DB::table('sales')
+            ->where('shop_id', $shopId)
+            ->whereNull('deleted_at')
+            ->whereBetween('sale_date', [$sDateStr, $eDateStr])
+            ->selectRaw('
+                COALESCE(SUM(grand_total), 0) as total_sales,
+                COALESCE(SUM(amount_paid), 0) as total_collected,
+                COALESCE(SUM(amount_due), 0) as total_due,
+                COUNT(*) as total_count,
+                COALESCE(SUM(CASE WHEN sale_type = "regular" THEN 1 ELSE 0 END), 0) as regular_count,
+                COALESCE(SUM(CASE WHEN sale_type = "quick" THEN 1 ELSE 0 END), 0) as quick_count
+            ')->first();
+
+        $totalSales = (float) ($salesAgg->total_sales ?? 0);
+        $totalCollected = (float) ($salesAgg->total_collected ?? 0);
+        $totalDue = (float) ($salesAgg->total_due ?? 0);
+        $totalSalesCount = (int) ($salesAgg->total_count ?? 0);
+        $regularSalesCount = (int) ($salesAgg->regular_count ?? 0);
+        $quickSalesCount = (int) ($salesAgg->quick_count ?? 0);
 
         // Total Dues Across All Time
-        $allTimeDues = (float) Sale::forShop($shopId)->where('payment_status', '!=', 'paid')->sum('amount_due');
+        $allTimeDues = (float) DB::table('sales')
+            ->where('shop_id', $shopId)
+            ->whereNull('deleted_at')
+            ->where('payment_status', '!=', 'paid')
+            ->sum('amount_due');
 
         // 2. Repair Aggregations
-        $activeRepairsCount = (int) Repair::forShop($shopId)->whereNotIn('repair_status', ['delivered', 'cancelled'])->count();
-        $readyRepairsCount = (int) Repair::forShop($shopId)->where('repair_status', 'ready')->count();
-        $waitingCustomerCount = (int) Repair::forShop($shopId)->where('repair_status', 'pending_approval')->count();
-        $waitingPartsCount = (int) Repair::forShop($shopId)->where('repair_status', 'in_progress')->count();
-        $totalRepairsCount = (int) Repair::forShop($shopId)->count();
+        $repairsAgg = DB::table('repairs')
+            ->where('shop_id', $shopId)
+            ->whereNull('deleted_at')
+            ->selectRaw('
+                COUNT(*) as total_count,
+                COALESCE(SUM(CASE WHEN repair_status NOT IN ("delivered", "cancelled") THEN 1 ELSE 0 END), 0) as active_count,
+                COALESCE(SUM(CASE WHEN repair_status = "ready" THEN 1 ELSE 0 END), 0) as ready_count,
+                COALESCE(SUM(CASE WHEN repair_status = "pending_approval" THEN 1 ELSE 0 END), 0) as waiting_customer_count,
+                COALESCE(SUM(CASE WHEN repair_status = "in_progress" THEN 1 ELSE 0 END), 0) as waiting_parts_count
+            ')->first();
+
+        $activeRepairsCount = (int) ($repairsAgg->active_count ?? 0);
+        $readyRepairsCount = (int) ($repairsAgg->ready_count ?? 0);
+        $waitingCustomerCount = (int) ($repairsAgg->waiting_customer_count ?? 0);
+        $waitingPartsCount = (int) ($repairsAgg->waiting_parts_count ?? 0);
+        $totalRepairsCount = (int) ($repairsAgg->total_count ?? 0);
 
         // 3. Inventory Aggregations
-        $totalItems = (int) InventoryItem::forShop($shopId)->count();
-        $lowStockCount = (int) InventoryItem::forShop($shopId)
-            ->whereColumn('current_stock', '<=', 'minimum_stock')
-            ->where('current_stock', '>', 0)
-            ->count();
-        $outOfStockCount = (int) InventoryItem::forShop($shopId)->where('current_stock', '<=', 0)->count();
-        $totalStockValue = (float) DB::table('inventory_items')
+        $inventoryAgg = DB::table('inventory_items')
             ->where('shop_id', $shopId)
-            ->sum(DB::raw('purchase_price * current_stock'));
+            ->whereNull('deleted_at')
+            ->selectRaw('
+                COUNT(*) as total_items,
+                COALESCE(SUM(CASE WHEN current_stock <= minimum_stock AND current_stock > 0 THEN 1 ELSE 0 END), 0) as low_stock_count,
+                COALESCE(SUM(CASE WHEN current_stock <= 0 THEN 1 ELSE 0 END), 0) as out_of_stock_count,
+                COALESCE(SUM(purchase_price * current_stock), 0) as total_stock_value
+            ')->first();
+
+        $totalItems = (int) ($inventoryAgg->total_items ?? 0);
+        $lowStockCount = (int) ($inventoryAgg->low_stock_count ?? 0);
+        $outOfStockCount = (int) ($inventoryAgg->out_of_stock_count ?? 0);
+        $totalStockValue = (float) ($inventoryAgg->total_stock_value ?? 0);
 
         // 4. Expenses Aggregations
-        $expenseQuery = Expense::forShop($shopId)->whereDate('expense_date', '>=', $sDateStr)->whereDate('expense_date', '<=', $eDateStr);
-        $totalExpensesSum = (float) (clone $expenseQuery)->sum('amount');
+        $totalExpensesSum = (float) DB::table('expenses')
+            ->where('shop_id', $shopId)
+            ->whereNull('deleted_at')
+            ->whereBetween('expense_date', [$sDateStr, $eDateStr])
+            ->sum('amount');
 
         $topCategory = DB::table('expenses')
             ->join('expense_categories', 'expenses.category_id', '=', 'expense_categories.id')
             ->where('expenses.shop_id', $shopId)
-            ->whereDate('expenses.expense_date', '>=', $sDateStr)->whereDate('expenses.expense_date', '<=', $eDateStr)
+            ->whereNull('expenses.deleted_at')
+            ->whereBetween('expenses.expense_date', [$sDateStr, $eDateStr])
             ->select('expense_categories.name', DB::raw('SUM(expenses.amount) as total_amount'))
             ->groupBy('expense_categories.id', 'expense_categories.name')
             ->orderBy('total_amount', 'desc')
             ->first();
 
         // 5. Purchase Aggregations
-        $purchaseQuery = Purchase::forShop($shopId)->whereDate('purchase_date', '>=', $sDateStr)->whereDate('purchase_date', '<=', $eDateStr);
-        $totalPurchases = (float) (clone $purchaseQuery)->sum('grand_total');
-        $totalPurchasePaid = (float) (clone $purchaseQuery)->sum('amount_paid');
-        $totalPurchaseOutstanding = (float) (clone $purchaseQuery)->sum('outstanding_amount');
-        $totalPurchasesCount = (int) (clone $purchaseQuery)->count();
+        $totalPurchases = 0.0;
+        $totalPurchasePaid = 0.0;
+        $totalPurchaseOutstanding = 0.0;
+        $totalPurchasesCount = 0;
+        $allTimeVendorDues = 0.0;
 
-        // Total Vendor Dues Across All Time
-        $allTimeVendorDues = (float) Purchase::forShop($shopId)->where('payment_status', '!=', 'paid')->sum('outstanding_amount');
+        if (Schema::hasTable('purchases')) {
+            $purchaseAgg = DB::table('purchases')
+                ->where('shop_id', $shopId)
+                ->whereNull('deleted_at')
+                ->whereBetween('purchase_date', [$sDateStr, $eDateStr])
+                ->selectRaw('
+                    COALESCE(SUM(grand_total), 0) as total_purchases,
+                    COALESCE(SUM(amount_paid), 0) as total_paid,
+                    COALESCE(SUM(outstanding_amount), 0) as total_outstanding,
+                    COUNT(*) as total_count
+                ')->first();
 
-        // 6. Expiring Warranties Count (within next 30 days)
+            $totalPurchases = (float) ($purchaseAgg->total_purchases ?? 0);
+            $totalPurchasePaid = (float) ($purchaseAgg->total_paid ?? 0);
+            $totalPurchaseOutstanding = (float) ($purchaseAgg->total_outstanding ?? 0);
+            $totalPurchasesCount = (int) ($purchaseAgg->total_count ?? 0);
+            $allTimeVendorDues = (float) DB::table('purchases')
+                ->where('shop_id', $shopId)
+                ->whereNull('deleted_at')
+                ->where('payment_status', '!=', 'paid')
+                ->sum('outstanding_amount');
+        }
+
+        // 6. Expiring Warranties Count (within next 7 days, matching computed_status 'expiring_soon')
         $expiringWarrantiesCount = (int) Warranty::forShop($shopId)
             ->where('status', 'active')
-            ->whereBetween('warranty_end_date', [$now->format('Y-m-d'), $now->copy()->addDays(30)->format('Y-m-d')])
+            ->whereBetween('warranty_end_date', [$now->format('Y-m-d'), $now->copy()->addDays(7)->format('Y-m-d')])
             ->count();
 
         // 7. Attention Items Generation
@@ -150,7 +207,7 @@ class DashboardController extends Controller
                 'subtitle' => 'Collect unpaid balances on invoices',
                 'amount' => $allTimeDues,
                 'action_route' => 'sales',
-                'filter' => 'unpaid',
+                'filter' => 'due',
             ];
         }
         if ($allTimeVendorDues > 0) {
@@ -159,18 +216,18 @@ class DashboardController extends Controller
                 'title' => "Rs. " . number_format($allTimeVendorDues, 2) . " vendor dues pending",
                 'subtitle' => 'Unpaid balance on purchases',
                 'amount' => $allTimeVendorDues,
-                'action_route' => 'purchases',
-                'filter' => 'unpaid',
+                'action_route' => 'vendors',
+                'filter' => 'vendor_dues',
             ];
         }
         if ($expiringWarrantiesCount > 0) {
             $attention[] = [
                 'type' => 'expiring_warranty',
                 'title' => "{$expiringWarrantiesCount} warranties expiring soon",
-                'subtitle' => 'Expiring within next 30 days',
+                'subtitle' => 'Expiring within next 7 days',
                 'count' => $expiringWarrantiesCount,
                 'action_route' => 'warranties',
-                'filter' => 'expiring',
+                'filter' => 'expiring_soon',
             ];
         }
 
@@ -191,16 +248,18 @@ class DashboardController extends Controller
         }
 
         // Recent Purchases
-        $recentPurchases = Purchase::forShop($shopId)->with('vendor')->latest()->take(3)->get();
-        foreach ($recentPurchases as $p) {
-            $recentActivities[] = [
-                'type' => 'purchase',
-                'title' => "Purchase #{$p->purchase_number}",
-                'subtitle' => $p->vendor_name ?? ($p->vendor?->name ?? 'Vendor'),
-                'amount' => (float) $p->grand_total,
-                'time' => $p->created_at?->format('d M, h:i A') ?? $p->purchase_date->format('d M'),
-                'raw_time' => $p->created_at?->toIso8601String() ?? $sDateStr,
-            ];
+        if (Schema::hasTable('purchases')) {
+            $recentPurchases = Purchase::forShop($shopId)->with('vendor')->latest()->take(3)->get();
+            foreach ($recentPurchases as $p) {
+                $recentActivities[] = [
+                    'type' => 'purchase',
+                    'title' => "Purchase #{$p->purchase_number}",
+                    'subtitle' => $p->vendor_name ?? ($p->vendor?->name ?? 'Vendor'),
+                    'amount' => (float) $p->grand_total,
+                    'time' => $p->created_at?->format('d M, h:i A') ?? $p->purchase_date->format('d M'),
+                    'raw_time' => $p->created_at?->toIso8601String() ?? $sDateStr,
+                ];
+            }
         }
 
         // Recent Repairs

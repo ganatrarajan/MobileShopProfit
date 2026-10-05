@@ -245,6 +245,7 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('vendors', VendorController::class);
         Route::post('/vendors/{vendor}/payments', [PurchasePaymentController::class, 'storeForVendor']);
         Route::post('/purchases/{purchase}/add-stock', [PurchaseController::class, 'addStock']);
+        Route::post('/purchases/{purchase}/remove-stock', [PurchaseController::class, 'removeStock']);
         Route::post('/purchases/{purchase}/payments', [PurchasePaymentController::class, 'store']);
         Route::apiResource('purchases', PurchaseController::class);
 
