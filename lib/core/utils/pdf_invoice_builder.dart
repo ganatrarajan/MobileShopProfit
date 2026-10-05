@@ -143,7 +143,7 @@ class PdfInvoiceBuilder {
                   child: pw.Transform.rotate(
                     angle: -0.38,
                     child: pw.Text(
-                      'REPAIREHUB',
+                      'MYREPAIRHUB',
                       style: pw.TextStyle(
                         fontSize: 64,
                         fontWeight: pw.FontWeight.bold,
@@ -731,7 +731,7 @@ class PdfInvoiceBuilder {
                   child: pw.Transform.rotate(
                     angle: -0.38,
                     child: pw.Text(
-                      'REPAIREHUB',
+                      'MYREPAIRHUB',
                       style: pw.TextStyle(
                         fontSize: 64,
                         fontWeight: pw.FontWeight.bold,

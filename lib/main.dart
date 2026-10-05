@@ -10,6 +10,36 @@ void main() {
   runApp(const MobileShopProfitApp());
 }
 
+class AppFocusObserver extends NavigatorObserver {
+  void _unfocus() {
+    FocusManager.instance.primaryFocus?.unfocus();
+  }
+
+  @override
+  void didPop(Route route, Route? previousRoute) {
+    _unfocus();
+    super.didPop(route, previousRoute);
+  }
+
+  @override
+  void didPush(Route route, Route? previousRoute) {
+    _unfocus();
+    super.didPush(route, previousRoute);
+  }
+
+  @override
+  void didRemove(Route route, Route? previousRoute) {
+    _unfocus();
+    super.didRemove(route, previousRoute);
+  }
+
+  @override
+  void didReplace({Route? newRoute, Route? oldRoute}) {
+    _unfocus();
+    super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
+  }
+}
+
 class MobileShopProfitApp extends StatefulWidget {
   const MobileShopProfitApp({super.key});
 
@@ -64,7 +94,7 @@ class _MobileShopProfitAppState extends State<MobileShopProfitApp> with WidgetsB
       valueListenable: ThemeNotifier.instance,
       builder: (context, mode, child) {
         return MaterialApp(
-          title: 'RepairHub',
+          title: 'MyRepairHub',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
@@ -72,6 +102,7 @@ class _MobileShopProfitAppState extends State<MobileShopProfitApp> with WidgetsB
           navigatorKey: AppRoutes.navigatorKey,
           initialRoute: AppRoutes.splash,
           onGenerateRoute: AppRoutes.generateRoute,
+          navigatorObservers: [AppFocusObserver()],
         );
       },
     );

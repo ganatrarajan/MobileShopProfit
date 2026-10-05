@@ -9,11 +9,18 @@ class NavUtils {
     String routeName, {
     Object? arguments,
   }) async {
+    FocusManager.instance.primaryFocus?.unfocus();
     final now = DateTime.now();
     if (now.difference(_lastNavTime).inMilliseconds < 400) {
       return null;
     }
     _lastNavTime = now;
     return Navigator.pushNamed<T>(context, routeName, arguments: arguments);
+  }
+
+  /// Safely pops the current route and unfocuses keyboard
+  static void pop<T extends Object?>(BuildContext context, [T? result]) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    Navigator.pop<T>(context, result);
   }
 }
