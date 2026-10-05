@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', 'RepairHub — All-in-One Mobile Shop & Repair Management')</title>
-    <meta name="description" content="@yield('meta_description', 'RepairHub is the complete SaaS solution for mobile shop owners, offering Inventory, Invoicing, Repairs, Warranty Tracking, Technician Payouts, and Profit Intelligence.')">
+    <title>@yield('title', 'MyRepairHub — All-in-One Mobile Shop & Repair Management')</title>
+    <meta name="description" content="@yield('meta_description', 'MyRepairHub is the complete SaaS solution for mobile shop owners, offering Inventory, Invoicing, Repairs, Warranty Tracking, Technician Payouts, and Profit Intelligence.')">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -49,9 +49,9 @@
     <header class="sticky top-0 z-50 glass-header">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
             <a href="{{ route('home') }}" class="flex items-center gap-3 group">
-                <img src="/logo.png" alt="RepairHub Logo" class="w-10 h-10 rounded-xl shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform object-cover">
+                <img src="/logo.png" alt="MyRepairHub Logo" class="w-10 h-10 rounded-xl shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform object-cover">
                 <div>
-                    <span class="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-100 to-indigo-200 bg-clip-text text-transparent">RepairHub</span>
+                    <span class="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-100 to-indigo-200 bg-clip-text text-transparent">MyRepairHub</span>
                     <span class="block text-[10px] uppercase tracking-widest text-indigo-400 font-bold -mt-1">Shop SaaS Platform</span>
                 </div>
             </a>
