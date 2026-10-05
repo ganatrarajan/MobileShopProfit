@@ -1,3 +1,4 @@
+import '../../../core/utils/date_helper.dart';
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
@@ -181,7 +182,7 @@ class _ExpenseDetailsScreenState extends State<ExpenseDetailsScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Recorded on ${_expense.expenseDate}',
+                          'Recorded on ${DateHelper.formatDate(_expense.expenseDate)}',
                           style: const TextStyle(color: Colors.white70, fontSize: 12),
                         ),
                       ],

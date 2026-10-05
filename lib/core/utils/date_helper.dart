@@ -33,7 +33,7 @@ class DateHelper {
     final hourStr = hour.toString().padLeft(2, '0');
     final minuteStr = dt.minute.toString().padLeft(2, '0');
 
-    return '$day - $month - $year, $hourStr:$minuteStr $ampm';
+    return '$day $month $year, $hourStr:$minuteStr $ampm';
   }
 
   /// Formats date only: e.g. "12 - Sep - 2026"
@@ -46,7 +46,7 @@ class DateHelper {
     final month = _months[dt.month - 1];
     final year = dt.year;
 
-    return '$day - $month - $year';
+    return '$day $month $year';
   }
 
   /// Formats time only: e.g. "05:16 PM"

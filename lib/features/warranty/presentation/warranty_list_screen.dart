@@ -1,3 +1,4 @@
+import '../../../core/utils/date_helper.dart';
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
@@ -49,10 +50,29 @@ class _WarrantyListScreenState extends State<WarrantyListScreen> {
     'voided': Colors.grey.shade700,
   };
 
+  bool _hasParsedArgs = false;
+
   @override
   void initState() {
     super.initState();
-    _fetchWarranties();
+  }
+
+    @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_hasParsedArgs) {
+      _hasParsedArgs = true;
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args != null) {
+        final strArgs = args.toString().toLowerCase();
+        if (strArgs.contains('expiring')) {
+          _selectedStatus = 'expiring_soon';
+        } else if (_statusLabels.containsKey(strArgs)) {
+          _selectedStatus = strArgs;
+        }
+      }
+      _fetchWarranties();
+    }
   }
 
   @override
@@ -431,7 +451,7 @@ class _WarrantyListScreenState extends State<WarrantyListScreen> {
                                                 const SizedBox(width: 4),
                                                 Expanded(
                                                   child: Text(
-                                                    '${warranty.warrantyStartDate} - ${warranty.warrantyEndDate}',
+                                                    '${DateHelper.formatDate(warranty.warrantyStartDate)} - ${DateHelper.formatDate(warranty.warrantyEndDate)}',
                                                     style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
                                                     overflow: TextOverflow.ellipsis,
                                                     maxLines: 1,

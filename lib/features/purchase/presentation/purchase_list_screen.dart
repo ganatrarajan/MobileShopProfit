@@ -32,11 +32,34 @@ class PurchaseListScreenState extends State<PurchaseListScreen> {
   double _totalAmount = 0.0;
   double _totalPaid = 0.0;
   double _totalOutstanding = 0.0;
+  bool _hasParsedArgs = false;
 
   @override
   void initState() {
     super.initState();
-    fetchPurchases();
+  }
+
+    @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_hasParsedArgs) {
+      _hasParsedArgs = true;
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args != null) {
+        final strArgs = args.toString().toLowerCase();
+        if (strArgs.contains('unpaid') || strArgs.contains('pending') || strArgs.contains('vendor_dues') || strArgs.contains('due')) {
+          _paymentStatusFilter = 'pending';
+          _datePreset = 'all_time';
+        } else if (strArgs.contains('paid')) {
+          _paymentStatusFilter = 'paid';
+          _datePreset = 'all_time';
+        } else if (strArgs.contains('partial')) {
+          _paymentStatusFilter = 'partial';
+          _datePreset = 'all_time';
+        }
+      }
+      fetchPurchases();
+    }
   }
 
   @override

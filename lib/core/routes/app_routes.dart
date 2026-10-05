@@ -139,14 +139,14 @@ class AppRoutes {
     switch (settings.name) {
       case forceUpdate:
         final info = settings.arguments is AppVersionInfo ? settings.arguments as AppVersionInfo : null;
-        return MaterialPageRoute(builder: (_) => ForceUpdateScreen(versionInfo: info));
+        return MaterialPageRoute(settings: settings, builder: (_) => ForceUpdateScreen(versionInfo: info));
       case splash:
-        return MaterialPageRoute(builder: (_) => const SplashScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const SplashScreen());
       case login:
         final errorMsg = settings.arguments is String ? settings.arguments as String : null;
-        return MaterialPageRoute(builder: (_) => LoginScreen(errorMessage: errorMsg));
+        return MaterialPageRoute(settings: settings, builder: (_) => LoginScreen(errorMessage: errorMsg));
       case register:
-        return MaterialPageRoute(builder: (_) => const RegisterScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const RegisterScreen());
       case otpVerification:
         final args = settings.arguments as Map<String, dynamic>;
         return MaterialPageRoute(
@@ -158,131 +158,131 @@ class AppRoutes {
           ),
         );
       case forgotPassword:
-        return MaterialPageRoute(builder: (_) => const ForgotPasswordScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const ForgotPasswordScreen());
       case shopSetup:
-        return MaterialPageRoute(builder: (_) => const ShopSetupScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const ShopSetupScreen());
       case dashboard:
         final initialIdx = settings.arguments is int ? settings.arguments as int : 0;
-        return MaterialPageRoute(builder: (_) => MainNavigationScreen(initialIndex: initialIdx));
+        return MaterialPageRoute(settings: settings, builder: (_) => MainNavigationScreen(initialIndex: initialIdx));
       case shopProfile:
-        return MaterialPageRoute(builder: (_) => const ShopProfileScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const ShopProfileScreen());
       case AppRoutes.settings:
-        return MaterialPageRoute(builder: (_) => const SettingsScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const SettingsScreen());
       case subscription:
-        return MaterialPageRoute(builder: (_) => const SubscriptionScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const SubscriptionScreen());
       case customers:
-        return MaterialPageRoute(builder: (_) => const CustomerListScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const CustomerListScreen());
       case addCustomer:
-        return MaterialPageRoute(builder: (_) => const AddCustomerScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const AddCustomerScreen());
       case customerDetails:
         final customer = settings.arguments as Customer;
-        return MaterialPageRoute(builder: (_) => CustomerDetailsScreen(customer: customer));
+        return MaterialPageRoute(settings: settings, builder: (_) => CustomerDetailsScreen(customer: customer));
       case editCustomer:
         final customer = settings.arguments as Customer;
-        return MaterialPageRoute(builder: (_) => EditCustomerScreen(customer: customer));
+        return MaterialPageRoute(settings: settings, builder: (_) => EditCustomerScreen(customer: customer));
 
       case addDevice:
         final customer = settings.arguments as Customer;
-        return MaterialPageRoute(builder: (_) => AddDeviceScreen(customer: customer));
+        return MaterialPageRoute(settings: settings, builder: (_) => AddDeviceScreen(customer: customer));
       case deviceDetails:
         final device = settings.arguments as Device;
-        return MaterialPageRoute(builder: (_) => DeviceDetailsScreen(device: device));
+        return MaterialPageRoute(settings: settings, builder: (_) => DeviceDetailsScreen(device: device));
       case editDevice:
         final device = settings.arguments as Device;
-        return MaterialPageRoute(builder: (_) => EditDeviceScreen(device: device));
+        return MaterialPageRoute(settings: settings, builder: (_) => EditDeviceScreen(device: device));
       case deviceSearch:
-        return MaterialPageRoute(builder: (_) => const DeviceSearchScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const DeviceSearchScreen());
 
       case sales:
-        return MaterialPageRoute(builder: (_) => const SalesListScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const SalesListScreen());
       case createSale:
-        return MaterialPageRoute(builder: (_) => const CreateSaleScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const CreateSaleScreen());
       case quickSale:
-        return MaterialPageRoute(builder: (_) => const QuickSaleScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const QuickSaleScreen());
       case saleDetails:
         final sale = settings.arguments as Sale;
-        return MaterialPageRoute(builder: (_) => SaleDetailsScreen(sale: sale));
+        return MaterialPageRoute(settings: settings, builder: (_) => SaleDetailsScreen(sale: sale));
 
       case technicians:
-        return MaterialPageRoute(builder: (_) => const TechnicianListScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const TechnicianListScreen());
       case technicianDetails:
         final tech = settings.arguments as Technician;
-        return MaterialPageRoute(builder: (_) => TechnicianDetailsScreen(technician: tech));
+        return MaterialPageRoute(settings: settings, builder: (_) => TechnicianDetailsScreen(technician: tech));
       case repairs:
-        return MaterialPageRoute(builder: (_) => const RepairListScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const RepairListScreen());
       case createRepair:
-        return MaterialPageRoute(builder: (_) => const CreateRepairScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const CreateRepairScreen());
       case repairDetails:
         final repair = settings.arguments as Repair;
-        return MaterialPageRoute(builder: (_) => RepairDetailsScreen(repair: repair));
+        return MaterialPageRoute(settings: settings, builder: (_) => RepairDetailsScreen(repair: repair));
       case editRepair:
         final repair = settings.arguments as Repair;
-        return MaterialPageRoute(builder: (_) => EditRepairScreen(repair: repair));
+        return MaterialPageRoute(settings: settings, builder: (_) => EditRepairScreen(repair: repair));
 
       case warranties:
-        return MaterialPageRoute(builder: (_) => const WarrantyListScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const WarrantyListScreen());
       case createWarranty:
-        return MaterialPageRoute(builder: (_) => const CreateWarrantyScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const CreateWarrantyScreen());
       case warrantyDetails:
         final warranty = settings.arguments as Warranty;
-        return MaterialPageRoute(builder: (_) => WarrantyDetailsScreen(warranty: warranty));
+        return MaterialPageRoute(settings: settings, builder: (_) => WarrantyDetailsScreen(warranty: warranty));
       case warrantyClaims:
-        return MaterialPageRoute(builder: (_) => const WarrantyClaimListScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const WarrantyClaimListScreen());
 
             case purchases:
-        return MaterialPageRoute(builder: (_) => const PurchaseListScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const PurchaseListScreen());
       case addPurchase:
-        return MaterialPageRoute(builder: (_) => const AddPurchaseScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const AddPurchaseScreen());
       case purchaseDetails:
         final purchase = settings.arguments as Purchase;
-        return MaterialPageRoute(builder: (_) => PurchaseDetailsScreen(purchase: purchase));
+        return MaterialPageRoute(settings: settings, builder: (_) => PurchaseDetailsScreen(purchase: purchase));
       case vendors:
-        return MaterialPageRoute(builder: (_) => const VendorListScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const VendorListScreen());
       case vendorDetails:
         final vendor = settings.arguments as Vendor;
-        return MaterialPageRoute(builder: (_) => VendorDetailsScreen(vendor: vendor));
+        return MaterialPageRoute(settings: settings, builder: (_) => VendorDetailsScreen(vendor: vendor));
 
       case inventory:
-        return MaterialPageRoute(builder: (_) => const InventoryListScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const InventoryListScreen());
       case addInventoryItem:
-        return MaterialPageRoute(builder: (_) => const AddEditInventoryItemScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const AddEditInventoryItemScreen());
       case inventoryDetails:
         final item = settings.arguments as InventoryItem;
-        return MaterialPageRoute(builder: (_) => InventoryDetailsScreen(item: item));
+        return MaterialPageRoute(settings: settings, builder: (_) => InventoryDetailsScreen(item: item));
       case editInventoryItem:
         final item = settings.arguments as InventoryItem;
-        return MaterialPageRoute(builder: (_) => AddEditInventoryItemScreen(item: item));
+        return MaterialPageRoute(settings: settings, builder: (_) => AddEditInventoryItemScreen(item: item));
 
       case expenses:
-        return MaterialPageRoute(builder: (_) => const ExpenseListScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const ExpenseListScreen());
       case addExpense:
-        return MaterialPageRoute(builder: (_) => const AddEditExpenseScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const AddEditExpenseScreen());
       case editExpense:
         final exp = settings.arguments as Expense;
-        return MaterialPageRoute(builder: (_) => AddEditExpenseScreen(expense: exp));
+        return MaterialPageRoute(settings: settings, builder: (_) => AddEditExpenseScreen(expense: exp));
       case expenseDetails:
         final exp = settings.arguments as Expense;
-        return MaterialPageRoute(builder: (_) => ExpenseDetailsScreen(expense: exp));
+        return MaterialPageRoute(settings: settings, builder: (_) => ExpenseDetailsScreen(expense: exp));
 
       case reportsHub:
-        return MaterialPageRoute(builder: (_) => const ReportsHubScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const ReportsHubScreen());
       case salesReport:
-        return MaterialPageRoute(builder: (_) => const SalesReportScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const SalesReportScreen());
       case repairReport:
-        return MaterialPageRoute(builder: (_) => const RepairReportScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const RepairReportScreen());
       case inventoryReport:
-        return MaterialPageRoute(builder: (_) => const InventoryReportScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const InventoryReportScreen());
       case expenseReport:
-        return MaterialPageRoute(builder: (_) => const ExpenseReportScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const ExpenseReportScreen());
       case paymentReport:
-        return MaterialPageRoute(builder: (_) => const PaymentReportScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const PaymentReportScreen());
       case customerReport:
-        return MaterialPageRoute(builder: (_) => const CustomerReportScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const CustomerReportScreen());
       case warrantyReport:
-        return MaterialPageRoute(builder: (_) => const WarrantyReportScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const WarrantyReportScreen());
 
       case profitIntelligence:
-        return MaterialPageRoute(builder: (_) => const ProfitIntelligenceScreen());
+        return MaterialPageRoute(settings: settings, builder: (_) => const ProfitIntelligenceScreen());
       case profitIntelligenceDetail:
         final args = settings.arguments as Map<String, dynamic>;
         return MaterialPageRoute(

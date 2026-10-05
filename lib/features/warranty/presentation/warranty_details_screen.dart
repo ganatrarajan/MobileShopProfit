@@ -1,3 +1,4 @@
+import '../../../core/utils/date_helper.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/custom_card.dart';
@@ -153,16 +154,16 @@ class _WarrantyDetailsScreenState extends State<WarrantyDetailsScreen> {
     String bannerSubtitle = '';
     if (_warranty.status == 'expired') {
       bannerTitle = 'WARRANTY EXPIRED';
-      bannerSubtitle = 'Expired ${_warranty.daysRemaining.abs()} days ago on ${_warranty.warrantyEndDate}';
+      bannerSubtitle = 'Expired ${_warranty.daysRemaining.abs()} days ago on ${DateHelper.formatDate(_warranty.warrantyEndDate)}';
     } else if (_warranty.status == 'expiring_soon') {
       bannerTitle = 'EXPIRING SOON';
-      bannerSubtitle = 'Warranty expires in ${_warranty.daysRemaining} days on ${_warranty.warrantyEndDate}';
+      bannerSubtitle = 'Warranty expires in ${_warranty.daysRemaining} days on ${DateHelper.formatDate(_warranty.warrantyEndDate)}';
     } else if (_warranty.status == 'voided') {
       bannerTitle = 'WARRANTY VOIDED';
       bannerSubtitle = 'This warranty has been marked as voided by shop owner';
     } else {
       bannerTitle = 'WARRANTY ACTIVE';
-      bannerSubtitle = 'Expires in ${_warranty.daysRemaining} days on ${_warranty.warrantyEndDate}';
+      bannerSubtitle = 'Expires in ${_warranty.daysRemaining} days on ${DateHelper.formatDate(_warranty.warrantyEndDate)}';
     }
 
     return Scaffold(
@@ -227,7 +228,7 @@ class _WarrantyDetailsScreenState extends State<WarrantyDetailsScreen> {
                           children: [
                             const Icon(Icons.calendar_today_rounded, size: 14, color: Colors.white70),
                             const SizedBox(width: 6),
-                            Text('Start: ${_warranty.warrantyStartDate}', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                            Text('Start: ${DateHelper.formatDate(_warranty.warrantyStartDate)}', style: const TextStyle(color: Colors.white70, fontSize: 12)),
                             const SizedBox(width: 12),
                             const Icon(Icons.timer_rounded, size: 14, color: Colors.white70),
                             const SizedBox(width: 6),
@@ -320,11 +321,11 @@ class _WarrantyDetailsScreenState extends State<WarrantyDetailsScreen> {
                           const SizedBox(height: 10),
                           if (_warranty.sale != null) ...[
                             Text('Invoice #${_warranty.sale!.invoiceNumber}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                            Text('Grand Total: ₹${_warranty.sale!.grandTotal.toStringAsFixed(2)} (${_warranty.sale!.saleDate})', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                            Text('Grand Total: ₹${_warranty.sale!.grandTotal.toStringAsFixed(2)} (${DateHelper.formatDate(_warranty.sale!.saleDate)})', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                           ],
                           if (_warranty.repair != null) ...[
                             Text('Job Card #${_warranty.repair!.jobNumber}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                            Text('Net Cost: ₹${_warranty.repair!.netCost.toStringAsFixed(2)} (${_warranty.repair!.dateReceived})', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                            Text('Net Cost: ₹${_warranty.repair!.netCost.toStringAsFixed(2)} (${DateHelper.formatDate(_warranty.repair!.dateReceived)})', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                             Text('Problem: ${_warranty.repair!.problemDescription}', style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
                           ],
                         ],
@@ -446,7 +447,7 @@ class _WarrantyDetailsScreenState extends State<WarrantyDetailsScreen> {
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
-                                        Text('Claim Date: ${claim.claimDate}', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                                        Text('Claim Date: ${DateHelper.formatDate(claim.claimDate)}', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
                                         ElevatedButton(
                                           onPressed: () => _updateClaimStatus(claim),
                                           style: ElevatedButton.styleFrom(

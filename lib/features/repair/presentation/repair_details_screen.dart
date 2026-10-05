@@ -445,17 +445,17 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               elevation: 1,
                             ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.published_with_changes_rounded, size: 14),
-                                SizedBox(width: 3),
-                                FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Text('Status', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1),
-                                ),
-                              ],
+                            child: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.published_with_changes_rounded, size: 14),
+                                  SizedBox(width: 3),
+                                  Text('Status', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -470,17 +470,17 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               elevation: 1,
                             ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                WhatsAppIcon(size: 15, showBackground: false),
-                                SizedBox(width: 3),
-                                FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Text('WhatsApp', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1),
-                                ),
-                              ],
+                            child: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  WhatsAppIcon(size: 15, showBackground: false),
+                                  SizedBox(width: 3),
+                                  Text('WhatsApp', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -495,17 +495,17 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               elevation: 1,
                             ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.picture_as_pdf_rounded, size: 15),
-                                SizedBox(width: 3),
-                                FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Text('PDF Bill', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1),
-                                ),
-                              ],
+                            child: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.picture_as_pdf_rounded, size: 15),
+                                  SizedBox(width: 3),
+                                  Text('PDF Bill', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -521,17 +521,17 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                 elevation: 1,
                               ),
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.add_card_rounded, size: 14),
-                                  SizedBox(width: 3),
-                                  FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Text('Payment', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1),
-                                  ),
-                                ],
+                              child: const FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.add_card_rounded, size: 14),
+                                    SizedBox(width: 3),
+                                    Text('Payment', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -580,7 +580,7 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
                                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                                 ),
                                 Text(
-                                  'Valid until: ${_repair.warranty!.warrantyEndDate} (${_repair.warranty!.daysRemaining} days remaining)',
+                                  'Valid until: ${DateHelper.formatDate(_repair.warranty!.warrantyEndDate)} (${_repair.warranty!.daysRemaining} days remaining)',
                                   style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                                 ),
                                 if (_repair.warranty!.warrantyTerms != null && _repair.warranty!.warrantyTerms!.isNotEmpty) ...[

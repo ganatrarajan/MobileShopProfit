@@ -64,10 +64,31 @@ class RepairListScreenState extends State<RepairListScreen> {
   };
 
 
+  bool _hasParsedArgs = false;
+
   @override
   void initState() {
     super.initState();
-    _fetchRepairs();
+  }
+
+    @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_hasParsedArgs) {
+      _hasParsedArgs = true;
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args != null) {
+        final strArgs = args.toString().toLowerCase();
+        if (strArgs.contains('ready')) {
+          _selectedStatus = 'ready';
+          _datePreset = 'all_time';
+        } else if (_statusLabels.containsKey(strArgs)) {
+          _selectedStatus = strArgs;
+          _datePreset = 'all_time';
+        }
+      }
+      _fetchRepairs();
+    }
   }
 
   @override

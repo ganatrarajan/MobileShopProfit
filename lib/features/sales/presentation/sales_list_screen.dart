@@ -38,10 +38,34 @@ class SalesListScreenState extends State<SalesListScreen> {
   double _totalPaidSum = 0.0;
   double _totalDueSum = 0.0;
 
+  bool _hasParsedArgs = false;
+
   @override
   void initState() {
     super.initState();
-    _fetchSales();
+  }
+
+      @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_hasParsedArgs) {
+      _hasParsedArgs = true;
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args != null) {
+        final strArgs = args.toString().toLowerCase();
+        if (strArgs.contains('unpaid') || strArgs.contains('customer_dues') || strArgs.contains('due')) {
+          _selectedStatus = 'due';
+          _datePreset = 'all_time';
+        } else if (strArgs.contains('partial')) {
+          _selectedStatus = 'partially_paid';
+          _datePreset = 'all_time';
+        } else if (strArgs.contains('paid')) {
+          _selectedStatus = 'paid';
+          _datePreset = 'all_time';
+        }
+      }
+      _fetchSales();
+    }
   }
 
   @override

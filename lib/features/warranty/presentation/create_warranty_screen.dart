@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import '../../../core/utils/date_helper.dart';
+import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_error_mapper.dart';
 import '../../../core/utils/app_feedback.dart';
@@ -492,7 +493,7 @@ class _CreateWarrantyScreenState extends State<CreateWarrantyScreen> {
                                         color: isSelected ? AppColors.primary : AppColors.textPrimary,
                                       ),
                                     ),
-                                    subtitle: Text('₹${sale.grandTotal.toStringAsFixed(2)} • Date: ${sale.saleDate}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                                    subtitle: Text('₹${sale.grandTotal.toStringAsFixed(2)} • Date: ${DateHelper.formatDate(sale.saleDate)}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                                     trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,
                                     onTap: () {
                                       setState(() => _selectedSale = sale);
@@ -880,7 +881,7 @@ class _CreateWarrantyScreenState extends State<CreateWarrantyScreen> {
                             ),
                             child: Text(
                               _selectedSale != null
-                                  ? 'Invoice #${_selectedSale!.invoiceNumber} - ₹${_selectedSale!.grandTotal.toStringAsFixed(2)} (${_selectedSale!.saleDate})'
+                                  ? 'Invoice #${_selectedSale!.invoiceNumber} - ₹${_selectedSale!.grandTotal.toStringAsFixed(2)} (${DateHelper.formatDate(_selectedSale!.saleDate)})'
                                   : (_isLoadingSalesOrRepairs ? 'Loading sale invoices...' : 'Tap to search & link sale invoice (${_saleList.length} available)'),
                               style: TextStyle(
                                 color: _selectedSale == null ? AppColors.textMuted : AppColors.textPrimary,
@@ -1008,7 +1009,7 @@ class _CreateWarrantyScreenState extends State<CreateWarrantyScreen> {
                                 children: [
                                   const Text('Start Date', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
                                   const SizedBox(height: 2),
-                                  Text('${_startDate.day}/${_startDate.month}/${_startDate.year}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                  Text('${DateHelper.formatDate(_startDate.toIso8601String())}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                                 ],
                               ),
                             ),
@@ -1028,7 +1029,7 @@ class _CreateWarrantyScreenState extends State<CreateWarrantyScreen> {
                               children: [
                                 Text('Calculated Expiry Date', style: TextStyle(fontSize: 11, color: Colors.green.shade800, fontWeight: FontWeight.bold)),
                                 const SizedBox(height: 2),
-                                Text('${endDateCalc.day}/${endDateCalc.month}/${endDateCalc.year}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green.shade900)),
+                                Text('${DateHelper.formatDate(endDateCalc.toIso8601String())}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green.shade900)),
                               ],
                             ),
                           ),

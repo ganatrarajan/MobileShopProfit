@@ -387,7 +387,7 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                               ),
                               Text(
-                                'Valid until: ${_sale.warranty!.warrantyEndDate} (${_sale.warranty!.daysRemaining} days remaining)',
+                                'Valid until: ${DateHelper.formatDate(_sale.warranty!.warrantyEndDate)} (${_sale.warranty!.daysRemaining} days remaining)',
                                 style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                               ),
                               if (_sale.warranty!.warrantyTerms != null && _sale.warranty!.warrantyTerms!.isNotEmpty) ...[

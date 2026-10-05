@@ -41,7 +41,7 @@ class ApiClient {
       debugPrint('[API GET] Requesting: $uri');
       final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 15));
       debugPrint('[API GET] Response (${response.statusCode}): ${response.body}');
-      return _handleResponse(response, fromJson);
+      return _handleResponse(response, fromJson, path: path);
     } catch (e) {
       debugPrint('[API GET Error]: ${e.toString()}');
       return _handleCatchError<T>(e);
@@ -66,7 +66,7 @@ class ApiClient {
       ).timeout(const Duration(seconds: 15));
 
       debugPrint('[API POST] Response (${response.statusCode}): ${response.body}');
-      return _handleResponse(response, fromJson);
+      return _handleResponse(response, fromJson, path: path);
     } catch (e) {
       debugPrint('[API POST Error]: ${e.toString()}');
       return _handleCatchError<T>(e);
@@ -102,7 +102,7 @@ class ApiClient {
       final response = await http.Response.fromStream(streamedResponse);
 
       debugPrint('[API Multipart POST] Response (${response.statusCode}): ${response.body}');
-      return _handleResponse(response, fromJson);
+      return _handleResponse(response, fromJson, path: path);
     } catch (e) {
       debugPrint('[API Multipart Error]: ${e.toString()}');
       return _handleCatchError<T>(e);
@@ -124,7 +124,7 @@ class ApiClient {
         body: body != null ? jsonEncode(body) : null,
       ).timeout(const Duration(seconds: 15));
       debugPrint('[API PUT] Response (${response.statusCode}): ${response.body}');
-      return _handleResponse(response, fromJson);
+      return _handleResponse(response, fromJson, path: path);
     } catch (e) {
       debugPrint('[API PUT Error]: ${e.toString()}');
       return _handleCatchError<T>(e);
@@ -141,7 +141,7 @@ class ApiClient {
       debugPrint('[API DELETE] Requesting: $uri');
       final response = await http.delete(uri, headers: headers).timeout(const Duration(seconds: 15));
       debugPrint('[API DELETE] Response (${response.statusCode}): ${response.body}');
-      return _handleResponse(response, fromJson);
+      return _handleResponse(response, fromJson, path: path);
     } catch (e) {
       debugPrint('[API DELETE Error]: ${e.toString()}');
       return _handleCatchError<T>(e);
@@ -171,8 +171,9 @@ class ApiClient {
 
   ApiResponse<T> _handleResponse<T>(
     http.Response response,
-    T Function(dynamic)? fromJson,
-  ) {
+    T Function(dynamic)? fromJson, {
+    String? path,
+  }) {
     dynamic jsonResponseBody;
     try {
       jsonResponseBody = jsonDecode(response.body);
@@ -192,6 +193,17 @@ class ApiClient {
 
       if (response.statusCode == 403 || response.statusCode == 401) {
         final lowerMsg = message.toString().toLowerCase();
+        final requestPath = path ?? response.request?.url.path ?? '';
+        final isAuthEndpoint = requestPath.contains('/login') ||
+            requestPath.contains('/register') ||
+            requestPath.contains('/forgot-password') ||
+            requestPath.contains('/reset-password');
+        final isInvalidCredentials = lowerMsg.contains('invalid mobile') ||
+            lowerMsg.contains('invalid password') ||
+            lowerMsg.contains('invalid credentials') ||
+            lowerMsg.contains('invalid email') ||
+            lowerMsg.contains('incorrect password');
+
         if (lowerMsg.contains('deactivated')) {
           _authStorage.clearSession();
           AppRoutes.navigatorKey.currentState?.pushNamedAndRemoveUntil(
@@ -199,7 +211,9 @@ class ApiClient {
             (route) => false,
             arguments: message,
           );
-        } else if (response.statusCode == 401 || lowerMsg.contains('unauthenticated')) {
+        } else if ((response.statusCode == 401 || lowerMsg.contains('unauthenticated')) &&
+            !isAuthEndpoint &&
+            !isInvalidCredentials) {
           _handleUnauthorizedSession(message.toString());
         }
       }

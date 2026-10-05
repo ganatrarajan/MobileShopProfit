@@ -45,10 +45,33 @@ class InventoryListScreenState extends State<InventoryListScreen> {
     'out_of_stock': 'Out of Stock',
   };
 
+  bool _hasParsedArgs = false;
+
   @override
   void initState() {
     super.initState();
-    _fetchInventory();
+  }
+
+    @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_hasParsedArgs) {
+      _hasParsedArgs = true;
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args != null) {
+        final strArgs = args.toString().toLowerCase();
+        if (strArgs.contains("out_of_stock") || strArgs.contains("out_stock")) {
+          _selectedStockStatus = 'out_of_stock';
+        } else if (strArgs.contains("low_stock")) {
+          _selectedStockStatus = 'low_stock';
+        } else if (strArgs.contains("in_stock")) {
+          _selectedStockStatus = 'in_stock';
+        } else if (_typeLabels.containsKey(strArgs)) {
+          _selectedType = strArgs;
+        }
+      }
+      _fetchInventory();
+    }
   }
 
   @override
@@ -137,20 +160,34 @@ class InventoryListScreenState extends State<InventoryListScreen> {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: _buildSummaryMetric(
-                    title: 'Low Stock',
-                    value: _metrics!.lowStockCount.toString(),
-                    icon: Icons.warning_amber_rounded,
-                    color: Colors.amberAccent,
+                  child: InkWell(
+                    onTap: () {
+                      setState(() => _selectedStockStatus = 'low_stock');
+                      _fetchInventory();
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: _buildSummaryMetric(
+                      title: 'Low Stock',
+                      value: _metrics!.lowStockCount.toString(),
+                      icon: Icons.warning_amber_rounded,
+                      color: Colors.amberAccent,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: _buildSummaryMetric(
-                    title: 'Out of Stock',
-                    value: _metrics!.outOfStockCount.toString(),
-                    icon: Icons.highlight_off_rounded,
-                    color: Colors.redAccent,
+                  child: InkWell(
+                    onTap: () {
+                      setState(() => _selectedStockStatus = 'out_of_stock');
+                      _fetchInventory();
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: _buildSummaryMetric(
+                      title: 'Out of Stock',
+                      value: _metrics!.outOfStockCount.toString(),
+                      icon: Icons.highlight_off_rounded,
+                      color: Colors.redAccent,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -184,6 +221,54 @@ class InventoryListScreenState extends State<InventoryListScreen> {
             ),
           ),
         ),
+
+        // 2.5 Active Context Filter Banner
+        if (_selectedStockStatus != 'all' || _selectedType != 'all')
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.filter_alt_rounded, color: AppColors.primary, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Filtered by: ${_stockStatusLabels[_selectedStockStatus] ?? _selectedStockStatus}${_selectedType != 'all' ? ' • ${_typeLabels[_selectedType]}' : ''}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.primary),
+                  ),
+                ),
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      _selectedStockStatus = 'all';
+                      _selectedType = 'all';
+                    });
+                    _fetchInventory();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Clear Filter', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                        SizedBox(width: 4),
+                        Icon(Icons.close_rounded, color: Colors.white, size: 13),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
 
         // 3. Filter Chips Row
         Container(

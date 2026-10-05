@@ -1,3 +1,4 @@
+import '../../../core/utils/nav_utils.dart';
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/storage/auth_storage.dart';
@@ -25,7 +26,7 @@ class DashboardScreenState extends State<DashboardScreen> {
     if (widget.onTabSelected != null) {
       widget.onTabSelected!(tabIndex);
     } else {
-      Navigator.pushNamed(context, fallbackRoute);
+      NavUtils.pushNamed(context, fallbackRoute);
     }
   }
 
@@ -241,27 +242,11 @@ class DashboardScreenState extends State<DashboardScreen> {
                         if (_dashboardData!.daysRemaining <= 10 || _dashboardData!.isExpiringSoon)
                           _buildSubscriptionHighlightCard(_dashboardData!.daysRemaining),
 
-                        // 1. TOP USP: Profit AI Business Assistant Banner
-                        _buildTopProfitAiBanner(),
-                        const SizedBox(height: 20),
-
-                        // 2. Fast Creation Actions Section (Quick Daily Tasks)
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text('Quick Actions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor, letterSpacing: -0.3)),
-                            Text('Tap to create', style: TextStyle(fontSize: 11, color: textMutedColor)),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        _buildFastActionsGrid(),
-                        const SizedBox(height: 20),
-
-                        // 3. Financial Overview & Net Profit Card
+                        // 1. Financial Overview & Net Profit Card
                         _buildFinancialSummaryCard(_dashboardData!.financialOverview),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 20),
 
-                        // 4. Shop Performance Metrics Summary (Outstanding, Collected & Pending Overview)
+                        // 2. Shop Performance Metrics Summary (Sales, Purchases, Repairs, Inventory, Expenses)
                         Text('Shop Performance Summary', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor, letterSpacing: -0.3)),
                         const SizedBox(height: 10),
                         _buildSalesSummaryCard(_dashboardData!.sales),
@@ -278,6 +263,22 @@ class DashboardScreenState extends State<DashboardScreen> {
                         ),
                         const SizedBox(height: 12),
                         _buildExpenseSummaryCard(_dashboardData!.expenses),
+                        const SizedBox(height: 24),
+
+                        // 3. Fast Creation Actions Section (Quick Daily Tasks)
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Quick Actions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor, letterSpacing: -0.3)),
+                            Text('Tap to create', style: TextStyle(fontSize: 11, color: textMutedColor)),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        _buildFastActionsGrid(),
+                        const SizedBox(height: 20),
+
+                        // 4. Profit AI Business Assistant Banner
+                        _buildTopProfitAiBanner(),
                         const SizedBox(height: 24),
 
                         // 5. Organized Business Management Modules
@@ -409,7 +410,7 @@ class DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           InkWell(
-            onTap: () => Navigator.pushNamed(context, AppRoutes.profitIntelligence),
+            onTap: () => NavUtils.pushNamed(context, AppRoutes.profitIntelligence),
             borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(18), bottomRight: Radius.circular(18)),
             child: Container(
               width: double.infinity,
@@ -554,7 +555,7 @@ class DashboardScreenState extends State<DashboardScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               elevation: 0,
             ),
-            onPressed: () => Navigator.pushNamed(context, AppRoutes.subscription),
+            onPressed: () => NavUtils.pushNamed(context, AppRoutes.subscription),
             child: const Text('Renew', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
           ),
         ],
@@ -584,7 +585,7 @@ class DashboardScreenState extends State<DashboardScreen> {
             title: 'Quick Accessories Sale',
             desc: 'Sell tempered glass, covers, or chargers in seconds.',
             icon: Icons.flash_on_rounded,
-            onTap: () => Navigator.pushNamed(context, AppRoutes.quickSale),
+            onTap: () => NavUtils.pushNamed(context, AppRoutes.quickSale),
           ),
           const SizedBox(height: 12),
           _buildOnboardingStepTile(
@@ -592,7 +593,7 @@ class DashboardScreenState extends State<DashboardScreen> {
             title: 'Add Repair Job',
             desc: 'Register customer devices for screen, battery, or board repair.',
             icon: Icons.handyman_rounded,
-            onTap: () => Navigator.pushNamed(context, AppRoutes.createRepair),
+            onTap: () => NavUtils.pushNamed(context, AppRoutes.createRepair),
           ),
           const SizedBox(height: 12),
           _buildOnboardingStepTile(
@@ -600,7 +601,7 @@ class DashboardScreenState extends State<DashboardScreen> {
             title: 'Add Inventory Stock',
             desc: 'Add products, parts, and stock quantities.',
             icon: Icons.inventory_2_rounded,
-            onTap: () => Navigator.pushNamed(context, AppRoutes.addInventoryItem),
+            onTap: () => NavUtils.pushNamed(context, AppRoutes.addInventoryItem),
           ),
         ],
       ),
@@ -859,7 +860,7 @@ class DashboardScreenState extends State<DashboardScreen> {
     final textMutedColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
 
     return CustomCard(
-      onTap: () => Navigator.pushNamed(context, AppRoutes.purchases),
+      onTap: () => NavUtils.pushNamed(context, AppRoutes.purchases),
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -996,7 +997,7 @@ class DashboardScreenState extends State<DashboardScreen> {
     final textMutedColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
 
     return CustomCard(
-      onTap: () => Navigator.pushNamed(context, AppRoutes.inventory),
+      onTap: () => NavUtils.pushNamed(context, AppRoutes.inventory),
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1030,7 +1031,7 @@ class DashboardScreenState extends State<DashboardScreen> {
     final textMutedColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
 
     return CustomCard(
-      onTap: () => Navigator.pushNamed(context, AppRoutes.expenses),
+      onTap: () => NavUtils.pushNamed(context, AppRoutes.expenses),
       padding: const EdgeInsets.all(14),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1062,22 +1063,22 @@ class DashboardScreenState extends State<DashboardScreen> {
         children: [
           _buildActionTile('Quick Sale', Icons.flash_on_rounded, Colors.amber.shade800, () async {
             final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create quick sales');
-            if (ok && mounted) Navigator.pushNamed(context, AppRoutes.quickSale);
+            if (ok && mounted) NavUtils.pushNamed(context, AppRoutes.quickSale);
           }),
           const SizedBox(width: 8),
           _buildActionTile('Add Repair', Icons.handyman_rounded, AppColors.primary, () async {
             final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create repair tickets');
-            if (ok && mounted) Navigator.pushNamed(context, AppRoutes.createRepair);
+            if (ok && mounted) NavUtils.pushNamed(context, AppRoutes.createRepair);
           }),
           const SizedBox(width: 8),
           _buildActionTile('Add Purchase', Icons.add_shopping_cart_rounded, Colors.purple, () async {
             final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'manage inventory purchases');
-            if (ok && mounted) Navigator.pushNamed(context, AppRoutes.addPurchase);
+            if (ok && mounted) NavUtils.pushNamed(context, AppRoutes.addPurchase);
           }),
           const SizedBox(width: 8),
           _buildActionTile('Add Expense', Icons.post_add_rounded, AppColors.secondary, () async {
             final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'manage expenses');
-            if (ok && mounted) Navigator.pushNamed(context, AppRoutes.addExpense);
+            if (ok && mounted) NavUtils.pushNamed(context, AppRoutes.addExpense);
           }),
         ],
       ),
@@ -1138,7 +1139,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           desc: 'Manage supplier purchases, vendor payments & stock orders',
           icon: Icons.shopping_bag_rounded,
           color: Colors.purple,
-          onTap: () => Navigator.pushNamed(context, AppRoutes.purchases),
+          onTap: () => NavUtils.pushNamed(context, AppRoutes.purchases),
         ),
         const SizedBox(height: 10),
         _buildModuleCard(
@@ -1146,7 +1147,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           desc: 'Customer profiles, contact numbers & purchase/repair history',
           icon: Icons.people_alt_rounded,
           color: AppColors.primary,
-          onTap: () => Navigator.pushNamed(context, AppRoutes.customers),
+          onTap: () => NavUtils.pushNamed(context, AppRoutes.customers),
         ),
         const SizedBox(height: 10),
         _buildModuleCard(
@@ -1154,7 +1155,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           desc: 'Track device repair warranties & rework claims',
           icon: Icons.verified_user_rounded,
           color: AppColors.secondary,
-          onTap: () => Navigator.pushNamed(context, AppRoutes.warranties),
+          onTap: () => NavUtils.pushNamed(context, AppRoutes.warranties),
         ),
         const SizedBox(height: 10),
         _buildModuleCard(
@@ -1162,7 +1163,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           desc: 'Sales reports, repair stats, expense summary & CSV exports',
           icon: Icons.analytics_rounded,
           color: AppColors.accent,
-          onTap: () => Navigator.pushNamed(context, AppRoutes.reportsHub),
+          onTap: () => NavUtils.pushNamed(context, AppRoutes.reportsHub),
         ),
         const SizedBox(height: 10),
         _buildModuleCard(
@@ -1170,7 +1171,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           desc: 'Search customer devices, IMEI numbers & models',
           icon: Icons.phone_android_rounded,
           color: AppColors.textSecondary,
-          onTap: () => Navigator.pushNamed(context, AppRoutes.deviceSearch),
+          onTap: () => NavUtils.pushNamed(context, AppRoutes.deviceSearch),
         ),
       ],
     );
@@ -1257,25 +1258,48 @@ class DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  void _handleAttentionTap(AttentionItem item) {
-    final route = item.actionRoute;
+        void _handleAttentionTap(AttentionItem item) {
+    String route = item.actionRoute.toLowerCase().replaceAll('/', '');
+    String filterArg = (item.filter.isNotEmpty && item.filter != 'all') ? item.filter : item.type;
+
+    if (item.type == 'out_of_stock' || item.type == 'low_stock') {
+      route = 'inventory';
+      filterArg = item.type;
+    } else if (item.type == 'ready_repair') {
+      route = 'repairs';
+      filterArg = 'ready';
+    } else if (item.type == 'customer_dues') {
+      route = 'sales';
+      filterArg = 'due';
+    } else if (item.type == 'vendor_dues') {
+      route = 'vendors';
+      filterArg = 'vendor_dues';
+    } else if (item.type == 'expiring_warranty') {
+      route = 'warranties';
+      filterArg = 'expiring_soon';
+    }
+
     switch (route) {
       case 'inventory':
-        Navigator.pushNamed(context, AppRoutes.inventory);
+      case 'stock':
+        NavUtils.pushNamed(context, AppRoutes.inventory, arguments: filterArg);
         break;
       case 'repairs':
       case 'open_repairs':
-        Navigator.pushNamed(context, AppRoutes.repairs);
+        NavUtils.pushNamed(context, AppRoutes.repairs, arguments: filterArg);
         break;
-      case 'open_purchases':
       case 'purchases':
-        Navigator.pushNamed(context, AppRoutes.purchases);
+      case 'open_purchases':
+        NavUtils.pushNamed(context, AppRoutes.purchases, arguments: filterArg);
+        break;
+      case 'vendors':
+        NavUtils.pushNamed(context, AppRoutes.vendors);
         break;
       case 'sales':
-        Navigator.pushNamed(context, AppRoutes.sales);
+        NavUtils.pushNamed(context, AppRoutes.sales, arguments: filterArg);
         break;
       case 'warranties':
-        Navigator.pushNamed(context, AppRoutes.warranties);
+        NavUtils.pushNamed(context, AppRoutes.warranties, arguments: filterArg);
         break;
       default:
         break;
@@ -1335,7 +1359,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                   ),
                   onPressed: () {
                     Navigator.pop(ctx);
-                    Navigator.pushNamed(context, AppRoutes.subscription);
+                    NavUtils.pushNamed(context, AppRoutes.subscription);
                   },
                   icon: const Icon(Icons.star_rounded, size: 18),
                   label: const Text('Renew Plan Now', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),

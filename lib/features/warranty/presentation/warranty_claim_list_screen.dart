@@ -1,3 +1,4 @@
+import '../../../core/utils/date_helper.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/custom_card.dart';
@@ -210,7 +211,7 @@ class _WarrantyClaimListScreenState extends State<WarrantyClaimListScreen> {
                                         Row(
                                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
-                                            Text('Claim Date: ${claim.claimDate}', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                                            Text('Claim Date: ${DateHelper.formatDate(claim.claimDate)}', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
                                             ElevatedButton(
                                               onPressed: () => _updateStatus(claim),
                                               style: ElevatedButton.styleFrom(
