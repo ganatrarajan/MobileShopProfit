@@ -4,6 +4,7 @@ import '../data/repair_repository.dart';
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/app_feedback.dart';
 import '../../../core/utils/date_helper.dart';
 import '../../../core/utils/whatsapp_helper.dart';
 import '../../../core/widgets/custom_card.dart';
@@ -204,28 +205,50 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(res.message), backgroundColor: AppColors.error),
-          );
+          AppFeedback.showError(context, error: res.message);
         }
       }
     }
   }
 
   Future<void> _addPart() async {
-    final added = await showDialog<bool>(
+    final result = await showDialog<dynamic>(
       context: context,
       builder: (ctx) => AddRepairPartDialog(repair: _repair),
     );
-    if (added == true) _refreshDetails();
+    if (result != null) {
+      if (result is Repair) {
+        setState(() => _repair = result);
+      }
+      if (mounted) {
+        AppFeedback.showSuccess(
+          context,
+          title: 'Part Added',
+          message: 'Part added to repair successfully.',
+        );
+      }
+      _refreshDetails();
+    }
   }
 
   Future<void> _collectPayment() async {
-    final paid = await showDialog<bool>(
+    final result = await showDialog<dynamic>(
       context: context,
       builder: (ctx) => CollectRepairPaymentDialog(repair: _repair),
     );
-    if (paid == true) _refreshDetails();
+    if (result != null) {
+      if (result is Repair) {
+        setState(() => _repair = result);
+      }
+      if (mounted) {
+        AppFeedback.showSuccess(
+          context,
+          title: 'Payment Recorded',
+          message: 'Payment recorded successfully.',
+        );
+      }
+      _refreshDetails();
+    }
   }
 
   Future<void> _confirmDeletePart(RepairPart part) async {
@@ -251,6 +274,12 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
       final res = await _repairRepository.deletePart(part.id);
       if (mounted && res.success && res.data != null) {
         setState(() => _repair = res.data!);
+        AppFeedback.showSuccess(
+          context,
+          title: 'Part Removed',
+          message: 'Part removed from repair successfully.',
+        );
+        _refreshDetails();
       }
     }
   }
@@ -818,9 +847,29 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
                                         : Colors.orange.shade800,
                                   ),
                                 ),
+                                if (_repair.technicianName != null && _repair.technicianName!.isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Technician Fee: \u20B9${(_repair.technicianEarning > 0 ? _repair.technicianEarning : _repair.labourCost).toStringAsFixed(2)}',
+                                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
+                          if (_repair.technicianName != null && _repair.technicianName!.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.blue.shade200),
+                              ),
+                              child: Text(
+                                '\u20B9${(_repair.technicianEarning > 0 ? _repair.technicianEarning : _repair.labourCost).toStringAsFixed(2)}',
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.blue.shade800),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -919,31 +968,40 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
                     const SizedBox(height: 14),
 
                     // 6. Cost & Payment Summary Card
-                    CustomCard(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Cost Breakdown', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 10),
-                          _buildRow('Estimated Repair Cost', '\u20B9 ${_repair.estimatedCost.toStringAsFixed(2)}'),
-                          if (_repair.finalCost > 0)
-                            _buildRow('Final Repair Cost', '\u20B9 ${_repair.finalCost.toStringAsFixed(2)}', isBold: true),
-                          if (_repair.labourCost > 0)
-                            _buildRow('Labour Amount', '\u20B9 ${_repair.labourCost.toStringAsFixed(2)}'),
-                          const Divider(height: 16),
-                          _buildRow('TOTAL NET AMOUNT', '\u20B9 ${_repair.netCost.toStringAsFixed(2)}', isBold: true, fontSize: 16),
-                          const SizedBox(height: 6),
-                          _buildRow('Total Paid / Advance', '\u20B9 ${_repair.amountPaid.toStringAsFixed(2)}', color: Colors.green.shade700, isBold: true),
-                          _buildRow(
-                            'AMOUNT DUE',
-                            '\u20B9 ${_repair.amountDue.toStringAsFixed(2)}',
-                            color: _repair.amountDue > 0 ? Colors.red.shade700 : Colors.green.shade700,
-                            isBold: true,
-                            fontSize: 16,
+                    Builder(
+                      builder: (ctx) {
+                        final double totalPartsCost = _repair.parts.fold<double>(0.0, (sum, p) => sum + (p.quantity * p.sellingPrice));
+                        final double techFee = _repair.technicianEarning > 0 ? _repair.technicianEarning : _repair.labourCost;
+
+                        return CustomCard(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Cost Breakdown', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 10),
+                              _buildRow('Estimated Repair Cost', '\u20B9 ${_repair.estimatedCost.toStringAsFixed(2)}'),
+                              if (_repair.finalCost > 0)
+                                _buildRow('Final Repair Cost', '\u20B9 ${_repair.finalCost.toStringAsFixed(2)}', isBold: true),
+                              if (totalPartsCost > 0)
+                                _buildRow('Parts Cost Total', '\u20B9 ${totalPartsCost.toStringAsFixed(2)}', color: AppColors.accent, isBold: true),
+                              if (techFee > 0)
+                                _buildRow('Technician Fee', '\u20B9 ${techFee.toStringAsFixed(2)}'),
+                              const Divider(height: 16),
+                              _buildRow('TOTAL NET AMOUNT', '\u20B9 ${_repair.netCost.toStringAsFixed(2)}', isBold: true, fontSize: 16),
+                              const SizedBox(height: 6),
+                              _buildRow('Total Paid / Advance', '\u20B9 ${_repair.amountPaid.toStringAsFixed(2)}', color: Colors.green.shade700, isBold: true),
+                              _buildRow(
+                                'AMOUNT DUE',
+                                '\u20B9 ${_repair.amountDue.toStringAsFixed(2)}',
+                                color: _repair.amountDue > 0 ? Colors.red.shade700 : Colors.green.shade700,
+                                isBold: true,
+                                fontSize: 16,
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 14),
 

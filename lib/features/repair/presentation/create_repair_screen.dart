@@ -1,4 +1,4 @@
-﻿import '../../warranty/data/warranty_repository.dart';
+import '../../warranty/data/warranty_repository.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_feedback.dart';
@@ -129,53 +129,91 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
     }
   }
 
+  StateSetter? _activeCustomerModalState;
+  StateSetter? _activeDeviceModalState;
+  StateSetter? _activeTechnicianModalState;
+
   Future<void> _loadTechnicians() async {
+    if (!mounted) return;
     setState(() => _isLoadingTechnicians = true);
+    _activeTechnicianModalState?.call(() {});
     try {
       final res = await _technicianRepository.getTechnicians(status: 'active');
-      if (mounted && res.success && res.data != null) {
-        setState(() {
-          _technicianList = res.data!.technicians;
-          _isLoadingTechnicians = false;
-        });
+      if (mounted) {
+        if (res.success && res.data != null) {
+          setState(() {
+            _technicianList = res.data!.technicians;
+            _isLoadingTechnicians = false;
+          });
+        } else {
+          setState(() => _isLoadingTechnicians = false);
+        }
+        _activeTechnicianModalState?.call(() {});
       }
     } catch (_) {
-      if (mounted) setState(() => _isLoadingTechnicians = false);
+      if (mounted) {
+        setState(() => _isLoadingTechnicians = false);
+        _activeTechnicianModalState?.call(() {});
+      }
     }
   }
 
   Future<void> _loadCustomers() async {
+    if (!mounted) return;
     setState(() => _isLoadingCustomers = true);
+    _activeCustomerModalState?.call(() {});
     try {
       final res = await _customerRepository.getCustomers();
-      if (res.success && res.data != null) {
-        setState(() {
-          _customerList = res.data!;
-          _isLoadingCustomers = false;
-        });
+      if (mounted) {
+        if (res.success && res.data != null) {
+          setState(() {
+            _customerList = res.data!;
+            _isLoadingCustomers = false;
+          });
+        } else {
+          setState(() => _isLoadingCustomers = false);
+        }
+        _activeCustomerModalState?.call(() {});
       }
     } catch (_) {
-      setState(() => _isLoadingCustomers = false);
+      if (mounted) {
+        setState(() => _isLoadingCustomers = false);
+        _activeCustomerModalState?.call(() {});
+      }
     }
   }
 
   Future<void> _loadDevicesForCustomer(int customerId) async {
+    if (!mounted) return;
     setState(() => _isLoadingDevices = true);
+    _activeDeviceModalState?.call(() {});
     try {
       final res = await _deviceRepository.getDevicesForCustomer(customerId);
-      if (res.success && res.data != null) {
-        setState(() {
-          _deviceList = res.data!;
-          _isLoadingDevices = false;
-        });
+      if (mounted) {
+        if (res.success && res.data != null) {
+          setState(() {
+            _deviceList = res.data!;
+            _isLoadingDevices = false;
+          });
+        } else {
+          setState(() => _isLoadingDevices = false);
+        }
+        _activeDeviceModalState?.call(() {});
       }
     } catch (_) {
-      setState(() => _isLoadingDevices = false);
+      if (mounted) {
+        setState(() => _isLoadingDevices = false);
+        _activeDeviceModalState?.call(() {});
+      }
     }
   }
 
   void _showCustomerSearchBottomSheet() {
     String filterQuery = '';
+
+    if (_customerList.isEmpty && !_isLoadingCustomers) {
+      _loadCustomers();
+    }
 
     showModalBottomSheet(
       context: context,
@@ -187,6 +225,7 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setModalState) {
+            _activeCustomerModalState = setModalState;
             final filteredCustomers = _customerList.where((c) {
               final q = filterQuery.toLowerCase();
               return c.name.toLowerCase().contains(q) || c.mobile.contains(q);
@@ -314,12 +353,16 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
           },
         );
       },
-    );
+    ).then((_) => _activeCustomerModalState = null);
   }
 
   void _showDeviceSearchBottomSheet() {
     if (_selectedCustomer == null) return;
     String filterQuery = '';
+
+    if (_deviceList.isEmpty && !_isLoadingDevices) {
+      _loadDevicesForCustomer(_selectedCustomer!.id);
+    }
 
     showModalBottomSheet(
       context: context,
@@ -331,6 +374,7 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setModalState) {
+            _activeDeviceModalState = setModalState;
             final filteredDevices = _deviceList.where((d) {
               final q = filterQuery.toLowerCase();
               return d.brand.toLowerCase().contains(q) ||
@@ -460,11 +504,15 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
           },
         );
       },
-    );
+    ).then((_) => _activeDeviceModalState = null);
   }
 
   void _showTechnicianSearchBottomSheet() {
     String filterQuery = '';
+
+    if (_technicianList.isEmpty && !_isLoadingTechnicians) {
+      _loadTechnicians();
+    }
 
     showModalBottomSheet(
       context: context,
@@ -476,6 +524,7 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setModalState) {
+            _activeTechnicianModalState = setModalState;
             final filteredTechs = _technicianList.where((t) {
               final q = filterQuery.toLowerCase();
               return t.name.toLowerCase().contains(q) ||
@@ -597,7 +646,7 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
           },
         );
       },
-    );
+    ).then((_) => _activeTechnicianModalState = null);
   }
 
   Future<void> _submitRepair() async {

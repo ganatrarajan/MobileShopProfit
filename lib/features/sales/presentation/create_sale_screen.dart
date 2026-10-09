@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_error_mapper.dart';
 import '../../../core/utils/app_feedback.dart';
@@ -14,7 +14,6 @@ import '../../device/models/device.dart';
 import '../../device/presentation/widgets/quick_add_device_modal.dart';
 import '../data/sale_repository.dart';
 import '../../warranty/data/warranty_repository.dart';
-import '../../../core/utils/whatsapp_helper.dart';
 import '../models/sale.dart';
 import '../../inventory/data/inventory_repository.dart';
 import '../../inventory/models/inventory_item.dart';
@@ -86,33 +85,56 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
     }
   }
 
+  StateSetter? _activeCustomerModalState;
+  StateSetter? _activeDeviceModalState;
+
   Future<void> _loadCustomers() async {
+    if (!mounted) return;
     setState(() => _isLoadingCustomers = true);
+    _activeCustomerModalState?.call(() {});
     try {
       final res = await _customerRepository.getCustomers();
-      if (res.success && res.data != null) {
-        setState(() {
-          _customerList = res.data!;
-          _isLoadingCustomers = false;
-        });
+      if (mounted) {
+        if (res.success && res.data != null) {
+          setState(() {
+            _customerList = res.data!;
+            _isLoadingCustomers = false;
+          });
+        } else {
+          setState(() => _isLoadingCustomers = false);
+        }
+        _activeCustomerModalState?.call(() {});
       }
     } catch (_) {
-      setState(() => _isLoadingCustomers = false);
+      if (mounted) {
+        setState(() => _isLoadingCustomers = false);
+        _activeCustomerModalState?.call(() {});
+      }
     }
   }
 
   Future<void> _loadDevicesForCustomer(int customerId) async {
+    if (!mounted) return;
     setState(() => _isLoadingDevices = true);
+    _activeDeviceModalState?.call(() {});
     try {
       final res = await _deviceRepository.getDevicesForCustomer(customerId);
-      if (res.success && res.data != null) {
-        setState(() {
-          _deviceList = res.data!;
-          _isLoadingDevices = false;
-        });
+      if (mounted) {
+        if (res.success && res.data != null) {
+          setState(() {
+            _deviceList = res.data!;
+            _isLoadingDevices = false;
+          });
+        } else {
+          setState(() => _isLoadingDevices = false);
+        }
+        _activeDeviceModalState?.call(() {});
       }
     } catch (_) {
-      setState(() => _isLoadingDevices = false);
+      if (mounted) {
+        setState(() => _isLoadingDevices = false);
+        _activeDeviceModalState?.call(() {});
+      }
     }
   }
 
@@ -159,6 +181,10 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
   void _showCustomerSearchBottomSheet() {
     String filterQuery = '';
 
+    if (_customerList.isEmpty && !_isLoadingCustomers) {
+      _loadCustomers();
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -169,6 +195,7 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setModalState) {
+            _activeCustomerModalState = setModalState;
             final filteredCustomers = _customerList.where((c) {
               final q = filterQuery.toLowerCase();
               return c.name.toLowerCase().contains(q) || c.mobile.contains(q);
@@ -241,7 +268,20 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                     child: _isLoadingCustomers
                         ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
                         : filteredCustomers.isEmpty
-                            ? const Center(child: Text('No customers found', style: TextStyle(color: AppColors.textSecondary)))
+                            ? Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Text('No customers found', style: TextStyle(color: AppColors.textSecondary)),
+                                    const SizedBox(height: 8),
+                                    TextButton.icon(
+                                      onPressed: () => _loadCustomers(),
+                                      icon: const Icon(Icons.refresh_rounded, size: 16),
+                                      label: const Text('Reload Customers'),
+                                    ),
+                                  ],
+                                ),
+                              )
                             : ListView.separated(
                                 itemCount: filteredCustomers.length,
                                 separatorBuilder: (_, __) => const Divider(height: 1),
@@ -276,12 +316,16 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
           },
         );
       },
-    );
+    ).then((_) => _activeCustomerModalState = null);
   }
 
   void _showDeviceSearchBottomSheet() {
     if (_selectedCustomer == null) return;
     String filterQuery = '';
+
+    if (_deviceList.isEmpty && !_isLoadingDevices) {
+      _loadDevicesForCustomer(_selectedCustomer!.id);
+    }
 
     showModalBottomSheet(
       context: context,
@@ -293,6 +337,7 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setModalState) {
+            _activeDeviceModalState = setModalState;
             final filteredDevices = _deviceList.where((d) {
               final q = filterQuery.toLowerCase();
               return d.brand.toLowerCase().contains(q) ||
@@ -367,7 +412,24 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                     child: _isLoadingDevices
                         ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
                         : filteredDevices.isEmpty
-                            ? const Center(child: Text('No devices found', style: TextStyle(color: AppColors.textSecondary)))
+                            ? Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Text('No devices found', style: TextStyle(color: AppColors.textSecondary)),
+                                    const SizedBox(height: 8),
+                                    TextButton.icon(
+                                      onPressed: () {
+                                        if (_selectedCustomer != null) {
+                                          _loadDevicesForCustomer(_selectedCustomer!.id);
+                                        }
+                                      },
+                                      icon: const Icon(Icons.refresh_rounded, size: 16),
+                                      label: const Text('Reload Devices'),
+                                    ),
+                                  ],
+                                ),
+                              )
                             : ListView.separated(
                                 itemCount: filteredDevices.length,
                                 separatorBuilder: (_, __) => const Divider(height: 1),
@@ -401,7 +463,7 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
           },
         );
       },
-    );
+    ).then((_) => _activeDeviceModalState = null);
   }
 
   Widget _buildTypeOption({

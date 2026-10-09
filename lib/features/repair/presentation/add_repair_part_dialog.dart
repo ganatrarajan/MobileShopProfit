@@ -60,8 +60,8 @@ class _AddRepairPartDialogState extends State<AddRepairPartDialog> {
       );
 
       if (mounted) {
-        if (res.success && res.data != null) {
-          Navigator.pop(context, res.data);
+        if (res.success) {
+          Navigator.pop(context, res.data ?? true);
         } else {
           setState(() {
             _errorMessage = res.message;

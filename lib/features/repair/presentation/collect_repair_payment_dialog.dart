@@ -55,8 +55,8 @@ class _CollectRepairPaymentDialogState extends State<CollectRepairPaymentDialog>
       );
 
       if (mounted) {
-        if (res.success && res.data != null) {
-          Navigator.pop(context, res.data);
+        if (res.success) {
+          Navigator.pop(context, res.data ?? true);
         } else {
           setState(() {
             _errorMessage = res.message;
