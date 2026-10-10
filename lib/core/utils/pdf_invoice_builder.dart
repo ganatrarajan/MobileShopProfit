@@ -918,25 +918,10 @@ class PdfInvoiceBuilder {
                           _dataCell('1', align: pw.TextAlign.center),
                           _dataCell('Repair Labour & Technical Service Charge', isBold: true),
                           _dataCell('1', align: pw.TextAlign.center),
-                          _dataCell(repair.labourCost > 0 ? repair.labourCost.toStringAsFixed(2) : repair.netCost.toStringAsFixed(2), align: pw.TextAlign.right),
-                          _dataCell(repair.labourCost > 0 ? repair.labourCost.toStringAsFixed(2) : repair.netCost.toStringAsFixed(2), align: pw.TextAlign.right),
+                          _dataCell(repair.netCost.toStringAsFixed(2), align: pw.TextAlign.right),
+                          _dataCell(repair.netCost.toStringAsFixed(2), align: pw.TextAlign.right),
                         ],
                       ),
-
-                      // Spare parts rows
-                      ...repair.parts.asMap().entries.map((entry) {
-                        final idx = entry.key + 2;
-                        final part = entry.value;
-                        return pw.TableRow(
-                          children: [
-                            _dataCell(idx.toString(), align: pw.TextAlign.center),
-                            _dataCell('Part: ${part.partName}'),
-                            _dataCell(part.quantity.toString(), align: pw.TextAlign.center),
-                            _dataCell(part.sellingPrice.toStringAsFixed(2), align: pw.TextAlign.right),
-                            _dataCell((part.sellingPrice * part.quantity).toStringAsFixed(2), align: pw.TextAlign.right),
-                          ],
-                        );
-                      }),
                     ],
                   ),
 

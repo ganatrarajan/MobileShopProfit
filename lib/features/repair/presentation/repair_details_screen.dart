@@ -972,6 +972,7 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
                       builder: (ctx) {
                         final double totalPartsCost = _repair.parts.fold<double>(0.0, (sum, p) => sum + (p.quantity * p.sellingPrice));
                         final double techFee = _repair.technicianEarning > 0 ? _repair.technicianEarning : _repair.labourCost;
+                        final double netProfit = _repair.netCost - totalPartsCost - techFee;
 
                         return CustomCard(
                           padding: const EdgeInsets.all(16),
@@ -989,6 +990,13 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
                                 _buildRow('Technician Fee', '\u20B9 ${techFee.toStringAsFixed(2)}'),
                               const Divider(height: 16),
                               _buildRow('TOTAL NET AMOUNT', '\u20B9 ${_repair.netCost.toStringAsFixed(2)}', isBold: true, fontSize: 16),
+                              _buildRow(
+                                'NET PROFIT',
+                                '\u20B9 ${netProfit.toStringAsFixed(2)}',
+                                color: netProfit >= 0 ? Colors.green.shade700 : Colors.red.shade700,
+                                isBold: true,
+                                fontSize: 16,
+                              ),
                               const SizedBox(height: 6),
                               _buildRow('Total Paid / Advance', '\u20B9 ${_repair.amountPaid.toStringAsFixed(2)}', color: Colors.green.shade700, isBold: true),
                               _buildRow(
