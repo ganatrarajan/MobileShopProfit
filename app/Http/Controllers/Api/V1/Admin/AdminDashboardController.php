@@ -9,6 +9,7 @@ use App\Models\Repair;
 use App\Models\Sale;
 use App\Models\Shop;
 use App\Models\Subscription;
+use App\Models\User;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
 
@@ -45,11 +46,12 @@ class AdminDashboardController extends Controller
 
         $newSubscriptionsThisMonth = Subscription::where('created_at', '>=', $startOfMonth)->count();
 
-        // 4. Platform Usage Overview (bypass shop scope for admin aggregation)
+        // 4. Platform Usage & App Opens Overview
         $totalCustomers = Customer::withoutGlobalScope('shop')->count();
         $totalRepairs = Repair::withoutGlobalScope('shop')->count();
         $totalSales = Sale::withoutGlobalScope('shop')->count();
         $totalDevices = Device::withoutGlobalScope('shop')->count();
+        $todayAppOpens = User::whereDate('last_app_opened_at', today())->count();
 
         // 5. Recent Shops List (Last 5)
         $recentShops = Shop::with(['user', 'latestSubscription.plan'])
@@ -76,10 +78,11 @@ class AdminDashboardController extends Controller
                 'new_subscriptions'   => $newSubscriptionsThisMonth,
             ],
             'usage' => [
-                'total_customers' => $totalCustomers,
-                'total_repairs'   => $totalRepairs,
-                'total_sales'     => $totalSales,
-                'total_devices'   => $totalDevices,
+                'total_customers'  => $totalCustomers,
+                'total_repairs'    => $totalRepairs,
+                'total_sales'      => $totalSales,
+                'total_devices'    => $totalDevices,
+                'today_app_opens'  => $todayAppOpens,
             ],
             'recent_shops' => $recentShops,
         ], 'Admin dashboard metrics retrieved successfully');

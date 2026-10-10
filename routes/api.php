@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Admin\AdminNotificationController;
 use App\Http\Controllers\Api\V1\Admin\AdminAuditLogController;
 use App\Http\Controllers\Api\V1\Admin\AdminAuthController;
 use App\Http\Controllers\Api\V1\Admin\AdminCustomerController;
@@ -154,6 +155,12 @@ Route::prefix('v1')->group(function () {
         Route::get('/purchases', [AdminPurchaseController::class, 'index']);
         Route::get('/purchases/{id}', [AdminPurchaseController::class, 'show']);
 
+                // Admin Push Notifications Broadcast Management
+        Route::get('/notifications', [AdminNotificationController::class, 'index']);
+        Route::get('/notifications/users', [AdminNotificationController::class, 'getUsers']);
+        Route::post('/notifications/send', [AdminNotificationController::class, 'send']);
+        Route::delete('/notifications/{id}', [AdminNotificationController::class, 'destroy']);
+
         // Admin Platform Business Intelligence Reports
         Route::get('/reports/summary', [AdminReportController::class, 'summary']);
     });
@@ -182,6 +189,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/auth/profile/verify-otp', [AuthController::class, 'verifyProfileUpdateOtp'])->middleware('throttle:10,1');
         Route::post('/auth/change-password', [AuthController::class, 'changePassword']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
+        Route::post('/auth/ping-open', [AuthController::class, 'pingAppOpen']);
 
         // Subscription & Payments (Shop Owner - Rate Limited)
         Route::get('/subscription/status', [SubscriptionController::class, 'status']);
@@ -193,6 +201,12 @@ Route::prefix('v1')->group(function () {
         // Support Requests (App Submissions)
         Route::get('/support/contact-info', [AdminSupportController::class, 'getContactInfo']);
         Route::post('/support-requests', [AdminSupportController::class, 'store']);
+
+                // App User Inbox Notifications
+        Route::get('/notifications', [AdminNotificationController::class, 'userNotifications']);
+        Route::post('/notifications/read-all', [AdminNotificationController::class, 'markAllAsRead']);
+        Route::post('/notifications/{id}/read', [AdminNotificationController::class, 'markAsRead']);
+        Route::post('/fcm-token', [AdminNotificationController::class, 'updateFcmToken']);
 
         // Profit Intelligence USP module routes
         Route::get('/profit-intelligence', [ProfitIntelligenceController::class, 'index']);
@@ -271,3 +285,5 @@ Route::prefix('v1')->group(function () {
         Route::get('/reports/warranties', [ReportController::class, 'warranties']);
     });
 });
+
+

@@ -645,6 +645,7 @@
                 <li><a href="#operations" class="nav-item" onclick="switchNav('operations')">📑 Shop Operations</a></li>
                 <li><a href="#billing" class="nav-item" onclick="switchNav('billing')">💳 Subscriptions & Revenue</a></li>
                 <li><a href="#reports" class="nav-item" onclick="switchNav('reports')">📈 Business Reports</a></li>
+                <li><a href="#notifications" class="nav-item" onclick="switchNav('notifications')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-2px; margin-right:6px;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Push Notifications</a></li>
                 <li><a href="#settings" class="nav-item" onclick="switchNav('settings')">⚙️ System & Settings</a></li>
             </ul>
             <div class="user-footer">
@@ -796,7 +797,7 @@
             } else if (['subscriptions', 'payments', 'plans', 'revenue', 'billing'].includes(route)) {
                 mainSection = 'billing';
                 subTab = subTab || (route === 'billing' ? 'subscriptions' : route);
-            } else if (['pages', 'gateway', 'support', 'audit', 'users', 'version', 'settings'].includes(route)) {
+            } else if (['pages', 'gateway', 'support', 'audit', 'users', 'version', 'notifications', 'settings'].includes(route)) {
                 mainSection = 'settings';
                 subTab = subTab || (route === 'settings' ? 'version' : route);
             }
@@ -842,8 +843,9 @@
                 ]);
             } else if (mainSection === 'settings') {
                 renderSubNavBar('settings', subTab, [
-                    { id: 'version', label: '📱 App Force Update', fn: loadAppVersionView },
-                    { id: 'pages', label: '📄 Legal Pages CMS', fn: loadPagesView },
+                    { id: 'notifications', label: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-2px; margin-right:6px;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Push Notifications', fn: loadNotificationsView },
+                    { id: 'version', label: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-2px; margin-right:4px;"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg> App Force Update', fn: loadAppVersionView },
+                    { id: 'pages', label: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-2px; margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Legal Pages CMS', fn: loadPagesView },
                     { id: 'gateway', label: '⚙️ Gateway Settings', fn: loadGatewayView },
                     { id: 'support', label: '💬 Support Tickets', fn: loadSupportView },
                     { id: 'audit', label: '🛡️ Audit Logs', fn: loadAuditView },
@@ -921,7 +923,7 @@
             const m = data.data;
 
             content.innerHTML = `
-                <div class="grid-4">
+                <div class="grid-4" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
                     <div class="metric-card">
                         <div class="metric-title">Total Shops</div>
                         <div class="metric-value">${m.shops.total}</div>
@@ -941,6 +943,11 @@
                         <div class="metric-title">Platform Repairs & Sales</div>
                         <div class="metric-value">${m.usage.total_repairs} Repairs</div>
                         <div class="metric-sub">${m.usage.total_sales} Total Sales Recorded</div>
+                    </div>
+                    <div class="metric-card" style="border-left:4px solid #10b981;">
+                        <div class="metric-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-2px; margin-right:4px;"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg> App Opens Today</div>
+                        <div class="metric-value" style="color:#059669;">${m.usage.today_app_opens || 0} Users</div>
+                        <div class="metric-sub">Opened mobile app today</div>
                     </div>
                 </div>
 
@@ -1750,7 +1757,7 @@
             const r = data.data;
 
             content.innerHTML = `
-                <div class="grid-4">
+                <div class="grid-4" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
                     <div class="metric-card">
                         <div class="metric-title">Total Platform Revenue</div>
                         <div class="metric-value">₹${r.total_revenue.toLocaleString()}</div>
@@ -2260,7 +2267,7 @@
             const shopsOptions = await getShopsDropdownOptions(shopId);
 
             content.innerHTML = `
-                <div class="grid-4">
+                <div class="grid-4" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
                     <div class="metric-card">
                         <div class="metric-title">Total Invoices</div>
                         <div class="metric-value">${sum.total_invoices_count}</div>
@@ -2406,7 +2413,7 @@
             const shopsOptions = await getShopsDropdownOptions(shopId);
 
             content.innerHTML = `
-                <div class="grid-4">
+                <div class="grid-4" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
                     <div class="metric-card">
                         <div class="metric-title">Total Repair Jobs</div>
                         <div class="metric-value">${sum.total_count}</div>
@@ -2665,7 +2672,7 @@
             const shopsOptions = await getShopsDropdownOptions(shopId);
 
             content.innerHTML = `
-                <div class="grid-4">
+                <div class="grid-4" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
                     <div class="metric-card">
                         <div class="metric-title">Total Stock Items</div>
                         <div class="metric-value">${sum.total_items_count}</div>
@@ -2791,7 +2798,7 @@
             const shopsOptions = await getShopsDropdownOptions(shopId);
 
             content.innerHTML = `
-                <div class="grid-4">
+                <div class="grid-4" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
                     <div class="metric-card">
                         <div class="metric-title">Total Expenses Logged</div>
                         <div class="metric-value">${sum.expenses_count}</div>
@@ -2867,7 +2874,7 @@
             const shopsOptions = await getShopsDropdownOptions(shopId);
 
             content.innerHTML = `
-                <div class="grid-4">
+                <div class="grid-4" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
                     <div class="metric-card">
                         <div class="metric-title">Total Warranties</div>
                         <div class="metric-value">${sum.total_count}</div>
@@ -3028,7 +3035,7 @@
                     </div>
                 </div>
 
-                <div class="grid-4">
+                <div class="grid-4" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
                     <div class="metric-card" style="border-left:4px solid #2563eb;">
                         <div class="metric-title">Gross Sales Revenue</div>
                         <div class="metric-value">₹${fin.total_sales_revenue.toLocaleString()}</div>
@@ -3142,6 +3149,393 @@
         function closeModal() {
             document.getElementById('modal-container').style.display = 'none';
         }
-    </script>
+    
+        // ==========================================
+        // PUSH NOTIFICATIONS BROADCAST VIEW
+        // ==========================================
+        let allNotificationUsers = [];
+
+        async function loadNotificationsView() {
+            const content = getContentContainer();
+            content.innerHTML = `
+                <div style="display:flex; flex-direction:column; gap:20px;">
+                    <!-- BROADCAST FORM CARD -->
+                    <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:24px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; border-bottom:1px solid #f1f5f9; padding-bottom:12px;">
+                            <div>
+                                <h3 style="font-size:18px; font-weight:700; color:#0f172a; margin:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-2px; margin-right:6px;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Send Push Notification</h3>
+                                <p style="font-size:13px; color:#64748b; margin:4px 0 0 0;">Create and broadcast custom notifications with title, description, image, and targeted user filters.</p>
+                            </div>
+                        </div>
+
+                        <form id="notif-broadcast-form" onsubmit="event.preventDefault(); sendNotificationBroadcast();">
+                            <div style="display:grid; grid-template-columns:1fr; gap:16px;">
+                                <!-- Quick Engagement Templates Bar -->
+                                <div>
+                                    <label style="display:block; font-size:13px; font-weight:700; color:#334155; margin-bottom:8px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="#f59e0b" style="display:inline-block; vertical-align:-2px; margin-right:4px;"><path d="M13 2L3 14h7v8l10-12h-7z"/></svg> Quick Engagement Templates (Click to Auto-Fill):</label>
+                                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                        <button type="button" onclick="applyNotifTemplate('repair')" style="padding:6px 12px; font-size:12px; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; border-radius:6px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> Add First Repair</button>
+                                        <button type="button" onclick="applyNotifTemplate('sale')" style="padding:6px 12px; font-size:12px; background:#dcfce7; color:#15803d; border:1px solid #bbf7d0; border-radius:6px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg> Record First Sale</button>
+                                        <button type="button" onclick="applyNotifTemplate('profit')" style="padding:6px 12px; font-size:12px; background:#fef3c7; color:#b45309; border:1px solid #fde68a; border-radius:6px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Check Daily Profit</button>
+                                        <button type="button" onclick="applyNotifTemplate('pending')" style="padding:6px 12px; font-size:12px; background:#f3e8ff; color:#6b21a8; border:1px solid #e9d5ff; border-radius:6px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Pending Job Reminder</button>
+                                        <button type="button" onclick="applyNotifTemplate('intelligence')" style="padding:6px 12px; font-size:12px; background:#fee2e2; color:#b91c1c; border:1px solid #fecaca; border-radius:6px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.71 1.26-1.5 1.63-2.37l-2.26-2.26C6 15.24 5.21 15.79 4.5 16.5z"/><path d="M12 15l-3-3 7.5-7.5c.83-.83 2.17-.83 3 0s.83 2.17 0 3L12 15z"/></svg> Profit Intelligence</button>
+                                    </div>
+                                </div>
+                                <!-- Title -->
+                                <div>
+                                    <label style="display:block; font-size:13px; font-weight:600; color:#334155; margin-bottom:6px;">Notification Title <span style="color:#ef4444;">*</span></label>
+                                    <input type="text" id="notif-title" placeholder="e.g. Special Offer / System Update" required style="width:100%; padding:10px 14px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px; outline:none; box-sizing:border-box;">
+                                </div>
+
+                                <!-- Description -->
+                                <div>
+                                    <label style="display:block; font-size:13px; font-weight:600; color:#334155; margin-bottom:6px;">Notification Description / Message <span style="color:#ef4444;">*</span></label>
+                                    <textarea id="notif-description" rows="3" placeholder="Enter message body details to display in user notification..." required style="width:100%; padding:10px 14px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px; outline:none; resize:vertical; box-sizing:border-box;"></textarea>
+                                </div>
+
+                                <!-- Image Upload & URL -->
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                                    <div>
+                                        <label style="display:block; font-size:13px; font-weight:600; color:#334155; margin-bottom:6px;">Upload Image File (Optional)</label>
+                                        <input type="file" id="notif-image-file" accept="image/*" onchange="previewNotifImage(this)" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; background:#f8fafc;">
+                                    </div>
+                                    <div>
+                                        <label style="display:block; font-size:13px; font-weight:600; color:#334155; margin-bottom:6px;">OR Image Direct URL (Optional)</label>
+                                        <input type="url" id="notif-image-url" placeholder="https://example.com/banner.jpg" oninput="previewNotifImageUrl(this.value)" style="width:100%; padding:10px 14px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px; box-sizing:border-box;">
+                                    </div>
+                                </div>
+
+                                <!-- Image Preview Container -->
+                                <div id="notif-preview-box" style="display:none; align-items:center; gap:12px; padding:10px; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:8px;">
+                                    <img id="notif-preview-img" src="" alt="Notification Image Preview" style="max-height:80px; max-width:140px; border-radius:6px; object-fit:cover;">
+                                    <div>
+                                        <span style="font-weight:600; font-size:12px; color:#334155;">Image Preview Selected</span>
+                                        <br><button type="button" onclick="clearNotifImage()" style="background:none; border:none; color:#ef4444; font-size:12px; cursor:pointer; padding:0; margin-top:4px; font-weight:600;">Remove Image</button>
+                                    </div>
+                                </div>
+
+                                <!-- Filter Target Audience -->
+                                <div>
+                                    <label style="display:block; font-size:13px; font-weight:600; color:#334155; margin-bottom:8px;">Target Audience Filter <span style="color:#ef4444;">*</span></label>
+                                    <div style="display:flex; gap:16px; flex-wrap:wrap;">
+                                        <label style="display:flex; align-items:center; gap:8px; background:#f1f5f9; padding:10px 16px; border-radius:8px; cursor:pointer; font-weight:600; font-size:13px; color:#1e293b;">
+                                            <input type="radio" name="notif_target" value="all" checked onchange="toggleNotifTargetUI('all')">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-2px; margin-right:4px;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> All Users
+                                        </label>
+                                        <label style="display:flex; align-items:center; gap:8px; background:#f1f5f9; padding:10px 16px; border-radius:8px; cursor:pointer; font-weight:600; font-size:13px; color:#1e293b;">
+                                            <input type="radio" name="notif_target" value="active" onchange="toggleNotifTargetUI('active')">
+                                            <span style="display:inline-block; width:8px; height:8px; background-color:#22c55e; border-radius:50%; margin-right:4px; vertical-align:1px;"></span> Active Users Only
+                                        </label>
+                                        <label style="display:flex; align-items:center; gap:8px; background:#f1f5f9; padding:10px 16px; border-radius:8px; cursor:pointer; font-weight:600; font-size:13px; color:#1e293b;">
+                                            <input type="radio" name="notif_target" value="selected" onchange="toggleNotifTargetUI('selected')">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-2px; margin-right:4px;"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg> Select Particular Users
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Particular User Selection Container -->
+                                <div id="notif-user-selection-box" style="display:none; border:1px solid #cbd5e1; border-radius:10px; padding:16px; background:#f8fafc;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+                                        <span style="font-weight:700; font-size:14px; color:#0f172a;">Select Specific Recipient Users</span>
+                                        <div style="display:flex; gap:8px;">
+                                            <button type="button" onclick="selectAllNotifUsers(true)" style="padding:6px 12px; font-size:12px; background:#e2e8f0; color:#334155; border:none; border-radius:6px; font-weight:600; cursor:pointer;">Select All</button>
+                                            <button type="button" onclick="selectAllNotifUsers(false)" style="padding:6px 12px; font-size:12px; background:#e2e8f0; color:#334155; border:none; border-radius:6px; font-weight:600; cursor:pointer;">Deselect All</button>
+                                        </div>
+                                    </div>
+
+                                    <input type="text" id="notif-user-search" placeholder="Search user by name, phone, shop..." oninput="filterNotifUserChecklist()" style="width:100%; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; margin-bottom:10px; box-sizing:border-box;">
+
+                                    <div id="notif-users-checklist" style="max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; padding:4px;">
+                                        <div style="text-align:center; color:#64748b; padding:12px; font-size:13px;">Loading user list...</div>
+                                    </div>
+                                </div>
+
+                                <!-- Submit Button -->
+                                <div style="display:flex; justify-content:flex-end; margin-top:8px;">
+                                    <button type="submit" id="notif-submit-btn" style="background:#2563eb; color:#ffffff; font-weight:700; padding:12px 24px; border:none; border-radius:8px; font-size:14px; cursor:pointer; display:inline-flex; align-items:center; gap:8px;">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.71 1.26-1.5 1.63-2.37l-2.26-2.26C6 15.24 5.21 15.79 4.5 16.5z"/><path d="M12 15l-3-3 7.5-7.5c.83-.83 2.17-.83 3 0s.83 2.17 0 3L12 15z"/></svg> Send Notification Now
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- SENT NOTIFICATIONS HISTORY TABLE -->
+                    <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:24px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+                        <h4 style="font-size:16px; font-weight:700; color:#0f172a; margin:0 0 16px 0;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-2px; margin-right:6px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Sent Broadcast History</h4>
+                        <div style="overflow-x:auto;">
+                            <table class="data-table" style="width:100%; border-collapse:collapse;">
+                                <thead>
+                                    <tr style="background:#f8fafc; border-bottom:1px solid #e2e8f0; text-align:left; font-size:12px; text-transform:uppercase; color:#64748b;">
+                                        <th style="padding:12px;">Image</th>
+                                        <th style="padding:12px;">Title & Message</th>
+                                        <th style="padding:12px;">Target Filter</th>
+                                        <th style="padding:12px;">Recipients</th>
+                                        <th style="padding:12px;">Sent Date</th>
+                                        <th style="padding:12px; text-align:right;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="notif-history-tbody">
+                                    <tr><td colspan="6" style="text-align:center; padding:20px; color:#64748b;">Loading history...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            fetchNotificationUsers();
+            loadNotificationHistory();
+        }
+
+        async function fetchNotificationUsers() {
+            const data = await apiFetch('/notifications/users');
+            if (data && data.success) {
+                allNotificationUsers = data.data || [];
+                renderNotifUsersChecklist(allNotificationUsers);
+            }
+        }
+
+        function renderNotifUsersChecklist(users) {
+            const container = document.getElementById('notif-users-checklist');
+            if (!container) return;
+            if (users.length === 0) {
+                container.innerHTML = '<div style="color:#64748b; font-size:13px; text-align:center; padding:12px;">No matching users found.</div>';
+                return;
+            }
+
+            container.innerHTML = users.map(u => `
+                <label style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; cursor:pointer; font-size:13px;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <input type="checkbox" class="notif-user-chk" value="${u.id}">
+                        <div>
+                            <span style="font-weight:700; color:#0f172a;">${u.name}</span>
+                            <span style="color:#64748b; font-size:12px; margin-left:6px;">(${u.mobile})</span>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:11px; background:#eff6ff; color:#2563eb; font-weight:600; padding:2px 8px; border-radius:4px;">${u.shop_name}</span>
+                        <span style="font-size:11px; font-weight:700; padding:2px 8px; border-radius:4px; ${u.is_opened_today ? 'background:#dcfce7; color:#15803d;' : 'background:#f1f5f9; color:#64748b;'}">
+                            ${u.is_opened_today ? '<span style="display:inline-block; width:6px; height:6px; background-color:#22c55e; border-radius:50%; margin-right:3px; vertical-align:1px;"></span> Opened Today' : 'Last: ' + (u.last_opened || 'Never')}
+                        </span>
+                    </div>
+                </label>
+            `).join('');
+        }
+
+        function filterNotifUserChecklist() {
+            const q = (document.getElementById('notif-user-search')?.value || '').toLowerCase().trim();
+            const filtered = allNotificationUsers.filter(u =>
+                u.name.toLowerCase().includes(q) ||
+                u.mobile.toLowerCase().includes(q) ||
+                u.shop_name.toLowerCase().includes(q) ||
+                (u.email && u.email.toLowerCase().includes(q))
+            );
+            renderNotifUsersChecklist(filtered);
+        }
+
+        function selectAllNotifUsers(select) {
+            document.querySelectorAll('.notif-user-chk').forEach(chk => chk.checked = select);
+        }
+
+        function toggleNotifTargetUI(targetType) {
+            const box = document.getElementById('notif-user-selection-box');
+            if (box) {
+                box.style.display = targetType === 'selected' ? 'block' : 'none';
+            }
+        }
+
+        function previewNotifImage(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const previewBox = document.getElementById('notif-preview-box');
+                    const previewImg = document.getElementById('notif-preview-img');
+                    if (previewBox && previewImg) {
+                        previewImg.src = e.target.result;
+                        previewBox.style.display = 'flex';
+                    }
+                };
+                reader.readAsDataURL(input.files[0]);
+                const urlInput = document.getElementById('notif-image-url');
+                if (urlInput) urlInput.value = '';
+            }
+        }
+
+        function previewNotifImageUrl(url) {
+            if (url && url.trim().startsWith('http')) {
+                const previewBox = document.getElementById('notif-preview-box');
+                const previewImg = document.getElementById('notif-preview-img');
+                if (previewBox && previewImg) {
+                    previewImg.src = url.trim();
+                    previewBox.style.display = 'flex';
+                }
+            }
+        }
+
+        function clearNotifImage() {
+            const fileInput = document.getElementById('notif-image-file');
+            const urlInput = document.getElementById('notif-image-url');
+            const previewBox = document.getElementById('notif-preview-box');
+            if (fileInput) fileInput.value = '';
+            if (urlInput) urlInput.value = '';
+            if (previewBox) previewBox.style.display = 'none';
+        }
+
+        
+        function applyNotifTemplate(type) {
+            const titleInput = document.getElementById('notif-title');
+            const descInput = document.getElementById('notif-description');
+
+            const templates = {
+                'repair': {
+                    title: '\u{1F6E0}\u{FE0F} Add Your First Repair Job!',
+                    desc: 'Track repair status, technician fees, and spare parts easily! Tap to add your repair job now.'
+                },
+                'sale': {
+                    title: '\u{1F4B0} Boost Your Shop Sales Today!',
+                    desc: 'Keep track of device & accessory sales, print customer invoices, and view daily shop profit.'
+                },
+                'profit': {
+                    title: '\u{1F4C8} How much profit did you make today?',
+                    desc: 'Open MyRepairHub to check your daily profit breakdown and net earnings report.'
+                },
+                'pending': {
+                    title: '\u{23F0} Update Pending Repair Jobs',
+                    desc: 'Keep your customers happy! Update pending repair statuses and deliver completed devices.'
+                },
+                'intelligence': {
+                    title: '\u{1F680} Discover Profit Leaks & Extra Earnings!',
+                    desc: 'Check Profit Intelligence to find unused stock, technician margins, and grow your shop profits.'
+                }
+            };
+
+            if (templates[type] && titleInput && descInput) {
+                titleInput.value = templates[type].title;
+                descInput.value = templates[type].desc;
+            }
+        }
+
+        async function sendNotificationBroadcast() {
+            const title = document.getElementById('notif-title').value.trim();
+            const description = document.getElementById('notif-description').value.trim();
+            const targetType = document.querySelector('input[name="notif_target"]:checked')?.value || 'all';
+
+            if (!title || !description) {
+                alert('Please enter title and description.');
+                return;
+            }
+
+            let selectedUserIds = [];
+            if (targetType === 'selected') {
+                document.querySelectorAll('.notif-user-chk:checked').forEach(chk => {
+                    selectedUserIds.push(parseInt(chk.value));
+                });
+                if (selectedUserIds.length === 0) {
+                    alert('Please select at least one user from the list.');
+                    return;
+                }
+            }
+
+            if (!confirm(`Are you sure you want to send this notification to ${targetType === 'selected' ? selectedUserIds.length + ' selected user(s)' : targetType + ' users'}?`)) return;
+
+            const submitBtn = document.getElementById('notif-submit-btn');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:-2px; margin-right:6px;"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.71 1.26-1.5 1.63-2.37l-2.26-2.26C6 15.24 5.21 15.79 4.5 16.5z"/><path d="M12 15l-3-3 7.5-7.5c.83-.83 2.17-.83 3 0s.83 2.17 0 3L12 15z"/></svg> Sending Notification...';
+            }
+
+            const formData = new FormData();
+            formData.append('title', title);
+            formData.append('description', description);
+            formData.append('target_type', targetType);
+
+            if (targetType === 'selected') {
+                selectedUserIds.forEach(id => formData.append('selected_user_ids[]', id));
+            }
+
+            const fileInput = document.getElementById('notif-image-file');
+            const urlInput = document.getElementById('notif-image-url');
+            if (fileInput && fileInput.files[0]) {
+                formData.append('image', fileInput.files[0]);
+            } else if (urlInput && urlInput.value.trim()) {
+                formData.append('image_url', urlInput.value.trim());
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/notifications/send`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Accept': 'application/json'
+                    },
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    alert(data.message || 'Notification broadcast sent successfully!');
+                    loadNotificationsView();
+                } else {
+                    alert(data.message || 'Failed to send notification.');
+                }
+            } catch (err) {
+                alert('Error sending notification: ' + err.message);
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.71 1.26-1.5 1.63-2.37l-2.26-2.26C6 15.24 5.21 15.79 4.5 16.5z"/><path d="M12 15l-3-3 7.5-7.5c.83-.83 2.17-.83 3 0s.83 2.17 0 3L12 15z"/></svg> Send Notification Now';
+                }
+            }
+        }
+
+        async function loadNotificationHistory() {
+            const tbody = document.getElementById('notif-history-tbody');
+            if (!tbody) return;
+
+            const data = await apiFetch('/notifications');
+            if (!data || !data.success) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#ef4444;">Failed to load history.</td></tr>';
+                return;
+            }
+
+            const list = data.data?.data || [];
+            if (list.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#64748b;">No broadcast notifications sent yet.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = list.map(item => `
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:10px;">
+                        ${item.image_url ? `<img src="${item.image_url}" style="width:40px; height:40px; border-radius:6px; object-fit:cover;">` : '<span style="color:#94a3b8; font-size:12px;">No Image</span>'}
+                    </td>
+                    <td style="padding:10px;">
+                        <div style="font-weight:700; color:#0f172a; font-size:14px;">${item.title}</div>
+                        <div style="color:#64748b; font-size:12px; max-width:320px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${item.description}</div>
+                    </td>
+                    <td style="padding:10px;">
+                        <span style="font-size:11px; font-weight:700; padding:4px 10px; border-radius:12px; text-transform:uppercase; ${item.target_type === 'all' ? 'background:#dbeafe; color:#1e40af;' : (item.target_type === 'active' ? 'background:#dcfce7; color:#15803d;' : 'background:#fef3c7; color:#92400e;')}">
+                            ${item.target_type}
+                        </span>
+                    </td>
+                    <td style="padding:10px; font-weight:700; color:#0f172a;">${item.recipients_count || 0} Users</td>
+                    <td style="padding:10px; font-size:12px; color:#64748b;">${new Date(item.sent_at || item.created_at).toLocaleString()}</td>
+                    <td style="padding:10px; text-align:right;">
+                        <button onclick="deleteNotificationBroadcast(${item.id})" style="background:#fee2e2; color:#ef4444; border:none; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function deleteNotificationBroadcast(id) {
+            if (!confirm('Are you sure you want to delete this notification record?')) return;
+            const data = await apiFetch(`/notifications/${id}`, 'DELETE');
+            if (data && data.success) {
+                alert('Notification deleted.');
+                loadNotificationHistory();
+            }
+        }
+</script>
 </body>
 </html>
