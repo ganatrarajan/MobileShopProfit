@@ -268,12 +268,27 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         $user = $request->user();
-        $user->load('shop');
+        if ($user) {
+            $user->update(['last_app_opened_at' => now()]);
+            $user->load('shop');
+        }
 
         return $this->successResponse([
             'user' => $user,
             'shop' => $user->shop,
         ], 'Profile retrieved successfully');
+    }
+
+    public function pingAppOpen(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if ($user) {
+            $user->update(['last_app_opened_at' => now()]);
+            return $this->successResponse([
+                'last_app_opened_at' => $user->last_app_opened_at->toDateTimeString(),
+            ], 'App open ping recorded');
+        }
+        return $this->errorResponse('Unauthenticated', 401);
     }
 
     /**
