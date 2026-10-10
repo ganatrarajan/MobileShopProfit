@@ -1,3 +1,6 @@
+import '../../../core/network/api_response.dart';
+import '../../../core/widgets/app_shimmer.dart';
+import '../../../core/utils/date_helper.dart';
 import '../../../core/utils/nav_utils.dart';
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
@@ -10,6 +13,12 @@ import '../../profit_intelligence/domain/profit_intelligence_models.dart';
 import '../data/dashboard_repository.dart';
 import '../models/dashboard_data.dart';
 import '../../subscription/utils/subscription_guard.dart';
+import '../../notifications/data/notification_repository.dart';
+import '../../notifications/presentation/notifications_screen.dart';
+import '../../repair/data/repair_repository.dart';
+import '../../repair/models/repair.dart';
+import '../../purchase/data/purchase_repository.dart';
+import '../../../core/services/fcm_service.dart';
 import 'widgets/dashboard_drawer.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -43,12 +52,27 @@ class DashboardScreenState extends State<DashboardScreen> {
 
   String _storedShopName = '';
   String _storedOwnerName = '';
+  String? _storedShopLogoUrl;
+  int _unreadNotifCount = 0;
 
   @override
   void initState() {
     super.initState();
     _loadStoredShopInfo();
     fetchDashboard();
+    NotificationRepository().pingAppOpen();
+    FcmService().initialize(context);
+  }
+
+  Future<void> _fetchUnreadNotificationCount() async {
+    try {
+      final res = await NotificationRepository().fetchNotifications();
+      if (mounted) {
+        setState(() {
+          _unreadNotifCount = (res['unreadCount'] is int) ? res['unreadCount'] as int : 0;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadStoredShopInfo() async {
@@ -57,8 +81,14 @@ class DashboardScreenState extends State<DashboardScreen> {
       final user = await AuthStorage().getUser();
       if (mounted) {
         setState(() {
-          if (shop != null && shop['name'] != null && shop['name'].toString().isNotEmpty) {
-            _storedShopName = shop['name'].toString();
+          if (shop != null) {
+            if (shop['name'] != null && shop['name'].toString().isNotEmpty) {
+              _storedShopName = shop['name'].toString();
+            }
+            final logo = shop['logo_url'] ?? shop['logo_path'] ?? shop['logo'];
+            if (logo != null && logo.toString().isNotEmpty) {
+              _storedShopLogoUrl = logo.toString();
+            }
           }
           if (user != null && user['name'] != null && user['name'].toString().isNotEmpty) {
             _storedOwnerName = user['name'].toString();
@@ -90,68 +120,211 @@ class DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  String get selectedPeriod => _selectedPeriod;
+  DateTimeRange? get customDateRange => _customDateRange;
+
   String? get _startDateStr {
-    if (_selectedPeriod == 'custom' && _customDateRange != null) {
-      final s = _customDateRange!.start;
-      return '${s.year}-${s.month.toString().padLeft(2, '0')}-${s.day.toString().padLeft(2, '0')}';
-    }
-    return null;
+    return DateHelper.getDateRangeForPreset(_selectedPeriod, customRange: _customDateRange).dateFrom;
   }
 
   String? get _endDateStr {
-    if (_selectedPeriod == 'custom' && _customDateRange != null) {
-      final e = _customDateRange!.end;
-      return '${e.year}-${e.month.toString().padLeft(2, '0')}-${e.day.toString().padLeft(2, '0')}';
-    }
-    return null;
+    return DateHelper.getDateRangeForPreset(_selectedPeriod, customRange: _customDateRange).dateTo;
   }
 
   Future<void> fetchDashboard() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    // 1. Instant cache retrieval for 0ms UI load on tab re-entry
+    final cachedDashboard = _dashboardRepository.getCachedData(
+      period: _selectedPeriod,
+      startDate: _startDateStr,
+      endDate: _endDateStr,
+    );
+    final cachedProfit = ProfitIntelligenceRepository().cachedSummary;
+
+    if (mounted) {
+      setState(() {
+        if (cachedDashboard != null) {
+          _dashboardData = cachedDashboard;
+          _isLoading = false;
+        } else {
+          _isLoading = true;
+        }
+        if (cachedProfit != null) {
+          _profitAiData = cachedProfit;
+        }
+        _errorMessage = null;
+      });
+    }
 
     try {
-      // Fetch Profit AI data
-      try {
-        final profitRes = await ProfitIntelligenceRepository().getSummary();
-        if (profitRes.success && profitRes.data != null) {
-          _profitAiData = profitRes.data;
-        }
-      } catch (_) {}
+      // 2. Parallel network calls for minimum loading time
+      final results = await Future.wait([
+        _dashboardRepository.getDashboardData(
+          period: _selectedPeriod,
+          startDate: _startDateStr,
+          endDate: _endDateStr,
+        ),
+        ProfitIntelligenceRepository().getSummary().catchError(
+          (_) => ApiResponse<ProfitIntelligenceData>(success: false, message: ''),
+        ),
+        NotificationRepository().fetchNotifications().catchError(
+          (_) => <String, dynamic>{'unreadCount': 0},
+        ),
+        RepairRepository().getRepairs(
+          dateFrom: _startDateStr,
+          dateTo: _endDateStr,
+        ).catchError(
+          (_) => ApiResponse<List<Repair>>(success: false, message: ''),
+        ),
+        PurchaseRepository().getPurchases(
+          dateFrom: _startDateStr,
+          dateTo: _endDateStr,
+        ).catchError(
+          (_) => ApiResponse<PurchaseResponse>(success: false, message: ''),
+        ),
+      ]);
 
-      // Fetch Dashboard metrics
-      final res = await _dashboardRepository.getDashboardData(
-        period: _selectedPeriod,
-        startDate: _startDateStr,
-        endDate: _endDateStr,
-      );
+      final res = results[0] as ApiResponse<DashboardData>;
+      final profitRes = results[1] as ApiResponse<ProfitIntelligenceData>;
+      final notifRes = results[2] as Map<String, dynamic>;
+      final repairListRes = results[3] as ApiResponse<List<Repair>>;
+      final purchaseRes = results[4] as ApiResponse<PurchaseResponse>;
 
       if (mounted) {
-        if (res.success && res.data != null) {
-          setState(() {
-            _dashboardData = res.data!;
-            _isLoading = false;
-          });
-
-          if (_dashboardData != null && (_dashboardData!.daysRemaining <= 10 || _dashboardData!.isExpiringSoon) && !_hasShownExpiryDialog) {
-            _hasShownExpiryDialog = true;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) _showSubscriptionExpiryDialog(_dashboardData!.daysRemaining);
-            });
+        setState(() {
+          if (profitRes.success && profitRes.data != null) {
+            _profitAiData = profitRes.data;
           }
-        } else {
-          setState(() {
-            _errorMessage = AppErrorMapper.mapMessage(res.message);
+          if (notifRes.containsKey('unreadCount') && notifRes['unreadCount'] is int) {
+            _unreadNotifCount = notifRes['unreadCount'] as int;
+          }
+
+          if (res.success && res.data != null) {
+            var dashData = res.data!;
+
+            double repairEarnedSum = 0.0;
+            double repairDueSum = 0.0;
+            List<Repair> repairList = [];
+            if (repairListRes.success && repairListRes.data != null) {
+              repairList = repairListRes.data!;
+              for (final r in repairList) {
+                repairEarnedSum += r.amountPaid;
+                repairDueSum += r.amountDue;
+              }
+            }
+
+            double purchaseTotalSum = 0.0;
+            double purchasePaidSum = 0.0;
+            double purchaseDueSum = 0.0;
+            int purchaseCount = 0;
+            if (purchaseRes.success && purchaseRes.data != null) {
+              final pData = purchaseRes.data!;
+              purchaseTotalSum = pData.totalAmount;
+              purchasePaidSum = pData.totalPaid;
+              purchaseDueSum = pData.totalOutstanding;
+              purchaseCount = pData.totalCount;
+
+              if (purchaseTotalSum == 0 && pData.purchases.isNotEmpty) {
+                for (final p in pData.purchases) {
+                  purchaseTotalSum += p.grandTotal;
+                  purchasePaidSum += p.amountPaid;
+                  purchaseDueSum += p.outstandingAmount;
+                }
+                purchaseCount = pData.purchases.length;
+              }
+            }
+
+            final updatedRepairs = RepairSummary(
+              activeRepairsCount: dashData.repairs.activeRepairsCount > 0
+                  ? dashData.repairs.activeRepairsCount
+                  : repairList.where((r) => r.repairStatus != 'delivered' && r.repairStatus != 'cancelled').length,
+              readyCount: dashData.repairs.readyCount > 0
+                  ? dashData.repairs.readyCount
+                  : repairList.where((r) => r.repairStatus == 'ready').length,
+              waitingCustomerCount: dashData.repairs.waitingCustomerCount,
+              waitingPartsCount: dashData.repairs.waitingPartsCount,
+              totalRepairsCount: dashData.repairs.totalRepairsCount > 0
+                  ? dashData.repairs.totalRepairsCount
+                  : repairList.length,
+              totalEarnings: (dashData.repairs.totalEarnings > 0) ? dashData.repairs.totalEarnings : repairEarnedSum,
+              totalDue: (dashData.repairs.totalDue > 0) ? dashData.repairs.totalDue : repairDueSum,
+            );
+
+            final updatedPurchases = PurchaseSummary(
+              totalPurchases: (dashData.purchases.totalPurchases > 0) ? dashData.purchases.totalPurchases : purchaseTotalSum,
+              totalPaid: (dashData.purchases.totalPaid > 0) ? dashData.purchases.totalPaid : purchasePaidSum,
+              totalOutstanding: (dashData.purchases.totalOutstanding > 0) ? dashData.purchases.totalOutstanding : purchaseDueSum,
+              totalCount: (dashData.purchases.totalCount > 0) ? dashData.purchases.totalCount : purchaseCount,
+              allTimeVendorDues: (dashData.purchases.allTimeVendorDues > 0) ? dashData.purchases.allTimeVendorDues : purchaseDueSum,
+            );
+
+            final actualRepairEarned = (dashData.financialOverview.repairEarnings > 0)
+                ? dashData.financialOverview.repairEarnings
+                : repairEarnedSum;
+
+            final actualPurchases = (dashData.financialOverview.totalPurchases > 0)
+                ? dashData.financialOverview.totalPurchases
+                : purchaseTotalSum;
+
+            final updatedFin = FinancialOverview(
+              totalSales: dashData.financialOverview.totalSales,
+              repairEarnings: actualRepairEarned,
+              totalPurchases: actualPurchases,
+              totalExpenses: dashData.financialOverview.totalExpenses,
+              netProfit: dashData.financialOverview.totalSales + actualRepairEarned - actualPurchases - dashData.financialOverview.totalExpenses,
+              cashCollected: dashData.financialOverview.cashCollected + actualRepairEarned,
+              cashPaidPurchases: purchasePaidSum > 0 ? purchasePaidSum : dashData.financialOverview.cashPaidPurchases,
+              cashPaidExpenses: dashData.financialOverview.cashPaidExpenses,
+              netCashRemaining: dashData.financialOverview.netCashRemaining + actualRepairEarned - purchasePaidSum,
+            );
+
+            final bool isEmpty = dashData.isEmptyShop && repairList.isEmpty && purchaseTotalSum == 0;
+
+            dashData = DashboardData(
+              period: dashData.period,
+              startDate: dashData.startDate,
+              endDate: dashData.endDate,
+              isEmptyShop: isEmpty,
+              shopName: dashData.shopName,
+              ownerName: dashData.ownerName,
+              logoUrl: dashData.logoUrl,
+              daysRemaining: dashData.daysRemaining,
+              isExpiringSoon: dashData.isExpiringSoon,
+              financialOverview: updatedFin,
+              sales: dashData.sales,
+              purchases: updatedPurchases,
+              repairs: updatedRepairs,
+              inventory: dashData.inventory,
+              expenses: dashData.expenses,
+              attention: dashData.attention,
+              recentActivity: dashData.recentActivity,
+            );
+
+            _dashboardData = dashData;
             _isLoading = false;
-          });
-        }
+            _errorMessage = null;
+
+            if (_dashboardData != null &&
+                (_dashboardData!.daysRemaining <= 10 || _dashboardData!.isExpiringSoon) &&
+                !_hasShownExpiryDialog) {
+              _hasShownExpiryDialog = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _showSubscriptionExpiryDialog(_dashboardData!.daysRemaining);
+              });
+            }
+          } else {
+            if (_dashboardData == null) {
+              _errorMessage = AppErrorMapper.mapMessage(res.message);
+            }
+            _isLoading = false;
+          }
+        });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = AppErrorMapper.mapMessage(e.toString());
+          if (_dashboardData == null) {
+            _errorMessage = AppErrorMapper.mapMessage(e.toString());
+          }
           _isLoading = false;
         });
       }
@@ -189,8 +362,47 @@ class DashboardScreenState extends State<DashboardScreen> {
         backgroundColor: AppColors.primary,
         elevation: 0,
         actions: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined, color: Colors.white),
+                tooltip: 'Notifications',
+                onPressed: () async {
+                  await NotificationsScreen.show(context);
+                  _fetchUnreadNotificationCount();
+                },
+              ),
+              if (_unreadNotifCount > 0)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.primary, width: 1.5),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      _unreadNotifCount > 99 ? '99+' : '$_unreadNotifCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
           IconButton(
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
             tooltip: 'Refresh',
             onPressed: fetchDashboard,
           ),
@@ -199,6 +411,7 @@ class DashboardScreenState extends State<DashboardScreen> {
       drawer: DashboardDrawer(
         shopName: shopName,
         ownerName: ownerName,
+        logoUrl: _dashboardData?.logoUrl ?? _storedShopLogoUrl,
         onTabSelected: widget.onTabSelected,
       ),
       body: RefreshIndicator(
@@ -212,10 +425,7 @@ class DashboardScreenState extends State<DashboardScreen> {
               _buildPeriodFilterBar(),
 
               if (_isLoading)
-                const Padding(
-                  padding: EdgeInsets.all(40.0),
-                  child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
-                )
+                AppShimmer.detailsLoading()
               else if (_errorMessage != null)
                 Padding(
                   padding: const EdgeInsets.all(24.0),
@@ -246,23 +456,22 @@ class DashboardScreenState extends State<DashboardScreen> {
                         _buildFinancialSummaryCard(_dashboardData!.financialOverview),
                         const SizedBox(height: 20),
 
-                        // 2. Shop Performance Metrics Summary (Sales, Purchases, Repairs, Inventory, Expenses)
+                        // 2. Shop Performance Metrics Summary (Repairs, Sales, Purchases, Inventory, Expenses)
                         Text('Shop Performance Summary', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textColor, letterSpacing: -0.3)),
                         const SizedBox(height: 10),
+                        _buildRepairSummaryCard(_dashboardData!.repairs),
+                        const SizedBox(height: 12),
                         _buildSalesSummaryCard(_dashboardData!.sales),
                         const SizedBox(height: 12),
                         _buildPurchaseSummaryCard(_dashboardData!.purchases),
                         const SizedBox(height: 12),
-
                         Row(
                           children: [
-                            Expanded(child: _buildRepairSummaryCard(_dashboardData!.repairs)),
-                            const SizedBox(width: 12),
                             Expanded(child: _buildInventorySummaryCard(_dashboardData!.inventory)),
+                            const SizedBox(width: 12),
+                            Expanded(child: _buildExpenseSummaryCard(_dashboardData!.expenses)),
                           ],
                         ),
-                        const SizedBox(height: 12),
-                        _buildExpenseSummaryCard(_dashboardData!.expenses),
                         const SizedBox(height: 24),
 
                         // 3. Fast Creation Actions Section (Quick Daily Tasks)
@@ -354,13 +563,12 @@ class DashboardScreenState extends State<DashboardScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Flexible(
+                    const Expanded(
                       child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: const [
+                        children: [
                           Icon(Icons.auto_awesome_rounded, color: Color(0xFF047857), size: 20),
                           SizedBox(width: 6),
-                          Flexible(
+                          Expanded(
                             child: Text(
                               'PROFIT AI ASSISTANT',
                               style: TextStyle(
@@ -419,9 +627,9 @@ class DashboardScreenState extends State<DashboardScreen> {
                 gradient: AppColors.profitGradient,
                 borderRadius: BorderRadius.only(bottomLeft: Radius.circular(18), bottomRight: Radius.circular(18)),
               ),
-              child: Row(
+              child: const Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
+                children: [
                   Text(
                     'Open Profit AI Analysis',
                     style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13),
@@ -566,40 +774,73 @@ class DashboardScreenState extends State<DashboardScreen> {
   Widget _buildEmptyShopOnboarding() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
-    final textMutedColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
 
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              gradient: AppColors.brandGradient,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withOpacity(0.25),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                const Icon(Icons.rocket_launch_rounded, size: 44, color: Colors.white),
+                const SizedBox(height: 10),
+                const Text(
+                  'Welcome to Mobile Shop Profit!',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Your dashboard is live! Add your first repair job, accessory sale, or inventory stock to start tracking profit, customer dues & AI insights.',
+                  style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.9), height: 1.35),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 20),
-          const Icon(Icons.storefront_rounded, size: 64, color: AppColors.primary),
-          const SizedBox(height: 16),
-          Text('Welcome to Your Mobile Shop!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor)),
-          const SizedBox(height: 8),
-          Text('Get started by adding your first sale, repair ticket, or inventory item.', textAlign: TextAlign.center, style: TextStyle(color: textMutedColor)),
-          const SizedBox(height: 24),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Quick Start - Choose an Action',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textColor),
+            ),
+          ),
+          const SizedBox(height: 12),
           _buildOnboardingStepTile(
             number: '1',
-            title: 'Quick Accessories Sale',
-            desc: 'Sell tempered glass, covers, or chargers in seconds.',
-            icon: Icons.flash_on_rounded,
-            onTap: () => NavUtils.pushNamed(context, AppRoutes.quickSale),
+            title: 'Add First Repair Job',
+            desc: 'Register customer devices for screen, battery, or board repair.',
+            icon: Icons.build_rounded,
+            onTap: () => NavUtils.pushNamed(context, AppRoutes.createRepair),
           ),
           const SizedBox(height: 12),
           _buildOnboardingStepTile(
             number: '2',
-            title: 'Add Repair Job',
-            desc: 'Register customer devices for screen, battery, or board repair.',
-            icon: Icons.handyman_rounded,
-            onTap: () => NavUtils.pushNamed(context, AppRoutes.createRepair),
+            title: 'Quick Accessory Sale',
+            desc: 'Sell tempered glass, covers, or chargers in seconds.',
+            icon: Icons.flash_on_rounded,
+            onTap: () => _navigateToTab(2, AppRoutes.quickSale),
           ),
           const SizedBox(height: 12),
           _buildOnboardingStepTile(
             number: '3',
             title: 'Add Inventory Stock',
-            desc: 'Add products, parts, and stock quantities.',
+            desc: 'Add products, spare parts, and stock quantities.',
             icon: Icons.inventory_2_rounded,
             onTap: () => NavUtils.pushNamed(context, AppRoutes.addInventoryItem),
           ),
@@ -674,16 +915,22 @@ class DashboardScreenState extends State<DashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: const [
-                  Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'Net Profit & Financial Overview',
-                    style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
-                  ),
-                ],
+              const Expanded(
+                child: Row(
+                  children: [
+                    Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Net Profit & Financial Overview',
+                        style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                 decoration: BoxDecoration(
@@ -699,8 +946,8 @@ class DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 14),
           Text(
-            'Remaining Net Profit',
-            style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 12),
+            'Net Profit (Revenue - Purchases - Expenses)',
+            style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 11.5),
           ),
           const SizedBox(height: 2),
           Text(
@@ -720,7 +967,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Total Sales', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 10)),
+                    Text('Sales Revenue', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 10)),
                     const SizedBox(height: 2),
                     Text('\u20B9${fin.totalSales.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                   ],
@@ -728,7 +975,15 @@ class DashboardScreenState extends State<DashboardScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Total Purchases', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 10)),
+                    Text('Repair Income', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 10)),
+                    const SizedBox(height: 2),
+                    Text('\u20B9${fin.repairEarnings.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Purchases', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 10)),
                     const SizedBox(height: 2),
                     Text('\u20B9${fin.totalPurchases.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                   ],
@@ -736,7 +991,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Total Expenses', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 10)),
+                    Text('Expenses', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 10)),
                     const SizedBox(height: 2),
                     Text('\u20B9${fin.totalExpenses.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                   ],
@@ -762,15 +1017,20 @@ class DashboardScreenState extends State<DashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  const Icon(Icons.point_of_sale_rounded, color: AppColors.primary, size: 20),
-                  const SizedBox(width: 8),
-                  Text('Sales & Revenue', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor)),
-                ],
+              Expanded(
+                child: Row(
+                  children: [
+                    const Icon(Icons.point_of_sale_rounded, color: AppColors.primary, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text('Sales & Revenue', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor), overflow: TextOverflow.ellipsis),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               InkWell(
-                onTap: () => _navigateToTab(1, AppRoutes.sales),
+                onTap: () => _navigateToTab(3, AppRoutes.sales),
                 child: const Text('View All \u2192', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
               ),
             ],
@@ -782,9 +1042,9 @@ class DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Total Revenue', style: TextStyle(fontSize: 11, color: textMutedColor)),
+                    Text('Total Sales Revenue', style: TextStyle(fontSize: 11, color: textMutedColor)),
                     const SizedBox(height: 4),
-                    Text('\u20B9${sales.totalSales.toStringAsFixed(0)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.primary)),
+                    Text('\u20B9${sales.totalSales.toStringAsFixed(0)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.primary), overflow: TextOverflow.ellipsis),
                   ],
                 ),
               ),
@@ -794,7 +1054,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     Text('Invoices', style: TextStyle(fontSize: 11, color: textMutedColor)),
                     const SizedBox(height: 4),
-                    Text('${sales.totalCount}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: textColor)),
+                    Text('${sales.totalCount}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: textColor), overflow: TextOverflow.ellipsis),
                   ],
                 ),
               ),
@@ -802,7 +1062,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 12),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             decoration: BoxDecoration(
               color: isDark ? AppColors.darkSurface : const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(10),
@@ -814,13 +1074,13 @@ class DashboardScreenState extends State<DashboardScreen> {
                   child: Row(
                     children: [
                       const Icon(Icons.check_circle_outline_rounded, size: 16, color: AppColors.accent),
-                      const SizedBox(width: 6),
-                      Flexible(
+                      const SizedBox(width: 4),
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Collected', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
-                            Text('\u20B9${sales.totalCollected.toStringAsFixed(0)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.accent)),
+                            const Text('Collected', style: TextStyle(fontSize: 10, color: AppColors.textMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            Text('\u20B9${sales.totalCollected.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.accent), maxLines: 1, overflow: TextOverflow.ellipsis),
                           ],
                         ),
                       ),
@@ -828,18 +1088,18 @@ class DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
                 Container(height: 24, width: 1, color: isDark ? AppColors.darkBorder : const Color(0xFFCBD5E1)),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Row(
                     children: [
                       Icon(Icons.pending_actions_rounded, size: 16, color: sales.totalDue > 0 ? AppColors.error : AppColors.textMuted),
-                      const SizedBox(width: 6),
-                      Flexible(
+                      const SizedBox(width: 4),
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Customer Dues', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
-                            Text('\u20B9${sales.totalDue.toStringAsFixed(0)}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: sales.totalDue > 0 ? AppColors.error : textColor)),
+                            const Text('Sales Dues', style: TextStyle(fontSize: 10, color: AppColors.textMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            Text('\u20B9${sales.totalDue.toStringAsFixed(0)}', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: sales.totalDue > 0 ? AppColors.error : textColor), maxLines: 1, overflow: TextOverflow.ellipsis),
                           ],
                         ),
                       ),
@@ -860,7 +1120,11 @@ class DashboardScreenState extends State<DashboardScreen> {
     final textMutedColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
 
     return CustomCard(
-      onTap: () => NavUtils.pushNamed(context, AppRoutes.purchases),
+      onTap: () => NavUtils.pushNamed(
+        context,
+        AppRoutes.purchases,
+        arguments: {'period': _selectedPeriod, 'customRange': _customDateRange},
+      ),
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -868,13 +1132,18 @@ class DashboardScreenState extends State<DashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  const Icon(Icons.shopping_bag_rounded, color: Colors.purple, size: 20),
-                  const SizedBox(width: 8),
-                  Text('Inventory Purchases', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor)),
-                ],
+              Expanded(
+                child: Row(
+                  children: [
+                    const Icon(Icons.shopping_bag_rounded, color: Colors.purple, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text('Inventory Purchases', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor), overflow: TextOverflow.ellipsis),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               const Text('View All \u2192', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.purple)),
             ],
           ),
@@ -887,7 +1156,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     Text('Total Purchases', style: TextStyle(fontSize: 11, color: textMutedColor)),
                     const SizedBox(height: 4),
-                    Text('\u20B9${purchases.totalPurchases.toStringAsFixed(0)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.purple)),
+                    Text('\u20B9${purchases.totalPurchases.toStringAsFixed(0)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.purple), overflow: TextOverflow.ellipsis),
                   ],
                 ),
               ),
@@ -897,7 +1166,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     Text('Orders', style: TextStyle(fontSize: 11, color: textMutedColor)),
                     const SizedBox(height: 4),
-                    Text('${purchases.totalCount}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: textColor)),
+                    Text('${purchases.totalCount}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: textColor), overflow: TextOverflow.ellipsis),
                   ],
                 ),
               ),
@@ -905,7 +1174,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 12),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             decoration: BoxDecoration(
               color: isDark ? AppColors.darkSurface : const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(10),
@@ -917,13 +1186,13 @@ class DashboardScreenState extends State<DashboardScreen> {
                   child: Row(
                     children: [
                       const Icon(Icons.payments_rounded, size: 16, color: Colors.purple),
-                      const SizedBox(width: 6),
-                      Flexible(
+                      const SizedBox(width: 4),
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Amount Paid', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
-                            Text('\u20B9${purchases.totalPaid.toStringAsFixed(0)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.purple)),
+                            const Text('Amount Paid', style: TextStyle(fontSize: 10, color: AppColors.textMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            Text('\u20B9${purchases.totalPaid.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Colors.purple), maxLines: 1, overflow: TextOverflow.ellipsis),
                           ],
                         ),
                       ),
@@ -931,18 +1200,18 @@ class DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
                 Container(height: 24, width: 1, color: isDark ? AppColors.darkBorder : const Color(0xFFCBD5E1)),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Row(
                     children: [
                       Icon(Icons.report_problem_rounded, size: 16, color: purchases.totalOutstanding > 0 ? AppColors.error : AppColors.textMuted),
-                      const SizedBox(width: 6),
-                      Flexible(
+                      const SizedBox(width: 4),
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Vendor Dues', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
-                            Text('\u20B9${purchases.totalOutstanding.toStringAsFixed(0)}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: purchases.totalOutstanding > 0 ? AppColors.error : textColor)),
+                            const Text('Purchase Dues', style: TextStyle(fontSize: 10, color: AppColors.textMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            Text('\u20B9${purchases.totalOutstanding.toStringAsFixed(0)}', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: purchases.totalOutstanding > 0 ? AppColors.error : textColor), maxLines: 1, overflow: TextOverflow.ellipsis),
                           ],
                         ),
                       ),
@@ -963,29 +1232,106 @@ class DashboardScreenState extends State<DashboardScreen> {
     final textMutedColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
 
     return CustomCard(
-      onTap: () => _navigateToTab(3, AppRoutes.repairs),
-      padding: const EdgeInsets.all(14),
+      onTap: () => _navigateToTab(1, AppRoutes.repairs),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Icon(Icons.build_rounded, color: AppColors.warning, size: 20),
-              if (repairs.readyCount > 0)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(color: AppColors.accent.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
-                  child: Text('${repairs.readyCount} Ready', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.accent)),
+              Expanded(
+                child: Row(
+                  children: [
+                    const Icon(Icons.build_circle_rounded, color: AppColors.warning, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text('Repair Jobs & Revenue', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor), overflow: TextOverflow.ellipsis),
+                    ),
+                  ],
                 ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: () => _navigateToTab(1, AppRoutes.repairs),
+                child: const Text('View All \u2192', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.warning)),
+              ),
             ],
           ),
-          const SizedBox(height: 10),
-          Text('Active Repairs', style: TextStyle(fontSize: 12, color: textMutedColor)),
-          const SizedBox(height: 2),
-          Text('${repairs.activeRepairsCount}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor)),
-          const SizedBox(height: 4),
-          Text('${repairs.totalRepairsCount} Total Repairs', style: TextStyle(fontSize: 11, color: textMutedColor)),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Repair Revenue', style: TextStyle(fontSize: 11, color: textMutedColor)),
+                    const SizedBox(height: 4),
+                    Text('\u20B9${repairs.totalEarnings.toStringAsFixed(0)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.warning), overflow: TextOverflow.ellipsis),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Active Repairs', style: TextStyle(fontSize: 11, color: textMutedColor)),
+                    const SizedBox(height: 4),
+                    Text('${repairs.activeRepairsCount}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: textColor), overflow: TextOverflow.ellipsis),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkSurface : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle_outline_rounded, size: 16, color: AppColors.accent),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Ready to Deliver', style: TextStyle(fontSize: 10, color: AppColors.textMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            Text('${repairs.readyCount} Jobs', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.accent), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(height: 24, width: 1, color: isDark ? AppColors.darkBorder : const Color(0xFFCBD5E1)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Icon(Icons.pending_actions_rounded, size: 16, color: repairs.totalDue > 0 ? AppColors.error : AppColors.textMuted),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Repair Dues', style: TextStyle(fontSize: 10, color: AppColors.textMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            Text('\u20B9${repairs.totalDue.toStringAsFixed(0)}', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: repairs.totalDue > 0 ? AppColors.error : textColor), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -1007,19 +1353,24 @@ class DashboardScreenState extends State<DashboardScreen> {
             children: [
               const Icon(Icons.inventory_2_rounded, color: AppColors.accent, size: 20),
               if (inventory.lowStockCount > 0)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(color: AppColors.errorLight, borderRadius: BorderRadius.circular(10)),
-                  child: Text('${inventory.lowStockCount} Low', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.error)),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(color: AppColors.errorLight, borderRadius: BorderRadius.circular(10)),
+                      child: Text('${inventory.lowStockCount} Low', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.error), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ),
+                  ),
                 ),
             ],
           ),
           const SizedBox(height: 10),
-          Text('Inventory Stock', style: TextStyle(fontSize: 12, color: textMutedColor)),
+          Text('Inventory Stock', style: TextStyle(fontSize: 12, color: textMutedColor), maxLines: 1, overflow: TextOverflow.ellipsis),
           const SizedBox(height: 2),
-          Text('\u20B9${inventory.totalStockValue.toStringAsFixed(0)}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor)),
+          Text('\u20B9${inventory.totalStockValue.toStringAsFixed(0)}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor), maxLines: 1, overflow: TextOverflow.ellipsis),
           const SizedBox(height: 4),
-          Text('${inventory.totalItems} Total Items', style: TextStyle(fontSize: 11, color: textMutedColor)),
+          Text('${inventory.totalItems} Total Items', style: TextStyle(fontSize: 11, color: textMutedColor), maxLines: 1, overflow: TextOverflow.ellipsis),
         ],
       ),
     );
@@ -1031,26 +1382,49 @@ class DashboardScreenState extends State<DashboardScreen> {
     final textMutedColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
 
     return CustomCard(
-      onTap: () => NavUtils.pushNamed(context, AppRoutes.expenses),
+      onTap: () => NavUtils.pushNamed(
+        context,
+        AppRoutes.expenses,
+        arguments: {'period': _selectedPeriod, 'customRange': _customDateRange},
+      ),
       padding: const EdgeInsets.all(14),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Icon(Icons.receipt_long_rounded, color: AppColors.secondary, size: 20),
-              const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Shop Expenses', style: TextStyle(fontSize: 12, color: textMutedColor)),
-                  Text('\u20B9${expenses.totalExpensesSum.toStringAsFixed(0)}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
-                ],
-              ),
+              if (expenses.topCategory != null)
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      'Top: ${expenses.topCategory!.name}',
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.secondary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
             ],
           ),
-          if (expenses.topCategory != null)
-            Text('Top: ${expenses.topCategory!.name}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.secondary)),
+          const SizedBox(height: 10),
+          Text('Shop Expenses', style: TextStyle(fontSize: 12, color: textMutedColor), maxLines: 1, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 2),
+          Text(
+            '\u20B9${expenses.totalExpensesSum.toStringAsFixed(0)}',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            expenses.topCategory != null ? 'Category: ${expenses.topCategory!.name}' : 'General Expenses',
+            style: TextStyle(fontSize: 11, color: textMutedColor),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ],
       ),
     );

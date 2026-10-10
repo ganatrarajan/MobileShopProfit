@@ -1,4 +1,4 @@
-﻿double _parseDouble(dynamic val) {
+double _parseDouble(dynamic val) {
   if (val == null) return 0.0;
   if (val is num) return val.toDouble();
   return double.tryParse(val.toString()) ?? 0.0;
@@ -13,6 +13,7 @@ int _parseInt(dynamic val) {
 
 class FinancialOverview {
   final double totalSales;
+  final double repairEarnings;
   final double totalPurchases;
   final double totalExpenses;
   final double netProfit;
@@ -23,6 +24,7 @@ class FinancialOverview {
 
   FinancialOverview({
     required this.totalSales,
+    required this.repairEarnings,
     required this.totalPurchases,
     required this.totalExpenses,
     required this.netProfit,
@@ -35,6 +37,7 @@ class FinancialOverview {
   factory FinancialOverview.fromJson(Map<String, dynamic> json) {
     return FinancialOverview(
       totalSales: _parseDouble(json['total_sales']),
+      repairEarnings: _parseDouble(json['repair_earnings'] ?? json['total_repairs'] ?? json['repairs_revenue']),
       totalPurchases: _parseDouble(json['total_purchases']),
       totalExpenses: _parseDouble(json['total_expenses']),
       netProfit: _parseDouble(json['net_profit']),
@@ -110,6 +113,8 @@ class RepairSummary {
   final int waitingCustomerCount;
   final int waitingPartsCount;
   final int totalRepairsCount;
+  final double totalEarnings;
+  final double totalDue;
 
   RepairSummary({
     required this.activeRepairsCount,
@@ -117,6 +122,8 @@ class RepairSummary {
     required this.waitingCustomerCount,
     required this.waitingPartsCount,
     required this.totalRepairsCount,
+    required this.totalEarnings,
+    required this.totalDue,
   });
 
   factory RepairSummary.fromJson(Map<String, dynamic> json) {
@@ -126,6 +133,8 @@ class RepairSummary {
       waitingCustomerCount: _parseInt(json['waiting_customer_count']),
       waitingPartsCount: _parseInt(json['waiting_parts_count']),
       totalRepairsCount: _parseInt(json['total_repairs_count']),
+      totalEarnings: _parseDouble(json['total_earnings'] ?? json['total_revenue'] ?? json['earnings'] ?? json['total_collected'] ?? json['total_amount']),
+      totalDue: _parseDouble(json['total_due'] ?? json['due_amount'] ?? json['outstanding'] ?? json['pending_due']),
     );
   }
 }
@@ -251,6 +260,7 @@ class DashboardData {
   final bool isEmptyShop;
   final String shopName;
   final String ownerName;
+  final String? logoUrl;
   final int daysRemaining;
   final bool isExpiringSoon;
   final FinancialOverview financialOverview;
@@ -269,6 +279,7 @@ class DashboardData {
     required this.isEmptyShop,
     this.shopName = 'Mobile Repair Shop',
     this.ownerName = 'Shop Owner',
+    this.logoUrl,
     this.daysRemaining = 999,
     this.isExpiringSoon = false,
     required this.financialOverview,
@@ -309,21 +320,51 @@ class DashboardData {
         ?.toString() ??
         '';
 
+    final String? lUrl = (json['logo_url'] ??
+            dataMap['logo_url'] ??
+            json['logo_path'] ??
+            dataMap['logo_path'] ??
+            (json['shop'] is Map ? (json['shop']['logo_url'] ?? json['shop']['logo_path'] ?? json['shop']['logo']) : null) ??
+            (dataMap['shop'] is Map ? (dataMap['shop']['logo_url'] ?? dataMap['shop']['logo_path'] ?? dataMap['shop']['logo']) : null))
+        ?.toString();
+
     final int dRemaining = _parseInt(dataMap['days_remaining'] ?? json['days_remaining'] ?? 999);
     final bool expiring = (dataMap['is_expiring_soon'] == true || dRemaining <= 10);
 
     final salesObj = SalesSummary.fromJson(Map<String, dynamic>.from(dataMap['sales'] ?? {}));
     final purchasesObj = PurchaseSummary.fromJson(Map<String, dynamic>.from(dataMap['purchases'] ?? {}));
     final expensesObj = ExpenseSummary.fromJson(Map<String, dynamic>.from(dataMap['expenses'] ?? {}));
+    final repairsObj = RepairSummary.fromJson(Map<String, dynamic>.from(dataMap['repairs'] ?? {}));
 
     FinancialOverview finOverview;
     if (dataMap['financial_overview'] != null && dataMap['financial_overview'] is Map<String, dynamic>) {
-      finOverview = FinancialOverview.fromJson(Map<String, dynamic>.from(dataMap['financial_overview']));
+      final finMap = Map<String, dynamic>.from(dataMap['financial_overview']);
+      final repEarn = _parseDouble(finMap['repair_earnings'] ?? finMap['total_repairs'] ?? repairsObj.totalEarnings);
+      final rawSales = _parseDouble(finMap['total_sales']);
+      final rawNetProfit = _parseDouble(finMap['net_profit']);
+
+      final calcNetProfit = (finMap.containsKey('repair_earnings') || finMap.containsKey('total_repairs'))
+          ? rawNetProfit
+          : (rawSales + repEarn - purchasesObj.totalPurchases - expensesObj.totalExpensesSum);
+
+      finOverview = FinancialOverview(
+        totalSales: rawSales,
+        repairEarnings: repEarn,
+        totalPurchases: purchasesObj.totalPurchases,
+        totalExpenses: expensesObj.totalExpensesSum,
+        netProfit: calcNetProfit,
+        cashCollected: _parseDouble(finMap['cash_collected']),
+        cashPaidPurchases: purchasesObj.totalPaid,
+        cashPaidExpenses: expensesObj.totalExpensesSum,
+        netCashRemaining: _parseDouble(finMap['net_cash_remaining']),
+      );
     } else {
-      final nProfit = salesObj.totalSales - purchasesObj.totalPurchases - expensesObj.totalExpensesSum;
-      final cRem = salesObj.totalCollected - purchasesObj.totalPaid - expensesObj.totalExpensesSum;
+      final repEarn = repairsObj.totalEarnings;
+      final nProfit = salesObj.totalSales + repEarn - purchasesObj.totalPurchases - expensesObj.totalExpensesSum;
+      final cRem = salesObj.totalCollected + repEarn - purchasesObj.totalPaid - expensesObj.totalExpensesSum;
       finOverview = FinancialOverview(
         totalSales: salesObj.totalSales,
+        repairEarnings: repEarn,
         totalPurchases: purchasesObj.totalPurchases,
         totalExpenses: expensesObj.totalExpensesSum,
         netProfit: nProfit,
@@ -334,19 +375,28 @@ class DashboardData {
       );
     }
 
+    final bool emptyCheck = (json['is_empty_shop'] == true) ||
+        (salesObj.totalCount == 0 &&
+            repairsObj.totalRepairsCount == 0 &&
+            purchasesObj.totalCount == 0 &&
+            finOverview.totalSales == 0 &&
+            finOverview.repairEarnings == 0 &&
+            finOverview.netProfit == 0);
+
     return DashboardData(
       period: json['period']?.toString() ?? 'this_month',
       startDate: dateRange['start_date']?.toString() ?? '',
       endDate: dateRange['end_date']?.toString() ?? '',
-      isEmptyShop: json['is_empty_shop'] == true,
+      isEmptyShop: emptyCheck,
       shopName: sName.isNotEmpty ? sName : 'Mobile Repair Shop',
       ownerName: oName.isNotEmpty ? oName : 'Shop Owner',
+      logoUrl: lUrl,
       daysRemaining: dRemaining,
       isExpiringSoon: expiring,
       financialOverview: finOverview,
       sales: salesObj,
       purchases: purchasesObj,
-      repairs: RepairSummary.fromJson(Map<String, dynamic>.from(dataMap['repairs'] ?? {})),
+      repairs: repairsObj,
       inventory: InventorySummary.fromJson(Map<String, dynamic>.from(dataMap['inventory'] ?? {})),
       expenses: expensesObj,
       attention: attList.map((a) => AttentionItem.fromJson(Map<String, dynamic>.from(a))).toList(),

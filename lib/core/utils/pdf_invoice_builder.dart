@@ -874,13 +874,23 @@ class PdfInvoiceBuilder {
                           child: pw.Column(
                             crossAxisAlignment: pw.CrossAxisAlignment.start,
                             children: [
-                              pw.Text('DEVICE DETAILS', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: brandBlue)),
+                              pw.Text('DEVICE & REPAIR DETAILS', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: brandBlue)),
                               pw.SizedBox(height: 4),
                               pw.Text('Device: ${deviceBrandModel.isNotEmpty ? deviceBrandModel : "Mobile Device"}', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: textDark)),
                               pw.Text('IMEI / Serial: $serialImei', style: pw.TextStyle(fontSize: 8.5, color: textDark)),
                               if (repair.pinPasscode != null && repair.pinPasscode!.isNotEmpty)
                                 pw.Text('Passcode / PIN: ${repair.pinPasscode}', style: pw.TextStyle(fontSize: 8.5, color: textDark)),
                               pw.Text('Problem: ${repair.problemDescription.isNotEmpty ? repair.problemDescription : "Repair Service"}', style: pw.TextStyle(fontSize: 8.5, color: textDark)),
+                              if (repair.deviceCondition.isNotEmpty)
+                                pw.Text('Condition: ${repair.deviceCondition.join(", ")}', style: pw.TextStyle(fontSize: 8, color: textMuted)),
+                              if (repair.accessoriesReceived.isNotEmpty)
+                                pw.Text('Accessories: ${repair.accessoriesReceived.join(", ")}', style: pw.TextStyle(fontSize: 8, color: textMuted)),
+                              if (repair.technicianName != null && repair.technicianName!.isNotEmpty)
+                                pw.Text('Technician: ${repair.technicianName}', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: brandBlue)),
+                              if (repair.customerNotes != null && repair.customerNotes!.trim().isNotEmpty)
+                                pw.Text('Customer Note: ${repair.customerNotes!.trim()}', style: pw.TextStyle(fontSize: 8, color: textMuted)),
+                              if (repair.internalNotes != null && repair.internalNotes!.trim().isNotEmpty)
+                                pw.Text('Internal Note: ${repair.internalNotes!.trim()}', style: pw.TextStyle(fontSize: 8, color: textMuted)),
                             ],
                           ),
                         ),
@@ -893,12 +903,12 @@ class PdfInvoiceBuilder {
                   // 4. PARTS & CHARGES TABLE
                   pw.Table(
                     border: pw.TableBorder.all(color: borderBlue, width: 0.6),
-                    columnWidths: {
-                      0: const pw.FixedColumnWidth(28),
-                      1: const pw.FlexColumnWidth(4),
-                      2: const pw.FixedColumnWidth(40),
-                      3: const pw.FixedColumnWidth(65),
-                      4: const pw.FixedColumnWidth(75),
+                    columnWidths: const {
+                      0: pw.FixedColumnWidth(28),
+                      1: pw.FlexColumnWidth(4),
+                      2: pw.FixedColumnWidth(40),
+                      3: pw.FixedColumnWidth(65),
+                      4: pw.FixedColumnWidth(75),
                     },
                     children: [
                       pw.TableRow(
@@ -918,10 +928,26 @@ class PdfInvoiceBuilder {
                           _dataCell('1', align: pw.TextAlign.center),
                           _dataCell('Repair Labour & Technical Service Charge', isBold: true),
                           _dataCell('1', align: pw.TextAlign.center),
-                          _dataCell(repair.netCost.toStringAsFixed(2), align: pw.TextAlign.right),
-                          _dataCell(repair.netCost.toStringAsFixed(2), align: pw.TextAlign.right),
+                          _dataCell(repair.labourCost > 0 ? repair.labourCost.toStringAsFixed(2) : (repair.netCost - repair.parts.fold<double>(0.0, (sum, p) => sum + (p.quantity * p.sellingPrice))).toStringAsFixed(2), align: pw.TextAlign.right),
+                          _dataCell(repair.labourCost > 0 ? repair.labourCost.toStringAsFixed(2) : (repair.netCost - repair.parts.fold<double>(0.0, (sum, p) => sum + (p.quantity * p.sellingPrice))).toStringAsFixed(2), align: pw.TextAlign.right),
                         ],
                       ),
+
+                      // Parts Used Rows
+                      ...repair.parts.asMap().entries.map((entry) {
+                        final idx = entry.key + 2;
+                        final part = entry.value;
+                        final totalPartAmt = part.quantity * part.sellingPrice;
+                        return pw.TableRow(
+                          children: [
+                            _dataCell('$idx', align: pw.TextAlign.center),
+                            _dataCell('Part: ${part.partName}', isBold: true),
+                            _dataCell('${part.quantity}', align: pw.TextAlign.center),
+                            _dataCell(part.sellingPrice.toStringAsFixed(2), align: pw.TextAlign.right),
+                            _dataCell(totalPartAmt.toStringAsFixed(2), isBold: true, align: pw.TextAlign.right),
+                          ],
+                        );
+                      }),
                     ],
                   ),
 

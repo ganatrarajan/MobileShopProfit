@@ -306,6 +306,7 @@ class WhatsAppHelper {
     final jobNum = repair.jobNumber.isNotEmpty ? repair.jobNumber : 'REP-${repair.id}';
     final dateStr = repair.dateReceived.isNotEmpty ? DateHelper.formatDate(repair.dateReceived) : DateHelper.formatDate(DateTime.now().toIso8601String());
     final deviceStr = '${repair.device?.brand ?? ''} ${repair.device?.model ?? ''}'.trim();
+    final imeiStr = (repair.device?.imei1?.isNotEmpty == true) ? repair.device!.imei1 : (repair.device?.serialNumber ?? '');
 
     final sb = StringBuffer();
     sb.writeln('Hello $customerName 👋');
@@ -314,22 +315,92 @@ class WhatsAppHelper {
     sb.writeln('');
     sb.writeln('🛠️ REPAIR TICKET SUMMARY');
     sb.writeln('* Job No: #$jobNum');
-    sb.writeln('* Date: $dateStr');
+    sb.writeln('* Date Received: $dateStr');
+    if (repair.expectedDeliveryDate != null && repair.expectedDeliveryDate!.isNotEmpty) {
+      sb.writeln('* Expected Delivery: ${DateHelper.formatDate(repair.expectedDeliveryDate!)}');
+    }
     if (deviceStr.isNotEmpty) {
       sb.writeln('* Device: $deviceStr');
     }
-    if (repair.problemDescription.isNotEmpty) {
-      sb.writeln('* Problem: ${repair.problemDescription}');
+    if (imeiStr != null && imeiStr.isNotEmpty) {
+      sb.writeln('* IMEI / Serial: $imeiStr');
     }
-    sb.writeln('* Status: ${repair.repairStatus.toUpperCase()}');
+    if (repair.pinPasscode != null && repair.pinPasscode!.isNotEmpty) {
+      sb.writeln('* Passcode / PIN: ${repair.pinPasscode}');
+    }
+
+    sb.writeln('* Current Status: *${repair.repairStatus.toUpperCase()}*');
+
+    if (repair.problemDescription.isNotEmpty) {
+      sb.writeln('');
+      sb.writeln('📋 REPORTED ISSUES / PROBLEMS:');
+      sb.writeln('• ${repair.problemDescription}');
+    }
+
+    if (repair.deviceCondition.isNotEmpty || (repair.conditionNotes != null && repair.conditionNotes!.isNotEmpty)) {
+      sb.writeln('');
+      sb.writeln('📱 DEVICE CONDITION:');
+      if (repair.deviceCondition.isNotEmpty) {
+        sb.writeln('• Condition: ${repair.deviceCondition.join(', ')}');
+      }
+      if (repair.conditionNotes != null && repair.conditionNotes!.isNotEmpty) {
+        sb.writeln('• Notes: ${repair.conditionNotes}');
+      }
+    }
+
+    if (repair.accessoriesReceived.isNotEmpty || (repair.accessoriesNotes != null && repair.accessoriesNotes!.isNotEmpty)) {
+      sb.writeln('');
+      sb.writeln('🔌 ACCESSORIES RECEIVED:');
+      if (repair.accessoriesReceived.isNotEmpty) {
+        sb.writeln('• Accessories: ${repair.accessoriesReceived.join(', ')}');
+      }
+      if (repair.accessoriesNotes != null && repair.accessoriesNotes!.isNotEmpty) {
+        sb.writeln('• Notes: ${repair.accessoriesNotes}');
+      }
+    }
+
+    if (repair.technicianName != null && repair.technicianName!.isNotEmpty) {
+      sb.writeln('');
+      sb.writeln('👨‍🔧 ASSIGNED TECHNICIAN:');
+      sb.writeln('• ${repair.technicianName}');
+    }
+
+    if (repair.parts.isNotEmpty) {
+      sb.writeln('');
+      sb.writeln('⚙️ PARTS & REPLACEMENTS:');
+      for (var i = 0; i < repair.parts.length; i++) {
+        final p = repair.parts[i];
+        sb.writeln('  ${i + 1}. ${p.partName} x ${p.quantity} - ₹${(p.quantity * p.sellingPrice).toStringAsFixed(2)}');
+      }
+    }
+
+    if (repair.customerNotes != null && repair.customerNotes!.trim().isNotEmpty) {
+      sb.writeln('');
+      sb.writeln('💬 Customer Notes: ${repair.customerNotes!.trim()}');
+    }
+    if (repair.internalNotes != null && repair.internalNotes!.trim().isNotEmpty) {
+      sb.writeln('');
+      sb.writeln('📝 Internal / Status Notes: ${repair.internalNotes!.trim()}');
+    }
+
     sb.writeln('');
-    sb.writeln('💳 PAYMENT DETAILS');
-    sb.writeln('* Total Cost: ₹${repair.netCost.toStringAsFixed(2)}');
-    sb.writeln('* Advance Paid: ₹${repair.amountPaid.toStringAsFixed(2)}');
+    sb.writeln('💳 PAYMENT BREAKDOWN');
+    if (repair.estimatedCost > 0) {
+      sb.writeln('* Estimated Cost: ₹${repair.estimatedCost.toStringAsFixed(2)}');
+    }
+    sb.writeln('* Total Net Cost: ₹${repair.netCost.toStringAsFixed(2)}');
+    sb.writeln('* Advance / Amount Paid: ₹${repair.amountPaid.toStringAsFixed(2)}');
     if (repair.amountDue > 0) {
       sb.writeln('* Balance Due: ₹${repair.amountDue.toStringAsFixed(2)} ⚠️');
     } else {
       sb.writeln('* Status: PAID IN FULL ✅');
+    }
+
+    if (repair.warranty != null) {
+      sb.writeln('');
+      sb.writeln('🛡️ WARRANTY COVERAGE:');
+      sb.writeln('* Warranty No: ${repair.warranty!.warrantyNumber}');
+      sb.writeln('* Valid Until: ${DateHelper.formatDate(repair.warranty!.warrantyEndDate)} (${repair.warranty!.daysRemaining} Days)');
     }
 
     sb.writeln('');
@@ -568,7 +639,6 @@ class WhatsAppHelper {
   /// 3. Complete Ticket Text Summary
   static Future<void> showRepairWhatsAppOptions(BuildContext context, Repair repair) async {
     final rawPhone = repair.customer?.mobile;
-    final formattedPhone = formatPhoneNumber(rawPhone);
     final customerName = repair.customer?.name.trim().isNotEmpty == true
         ? repair.customer!.name.trim()
         : 'Customer';

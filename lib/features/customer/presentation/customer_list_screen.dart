@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../core/widgets/app_shimmer.dart';
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
@@ -164,7 +165,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
         // Main List / States
         Expanded(
           child: _isLoading
-              ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+              ? AppShimmer.listLoading()
               : _errorMessage != null
                   ? Center(
                       child: Padding(

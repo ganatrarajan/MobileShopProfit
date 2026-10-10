@@ -19,6 +19,7 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   late int _currentIndex;
+  late final Set<int> _visitedTabs;
 
   final GlobalKey<DashboardScreenState> _dashboardKey = GlobalKey<DashboardScreenState>();
   final GlobalKey<SalesListScreenState> _salesListKey = GlobalKey<SalesListScreenState>();
@@ -26,15 +27,27 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final GlobalKey<RepairListScreenState> _repairListKey = GlobalKey<RepairListScreenState>();
   final GlobalKey<PurchaseListScreenState> _purchaseListKey = GlobalKey<PurchaseListScreenState>();
 
+  late final List<Widget> _pages;
+
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
+    _visitedTabs = {_currentIndex};
+
+    _pages = [
+      DashboardScreen(key: _dashboardKey, onTabSelected: _onTabTapped),
+      RepairListScreen(key: _repairListKey),
+      QuickSaleScreen(key: _quickSaleKey, onSuccess: _onQuickSaleSuccess),
+      SalesListScreen(key: _salesListKey),
+      PurchaseListScreen(key: _purchaseListKey),
+    ];
   }
 
   void _onQuickSaleSuccess() {
     setState(() {
-      _currentIndex = 1; // Switch to Sales & Billing tab
+      _currentIndex = 3; // Switch to Sales & Billing tab
+      _visitedTabs.add(3);
     });
     _salesListKey.currentState?.fetchSales();
   }
@@ -45,36 +58,25 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       if (!ok) return;
     }
 
+    final dashState = _dashboardKey.currentState;
+    final period = dashState?.selectedPeriod ?? 'this_month';
+    final customRange = dashState?.customDateRange;
+
     setState(() {
       _currentIndex = index;
+      _visitedTabs.add(index);
     });
 
-    switch (index) {
-      case 0:
-        _dashboardKey.currentState?.fetchDashboard();
-        break;
-      case 1:
-        _salesListKey.currentState?.fetchSales();
-        break;
-      case 2:
-        _quickSaleKey.currentState?.fetchInventoryItems();
-        break;
-      case 3:
-        _repairListKey.currentState?.fetchRepairs();
-        break;
-      case 4:
-        _purchaseListKey.currentState?.fetchPurchases();
-        break;
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (index == 1) {
+        _repairListKey.currentState?.applyDateFilter(period, customRange);
+      } else if (index == 3) {
+        _salesListKey.currentState?.applyDateFilter(period, customRange);
+      } else if (index == 4) {
+        _purchaseListKey.currentState?.applyDateFilter(period, customRange);
+      }
+    });
   }
-
-  List<Widget> get _pages => [
-    DashboardScreen(key: _dashboardKey, onTabSelected: _onTabTapped),
-    SalesListScreen(key: _salesListKey),
-    QuickSaleScreen(key: _quickSaleKey, onSuccess: _onQuickSaleSuccess),
-    RepairListScreen(key: _repairListKey),
-    PurchaseListScreen(key: _purchaseListKey),
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -91,7 +93,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       child: Scaffold(
         body: IndexedStack(
           index: _currentIndex,
-          children: _pages,
+          children: List.generate(_pages.length, (index) {
+            if (_visitedTabs.contains(index)) {
+              return _pages[index];
+            }
+            return const SizedBox.shrink();
+          }),
         ),
         bottomNavigationBar: Container(
           decoration: BoxDecoration(
@@ -129,9 +136,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 label: 'Dashboard',
               ),
               const BottomNavigationBarItem(
-                icon: Icon(Icons.receipt_long_rounded),
-                activeIcon: Icon(Icons.receipt_long_rounded),
-                label: 'Sales',
+                icon: Icon(Icons.build_circle_outlined),
+                activeIcon: Icon(Icons.build_circle_rounded),
+                label: 'Repairs',
               ),
               BottomNavigationBarItem(
                 icon: Container(
@@ -152,9 +159,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 label: 'Quick Sale',
               ),
               const BottomNavigationBarItem(
-                icon: Icon(Icons.build_circle_outlined),
-                activeIcon: Icon(Icons.build_circle_rounded),
-                label: 'Repairs',
+                icon: Icon(Icons.receipt_long_rounded),
+                activeIcon: Icon(Icons.receipt_long_rounded),
+                label: 'Sales',
               ),
               const BottomNavigationBarItem(
                 icon: Icon(Icons.shopping_bag_outlined),

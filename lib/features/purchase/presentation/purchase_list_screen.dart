@@ -1,3 +1,4 @@
+import '../../../core/widgets/app_shimmer.dart';
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
@@ -26,7 +27,7 @@ class PurchaseListScreenState extends State<PurchaseListScreen> {
   String _paymentStatusFilter = 'all';
 
   // Date Filtering state
-  String _datePreset = 'all_time'; // 'all_time', 'today', 'yesterday', 'this_month', 'custom'
+  String _datePreset = 'this_month'; // default: 'this_month'
   DateTimeRange? _customDateRange;
 
   double _totalAmount = 0.0;
@@ -34,28 +35,47 @@ class PurchaseListScreenState extends State<PurchaseListScreen> {
   double _totalOutstanding = 0.0;
   bool _hasParsedArgs = false;
 
+  void applyDateFilter(String period, DateTimeRange? customRange) {
+    if (_datePreset != period || _customDateRange != customRange) {
+      setState(() {
+        _datePreset = period;
+        _customDateRange = customRange;
+      });
+      fetchPurchases();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
   }
 
-    @override
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_hasParsedArgs) {
       _hasParsedArgs = true;
       final args = ModalRoute.of(context)?.settings.arguments;
       if (args != null) {
-        final strArgs = args.toString().toLowerCase();
-        if (strArgs.contains('unpaid') || strArgs.contains('pending') || strArgs.contains('vendor_dues') || strArgs.contains('due')) {
-          _paymentStatusFilter = 'pending';
-          _datePreset = 'all_time';
-        } else if (strArgs.contains('paid')) {
-          _paymentStatusFilter = 'paid';
-          _datePreset = 'all_time';
-        } else if (strArgs.contains('partial')) {
-          _paymentStatusFilter = 'partial';
-          _datePreset = 'all_time';
+        if (args is Map) {
+          if (args.containsKey('period')) {
+            _datePreset = args['period'].toString();
+          }
+          if (args.containsKey('customRange') && args['customRange'] is DateTimeRange) {
+            _customDateRange = args['customRange'] as DateTimeRange;
+          }
+        } else {
+          final strArgs = args.toString().toLowerCase();
+          if (strArgs.contains('unpaid') || strArgs.contains('pending') || strArgs.contains('vendor_dues') || strArgs.contains('due')) {
+            _paymentStatusFilter = 'pending';
+            _datePreset = 'all_time';
+          } else if (strArgs.contains('paid')) {
+            _paymentStatusFilter = 'paid';
+            _datePreset = 'all_time';
+          } else if (strArgs.contains('partial')) {
+            _paymentStatusFilter = 'partial';
+            _datePreset = 'all_time';
+          }
         }
       }
       fetchPurchases();
@@ -68,37 +88,8 @@ class PurchaseListScreenState extends State<PurchaseListScreen> {
     super.dispose();
   }
 
-  String? get _dateFrom {
-    final now = DateTime.now();
-    if (_datePreset == 'today') {
-      return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    } else if (_datePreset == 'yesterday') {
-      final y = now.subtract(const Duration(days: 1));
-      return '${y.year}-${y.month.toString().padLeft(2, '0')}-${y.day.toString().padLeft(2, '0')}';
-    } else if (_datePreset == 'this_month') {
-      return '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
-    } else if (_datePreset == 'custom' && _customDateRange != null) {
-      final s = _customDateRange!.start;
-      return '${s.year}-${s.month.toString().padLeft(2, '0')}-${s.day.toString().padLeft(2, '0')}';
-    }
-    return null; // all_time
-  }
-
-  String? get _dateTo {
-    final now = DateTime.now();
-    if (_datePreset == 'today') {
-      return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    } else if (_datePreset == 'yesterday') {
-      final y = now.subtract(const Duration(days: 1));
-      return '${y.year}-${y.month.toString().padLeft(2, '0')}-${y.day.toString().padLeft(2, '0')}';
-    } else if (_datePreset == 'this_month') {
-      return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    } else if (_datePreset == 'custom' && _customDateRange != null) {
-      final e = _customDateRange!.end;
-      return '${e.year}-${e.month.toString().padLeft(2, '0')}-${e.day.toString().padLeft(2, '0')}';
-    }
-    return null; // all_time
-  }
+  String? get _dateFrom => DateHelper.getDateRangeForPreset(_datePreset, customRange: _customDateRange).dateFrom;
+  String? get _dateTo => DateHelper.getDateRangeForPreset(_datePreset, customRange: _customDateRange).dateTo;
 
   String get _dateFilterLabel {
     switch (_datePreset) {
@@ -106,8 +97,14 @@ class PurchaseListScreenState extends State<PurchaseListScreen> {
         return 'Today';
       case 'yesterday':
         return 'Yesterday';
+      case 'this_week':
+        return 'This Week';
       case 'this_month':
         return 'This Month';
+      case 'last_month':
+        return 'Last Month';
+      case 'this_year':
+        return 'This Year';
       case 'custom':
         if (_customDateRange != null) {
           final s = _customDateRange!.start;
@@ -135,8 +132,8 @@ class PurchaseListScreenState extends State<PurchaseListScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: const [
+                const Row(
+                  children: [
                     Icon(Icons.calendar_month_rounded, color: AppColors.primary),
                     SizedBox(width: 8),
                     Text('Select Date Filter', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -476,7 +473,7 @@ class PurchaseListScreenState extends State<PurchaseListScreen> {
           // LIST OF PURCHASES
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? AppShimmer.listLoading()
                 : _purchases.isEmpty
                     ? const AppEmptyState(
                         icon: Icons.shopping_bag_outlined,

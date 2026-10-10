@@ -5,12 +5,14 @@ import '../../../../core/theme/app_colors.dart';
 class DashboardDrawer extends StatelessWidget {
   final String shopName;
   final String ownerName;
+  final String? logoUrl;
   final void Function(int tabIndex)? onTabSelected;
 
   const DashboardDrawer({
     super.key,
     required this.shopName,
     required this.ownerName,
+    this.logoUrl,
     this.onTabSelected,
   });
 
@@ -66,7 +68,17 @@ class DashboardDrawer extends StatelessWidget {
                   ),
                 ],
               ),
-              child: const Icon(Icons.store_rounded, color: AppColors.primary, size: 32),
+              child: ClipOval(
+                child: (logoUrl != null && logoUrl!.isNotEmpty)
+                    ? Image.network(
+                        logoUrl!,
+                        fit: BoxFit.cover,
+                        width: 64,
+                        height: 64,
+                        errorBuilder: (_, __, ___) => const Icon(Icons.store_rounded, color: AppColors.primary, size: 32),
+                      )
+                    : const Icon(Icons.store_rounded, color: AppColors.primary, size: 32),
+              ),
             ),
           ),
           ListTile(
@@ -86,7 +98,7 @@ class DashboardDrawer extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.build_rounded, color: Colors.orange),
             title: const Text('Repairs', style: textStyle),
-            onTap: () => _navigateToTab(context, 3, AppRoutes.repairs),
+            onTap: () => _navigateToTab(context, 1, AppRoutes.repairs),
           ),
           ListTile(
             leading: const Icon(Icons.engineering_rounded, color: Colors.blue),
@@ -99,7 +111,7 @@ class DashboardDrawer extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.receipt_long_rounded, color: AppColors.accent),
             title: const Text('Sales & Invoices', style: textStyle),
-            onTap: () => _navigateToTab(context, 1, AppRoutes.sales),
+            onTap: () => _navigateToTab(context, 3, AppRoutes.sales),
           ),
           ListTile(
             leading: const Icon(Icons.shopping_cart_checkout_rounded, color: Colors.indigo),

@@ -1,8 +1,59 @@
+import 'package:flutter/material.dart';
+
+class DateRangeResult {
+  final String? dateFrom;
+  final String? dateTo;
+  const DateRangeResult(this.dateFrom, this.dateTo);
+}
+
 class DateHelper {
   static const List<String> _months = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
   ];
+
+  /// Calculates start and end YYYY-MM-DD date strings for any given preset
+  static DateRangeResult getDateRangeForPreset(String preset, {DateTimeRange? customRange}) {
+    final now = DateTime.now();
+    final todayStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+    switch (preset) {
+      case 'today':
+        return DateRangeResult(todayStr, todayStr);
+      case 'yesterday':
+        final y = now.subtract(const Duration(days: 1));
+        final yStr = '${y.year}-${y.month.toString().padLeft(2, '0')}-${y.day.toString().padLeft(2, '0')}';
+        return DateRangeResult(yStr, yStr);
+      case 'this_week':
+        final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+        final startStr = '${startOfWeek.year}-${startOfWeek.month.toString().padLeft(2, '0')}-${startOfWeek.day.toString().padLeft(2, '0')}';
+        return DateRangeResult(startStr, todayStr);
+      case 'this_month':
+        final startStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
+        return DateRangeResult(startStr, todayStr);
+      case 'last_month':
+        final lastMonthStart = DateTime(now.year, now.month - 1, 1);
+        final lastMonthEnd = DateTime(now.year, now.month, 0);
+        final startStr = '${lastMonthStart.year}-${lastMonthStart.month.toString().padLeft(2, '0')}-01';
+        final endStr = '${lastMonthEnd.year}-${lastMonthEnd.month.toString().padLeft(2, '0')}-${lastMonthEnd.day.toString().padLeft(2, '0')}';
+        return DateRangeResult(startStr, endStr);
+      case 'this_year':
+        final startStr = '${now.year}-01-01';
+        return DateRangeResult(startStr, todayStr);
+      case 'custom':
+        if (customRange != null) {
+          final s = customRange.start;
+          final e = customRange.end;
+          final startStr = '${s.year}-${s.month.toString().padLeft(2, '0')}-${s.day.toString().padLeft(2, '0')}';
+          final endStr = '${e.year}-${e.month.toString().padLeft(2, '0')}-${e.day.toString().padLeft(2, '0')}';
+          return DateRangeResult(startStr, endStr);
+        }
+        return const DateRangeResult(null, null);
+      case 'all_time':
+      default:
+        return const DateRangeResult(null, null);
+    }
+  }
 
   /// Parses raw timestamp/date string into local DateTime (Asia/Kolkata IST)
   static DateTime? parseToLocal(String? raw) {

@@ -463,13 +463,60 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     );
   }
 
+  bool _checkIsActivePlan(Map<String, dynamic> planItem, String currentStatus) {
+    if (currentStatus != 'active' || _statusData == null) {
+      return false;
+    }
+
+    final dynamic rawPlanId = _statusData!['plan_id'] ??
+        _statusData!['active_plan_id'] ??
+        _statusData!['plan']?['id'];
+
+    final dynamic rawBillingPeriod = _statusData!['billing_period'] ??
+        _statusData!['active_billing_period'] ??
+        _statusData!['plan']?['billing_period'];
+
+    final dynamic rawPlanName = _statusData!['plan_name'] ??
+        _statusData!['name'] ??
+        _statusData!['plan']?['name'];
+
+    final dynamic planId = planItem['id'];
+    final String periodRaw = (planItem['billing_period'] ?? '').toString().toLowerCase();
+    final String nameRaw = (planItem['name'] ?? '').toString().toLowerCase();
+
+    // 1. Direct plan_id match (highest precedence)
+    if (rawPlanId != null && planId != null) {
+      return rawPlanId.toString() == planId.toString();
+    }
+
+    // 2. Billing period match
+    if (rawBillingPeriod != null && periodRaw.isNotEmpty) {
+      final String activeBp = rawBillingPeriod.toString().toLowerCase();
+      if (activeBp == periodRaw) return true;
+      if ((activeBp == 'monthly' || activeBp == 'month') && (periodRaw == 'monthly' || periodRaw == 'month')) return true;
+      if ((activeBp == '3_months' || activeBp == '3_month') && (periodRaw == '3_months' || periodRaw == '3_month')) return true;
+      if ((activeBp == '6_months' || activeBp == '6_month') && (periodRaw == '6_months' || periodRaw == '6_month')) return true;
+      if ((activeBp == 'annual' || activeBp == 'yearly') && (periodRaw == 'annual' || periodRaw == 'yearly')) return true;
+      return false;
+    }
+
+    // 3. Plan name match
+    if (rawPlanName != null && nameRaw.isNotEmpty) {
+      final String activeName = rawPlanName.toString().toLowerCase();
+      return activeName == nameRaw;
+    }
+
+    return false;
+  }
+
   Widget _buildPlansSection(String currentStatus) {
     if (_availablePlans.isNotEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: _availablePlans.map((planItem) {
           final Map<String, dynamic> p = Map<String, dynamic>.from(planItem);
-          final int planId = p['id'] ?? 1;
+          final dynamic rawId = p['id'];
+          final int planId = (rawId != null) ? (int.tryParse(rawId.toString()) ?? 1) : 1;
           final String name = p['name'] ?? 'Mobile Profits Pro';
           final double price = (p['price'] != null) ? (p['price'] as num).toDouble() : 200.0;
           final String periodRaw = p['billing_period'] ?? 'monthly';
@@ -482,6 +529,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             periodFormatted = 'year';
           }
 
+          final bool isActivePlan = _checkIsActivePlan(p, currentStatus);
+
           return Padding(
             padding: const EdgeInsets.only(bottom: 12.0),
             child: _buildSinglePlanCard(
@@ -489,7 +538,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               name: name,
               price: price,
               periodFormatted: periodFormatted,
+              periodRaw: periodRaw,
               currentStatus: currentStatus,
+              isActivePlan: isActivePlan,
             ),
           );
         }).toList(),
@@ -497,12 +548,21 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     }
 
     // Default Plan Card
+    final Map<String, dynamic> defaultPlan = {
+      'id': 1,
+      'name': 'Mobile Profits Pro',
+      'billing_period': 'monthly',
+    };
+    final bool isActivePlan = _checkIsActivePlan(defaultPlan, currentStatus);
+
     return _buildSinglePlanCard(
       planId: 1,
       name: 'Mobile Profits Pro',
       price: 200.0,
       periodFormatted: 'month',
+      periodRaw: 'monthly',
       currentStatus: currentStatus,
+      isActivePlan: isActivePlan,
     );
   }
 
@@ -511,81 +571,167 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     required String name,
     required double price,
     required String periodFormatted,
+    required String periodRaw,
     required String currentStatus,
+    required bool isActivePlan,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
     final textMutedColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
 
-    return CustomCard(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    // Single clean top-right badge tag
+    String? topBadgeText;
+    Color topBadgeColor = AppColors.accent;
+    IconData? topBadgeIcon;
+
+    if (isActivePlan) {
+      topBadgeText = 'CURRENT PLAN';
+      topBadgeColor = AppColors.accent;
+      topBadgeIcon = Icons.check_circle_rounded;
+    } else if (periodRaw == '3_months' || periodRaw == '6_months') {
+      topBadgeText = 'MOST POPULAR';
+      topBadgeColor = const Color(0xFFFF9800);
+      topBadgeIcon = Icons.local_fire_department_rounded;
+    }
+
+    final String buttonText;
+    if (isActivePlan) {
+      buttonText = 'Renew Plan (₹${price.toStringAsFixed(0)}/$periodFormatted)';
+    } else if (currentStatus == 'active') {
+      buttonText = 'Upgrade Plan (₹${price.toStringAsFixed(0)}/$periodFormatted)';
+    } else {
+      buttonText = 'Subscribe Now (₹${price.toStringAsFixed(0)}/$periodFormatted)';
+    }
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        CustomCard(
+          padding: const EdgeInsets.all(20),
+          border: isActivePlan
+              ? Border.all(color: AppColors.accent, width: 2)
+              : Border.all(color: isDark ? AppColors.darkBorder : AppColors.border, width: 1),
+          backgroundColor: isActivePlan
+              ? (isDark ? AppColors.accent.withOpacity(0.08) : AppColors.accent.withOpacity(0.03))
+              : null,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: textColor)),
-                  const SizedBox(height: 2),
-                  Text('All-in-one Shop Management', style: TextStyle(fontSize: 12, color: textMutedColor)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: textColor),
+                        ),
+                        const SizedBox(height: 2),
+                        Text('All-in-one Shop Management', style: TextStyle(fontSize: 12, color: textMutedColor)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text('₹${price.toStringAsFixed(0)}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.primary)),
+                      Text('/ $periodFormatted', style: TextStyle(fontSize: 11, color: textMutedColor)),
+                    ],
+                  ),
                 ],
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text('₹${price.toStringAsFixed(0)}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.primary)),
-                  Text('/ $periodFormatted', style: TextStyle(fontSize: 11, color: textMutedColor)),
-                ],
+              Divider(height: 24, color: isDark ? AppColors.darkBorder : AppColors.border),
+              _buildFeatureRow('✔ Full Customer Directory & Purchase History'),
+              _buildFeatureRow('✔ Repair Jobs Tracking & Parts Usage'),
+              _buildFeatureRow('✔ Quick Billing & Invoice Receipts'),
+              _buildFeatureRow('✔ Profit Intelligence & AI Recommendations'),
+              _buildFeatureRow('✔ Technician Commissions & Management'),
+              _buildFeatureRow('✔ Business Reports & CSV Exports'),
+              const SizedBox(height: 20),
+              Container(
+                width: double.infinity,
+                height: 50,
+                decoration: BoxDecoration(
+                  gradient: isActivePlan
+                      ? const LinearGradient(colors: [AppColors.accent, Color(0xFF009688)])
+                      : AppColors.brandGradient,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: (isActivePlan ? AppColors.accent : AppColors.primary).withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: _isProcessing ? null : () => _startRazorpayPayment(planId: planId, planName: name, planPrice: price),
+                  child: _isProcessing
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : Text(
+                          buttonText,
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                        ),
+                ),
               ),
             ],
           ),
-          Divider(height: 24, color: isDark ? AppColors.darkBorder : AppColors.border),
-          _buildFeatureRow('✔ Full Customer Directory & Purchase History'),
-          _buildFeatureRow('✔ Repair Jobs Tracking & Parts Usage'),
-          _buildFeatureRow('✔ Quick Billing & Invoice Receipts'),
-          _buildFeatureRow('✔ Profit Intelligence & AI Recommendations'),
-          _buildFeatureRow('✔ Technician Commissions & Management'),
-          _buildFeatureRow('✔ Business Reports & CSV Exports'),
-          const SizedBox(height: 20),
-          Container(
-            width: double.infinity,
-            height: 50,
-            decoration: BoxDecoration(
-              gradient: AppColors.brandGradient,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withOpacity(0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
+        ),
+        if (topBadgeText != null)
+          Positioned(
+            top: -1,
+            right: 20,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: topBadgeColor,
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(8),
+                  bottomRight: Radius.circular(8),
                 ),
-              ],
-            ),
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                boxShadow: [
+                  BoxShadow(
+                    color: topBadgeColor.withOpacity(0.35),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              onPressed: _isProcessing ? null : () => _startRazorpayPayment(planId: planId, planName: name, planPrice: price),
-              child: _isProcessing
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                    )
-                  : Text(
-                      currentStatus == 'active' ? 'Renew Plan (₹${price.toStringAsFixed(0)}/$periodFormatted)' : 'Subscribe Now (₹${price.toStringAsFixed(0)}/$periodFormatted)',
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (topBadgeIcon != null) ...[
+                    Icon(topBadgeIcon, color: Colors.white, size: 13),
+                    const SizedBox(width: 4),
+                  ],
+                  Text(
+                    topBadgeText,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.5,
                     ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ],
-      ),
+      ],
     );
   }
 

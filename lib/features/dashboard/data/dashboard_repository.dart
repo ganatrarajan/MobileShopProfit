@@ -1,10 +1,26 @@
-﻿import '../../../core/constants/api_endpoints.dart';
+import '../../../core/constants/api_endpoints.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_response.dart';
 import '../models/dashboard_data.dart';
 
 class DashboardRepository {
   final ApiClient _apiClient = ApiClient();
+  static final Map<String, DashboardData> _cache = {};
+
+  /// Get cached dashboard data if available
+  DashboardData? getCachedData({
+    String period = 'this_month',
+    String? startDate,
+    String? endDate,
+  }) {
+    final key = '${period}_${startDate ?? ''}_${endDate ?? ''}';
+    return _cache[key];
+  }
+
+  /// Clear in-memory cache
+  static void clearCache() {
+    _cache.clear();
+  }
 
   /// Get aggregated dashboard metrics
   Future<ApiResponse<DashboardData>> getDashboardData({
@@ -30,6 +46,9 @@ class DashboardRepository {
           : (response.data is Map ? Map<String, dynamic>.from(response.data) : {});
 
       final dashboardData = DashboardData.fromJson(jsonMap);
+      final key = '${period}_${startDate ?? ''}_${endDate ?? ''}';
+      _cache[key] = dashboardData;
+
       return ApiResponse<DashboardData>(
         success: true,
         message: response.message,

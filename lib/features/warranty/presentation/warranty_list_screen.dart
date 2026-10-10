@@ -1,4 +1,5 @@
 import '../../../core/utils/date_helper.dart';
+import '../../../core/widgets/app_shimmer.dart';
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
@@ -281,7 +282,7 @@ class _WarrantyListScreenState extends State<WarrantyListScreen> {
         // Warranty Card List
         Expanded(
           child: _isLoading
-              ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+              ? AppShimmer.listLoading()
               : _errorMessage != null
                   ? Center(
                       child: Column(

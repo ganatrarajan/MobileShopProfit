@@ -1,4 +1,5 @@
-﻿import '../../../core/utils/date_helper.dart';
+import '../../../core/utils/date_helper.dart';
+import '../../../core/widgets/app_shimmer.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/status_badge.dart';
@@ -157,7 +158,7 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? AppShimmer.detailsLoading()
           : RefreshIndicator(
               onRefresh: _refreshDetails,
               child: SingleChildScrollView(

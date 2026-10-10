@@ -62,6 +62,7 @@ class _QuickAddDeviceModalState extends State<QuickAddDeviceModal> {
   final _colorController = TextEditingController();
   String _deviceType = 'Mobile';
   bool _isSaving = false;
+  String? _errorMessage;
 
   // Dual entry mode state (Catalog vs Manual)
   bool _isManualEntry = false;
@@ -441,7 +442,10 @@ class _QuickAddDeviceModalState extends State<QuickAddDeviceModal> {
 
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isSaving = true);
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
     try {
       final response = await _deviceRepository.createDevice(
         customerId: _selectedCustomerId!,
@@ -484,12 +488,18 @@ class _QuickAddDeviceModalState extends State<QuickAddDeviceModal> {
           );
           Navigator.pop(context, createdDevice);
         } else {
-          AppFeedback.showError(context, error: response.message);
+          final errText = response.message.isNotEmpty ? response.message : 'Could not save device. Check details.';
+          setState(() => _errorMessage = errText);
+          AppFeedback.showError(context, error: errText);
         }
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isSaving = false);
+        final errText = e.toString();
+        setState(() {
+          _isSaving = false;
+          _errorMessage = errText;
+        });
         AppFeedback.showError(context, error: e);
       }
     }
@@ -553,6 +563,31 @@ class _QuickAddDeviceModalState extends State<QuickAddDeviceModal> {
                 ],
               ),
               const Divider(height: 20),
+
+              if (_errorMessage != null && _errorMessage!.isNotEmpty) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.red.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline_rounded, color: Colors.red, size: 22),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _errorMessage!,
+                          style: TextStyle(color: Colors.red.shade900, fontSize: 13, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
 
               if (_selectedCustomerId == null) ...[
                 Row(
@@ -808,9 +843,19 @@ class _QuickAddDeviceModalState extends State<QuickAddDeviceModal> {
 
               CustomTextField(
                 label: 'IMEI / Serial Number (Optional)',
-                hint: 'e.g. 864201948102931',
+                hint: 'e.g. 864201948102931 (15 numeric digits)',
                 controller: _imeiController,
+                keyboardType: TextInputType.number,
                 prefixIcon: Icons.qr_code,
+                validator: (val) {
+                  if (val != null && val.trim().isNotEmpty) {
+                    final isNumeric15 = RegExp(r'^\d{15}$').hasMatch(val.trim());
+                    if (!isNumeric15) {
+                      return 'IMEI 1 must be exactly 15 numeric digits';
+                    }
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 20),
 

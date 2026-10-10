@@ -187,12 +187,47 @@ class ApiClient {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return ApiResponse.fromJson(jsonResponseBody, fromJson);
     } else {
-      final message = jsonResponseBody is Map && jsonResponseBody.containsKey('message')
-          ? jsonResponseBody['message']
-          : 'Request failed with status code ${response.statusCode}';
+      String errorMessage = '';
+
+      // 1. Extract error messages from Laravel 'errors' map/list if available
+      final errorsObj = jsonResponseBody is Map ? jsonResponseBody['errors'] : null;
+      if (errorsObj is Map && errorsObj.isNotEmpty) {
+        final List<String> extractedErrors = [];
+        errorsObj.forEach((key, value) {
+          if (value is List) {
+            for (var item in value) {
+              if (item != null && item.toString().trim().isNotEmpty) {
+                extractedErrors.add(item.toString().trim());
+              }
+            }
+          } else if (value != null && value.toString().trim().isNotEmpty) {
+            extractedErrors.add(value.toString().trim());
+          }
+        });
+        if (extractedErrors.isNotEmpty) {
+          errorMessage = extractedErrors.join('\n');
+        }
+      }
+
+      // 2. Fallback to 'message' property if 'errors' wasn't present or empty
+      if (errorMessage.isEmpty && jsonResponseBody is Map && jsonResponseBody.containsKey('message')) {
+        final msgStr = jsonResponseBody['message'].toString().trim();
+        if (msgStr.isNotEmpty && msgStr.toLowerCase() != 'the given data was invalid.') {
+          errorMessage = msgStr;
+        }
+      }
+
+      // 3. Ultimate fallback
+      if (errorMessage.isEmpty) {
+        if (jsonResponseBody is Map && jsonResponseBody.containsKey('message')) {
+          errorMessage = jsonResponseBody['message'].toString();
+        } else {
+          errorMessage = 'Request failed with status code ${response.statusCode}';
+        }
+      }
 
       if (response.statusCode == 403 || response.statusCode == 401) {
-        final lowerMsg = message.toString().toLowerCase();
+        final lowerMsg = errorMessage.toLowerCase();
         final requestPath = path ?? response.request?.url.path ?? '';
         final isAuthEndpoint = requestPath.contains('/login') ||
             requestPath.contains('/register') ||
@@ -209,18 +244,18 @@ class ApiClient {
           AppRoutes.navigatorKey.currentState?.pushNamedAndRemoveUntil(
             AppRoutes.login,
             (route) => false,
-            arguments: message,
+            arguments: errorMessage,
           );
         } else if ((response.statusCode == 401 || lowerMsg.contains('unauthenticated')) &&
             !isAuthEndpoint &&
             !isInvalidCredentials) {
-          _handleUnauthorizedSession(message.toString());
+          _handleUnauthorizedSession(errorMessage);
         }
       }
 
       return ApiResponse<T>(
         success: false,
-        message: message.toString(),
+        message: errorMessage,
         errors: jsonResponseBody is Map ? jsonResponseBody['errors'] : null,
       );
     }

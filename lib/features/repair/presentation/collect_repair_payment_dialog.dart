@@ -9,6 +9,20 @@ class CollectRepairPaymentDialog extends StatefulWidget {
   final Repair repair;
   const CollectRepairPaymentDialog({super.key, required this.repair});
 
+  static Future<dynamic> show(BuildContext context, {required Repair repair}) {
+    return showModalBottomSheet<dynamic>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(ctx).viewInsets.bottom,
+        ),
+        child: CollectRepairPaymentDialog(repair: repair),
+      ),
+    );
+  }
+
   @override
   State<CollectRepairPaymentDialog> createState() => _CollectRepairPaymentDialogState();
 }
@@ -76,145 +90,161 @@ class _CollectRepairPaymentDialogState extends State<CollectRepairPaymentDialog>
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Row(
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.green.shade50,
-              borderRadius: BorderRadius.circular(8),
+          Center(
+            child: Container(
+              width: 38,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-            child: Icon(Icons.add_card_rounded, color: Colors.green.shade700, size: 20),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Collect Payment', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                Text('${widget.repair.jobNumber} - Due: ₹${widget.repair.amountDue.toStringAsFixed(2)}',
-                    style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
-              ],
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.add_card_rounded, color: Colors.green.shade700, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Collect Repair Payment', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text('${widget.repair.jobNumber} - Due: ₹${widget.repair.amountDue.toStringAsFixed(2)}',
+                        style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close_rounded, size: 20, color: Colors.grey),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (_errorMessage != null) ...[
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: AppColors.errorLight, borderRadius: BorderRadius.circular(6)),
+              child: Text(_errorMessage!, style: const TextStyle(color: AppColors.error, fontSize: 12)),
+            ),
+            const SizedBox(height: 12),
+          ],
+          Row(
+            children: [
+              Expanded(
+                child: CustomTextField(
+                  label: 'Amount (₹)',
+                  hint: '0.00',
+                  controller: _amountController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    _amountController.text = widget.repair.amountDue.toStringAsFixed(2);
+                  });
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.accentLight,
+                  foregroundColor: AppColors.accent,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                ),
+                child: const Text('Full Due', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text('Payment Method', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
+          InkWell(
+            onTap: () async {
+              final methodMap = {
+                'Cash': 'cash',
+                'UPI / PhonePe / GPay': 'upi',
+                'Credit / Debit Card': 'card',
+                'Bank Transfer': 'bank_transfer',
+                'Other': 'other',
+              };
+              final currentLabel = methodMap.entries.firstWhere((e) => e.value == _paymentMethod, orElse: () => const MapEntry('Cash', 'cash')).key;
+
+              final selected = await AppSearchableBottomSheet.show(
+                context,
+                title: 'Select Payment Method',
+                options: ['Cash', 'UPI / PhonePe / GPay', 'Credit / Debit Card', 'Bank Transfer', 'Other'],
+                selectedValues: [currentLabel],
+                searchHint: 'Search payment method...',
+              );
+              if (selected != null && selected is String && methodMap.containsKey(selected)) {
+                setState(() => _paymentMethod = methodMap[selected]!);
+              }
+            },
+            borderRadius: BorderRadius.circular(10),
+            child: InputDecorator(
+              decoration: InputDecoration(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                prefixIcon: const Icon(Icons.payments_rounded, color: AppColors.primary, size: 20),
+                suffixIcon: const Icon(Icons.arrow_drop_down_rounded, size: 28, color: AppColors.primary),
+              ),
+              child: Text(
+                _paymentMethod == 'upi'
+                    ? 'UPI / PhonePe / GPay'
+                    : _paymentMethod == 'card'
+                        ? 'Credit / Debit Card'
+                        : _paymentMethod == 'bank_transfer'
+                            ? 'Bank Transfer'
+                            : _paymentMethod == 'other'
+                                ? 'Other'
+                                : 'Cash',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          CustomTextField(
+            label: 'Notes (Optional)',
+            hint: 'Payment note or transaction ID',
+            controller: _notesController,
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: _isSubmitting ? null : _submitPayment,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green.shade700,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: _isSubmitting
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text('Record Payment Now', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
             ),
           ),
         ],
       ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (_errorMessage != null) ...[
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: AppColors.errorLight, borderRadius: BorderRadius.circular(6)),
-                child: Text(_errorMessage!, style: const TextStyle(color: AppColors.error, fontSize: 12)),
-              ),
-              const SizedBox(height: 12),
-            ],
-            Row(
-              children: [
-                Expanded(
-                  child: CustomTextField(
-                    label: 'Amount (₹)',
-                    hint: '0.00',
-                    controller: _amountController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      _amountController.text = widget.repair.amountDue.toStringAsFixed(2);
-                    });
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.accentLight,
-                    foregroundColor: AppColors.accent,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                  ),
-                  child: const Text('Full Due', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Text('Payment Method', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            InkWell(
-              onTap: () async {
-                final methodMap = {
-                  'Cash': 'cash',
-                  'UPI / PhonePe / GPay': 'upi',
-                  'Credit / Debit Card': 'card',
-                  'Bank Transfer': 'bank_transfer',
-                  'Other': 'other',
-                };
-                final currentLabel = methodMap.entries.firstWhere((e) => e.value == _paymentMethod, orElse: () => const MapEntry('Cash', 'cash')).key;
-
-                final selected = await AppSearchableBottomSheet.show(
-                  context,
-                  title: 'Select Payment Method',
-                  options: ['Cash', 'UPI / PhonePe / GPay', 'Credit / Debit Card', 'Bank Transfer', 'Other'],
-                  selectedValues: [currentLabel],
-                  searchHint: 'Search payment method...',
-                );
-                if (selected != null && selected is String && methodMap.containsKey(selected)) {
-                  setState(() => _paymentMethod = methodMap[selected]!);
-                }
-              },
-              borderRadius: BorderRadius.circular(10),
-              child: InputDecorator(
-                decoration: InputDecoration(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                  prefixIcon: const Icon(Icons.payments_rounded, color: AppColors.primary, size: 20),
-                  suffixIcon: const Icon(Icons.arrow_drop_down_rounded, size: 28, color: AppColors.primary),
-                ),
-                child: Text(
-                  _paymentMethod == 'upi'
-                      ? 'UPI / PhonePe / GPay'
-                      : _paymentMethod == 'card'
-                          ? 'Credit / Debit Card'
-                          : _paymentMethod == 'bank_transfer'
-                              ? 'Bank Transfer'
-                              : _paymentMethod == 'other'
-                                  ? 'Other'
-                                  : 'Cash',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            CustomTextField(
-              label: 'Notes (Optional)',
-              hint: 'Payment note or transaction ID',
-              controller: _notesController,
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          style: TextButton.styleFrom(foregroundColor: AppColors.textSecondary),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _isSubmitting ? null : _submitPayment,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green.shade700,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-          child: _isSubmitting
-              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-              : const Text('Record Payment', style: TextStyle(fontWeight: FontWeight.bold)),
-        ),
-      ],
     );
   }
 }

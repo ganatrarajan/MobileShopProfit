@@ -1,3 +1,4 @@
+import '../../../core/widgets/app_shimmer.dart';
 import '../../../core/utils/date_helper.dart';
 import '../../warranty/models/warranty.dart';
 import '../data/sale_repository.dart';
@@ -127,13 +128,9 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
   }
 
   Future<void> _collectPayment() async {
-    final updatedSale = await showDialog<Sale>(
-      context: context,
-      builder: (ctx) => CollectPaymentDialog(sale: _sale),
-    );
-
-    if (updatedSale != null) {
-      setState(() => _sale = updatedSale);
+    final result = await CollectPaymentDialog.show(context, sale: _sale);
+    if (result != null && result is Sale) {
+      setState(() => _sale = result);
       _refreshDetails();
     }
   }
@@ -225,7 +222,7 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          ? AppShimmer.detailsLoading()
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
               child: Column(

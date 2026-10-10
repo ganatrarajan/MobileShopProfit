@@ -27,10 +27,10 @@ class RepairInvoicePdfScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Repair Ticket #$jobNum', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.textPrimary,
-        elevation: 0.5,
+        title: Text('Repair Ticket #$jobNum', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
+        backgroundColor: AppColors.primary,
+        iconTheme: const IconThemeData(color: Colors.white),
+        elevation: 0,
         actions: [
           IconButton(
             icon: const WhatsAppIcon(size: 22),
@@ -40,7 +40,7 @@ class RepairInvoicePdfScreen extends StatelessWidget {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.share_rounded, color: AppColors.primary),
+            icon: const Icon(Icons.share_rounded, color: Colors.white),
             tooltip: 'Share Repair Ticket PDF',
             onPressed: () async {
               final pdfBytes = await PdfInvoiceBuilder.generateRepairPdf(repair);

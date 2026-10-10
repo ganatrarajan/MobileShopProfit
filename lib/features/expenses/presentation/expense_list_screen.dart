@@ -1,3 +1,5 @@
+import '../../../core/utils/date_helper.dart';
+import '../../../core/widgets/app_shimmer.dart';
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
@@ -32,12 +34,41 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   String _selectedCategoryId = 'all';
   double _totalExpensesSum = 0.0;
   int _totalCount = 0;
+  bool _hasParsedArgs = false;
+
+  void applyDateFilter(String period, DateTimeRange? customRange) {
+    if (_datePreset != period || _customDateRange != customRange) {
+      setState(() {
+        _datePreset = period;
+        _customDateRange = customRange;
+      });
+      _fetchExpenses();
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     _fetchCategories();
     _fetchExpenses();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_hasParsedArgs) {
+      _hasParsedArgs = true;
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args != null && args is Map) {
+        if (args.containsKey('period')) {
+          _datePreset = args['period'].toString();
+        }
+        if (args.containsKey('customRange') && args['customRange'] is DateTimeRange) {
+          _customDateRange = args['customRange'] as DateTimeRange;
+        }
+        _fetchExpenses();
+      }
+    }
   }
 
   @override
@@ -55,58 +86,31 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     } catch (_) {}
   }
 
-  String? get _dateFrom {
-    final now = DateTime.now();
-    if (_datePreset == 'today') {
-      return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    } else if (_datePreset == 'this_week') {
-      final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-      return '${startOfWeek.year}-${startOfWeek.month.toString().padLeft(2, '0')}-${startOfWeek.day.toString().padLeft(2, '0')}';
-    } else if (_datePreset == 'this_month') {
-      return '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
-    } else if (_datePreset == 'last_month') {
-      final lastMonth = DateTime(now.year, now.month - 1, 1);
-      return '${lastMonth.year}-${lastMonth.month.toString().padLeft(2, '0')}-01';
-    } else if (_datePreset == 'custom' && _customDateRange != null) {
-      final s = _customDateRange!.start;
-      return '${s.year}-${s.month.toString().padLeft(2, '0')}-${s.day.toString().padLeft(2, '0')}';
-    }
-    return null; // all_time
-  }
-
-  String? get _dateTo {
-    final now = DateTime.now();
-    if (_datePreset == 'today' || _datePreset == 'this_week' || _datePreset == 'this_month') {
-      return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    } else if (_datePreset == 'last_month') {
-      final lastDayLastMonth = DateTime(now.year, now.month, 0);
-      return '${lastDayLastMonth.year}-${lastDayLastMonth.month.toString().padLeft(2, '0')}-${lastDayLastMonth.day.toString().padLeft(2, '0')}';
-    } else if (_datePreset == 'custom' && _customDateRange != null) {
-      final e = _customDateRange!.end;
-      return '${e.year}-${e.month.toString().padLeft(2, '0')}-${e.day.toString().padLeft(2, '0')}';
-    }
-    return null; // all_time
-  }
+  String? get _dateFrom => DateHelper.getDateRangeForPreset(_datePreset, customRange: _customDateRange).dateFrom;
+  String? get _dateTo => DateHelper.getDateRangeForPreset(_datePreset, customRange: _customDateRange).dateTo;
 
   String get _dateFilterLabel {
     switch (_datePreset) {
       case 'today':
         return 'Today';
+      case 'yesterday':
+        return 'Yesterday';
       case 'this_week':
         return 'This Week';
       case 'this_month':
         return 'This Month';
       case 'last_month':
         return 'Last Month';
-      case 'all_time':
-        return 'All Time';
+      case 'this_year':
+        return 'This Year';
       case 'custom':
         if (_customDateRange != null) {
           return '${_customDateRange!.start.day}/${_customDateRange!.start.month} - ${_customDateRange!.end.day}/${_customDateRange!.end.month}';
         }
         return 'Custom';
+      case 'all_time':
       default:
-        return 'This Month';
+        return 'All Time';
     }
   }
 
@@ -327,7 +331,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
         // 3. Expense List Body
         Expanded(
           child: _isLoading
-              ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+              ? AppShimmer.listLoading()
               : _errorMessage != null
                   ? Center(
                       child: Column(

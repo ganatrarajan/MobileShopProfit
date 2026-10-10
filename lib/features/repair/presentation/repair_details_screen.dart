@@ -1,3 +1,4 @@
+import '../../../core/widgets/app_shimmer.dart';
 import 'repair_invoice_pdf_screen.dart';
 import '../../warranty/models/warranty.dart';
 import '../data/repair_repository.dart';
@@ -143,63 +144,101 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
   }
 
   Future<void> _updateStatus() async {
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (ctx) => UpdateStatusDialog(repair: _repair),
-    );
+    if (_repair.repairStatus == 'delivered') {
+      if (mounted) {
+        AppFeedback.showError(context, error: 'Job Card is Delivered & finalized. Status cannot be modified.');
+      }
+      return;
+    }
+
+    final result = await UpdateStatusDialog.show(context, repair: _repair);
 
     if (result != null && result['status'] != null) {
+      final String targetStatus = result['status'];
+      final String? statusNotes = result['notes'];
+
+      if (targetStatus == 'delivered' && _repair.amountDue > 0) {
+        final shouldCollect = await _showPaymentDueDeliveryWarningSheet(_repair.amountDue);
+        if (shouldCollect == true) {
+          await _collectPayment();
+          if (_repair.amountDue > 0) {
+            if (mounted) {
+              AppFeedback.showError(context, error: 'Cannot deliver job card. Remaining balance of \u20B9${_repair.amountDue.toStringAsFixed(2)} is still due!');
+            }
+            return;
+          }
+        } else {
+          return; // Cancelled
+        }
+      }
+
       final res = await _repairRepository.updateStatus(
         id: _repair.id,
-        repairStatus: result['status'],
-        notes: result['notes'],
+        repairStatus: targetStatus,
+        notes: statusNotes,
       );
 
       if (res.success && res.data != null) {
         setState(() => _repair = res.data!);
         
-        final newStatus = result['status'];
-        final statusNotes = result['notes'];
-        
         if (mounted) {
-          await showDialog(
+          await showModalBottomSheet(
             context: context,
-            builder: (ctx) => AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              title: const Row(
-                children: [
-                  WhatsAppIcon(size: 24),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text('Send WhatsApp Update?', style: TextStyle(fontSize: 17)),
-                  ),
-                ],
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            builder: (ctx) => SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Row(
+                      children: [
+                        WhatsAppIcon(size: 26),
+                        SizedBox(width: 10),
+                        Text('Send WhatsApp Update?', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text('Send status update notification to ${_repair.customer != null ? _repair.customer!.name : "Customer"} on WhatsApp?'),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Not Now'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          flex: 2,
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              Navigator.pop(ctx);
+                              await WhatsAppHelper.sendRepairStatusWhatsAppMessage(
+                                context,
+                                _repair,
+                                targetStatus,
+                                statusNotes: statusNotes,
+                              );
+                            },
+                            icon: const WhatsAppIcon(size: 16, showBackground: false),
+                            label: const Text('Send WhatsApp', style: TextStyle(fontWeight: FontWeight.bold)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF25D366),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              content: Text('Send status update notification to ${_repair.customer != null ? _repair.customer!.name : "Customer"} on WhatsApp?'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Not Now'),
-                ),
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    Navigator.pop(ctx);
-                    await WhatsAppHelper.sendRepairStatusWhatsAppMessage(
-                      context,
-                      _repair,
-                      newStatus,
-                      statusNotes: statusNotes,
-                    );
-                  },
-                  icon: const WhatsAppIcon(size: 16, showBackground: false),
-                  label: const Text('Send WhatsApp'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF25D366),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                ),
-              ],
             ),
           );
         }
@@ -211,11 +250,104 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
     }
   }
 
-  Future<void> _addPart() async {
-    final result = await showDialog<dynamic>(
+  Future<bool?> _showPaymentDueDeliveryWarningSheet(double amountDue) {
+    return showModalBottomSheet<bool>(
       context: context,
-      builder: (ctx) => AddRepairPartDialog(repair: _repair),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 24),
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Payment Due - Cannot Deliver',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Text(
+                  '⚠️ Remaining Balance Due: \u20B9${amountDue.toStringAsFixed(2)}\n\nDelivery is blocked until full payment is collected!',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.red.shade900),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton.icon(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  icon: const Icon(Icons.add_card_rounded, color: Colors.white, size: 18),
+                  label: Text('Collect Payment (\u20B9${amountDue.toStringAsFixed(2)})', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green.shade700,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  style: OutlinedButton.styleFrom(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: const Text('Cancel Delivery', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
+  }
+
+  Future<void> _addPart() async {
+    if (_repair.repairStatus == 'delivered') {
+      AppFeedback.showError(context, error: 'Job Card is Delivered. Cannot add parts.');
+      return;
+    }
+
+    final result = await AddRepairPartDialog.show(context, repair: _repair);
     if (result != null) {
       if (result is Repair) {
         setState(() => _repair = result);
@@ -232,10 +364,7 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
   }
 
   Future<void> _collectPayment() async {
-    final result = await showDialog<dynamic>(
-      context: context,
-      builder: (ctx) => CollectRepairPaymentDialog(repair: _repair),
-    );
+    final result = await CollectRepairPaymentDialog.show(context, repair: _repair);
     if (result != null) {
       if (result is Repair) {
         setState(() => _repair = result);
@@ -252,22 +381,47 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
   }
 
   Future<void> _confirmDeletePart(RepairPart part) async {
-    final confirm = await showDialog<bool>(
+    if (_repair.repairStatus == 'delivered') {
+      AppFeedback.showError(context, error: 'Job Card is Delivered. Cannot remove parts.');
+      return;
+    }
+
+    final confirm = await showModalBottomSheet<bool>(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Delete Part'),
-          content: Text('Remove part "${part.partName}" from this repair?'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
-              child: const Text('Remove'),
-            ),
-          ],
-        );
-      },
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Remove Part', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
+              Text('Remove part "${part.partName}" from this repair?'),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
+                      child: const Text('Remove Part'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
 
     if (confirm == true) {
@@ -285,29 +439,53 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
   }
 
   Future<void> _confirmDeleteRepair() async {
-    final confirm = await showDialog<bool>(
+    if (_repair.repairStatus == 'delivered') {
+      AppFeedback.showError(context, error: 'Job Card is Delivered & finalized. Cannot be deleted.');
+      return;
+    }
+
+    final confirm = await showModalBottomSheet<bool>(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 24),
-              SizedBox(width: 8),
-              Text('Delete Job Card'),
+              const Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 24),
+                  SizedBox(width: 8),
+                  Text('Delete Job Card', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text('Are you sure you want to delete job card ${_repair.jobNumber}? This action cannot be undone.'),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
+                      child: const Text('Delete'),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
-          content: Text('Are you sure you want to delete job card ${_repair.jobNumber}? This action cannot be undone.'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
+        ),
+      ),
     );
 
     if (confirm == true) {
@@ -327,6 +505,9 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
   Widget build(BuildContext context) {
     final statusColor = _statusColors[_repair.repairStatus] ?? AppColors.primary;
     final statusLabel = _statusLabels[_repair.repairStatus] ?? _repair.repairStatus.toUpperCase();
+    final bool isDelivered = (_repair.repairStatus == 'delivered');
+    final bool isTechEmpty = (_repair.technicianName == null || _repair.technicianName!.trim().isEmpty);
+    final bool isPartsEmpty = _repair.parts.isEmpty;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -345,28 +526,113 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
             onPressed: () => WhatsAppHelper.showRepairWhatsAppOptions(context, _repair),
             tooltip: 'WhatsApp Options',
           ),
-          IconButton(
-            icon: const Icon(Icons.edit_rounded, color: Colors.white),
-            onPressed: () async {
-              final updated = await Navigator.pushNamed(context, AppRoutes.editRepair, arguments: _repair);
-              if (updated == true) _refreshDetails();
-            },
-            tooltip: 'Edit Job Card',
-          ),
+          if (!isDelivered)
+            IconButton(
+              icon: const Icon(Icons.edit_rounded, color: Colors.white),
+              onPressed: () async {
+                final updated = await Navigator.pushNamed(context, AppRoutes.editRepair, arguments: _repair);
+                if (updated == true) _refreshDetails();
+              },
+              tooltip: 'Edit Job Card',
+            ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: _refreshDetails,
             tooltip: 'Refresh',
           ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline_rounded, color: Colors.white),
-            onPressed: _confirmDeleteRepair,
-            tooltip: 'Delete Job Card',
-          ),
+          if (!isDelivered)
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded, color: Colors.white),
+              onPressed: _confirmDeleteRepair,
+              tooltip: 'Delete Job Card',
+            ),
         ],
       ),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 10,
+              offset: const Offset(0, -3),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Row(
+            children: [
+              if (!isDelivered) ...[
+                Expanded(
+                  flex: 3,
+                  child: SizedBox(
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      onPressed: _updateStatus,
+                      icon: const Icon(Icons.published_with_changes_rounded, size: 18),
+                      label: const Text('Change Status', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: statusColor,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 2,
+                      ),
+                    ),
+                  ),
+                ),
+                if (_repair.amountDue > 0) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 2,
+                    child: SizedBox(
+                      height: 48,
+                      child: ElevatedButton.icon(
+                        onPressed: _collectPayment,
+                        icon: const Icon(Icons.add_card_rounded, size: 16),
+                        label: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text('Collect ₹${_repair.amountDue.toStringAsFixed(0)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green.shade700,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 2,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ] else ...[
+                Expanded(
+                  child: Container(
+                    height: 48,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.lock_rounded, size: 18, color: Colors.grey),
+                        SizedBox(width: 6),
+                        Text(
+                          'Delivered - Finalized (Read Only)',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          ? AppShimmer.detailsLoading()
           : RefreshIndicator(
               onRefresh: _refreshDetails,
               color: AppColors.primary,
@@ -461,34 +727,9 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
                     ),
                     const SizedBox(height: 14),
 
-                    // Action Buttons Row (Update Status, WhatsApp, Collect Payment)
+                    // Quick Share Buttons Row (WhatsApp, PDF Bill)
                     Row(
                       children: [
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: _updateStatus,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: statusColor,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              elevation: 1,
-                            ),
-                            child: const FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.published_with_changes_rounded, size: 14),
-                                  SizedBox(width: 3),
-                                  Text('Status', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () => WhatsAppHelper.showRepairWhatsAppOptions(context, _repair),
@@ -506,14 +747,14 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   WhatsAppIcon(size: 15, showBackground: false),
-                                  SizedBox(width: 3),
-                                  Text('WhatsApp', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1),
+                                  SizedBox(width: 4),
+                                  Text('WhatsApp Ticket', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1),
                                 ],
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () => RepairInvoicePdfScreen.show(context, _repair),
@@ -531,40 +772,13 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(Icons.picture_as_pdf_rounded, size: 15),
-                                  SizedBox(width: 3),
-                                  Text('PDF Bill', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1),
+                                  SizedBox(width: 4),
+                                  Text('PDF Invoice', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1),
                                 ],
                               ),
                             ),
                           ),
                         ),
-                        if (_repair.amountDue > 0) ...[
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: _collectPayment,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green.shade700,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                elevation: 1,
-                              ),
-                              child: const FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.add_card_rounded, size: 14),
-                                    SizedBox(width: 3),
-                                    Text('Payment', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -660,68 +874,29 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
                                     ],
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                ElevatedButton.icon(
-                                  onPressed: () async {
-                                    final newW = await QuickWarrantyModal.show(context, repair: _repair);
-                                    if (newW != null) {
-                                      setState(() {
-                                        _repair = Repair(
-                                          id: _repair.id,
-                                          shopId: _repair.shopId,
-                                          customerId: _repair.customerId,
-                                          deviceId: _repair.deviceId,
-                                          technicianId: _repair.technicianId,
-                                          technicianName: _repair.technicianName,
-                                          technicianEarning: _repair.technicianEarning,
-                                          technicianPaidAmount: _repair.technicianPaidAmount,
-                                          technicianPayable: _repair.technicianPayable,
-                                          shopShare: _repair.shopShare,
-                                          technicianPaymentStatus: _repair.technicianPaymentStatus,
-                                          jobNumber: _repair.jobNumber,
-                                          dateReceived: _repair.dateReceived,
-                                          expectedDeliveryDate: _repair.expectedDeliveryDate,
-                                          deliveredDate: _repair.deliveredDate,
-                                          problemDescription: _repair.problemDescription,
-                                          deviceCondition: _repair.deviceCondition,
-                                          conditionNotes: _repair.conditionNotes,
-                                          accessoriesReceived: _repair.accessoriesReceived,
-                                          accessoriesNotes: _repair.accessoriesNotes,
-                                          pinPasscode: _repair.pinPasscode,
-                                          estimatedCost: _repair.estimatedCost,
-                                          finalCost: _repair.finalCost,
-                                          labourCost: _repair.labourCost,
-                                          amountPaid: _repair.amountPaid,
-                                          amountDue: _repair.amountDue,
-                                          repairStatus: _repair.repairStatus,
-                                          customerNotes: _repair.customerNotes,
-                                          internalNotes: _repair.internalNotes,
-                                          createdBy: _repair.createdBy,
-                                          creatorName: _repair.creatorName,
-                                          customer: _repair.customer,
-                                          device: _repair.device,
-                                          parts: _repair.parts,
-                                          payments: _repair.payments,
-                                          warranty: newW,
-                                          createdAt: _repair.createdAt,
-                                          updatedAt: _repair.updatedAt,
-                                        );
-                                      });
-                                      _refreshDetails();
-                                    }
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.primary,
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                if (!isDelivered) ...[
+                                  const SizedBox(width: 8),
+                                  ElevatedButton.icon(
+                                    onPressed: () async {
+                                      final newW = await QuickWarrantyModal.show(context, repair: _repair);
+                                      if (newW != null) {
+                                        _refreshDetails();
+                                      }
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.primary,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                    icon: const Icon(Icons.add_rounded, size: 16, color: Colors.white),
+                                    label: const Text('Add Warranty', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold)),
                                   ),
-                                  icon: const Icon(Icons.add_rounded, size: 16, color: Colors.white),
-                                  label: const Text('Add Warranty', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold)),
-                                ),
+                                ],
                               ],
                             ),
                     ),
                     const SizedBox(height: 16),
+
                     // 2. Customer Info Card
                     CustomCard(
                       padding: const EdgeInsets.all(16),
@@ -815,65 +990,67 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
                     ),
                     const SizedBox(height: 14),
 
-                    // 3b. Assigned Technician Card
-                    CustomCard(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withOpacity(0.1),
-                              shape: BoxShape.circle,
+                    // 3b. Assigned Technician Card (Hide if delivered and unassigned)
+                    if (!(isDelivered && isTechEmpty)) ...[
+                      CustomCard(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.engineering_rounded, color: AppColors.primary, size: 22),
                             ),
-                            child: const Icon(Icons.engineering_rounded, color: AppColors.primary, size: 22),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('Assigned Technician', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                                const SizedBox(height: 2),
-                                Text(
-                                  _repair.technicianName != null && _repair.technicianName!.isNotEmpty
-                                      ? _repair.technicianName!
-                                      : 'Unassigned',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                    color: _repair.technicianName != null && _repair.technicianName!.isNotEmpty
-                                        ? AppColors.textPrimary
-                                        : Colors.orange.shade800,
-                                  ),
-                                ),
-                                if (_repair.technicianName != null && _repair.technicianName!.isNotEmpty) ...[
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Assigned Technician', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'Technician Fee: \u20B9${(_repair.technicianEarning > 0 ? _repair.technicianEarning : _repair.labourCost).toStringAsFixed(2)}',
-                                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+                                    _repair.technicianName != null && _repair.technicianName!.isNotEmpty
+                                        ? _repair.technicianName!
+                                        : 'Unassigned',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: _repair.technicianName != null && _repair.technicianName!.isNotEmpty
+                                          ? AppColors.textPrimary
+                                          : Colors.orange.shade800,
+                                    ),
                                   ),
+                                  if (_repair.technicianName != null && _repair.technicianName!.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Technician Fee: \u20B9${(_repair.technicianEarning > 0 ? _repair.technicianEarning : _repair.labourCost).toStringAsFixed(2)}',
+                                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+                                    ),
+                                  ],
                                 ],
-                              ],
-                            ),
-                          ),
-                          if (_repair.technicianName != null && _repair.technicianName!.isNotEmpty)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.shade50,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.blue.shade200),
-                              ),
-                              child: Text(
-                                '\u20B9${(_repair.technicianEarning > 0 ? _repair.technicianEarning : _repair.labourCost).toStringAsFixed(2)}',
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.blue.shade800),
                               ),
                             ),
-                        ],
+                            if (_repair.technicianName != null && _repair.technicianName!.isNotEmpty)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.blue.shade200),
+                                ),
+                                child: Text(
+                                  '\u20B9${(_repair.technicianEarning > 0 ? _repair.technicianEarning : _repair.labourCost).toStringAsFixed(2)}',
+                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.blue.shade800),
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 14),
+                      const SizedBox(height: 14),
+                    ],
 
                     // 4. Problem & Condition Details
                     CustomCard(
@@ -901,71 +1078,75 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
                     ),
                     const SizedBox(height: 14),
 
-                    // 5. Parts Used List
-                    CustomCard(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Row(
-                                children: [
-                                  Icon(Icons.build_rounded, color: AppColors.accent, size: 20),
-                                  SizedBox(width: 8),
-                                  Text('Parts Used', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                                ],
-                              ),
-                              ElevatedButton.icon(
-                                onPressed: _addPart,
-                                icon: const Icon(Icons.add_rounded, size: 16),
-                                label: const Text('Add Part', style: TextStyle(fontSize: 12)),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.primary,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          if (_repair.parts.isEmpty)
-                            const Text('No parts added yet.', style: TextStyle(fontSize: 13, color: AppColors.textMuted))
-                          else
-                            ListView.separated(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: _repair.parts.length,
-                              separatorBuilder: (_, __) => const Divider(height: 12),
-                              itemBuilder: (ctx, idx) {
-                                final p = _repair.parts[idx];
-                                return Row(
+                    // 5. Parts Used List (Hide if delivered and empty)
+                    if (!(isDelivered && isPartsEmpty)) ...[
+                      CustomCard(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Row(
                                   children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(p.partName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                                          Text('${p.quantity} x \u20B9${p.sellingPrice.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                                        ],
-                                      ),
-                                    ),
-                                    Text('\u20B9 ${(p.quantity * p.sellingPrice).toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                    IconButton(
-                                      icon: const Icon(Icons.close_rounded, size: 18, color: Colors.grey),
-                                      onPressed: () => _confirmDeletePart(p),
-                                    ),
+                                    Icon(Icons.build_rounded, color: AppColors.accent, size: 20),
+                                    SizedBox(width: 8),
+                                    Text('Parts Used', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                                   ],
-                                );
-                              },
+                                ),
+                                if (!isDelivered)
+                                  ElevatedButton.icon(
+                                    onPressed: _addPart,
+                                    icon: const Icon(Icons.add_rounded, size: 16),
+                                    label: const Text('Add Part', style: TextStyle(fontSize: 12)),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.primary,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                  ),
+                              ],
                             ),
-                        ],
+                            const SizedBox(height: 10),
+                            if (_repair.parts.isEmpty)
+                              const Text('No parts added yet.', style: TextStyle(fontSize: 13, color: AppColors.textMuted))
+                            else
+                              ListView.separated(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: _repair.parts.length,
+                                separatorBuilder: (_, __) => const Divider(height: 12),
+                                itemBuilder: (ctx, idx) {
+                                  final p = _repair.parts[idx];
+                                  return Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(p.partName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                                            Text('${p.quantity} x \u20B9${p.sellingPrice.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                                          ],
+                                        ),
+                                      ),
+                                      Text('\u20B9 ${(p.quantity * p.sellingPrice).toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                      if (!isDelivered)
+                                        IconButton(
+                                          icon: const Icon(Icons.close_rounded, size: 18, color: Colors.grey),
+                                          onPressed: () => _confirmDeletePart(p),
+                                        ),
+                                    ],
+                                  );
+                                },
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 14),
+                      const SizedBox(height: 14),
+                    ],
 
                     // 6. Cost & Payment Summary Card
                     Builder(

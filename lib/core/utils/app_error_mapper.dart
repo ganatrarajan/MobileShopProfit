@@ -1,4 +1,5 @@
 import '../network/api_exception.dart';
+import '../network/api_response.dart';
 
 class AppErrorMapper {
   /// Alias for toUserFriendlyMessage
@@ -9,6 +10,31 @@ class AppErrorMapper {
   /// Converts any exception into a clean, shop-owner-friendly error string.
   static String toUserFriendlyMessage(dynamic error, {String fallback = 'Something went wrong. Please try again.'}) {
     if (error == null) return fallback;
+
+    if (error is ApiResponse) {
+      if (error.errors != null && error.errors is Map && (error.errors as Map).isNotEmpty) {
+        final Map<String, dynamic> errMap = error.errors;
+        final List<String> errorList = [];
+        errMap.forEach((key, val) {
+          if (val is List) {
+            for (var item in val) {
+              if (item != null && item.toString().trim().isNotEmpty) {
+                errorList.add(_cleanTechnicalTerms(item.toString().trim()));
+              }
+            }
+          } else if (val != null && val.toString().trim().isNotEmpty) {
+            errorList.add(_cleanTechnicalTerms(val.toString().trim()));
+          }
+        });
+        if (errorList.isNotEmpty) {
+          return errorList.join('\n');
+        }
+      }
+
+      if (error.message.isNotEmpty) {
+        return _cleanTechnicalTerms(error.message);
+      }
+    }
 
     if (error is ApiException) {
       final msg = error.message.toLowerCase();

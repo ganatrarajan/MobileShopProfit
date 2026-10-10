@@ -1,3 +1,4 @@
+import '../../../core/widgets/app_shimmer.dart';
 import 'repair_invoice_pdf_screen.dart';
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
@@ -66,25 +67,44 @@ class RepairListScreenState extends State<RepairListScreen> {
 
   bool _hasParsedArgs = false;
 
+  void applyDateFilter(String period, DateTimeRange? customRange) {
+    if (_datePreset != period || _customDateRange != customRange) {
+      setState(() {
+        _datePreset = period;
+        _customDateRange = customRange;
+      });
+      _fetchRepairs();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
   }
 
-    @override
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_hasParsedArgs) {
       _hasParsedArgs = true;
       final args = ModalRoute.of(context)?.settings.arguments;
       if (args != null) {
-        final strArgs = args.toString().toLowerCase();
-        if (strArgs.contains('ready')) {
-          _selectedStatus = 'ready';
-          _datePreset = 'all_time';
-        } else if (_statusLabels.containsKey(strArgs)) {
-          _selectedStatus = strArgs;
-          _datePreset = 'all_time';
+        if (args is Map) {
+          if (args.containsKey('period')) {
+            _datePreset = args['period'].toString();
+          }
+          if (args.containsKey('customRange') && args['customRange'] is DateTimeRange) {
+            _customDateRange = args['customRange'] as DateTimeRange;
+          }
+        } else {
+          final strArgs = args.toString().toLowerCase();
+          if (strArgs.contains('ready')) {
+            _selectedStatus = 'ready';
+            _datePreset = 'all_time';
+          } else if (_statusLabels.containsKey(strArgs)) {
+            _selectedStatus = strArgs;
+            _datePreset = 'all_time';
+          }
         }
       }
       _fetchRepairs();
@@ -97,37 +117,8 @@ class RepairListScreenState extends State<RepairListScreen> {
     super.dispose();
   }
 
-  String? get _dateFrom {
-    final now = DateTime.now();
-    if (_datePreset == 'today') {
-      return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    } else if (_datePreset == 'yesterday') {
-      final y = now.subtract(const Duration(days: 1));
-      return '${y.year}-${y.month.toString().padLeft(2, '0')}-${y.day.toString().padLeft(2, '0')}';
-    } else if (_datePreset == 'this_month') {
-      return '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
-    } else if (_datePreset == 'custom' && _customDateRange != null) {
-      final s = _customDateRange!.start;
-      return '${s.year}-${s.month.toString().padLeft(2, '0')}-${s.day.toString().padLeft(2, '0')}';
-    }
-    return null; // all_time
-  }
-
-  String? get _dateTo {
-    final now = DateTime.now();
-    if (_datePreset == 'today') {
-      return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    } else if (_datePreset == 'yesterday') {
-      final y = now.subtract(const Duration(days: 1));
-      return '${y.year}-${y.month.toString().padLeft(2, '0')}-${y.day.toString().padLeft(2, '0')}';
-    } else if (_datePreset == 'this_month') {
-      return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    } else if (_datePreset == 'custom' && _customDateRange != null) {
-      final e = _customDateRange!.end;
-      return '${e.year}-${e.month.toString().padLeft(2, '0')}-${e.day.toString().padLeft(2, '0')}';
-    }
-    return null; // all_time
-  }
+  String? get _dateFrom => DateHelper.getDateRangeForPreset(_datePreset, customRange: _customDateRange).dateFrom;
+  String? get _dateTo => DateHelper.getDateRangeForPreset(_datePreset, customRange: _customDateRange).dateTo;
 
   String get _dateFilterLabel {
     switch (_datePreset) {
@@ -135,8 +126,14 @@ class RepairListScreenState extends State<RepairListScreen> {
         return 'Today';
       case 'yesterday':
         return 'Yesterday';
+      case 'this_week':
+        return 'This Week';
       case 'this_month':
         return 'This Month';
+      case 'last_month':
+        return 'Last Month';
+      case 'this_year':
+        return 'This Year';
       case 'custom':
         if (_customDateRange != null) {
           final s = _customDateRange!.start;
@@ -215,8 +212,8 @@ class RepairListScreenState extends State<RepairListScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: const [
+                const Row(
+                  children: [
                     Icon(Icons.calendar_month_rounded, color: AppColors.primary),
                     SizedBox(width: 8),
                     Text('Select Date Filter', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -442,7 +439,7 @@ class RepairListScreenState extends State<RepairListScreen> {
         // Repair Cards List
         Expanded(
           child: _isLoading
-              ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+              ? AppShimmer.listLoading()
               : _errorMessage != null
                   ? AppEmptyState(
                       icon: Icons.error_outline,
@@ -607,46 +604,48 @@ class RepairListScreenState extends State<RepairListScreen> {
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 6),
-                                                                            const SizedBox(height: 6),
-                                      Row(
-                                        children: [
-                                          Icon(
-                                            Icons.engineering_rounded,
-                                            size: 15,
-                                            color: repair.technicianName != null && repair.technicianName!.isNotEmpty
-                                                ? AppColors.primary
-                                                : Colors.orange.shade800,
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                            decoration: BoxDecoration(
+                                      if (!(repair.repairStatus == 'delivered' && (repair.technicianName == null || repair.technicianName!.trim().isEmpty))) ...[
+                                        const SizedBox(height: 6),
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.engineering_rounded,
+                                              size: 15,
                                               color: repair.technicianName != null && repair.technicianName!.isNotEmpty
-                                                  ? Colors.blue.shade50
-                                                  : Colors.orange.shade50,
-                                              borderRadius: BorderRadius.circular(6),
-                                              border: Border.all(
+                                                  ? AppColors.primary
+                                                  : Colors.orange.shade800,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                              decoration: BoxDecoration(
                                                 color: repair.technicianName != null && repair.technicianName!.isNotEmpty
-                                                    ? Colors.blue.shade200
-                                                    : Colors.orange.shade200,
+                                                    ? Colors.blue.shade50
+                                                    : Colors.orange.shade50,
+                                                borderRadius: BorderRadius.circular(6),
+                                                border: Border.all(
+                                                  color: repair.technicianName != null && repair.technicianName!.isNotEmpty
+                                                      ? Colors.blue.shade200
+                                                      : Colors.orange.shade200,
+                                                ),
+                                              ),
+                                              child: Text(
+                                                repair.technicianName != null && repair.technicianName!.isNotEmpty
+                                                    ? 'Tech: ${repair.technicianName}'
+                                                    : 'Tech: Unassigned',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: repair.technicianName != null && repair.technicianName!.isNotEmpty
+                                                      ? Colors.blue.shade900
+                                                      : Colors.orange.shade900,
+                                                ),
                                               ),
                                             ),
-                                            child: Text(
-                                              repair.technicianName != null && repair.technicianName!.isNotEmpty
-                                                  ? 'Tech: ${repair.technicianName}'
-                                                  : 'Tech: Unassigned',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.bold,
-                                                color: repair.technicianName != null && repair.technicianName!.isNotEmpty
-                                                    ? Colors.blue.shade900
-                                                    : Colors.orange.shade900,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                                          ],
+                                        ),
+                                      ],
+                                      const SizedBox(height: 6),
                                       Container(
                                         padding: const EdgeInsets.all(8),
                                         decoration: BoxDecoration(

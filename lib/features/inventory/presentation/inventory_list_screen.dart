@@ -1,3 +1,4 @@
+import '../../../core/widgets/app_shimmer.dart';
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
@@ -325,7 +326,7 @@ class InventoryListScreenState extends State<InventoryListScreen> {
         // 4. Inventory List
         Expanded(
           child: _isLoading
-              ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+              ? AppShimmer.listLoading()
               : _errorMessage != null
                   ? AppEmptyState(
                       icon: Icons.error_outline,

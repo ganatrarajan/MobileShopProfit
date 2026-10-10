@@ -1,3 +1,4 @@
+import '../../../core/widgets/app_shimmer.dart';
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
@@ -217,7 +218,7 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
 
             // Customer Devices List
             _isLoadingDevices
-                ? const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator(color: AppColors.primary)))
+                ? AppShimmer.cardLoading(height: 70)
                 : _devices.isEmpty
                     ? CustomCard(
                         child: Row(

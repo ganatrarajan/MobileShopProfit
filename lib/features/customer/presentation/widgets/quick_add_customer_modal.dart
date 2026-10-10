@@ -32,6 +32,7 @@ class _QuickAddCustomerModalState extends State<QuickAddCustomerModal> {
   final _addressController = TextEditingController();
   final _customerRepository = CustomerRepository();
   bool _isSaving = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -45,7 +46,10 @@ class _QuickAddCustomerModalState extends State<QuickAddCustomerModal> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isSaving = true);
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
     try {
       final response = await _customerRepository.createCustomer(
         name: _nameController.text.trim(),
@@ -85,12 +89,18 @@ class _QuickAddCustomerModalState extends State<QuickAddCustomerModal> {
           );
           Navigator.pop(context, createdCustomer);
         } else {
-          AppFeedback.showError(context, error: response.message);
+          final errText = response.message.isNotEmpty ? response.message : 'Could not save customer.';
+          setState(() => _errorMessage = errText);
+          AppFeedback.showError(context, error: errText);
         }
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isSaving = false);
+        final errText = e.toString();
+        setState(() {
+          _isSaving = false;
+          _errorMessage = errText;
+        });
         AppFeedback.showError(context, error: e);
       }
     }
@@ -151,6 +161,30 @@ class _QuickAddCustomerModalState extends State<QuickAddCustomerModal> {
               ],
             ),
             const Divider(height: 24),
+            if (_errorMessage != null && _errorMessage!.isNotEmpty) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.red.shade300),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline_rounded, color: Colors.red, size: 22),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _errorMessage!,
+                        style: TextStyle(color: Colors.red.shade900, fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+            ],
             CustomTextField(
               label: 'Full Name',
               hint: 'e.g. Rajesh Patel',

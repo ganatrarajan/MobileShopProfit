@@ -1,3 +1,4 @@
+import '../../../core/widgets/app_shimmer.dart';
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
@@ -239,7 +240,7 @@ class _TechnicianListScreenState extends State<TechnicianListScreen> {
           // 4. Technician List
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                ? AppShimmer.listLoading()
                 : _errorMessage != null
                     ? Center(
                         child: Column(

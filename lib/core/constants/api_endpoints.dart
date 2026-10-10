@@ -38,4 +38,6 @@ class ApiEndpoints {
   static const String vendors = '/vendors';
   static const String purchases = '/purchases';
   static const String appVersion = '/public/app-version';
+  static const String notifications = '/notifications';
+  static const String fcmToken = '/fcm-token';
 }
