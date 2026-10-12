@@ -944,10 +944,13 @@
                         <div class="metric-value">${m.usage.total_repairs} Repairs</div>
                         <div class="metric-sub">${m.usage.total_sales} Total Sales Recorded</div>
                     </div>
-                    <div class="metric-card" style="border-left:4px solid #10b981;">
-                        <div class="metric-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-2px; margin-right:4px;"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg> App Opens Today</div>
+                    <div class="metric-card" style="border-left:4px solid #10b981; cursor:pointer; transition:all 0.2s; position:relative;" onclick="showAppOpensTodayModal()" title="Click to view list of users who opened mobile app today">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div class="metric-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-2px; margin-right:4px;"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg> App Opens Today</div>
+                            <span style="font-size:11px; background:#d1fae5; color:#065f46; padding:2px 8px; border-radius:12px; font-weight:600;">View Users →</span>
+                        </div>
                         <div class="metric-value" style="color:#059669;">${m.usage.today_app_opens || 0} Users</div>
-                        <div class="metric-sub">Opened mobile app today</div>
+                        <div class="metric-sub">Opened mobile app today — click to view list</div>
                     </div>
                 </div>
 
@@ -981,6 +984,81 @@
                     </div>
                 </div>
             `;
+        }
+
+        // MODAL: USERS WHO OPENED MOBILE APP TODAY
+        async function showAppOpensTodayModal() {
+            openModal('📱 Mobile App Opens Today', `
+                <div style="text-align:center; padding:32px 16px; color:#64748b;">
+                    <div style="font-size:32px; margin-bottom:8px;">⏳</div>
+                    <div>Loading users who opened the mobile app today...</div>
+                </div>
+            `);
+
+            const data = await apiFetch('/dashboard/app-opens-today');
+            if (!data || !data.success) {
+                document.getElementById('modal-body').innerHTML = '<div style="color:#dc2626; padding:20px; text-align:center;">Failed to load today\'s active users.</div>';
+                return;
+            }
+
+            const users = data.data || [];
+            if (users.length === 0) {
+                document.getElementById('modal-body').innerHTML = `
+                    <div style="text-align:center; padding:32px 16px;">
+                        <div style="font-size:40px; margin-bottom:8px;">📱</div>
+                        <h4 style="font-size:15px; font-weight:700; color:#1e293b; margin-bottom:4px;">No App Opens Yet Today</h4>
+                        <p style="font-size:13px; color:#64748b; margin-bottom:16px;">No users have launched or interacted with the mobile app today yet.</p>
+                        <button class="btn-sm" onclick="closeModal(); switchNav('users');">Browse All Users</button>
+                    </div>
+                `;
+                return;
+            }
+
+            const html = `
+                <div style="font-size:13px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid #e2e8f0;">
+                        <div>
+                            <span style="font-weight:700; font-size:14px; color:#0f172a;">${users.length} Active User${users.length === 1 ? '' : 's'} Today</span>
+                            <div style="font-size:12px; color:#64748b;">Sorted by most recently active</div>
+                        </div>
+                        <button class="btn-sm" style="background:#2563eb; color:white; border:none; padding:6px 12px;" onclick="closeModal(); switchNav('users'); setTimeout(() => loadUsersView(1, '', '', 'today'), 60);">
+                            Full Users Table →
+                        </button>
+                    </div>
+
+                    <div style="max-height:420px; overflow-y:auto; display:flex; flex-direction:column; gap:10px; padding-right:4px;">
+                        ${users.map(u => {
+                            const openTime = u.last_app_opened_at ? new Date(u.last_app_opened_at) : null;
+                            const timeStr = openTime ? openTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Today';
+                            const shopName = u.shop ? u.shop.name : (u.role === 'super_admin' || u.role === 'admin' ? 'Platform Administrator' : 'Independent Account');
+                            const phone = u.mobile || u.phone || '';
+                            return `
+                                <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px;">
+                                    <div style="flex:1; min-width:0;">
+                                        <div style="font-weight:700; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                                            ${u.name}
+                                            <span class="badge ${u.role === 'owner' ? 'badge-active' : 'badge-trial'}" style="font-size:10px; text-transform:uppercase;">${u.role}</span>
+                                        </div>
+                                        <div style="font-size:12px; color:#475569; margin-top:4px;">
+                                            🏪 <strong>${shopName}</strong>
+                                        </div>
+                                        <div style="font-size:12px; color:#64748b; margin-top:2px;">
+                                            ${phone ? `📞 <a href="tel:${phone}" style="color:#2563eb; text-decoration:none; font-weight:500;">${phone}</a>` : '<span style="color:#94a3b8;">No phone</span>'}
+                                            ${u.email ? `<span style="margin-left:8px;">✉️ ${u.email}</span>` : ''}
+                                        </div>
+                                    </div>
+                                    <div style="text-align:right; margin-left:14px; flex-shrink:0;">
+                                        <span style="display:inline-block; background:#dcfce7; color:#15803d; font-size:11px; font-weight:600; padding:4px 10px; border-radius:14px; border:1px solid #bbf7d0;">
+                                            🟢 ${timeStr}
+                                        </span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+            document.getElementById('modal-body').innerHTML = html;
         }
 
         // 2. SHOPS VIEW
@@ -1121,7 +1199,7 @@
                                     ${s.recent_sales.map(rs => `
                                         <tr>
                                             <td style="padding:6px; border-bottom:1px solid #e2e8f0;">${rs.invoice_number || 'INV-' + rs.id}</td>
-                                            <td style="padding:6px; border-bottom:1px solid #e2e8f0;">${rs.customer_name}</td>
+                                            <td style="padding:6px; border-bottom:1px solid #e2e8f0;">${rs.customer ? rs.customer.name : (rs.customer_name || 'Walk-in Customer')}</td>
                                             <td style="padding:6px; border-bottom:1px solid #e2e8f0;">${new Date(rs.sale_date || rs.created_at).toLocaleDateString()}</td>
                                             <td style="padding:6px; border-bottom:1px solid #e2e8f0;">₹${parseFloat(rs.grand_total).toFixed(2)}</td>
                                             <td style="padding:6px; border-bottom:1px solid #e2e8f0;"><span class="badge ${rs.payment_status === 'paid' ? 'badge-active' : 'badge-trial'}">${rs.payment_status}</span></td>
@@ -1137,17 +1215,24 @@
                         ${(s.recent_repairs || []).length === 0 ? '<p style="color:#94a3b8;">No repair jobs logged yet for this shop.</p>' : `
                             <table style="width:100%; border-collapse:collapse; font-size:12px;">
                                 <thead>
-                                    <tr style="background:#f8fafc;"><th>Job #</th><th>Problem</th><th>Cost</th><th>Status</th></tr>
+                                    <tr style="background:#f8fafc;"><th>Job #</th><th>Customer & Contact</th><th>Device</th><th>Problem</th><th>Cost</th><th>Status</th></tr>
                                 </thead>
                                 <tbody>
-                                    ${s.recent_repairs.map(rr => `
+                                    ${s.recent_repairs.map(rr => {
+                                        const rcName = rr.customer ? rr.customer.name : (rr.customer_name || 'Walk-in Customer');
+                                        const rcMobile = rr.customer ? (rr.customer.mobile || rr.customer.phone || '') : '';
+                                        const rdInfo = rr.device ? `${rr.device.brand || ''} ${rr.device.model || ''}`.trim() : 'N/A';
+                                        return `
                                         <tr>
-                                            <td style="padding:6px; border-bottom:1px solid #e2e8f0;">${rr.job_number || 'JOB-' + rr.id}</td>
-                                            <td style="padding:6px; border-bottom:1px solid #e2e8f0;">${rr.problem_description || 'N/A'}</td>
+                                            <td style="padding:6px; border-bottom:1px solid #e2e8f0;"><strong>${rr.job_number || 'JOB-' + rr.id}</strong></td>
+                                            <td style="padding:6px; border-bottom:1px solid #e2e8f0;"><strong>${rcName}</strong>${rcMobile ? `<br><span style="font-size:11px; color:#64748b;">📞 ${rcMobile}</span>` : ''}</td>
+                                            <td style="padding:6px; border-bottom:1px solid #e2e8f0;">📱 ${rdInfo}</td>
+                                            <td style="padding:6px; border-bottom:1px solid #e2e8f0;">${rr.problem_description || '—'}</td>
                                             <td style="padding:6px; border-bottom:1px solid #e2e8f0;">₹${parseFloat(rr.final_cost > 0 ? rr.final_cost : rr.estimated_cost).toFixed(2)}</td>
                                             <td style="padding:6px; border-bottom:1px solid #e2e8f0;"><span class="badge badge-trial">${rr.repair_status}</span></td>
                                         </tr>
-                                    `).join('')}
+                                        `;
+                                    }).join('')}
                                 </tbody>
                             </table>
                         `}
@@ -1208,9 +1293,9 @@
         }
 
         // 3. USERS VIEW
-        async function loadUsersView(page = 1, search = '', role = '') {
+        async function loadUsersView(page = 1, search = '', role = '', openedFilter = '') {
             const content = getContentContainer();
-            const data = await apiFetch(`/users?page=${page}&search=${encodeURIComponent(search)}&role=${role}`);
+            const data = await apiFetch(`/users?page=${page}&search=${encodeURIComponent(search)}&role=${role}&opened_filter=${openedFilter}`);
             if (!data || !data.success) return;
             const pageData = data.data;
             const users = pageData.data || [];
@@ -1220,16 +1305,23 @@
                     <div class="table-toolbar">
                         <div style="display:flex; gap:10px; flex:1; min-width:280px;">
                             <div class="search-box" style="flex:1;">
-                                <input type="text" id="users-search-input" placeholder="Search user name, mobile, email..." value="${search}" oninput="debounceSearch(() => loadUsersView(1, document.getElementById('users-search-input').value, '${role}'))">
+                                <input type="text" id="users-search-input" placeholder="Search user name, mobile, email, shop..." value="${search}" oninput="debounceSearch(() => loadUsersView(1, document.getElementById('users-search-input').value, '${role}', '${openedFilter}'))">
                             </div>
                         </div>
                         <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-                            <select class="filter-select" onchange="loadUsersView(1, '${search}', this.value)">
-                                <option value="">All Roles</option>
+                            <select class="filter-select" onchange="loadUsersView(1, '${search}', this.value, '${openedFilter}')">
+                                <option value="">Role: All Roles</option>
                                 <option value="owner" ${role === 'owner' ? 'selected' : ''}>Shop Owner</option>
+                                <option value="technician" ${role === 'technician' ? 'selected' : ''}>Technician</option>
+                                <option value="staff" ${role === 'staff' ? 'selected' : ''}>Staff</option>
                                 <option value="admin" ${role === 'admin' ? 'selected' : ''}>SaaS Admin</option>
                             </select>
-                            ${(search || role) ? `<button class="btn-sm" style="background:#e2e8f0; color:#334155;" onclick="loadUsersView(1, '', '')">Clear Filters</button>` : ''}
+                            <select class="filter-select" onchange="loadUsersView(1, '${search}', '${role}', this.value)">
+                                <option value="">App Activity: All Users</option>
+                                <option value="today" ${openedFilter === 'today' ? 'selected' : ''}>🟢 Opened App Today</option>
+                                <option value="never" ${openedFilter === 'never' ? 'selected' : ''}>Never Opened App</option>
+                            </select>
+                            ${(search || role || openedFilter) ? `<button class="btn-sm" style="background:#e2e8f0; color:#334155;" onclick="loadUsersView(1, '', '', '')">Clear Filters</button>` : ''}
                         </div>
                     </div>
                     <div class="table-responsive">
@@ -1240,24 +1332,36 @@
                                 <th>Mobile / Email</th>
                                 <th>Associated Shop</th>
                                 <th>User Role</th>
-                                <th>Created Date</th>
+                                <th>Last Mobile App Open</th>
+                                <th>Registered Date</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${users.length === 0 ? `<tr><td colspan="5" style="text-align:center; padding:30px; color:#94a3b8;">No users found matching filter criteria.</td></tr>` : ''}
-                            ${users.map(u => `
+                            ${users.length === 0 ? `<tr><td colspan="6" style="text-align:center; padding:30px; color:#94a3b8;">No users found matching filter criteria.</td></tr>` : ''}
+                            ${users.map(u => {
+                                const lastOpen = u.last_app_opened_at ? new Date(u.last_app_opened_at) : null;
+                                const isToday = lastOpen && (new Date().toDateString() === lastOpen.toDateString());
+                                const lastOpenBadge = lastOpen
+                                    ? (isToday
+                                        ? `<span class="badge badge-active" style="background:#dcfce7; color:#15803d; font-weight:600; display:inline-flex; align-items:center; gap:4px;">🟢 Today ${lastOpen.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>`
+                                        : `<span style="font-size:12px; color:#64748b;">${lastOpen.toLocaleDateString()} ${lastOpen.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>`)
+                                    : `<span style="color:#94a3b8; font-size:12px;">Never</span>`;
+
+                                return `
                                 <tr>
                                     <td><strong>${u.name}</strong></td>
-                                    <td>${u.mobile} ${u.email ? `(${u.email})` : ''}</td>
+                                    <td>${u.mobile || u.phone || 'N/A'}${u.email ? `<br><span style="font-size:11px; color:#64748b;">${u.email}</span>` : ''}</td>
                                     <td>${u.shop ? u.shop.name : 'N/A (Admin)'}</td>
                                     <td><span class="badge badge-resolved">${u.role}</span></td>
+                                    <td>${lastOpenBadge}</td>
                                     <td>${new Date(u.created_at).toLocaleDateString()}</td>
                                 </tr>
-                            `).join('')}
+                                `;
+                            }).join('')}
                         </tbody>
                     </table>
                     </div>
-                    ${renderPagination(pageData, 'loadUsersView', search, role)}
+                    ${renderPagination(pageData, 'loadUsersView', search, role, openedFilter)}
                 </div>
             `;
         }
@@ -2327,11 +2431,13 @@
                             ${sales.length === 0 ? `<tr><td colspan="9" style="text-align:center; padding:30px; color:#94a3b8;">No sales records found matching criteria.</td></tr>` : ''}
                             ${sales.map(s => {
                                 const stBadge = s.payment_status === 'paid' ? 'badge-active' : (s.payment_status === 'partially_paid' ? 'badge-trial' : 'badge-inactive');
+                                const sCustName = s.customer ? s.customer.name : (s.customer_name || 'Walk-in Customer');
+                                const sCustMob = s.customer ? (s.customer.mobile || s.customer.phone || '') : (s.customer_mobile || '');
                                 return `
                                 <tr>
                                     <td><strong><code style="color:#0284c7;">${s.invoice_number || 'INV-' + s.id}</code></strong></td>
                                     <td>${s.shop ? s.shop.name : 'Shop #' + s.shop_id}</td>
-                                    <td><strong>${s.customer_name}</strong><br><span style="font-size:12px; color:#64748b;">${s.customer_mobile || ''}</span></td>
+                                    <td><strong>${sCustName}</strong>${sCustMob ? `<br><span style="font-size:12px; color:#64748b;">📞 ${sCustMob}</span>` : ''}</td>
                                     <td>${new Date(s.sale_date || s.created_at).toLocaleDateString()}</td>
                                     <td><strong>₹${parseFloat(s.grand_total).toFixed(2)}</strong></td>
                                     <td style="color:#16a34a;">₹${parseFloat(s.amount_paid).toFixed(2)}</td>
@@ -2353,13 +2459,15 @@
             const res = await apiFetch(`/sales/${id}`);
             if (!res || !res.success) return;
             const s = res.data;
+            const sCustName = s.customer ? s.customer.name : (s.customer_name || 'Walk-in Customer / N/A');
+            const sCustMob = s.customer ? (s.customer.mobile || s.customer.phone || '') : (s.customer_mobile || 'N/A');
 
             openModal(`Sale Invoice — ${s.invoice_number || 'INV-' + s.id}`, `
                 <div style="font-size:13px; line-height:1.6;">
                     <div style="display:flex; justify-content:space-between; margin-bottom:14px; background:#f8fafc; padding:12px; border-radius:8px;">
                         <div>
                             <strong>Shop:</strong> ${s.shop ? s.shop.name : 'Shop #' + s.shop_id}<br>
-                            <strong>Customer:</strong> ${s.customer_name} (${s.customer_mobile || 'N/A'})
+                            <strong>Customer:</strong> ${sCustName} (${sCustMob})
                         </div>
                         <div style="text-align:right;">
                             <strong>Invoice Date:</strong> ${new Date(s.sale_date || s.created_at).toLocaleDateString()}<br>
@@ -2476,15 +2584,18 @@
                         <tbody>
                             ${repairs.length === 0 ? `<tr><td colspan="9" style="text-align:center; padding:30px; color:#94a3b8;">No repair jobs found matching criteria.</td></tr>` : ''}
                             ${repairs.map(r => {
-                                const custName = r.customer ? r.customer.name : 'Unknown';
-                                const devInfo = r.device ? `${r.device.brand || ''} ${r.device.model || ''}` : 'N/A';
+                                const custName = r.customer ? r.customer.name : (r.customer_name || 'Walk-in Customer / N/A');
+                                const custMobile = r.customer ? (r.customer.mobile || r.customer.phone || '') : (r.customer_mobile || '');
+                                const devBrand = r.device ? (r.device.brand || '') : '';
+                                const devModel = r.device ? (r.device.model || '') : (r.device_model || '');
+                                const devInfo = (devBrand + ' ' + devModel).trim() || 'N/A';
                                 const costVal = parseFloat(r.final_cost > 0 ? r.final_cost : r.estimated_cost);
                                 const isDelivered = r.repair_status === 'delivered' || r.repair_status === 'ready';
                                 return `
                                 <tr>
                                     <td><strong><code style="color:#d97706;">${r.job_number || 'JOB-' + r.id}</code></strong></td>
                                     <td>${r.shop ? r.shop.name : 'Shop #' + r.shop_id}</td>
-                                    <td><strong>${custName}</strong><br><span style="font-size:12px; color:#64748b;">📱 ${devInfo}</span></td>
+                                    <td><strong>${custName}</strong>${custMobile ? `<br><span style="font-size:11px; color:#64748b;">📞 ${custMobile}</span>` : ''}<br><span style="font-size:11px; color:#2563eb;">📱 ${devInfo}</span></td>
                                     <td>${r.problem_description || '—'}</td>
                                     <td>${new Date(r.date_received || r.created_at).toLocaleDateString()}</td>
                                     <td><strong>₹${costVal.toFixed(2)}</strong></td>
@@ -2508,47 +2619,78 @@
             const r = res.data;
 
             const costVal = parseFloat(r.final_cost > 0 ? r.final_cost : r.estimated_cost);
+            const amountPaid = parseFloat(r.amount_paid || 0);
+            const dueAmount = Math.max(0, costVal - amountPaid);
+            const custName = r.customer ? r.customer.name : (r.customer_name || 'Walk-in Customer / N/A');
+            const custMobile = r.customer ? (r.customer.mobile || r.customer.phone || '') : (r.customer_mobile || '');
+            const custAltMobile = r.customer && r.customer.alternate_mobile ? r.customer.alternate_mobile : '';
+            const custEmail = r.customer && r.customer.email ? r.customer.email : '';
+            const custAddress = r.customer && (r.customer.address || r.customer.city) ? [r.customer.address, r.customer.city].filter(Boolean).join(', ') : '';
+
+            const devBrand = r.device ? (r.device.brand || '') : '';
+            const devModel = r.device ? (r.device.model || '') : (r.device_model || '');
+            const devText = (devBrand + ' ' + devModel).trim() || 'N/A';
+            const devColor = r.device && r.device.color ? r.device.color : '';
+            const devImei = r.device ? (r.device.imei_1 || r.device.imei_2 || r.device.serial_number || '') : '';
+
+            const techName = r.technician ? r.technician.name : 'Unassigned';
+            const techPhone = r.technician && r.technician.mobile ? r.technician.mobile : '';
+
             openModal(`Repair Job Card — ${r.job_number || 'JOB-' + r.id}`, `
                 <div style="font-size:13px; line-height:1.6;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:14px; background:#f8fafc; padding:12px; border-radius:8px;">
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; background:#f8fafc; padding:14px; border-radius:10px; border:1px solid #e2e8f0;">
                         <div>
-                            <strong>Shop:</strong> ${r.shop ? r.shop.name : 'Shop #' + r.shop_id}<br>
-                            <strong>Customer:</strong> ${r.customer ? r.customer.name : 'N/A'} (${r.customer ? r.customer.mobile : 'N/A'})<br>
-                            <strong>Device:</strong> ${r.device ? `${r.device.brand} ${r.device.model}` : 'N/A'}
+                            <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:#64748b; margin-bottom:4px;">Customer & Device Details</div>
+                            <p style="margin-bottom:2px;"><strong>👤 Customer:</strong> <span style="font-weight:600; color:#0f172a;">${custName}</span></p>
+                            <p style="margin-bottom:2px;"><strong>📞 Phone:</strong> ${custMobile ? `<a href="tel:${custMobile}" style="color:#2563eb; text-decoration:none;">${custMobile}</a>` : 'N/A'}${custAltMobile ? ` / ${custAltMobile}` : ''}</p>
+                            ${custEmail ? `<p style="margin-bottom:2px;"><strong>✉️ Email:</strong> ${custEmail}</p>` : ''}
+                            ${custAddress ? `<p style="margin-bottom:2px;"><strong>📍 Address:</strong> ${custAddress}</p>` : ''}
+                            <hr style="margin:6px 0; border:0; border-top:1px dashed #cbd5e1;">
+                            <p style="margin-bottom:2px;"><strong>📱 Device:</strong> <span style="color:#2563eb; font-weight:600;">${devText}</span>${devColor ? ` (${devColor})` : ''}</p>
+                            ${devImei ? `<p style="margin-bottom:2px;"><strong>🔢 Identifier:</strong> <code>${devImei}</code></p>` : ''}
                         </div>
-                        <div style="text-align:right;">
-                            <strong>Received Date:</strong> ${new Date(r.date_received || r.created_at).toLocaleDateString()}<br>
-                            <strong>Status:</strong> <span class="badge badge-trial">${(r.repair_status || '').toUpperCase()}</span><br>
-                            <strong>Technician:</strong> ${r.technician ? r.technician.name : 'Unassigned'}
+                        <div>
+                            <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:#64748b; margin-bottom:4px;">Shop & Status Details</div>
+                            <p style="margin-bottom:2px;"><strong>🏪 Shop:</strong> ${r.shop ? r.shop.name : 'Shop #' + r.shop_id}</p>
+                            <p style="margin-bottom:2px;"><strong>📅 Received Date:</strong> ${new Date(r.date_received || r.created_at).toLocaleDateString()}</p>
+                            ${r.expected_delivery_date ? `<p style="margin-bottom:2px;"><strong>🚚 Expected:</strong> ${new Date(r.expected_delivery_date).toLocaleDateString()}</p>` : ''}
+                            ${r.delivered_date ? `<p style="margin-bottom:2px;"><strong>✅ Delivered:</strong> ${new Date(r.delivered_date).toLocaleString()}</p>` : ''}
+                            <p style="margin-bottom:2px;"><strong>🏷️ Status:</strong> <span class="badge ${(['delivered', 'ready'].includes(r.repair_status)) ? 'badge-active' : 'badge-trial'}">${(r.repair_status || '').toUpperCase()}</span></p>
+                            <p style="margin-bottom:2px;"><strong>🧰 Technician:</strong> ${techName}${techPhone ? ` (${techPhone})` : ''}</p>
                         </div>
                     </div>
 
-                    <p><strong>Problem Description:</strong> ${r.problem_description || 'N/A'}</p>
-                    <p><strong>Device Passcode / PIN:</strong> ${r.pin_passcode || 'None'}</p>
-                    <p><strong>Condition Notes:</strong> ${r.condition_notes || 'N/A'}</p>
-                    <hr style="margin:12px 0; border:0; border-top:1px solid #e2e8f0;">
+                    <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin-bottom:12px;">
+                        <p style="margin-bottom:6px;"><strong>Problem Description:</strong> ${r.problem_description || 'None'}</p>
+                        ${r.pin_passcode ? `<p style="margin-bottom:6px;"><strong>Device Passcode / PIN:</strong> <code style="background:#f1f5f9; padding:2px 6px; border-radius:4px; font-weight:700;">${r.pin_passcode}</code></p>` : ''}
+                        ${r.condition_notes ? `<p style="margin-bottom:6px;"><strong>Condition Notes:</strong> ${r.condition_notes}</p>` : ''}
+                        ${r.accessories_received ? `<p style="margin-bottom:6px;"><strong>Accessories Received:</strong> ${Array.isArray(r.accessories_received) ? r.accessories_received.join(', ') : r.accessories_received}</p>` : ''}
+                        ${r.customer_notes ? `<p style="margin-bottom:6px;"><strong>Customer Notes:</strong> ${r.customer_notes}</p>` : ''}
+                        ${r.internal_notes ? `<p style="margin-bottom:6px;"><strong>Internal Notes:</strong> ${r.internal_notes}</p>` : ''}
+                    </div>
 
                     <h4 style="font-size:12px; font-weight:700; text-transform:uppercase; color:#475569; margin-bottom:6px;">Spare Parts Used</h4>
                     <table style="width:100%; border-collapse:collapse; margin-bottom:12px;">
                         <thead>
-                            <tr style="background:#f1f5f9;"><th style="padding:6px;">Part Name</th><th style="padding:6px;">Qty</th><th style="padding:6px; text-align:right;">Price</th></tr>
+                            <tr style="background:#f1f5f9;"><th style="padding:6px; text-align:left;">Part Name</th><th style="padding:6px; text-align:center;">Qty</th><th style="padding:6px; text-align:right;">Price</th></tr>
                         </thead>
                         <tbody>
-                            ${(r.parts || []).length === 0 ? '<tr><td colspan="3" style="padding:6px; color:#94a3b8;">No spare parts logged for this job.</td></tr>' : ''}
+                            ${(r.parts || []).length === 0 ? '<tr><td colspan="3" style="padding:8px; text-align:center; color:#94a3b8;">No spare parts logged for this job.</td></tr>' : ''}
                             ${(r.parts || []).map(p => `
                                 <tr>
                                     <td style="padding:6px; border-bottom:1px solid #e2e8f0;">${p.part_name}</td>
-                                    <td style="padding:6px; border-bottom:1px solid #e2e8f0;">${p.quantity}</td>
-                                    <td style="padding:6px; border-bottom:1px solid #e2e8f0; text-align:right;">₹${parseFloat(p.cost_price || p.price || 0).toFixed(2)}</td>
+                                    <td style="padding:6px; border-bottom:1px solid #e2e8f0; text-align:center;">${p.quantity}</td>
+                                    <td style="padding:6px; border-bottom:1px solid #e2e8f0; text-align:right;">₹${parseFloat(p.selling_price || p.price || p.cost_price || 0).toFixed(2)}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
                     </table>
 
-                    <div style="display:flex; justify-content:flex-end; gap:20px; font-size:14px;">
+                    <div style="display:flex; justify-content:flex-end; gap:16px; font-size:13px; background:#f8fafc; padding:12px; border-radius:8px;">
                         <div>Labor Cost: <strong>₹${parseFloat(r.labour_cost || 0).toFixed(2)}</strong></div>
-                        <div>Total Cost: <strong style="color:#d97706; font-size:16px;">₹${costVal.toFixed(2)}</strong></div>
-                        <div>Amount Paid: <strong style="color:#16a34a; font-size:16px;">₹${parseFloat(r.amount_paid || 0).toFixed(2)}</strong></div>
+                        <div>Total Cost: <strong style="color:#d97706; font-size:15px;">₹${costVal.toFixed(2)}</strong></div>
+                        <div>Paid: <strong style="color:#16a34a; font-size:15px;">₹${amountPaid.toFixed(2)}</strong></div>
+                        <div>Due Balance: <strong style="color:${dueAmount > 0 ? '#dc2626' : '#16a34a'}; font-size:15px;">₹${dueAmount.toFixed(2)}</strong></div>
                     </div>
                 </div>
             `);
@@ -2914,17 +3056,22 @@
                         </thead>
                         <tbody>
                             ${warranties.length === 0 ? `<tr><td colspan="7" style="text-align:center; padding:30px; color:#94a3b8;">No warranty records found matching criteria.</td></tr>` : ''}
-                            ${warranties.map(w => `
+                            ${warranties.map(w => {
+                                const wCust = w.customer ? w.customer.name : (w.customer_name || 'Walk-in Customer / N/A');
+                                const wCustMob = w.customer ? (w.customer.mobile || '') : '';
+                                const wDev = w.device ? `${w.device.brand || ''} ${w.device.model || ''}`.trim() : (w.device_model || 'N/A');
+                                return `
                                 <tr>
                                     <td><strong><code>${w.warranty_number || 'WAR-' + w.id}</code></strong></td>
                                     <td>${w.shop ? w.shop.name : 'Shop #' + w.shop_id}</td>
-                                    <td><strong>${w.customer ? w.customer.name : 'Unknown'}</strong><br><span style="font-size:11px; color:#64748b;">${w.device ? w.device.brand + ' ' + w.device.model : ''}</span></td>
+                                    <td><strong>${wCust}</strong>${wCustMob ? `<br><span style="font-size:11px; color:#64748b;">📞 ${wCustMob}</span>` : ''}<br><span style="font-size:11px; color:#2563eb;">📱 ${wDev}</span></td>
                                     <td>${new Date(w.warranty_start_date).toLocaleDateString()}</td>
                                     <td>${new Date(w.warranty_end_date).toLocaleDateString()}</td>
                                     <td><span class="badge ${w.status === 'active' ? 'badge-active' : 'badge-inactive'}">${w.status}</span></td>
                                     <td>${(w.claims || []).length} Claims</td>
                                 </tr>
-                            `).join('')}
+                                `;
+                            }).join('')}
                         </tbody>
                     </table>
                     </div>

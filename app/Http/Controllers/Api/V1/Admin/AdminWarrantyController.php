@@ -19,7 +19,12 @@ class AdminWarrantyController extends Controller
     {
         $query = Warranty::withoutGlobalScope('shop')
             ->whereNull('warranties.deleted_at')
-            ->with(['shop', 'customer', 'device', 'claims']);
+            ->with([
+                'shop',
+                'customer' => fn($q) => $q->withoutGlobalScope('shop')->withTrashed(),
+                'device' => fn($q) => $q->withoutGlobalScope('shop')->withTrashed(),
+                'claims',
+            ]);
 
         if ($request->boolean('with_trashed')) {
             $query->withTrashed();

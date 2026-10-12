@@ -17,7 +17,11 @@ class AdminSaleController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Sale::withoutGlobalScope('shop')->with(['shop', 'customer', 'items']);
+        $query = Sale::withoutGlobalScope('shop')->with([
+            'shop',
+            'customer' => fn($q) => $q->withoutGlobalScope('shop')->withTrashed(),
+            'items',
+        ]);
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -73,7 +77,14 @@ class AdminSaleController extends Controller
     public function show($id): JsonResponse
     {
         $sale = Sale::withoutGlobalScope('shop')
-            ->with(['shop', 'customer', 'device', 'items', 'payments', 'creator'])
+            ->with([
+                'shop',
+                'customer' => fn($q) => $q->withoutGlobalScope('shop')->withTrashed(),
+                'device' => fn($q) => $q->withoutGlobalScope('shop')->withTrashed(),
+                'items',
+                'payments',
+                'creator',
+            ])
             ->find($id);
 
         if (! $sale) {

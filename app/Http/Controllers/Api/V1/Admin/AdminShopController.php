@@ -89,13 +89,18 @@ class AdminShopController extends Controller
         // Fetch recent records for deep-dive tabs
         $shopData['recent_sales'] = Sale::withoutGlobalScope('shop')
             ->where('shop_id', $id)
+            ->with(['customer' => fn($q) => $q->withoutGlobalScope('shop')->withTrashed(), 'items'])
             ->latest('sale_date')
             ->take(10)
             ->get();
 
         $shopData['recent_repairs'] = Repair::withoutGlobalScope('shop')
             ->where('shop_id', $id)
-            ->with(['device', 'technician'])
+            ->with([
+                'customer' => fn($q) => $q->withoutGlobalScope('shop')->withTrashed(),
+                'device' => fn($q) => $q->withoutGlobalScope('shop')->withTrashed(),
+                'technician',
+            ])
             ->latest('date_received')
             ->take(10)
             ->get();

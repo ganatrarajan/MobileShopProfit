@@ -12,6 +12,7 @@ use App\Models\Subscription;
 use App\Models\User;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class AdminDashboardController extends Controller
 {
@@ -86,5 +87,32 @@ class AdminDashboardController extends Controller
             ],
             'recent_shops' => $recentShops,
         ], 'Admin dashboard metrics retrieved successfully');
+    }
+
+    /**
+     * Get the list of users who opened the mobile app today.
+     */
+    public function appOpensTodayUsers(Request $request): JsonResponse
+    {
+        $query = User::with('shop')
+            ->whereDate('last_app_opened_at', today())
+            ->orderBy('last_app_opened_at', 'desc');
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('mobile', 'like', "%{$search}%")
+                  ->orWhere('phone', 'like', "%{$search}%")
+                  ->orWhereHas('shop', function ($sq) use ($search) {
+                      $sq->where('name', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        $users = $query->get();
+
+        return $this->successResponse($users, 'Users who opened mobile app today retrieved successfully');
     }
 }

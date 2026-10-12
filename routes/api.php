@@ -91,6 +91,7 @@ Route::prefix('v1')->group(function () {
 
         // Admin Dashboard Overview
         Route::get('/dashboard', [AdminDashboardController::class, 'index']);
+        Route::get('/dashboard/app-opens-today', [AdminDashboardController::class, 'appOpensTodayUsers']);
 
         // Admin Shop Management
         Route::get('/shops', [AdminShopController::class, 'index']);

@@ -17,7 +17,12 @@ class AdminRepairController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Repair::withoutGlobalScope('shop')->with(['shop', 'customer', 'device', 'technician']);
+        $query = Repair::withoutGlobalScope('shop')->with([
+            'shop',
+            'customer' => fn($q) => $q->withoutGlobalScope('shop')->withTrashed(),
+            'device' => fn($q) => $q->withoutGlobalScope('shop')->withTrashed(),
+            'technician',
+        ]);
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -84,7 +89,16 @@ class AdminRepairController extends Controller
     public function show($id): JsonResponse
     {
         $repair = Repair::withoutGlobalScope('shop')
-            ->with(['shop', 'customer', 'device', 'technician', 'parts', 'payments', 'creator'])
+            ->with([
+                'shop',
+                'customer' => fn($q) => $q->withoutGlobalScope('shop')->withTrashed(),
+                'device' => fn($q) => $q->withoutGlobalScope('shop')->withTrashed(),
+                'technician',
+                'parts',
+                'payments',
+                'creator',
+                'warranties',
+            ])
             ->find($id);
 
         if (! $repair) {

@@ -15,13 +15,19 @@ trait BelongsToShop
     {
         static::creating(function ($model) {
             if (auth()->check() && ! $model->shop_id) {
-                $model->shop_id = auth()->user()->shop_id;
+                $user = auth()->user();
+                if (! in_array($user->role, ['admin', 'super_admin'])) {
+                    $model->shop_id = $user->shop_id;
+                }
             }
         });
 
         static::addGlobalScope('shop', function (Builder $builder) {
             if (auth()->check()) {
-                $builder->where('shop_id', auth()->user()->shop_id);
+                $user = auth()->user();
+                if (! in_array($user->role, ['admin', 'super_admin'])) {
+                    $builder->where('shop_id', $user->shop_id);
+                }
             }
         });
     }
