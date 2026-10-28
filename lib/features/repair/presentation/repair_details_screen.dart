@@ -8,6 +8,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_feedback.dart';
 import '../../../core/utils/date_helper.dart';
 import '../../../core/utils/whatsapp_helper.dart';
+import '../../../core/storage/preferences_storage.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/whatsapp_icon.dart';
 import '../../warranty/presentation/warranty_details_screen.dart';
@@ -182,61 +183,83 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
         setState(() => _repair = res.data!);
         
         if (mounted) {
+          final initialLangCode = await PreferencesStorage().getWhatsAppLanguage();
+          var selectedStatusLang = WhatsAppLanguage.fromCode(initialLangCode);
+
+          if (!context.mounted) return;
+
           await showModalBottomSheet(
             context: context,
             shape: const RoundedRectangleBorder(
               borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
-            builder: (ctx) => SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Row(
-                      children: [
-                        WhatsAppIcon(size: 26),
-                        SizedBox(width: 10),
-                        Text('Send WhatsApp Update?', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text('Send status update notification to ${_repair.customer != null ? _repair.customer!.name : "Customer"} on WhatsApp?'),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextButton(
-                            onPressed: () => Navigator.pop(ctx),
-                            child: const Text('Not Now'),
+            builder: (ctx) => StatefulBuilder(
+              builder: (context, setSheetState) => SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          WhatsAppIcon(size: 26),
+                          SizedBox(width: 10),
+                          Expanded(
+                            child: Text('Send WhatsApp Update?', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          flex: 2,
-                          child: ElevatedButton.icon(
-                            onPressed: () async {
-                              Navigator.pop(ctx);
-                              await WhatsAppHelper.sendRepairStatusWhatsAppMessage(
-                                context,
-                                _repair,
-                                targetStatus,
-                                statusNotes: statusNotes,
-                              );
-                            },
-                            icon: const WhatsAppIcon(size: 16, showBackground: false),
-                            label: const Text('Send WhatsApp', style: TextStyle(fontWeight: FontWeight.bold)),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF25D366),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text('Send status update notification to ${_repair.customer != null ? _repair.customer!.name : "Customer"} on WhatsApp?'),
+                      const SizedBox(height: 14),
+                      WhatsAppLanguageSelector(
+                        compact: true,
+                        selectedLanguage: selectedStatusLang,
+                        onLanguageChanged: (lang) {
+                          setSheetState(() {
+                            selectedStatusLang = lang;
+                          });
+                          PreferencesStorage().saveWhatsAppLanguage(lang.code);
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              child: const Text('Not Now'),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          const SizedBox(width: 10),
+                          Expanded(
+                            flex: 2,
+                            child: ElevatedButton.icon(
+                              onPressed: () async {
+                                Navigator.pop(ctx);
+                                await WhatsAppHelper.sendRepairStatusWhatsAppMessage(
+                                  context,
+                                  _repair,
+                                  targetStatus,
+                                  statusNotes: statusNotes,
+                                  language: selectedStatusLang,
+                                );
+                              },
+                              icon: const WhatsAppIcon(size: 16, showBackground: false),
+                              label: const Text('Send WhatsApp', style: TextStyle(fontWeight: FontWeight.bold)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF25D366),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

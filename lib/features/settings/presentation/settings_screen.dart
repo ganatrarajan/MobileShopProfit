@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../../core/config/env_config.dart';
 import '../../../core/storage/auth_storage.dart';
 import '../../../core/storage/preferences_storage.dart';
+import '../../../core/utils/whatsapp_helper.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../auth/data/auth_repository.dart';
@@ -27,6 +29,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Map<String, dynamic>? _shop;
   bool _isLoading = true;
   bool _isAppLockEnabled = false;
+  String _whatsappLangCode = 'en';
 
   @override
   void initState() {
@@ -38,14 +41,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final user = await _authStorage.getUser();
     final shop = await _authStorage.getShop();
     final isLock = await _prefsStorage.isAppLockEnabled();
+    final waLang = await _prefsStorage.getWhatsAppLanguage();
 
     if (mounted) {
       setState(() {
         _user = user;
         _shop = shop;
         _isAppLockEnabled = isLock;
+        _whatsappLangCode = waLang;
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _showWhatsAppLanguageDialog() async {
+    final selected = await showDialog<WhatsAppLanguage>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('WhatsApp Message Language', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        children: WhatsAppLanguage.values.map((lang) {
+          final isSelected = lang.code == _whatsappLangCode;
+          return SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, lang),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6.0),
+              child: Row(
+                children: [
+                  Text(lang.flag, style: const TextStyle(fontSize: 22)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          lang.label,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                            color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          lang.englishName,
+                          style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (isSelected)
+                    const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 22),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+
+    if (selected != null) {
+      await _prefsStorage.saveWhatsAppLanguage(selected.code);
+      if (mounted) {
+        setState(() {
+          _whatsappLangCode = selected.code;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('WhatsApp message language set to ${selected.displayName}'),
+            backgroundColor: const Color(0xFF25D366),
+          ),
+        );
+      }
     }
   }
 
@@ -112,6 +178,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               const SnackBar(content: Text('Language set to English (Architecture ready for future locales)')),
                             );
                           },
+                        ),
+                        const Divider(height: 1),
+                        _buildSettingTile(
+                          icon: Icons.chat_rounded,
+                          title: 'WhatsApp Message Language',
+                          subtitle: WhatsAppLanguage.fromCode(_whatsappLangCode).displayName,
+                          trailingText: WhatsAppLanguage.fromCode(_whatsappLangCode).shortName,
+                          onTap: _showWhatsAppLanguageDialog,
                         ),
                         const Divider(height: 1),
                         _buildSettingTile(
@@ -318,15 +392,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 30),
 
                   // App Version Footer
-                  const Center(
+                  Center(
                     child: Column(
                       children: [
                         Text(
-                          'Mobile Profits v1.0.0+1',
-                          style: TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w600),
+                          '${EnvConfig.appName} v${EnvConfig.currentAppVersion}+${EnvConfig.buildNumber}',
+                          style: const TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w600),
                         ),
-                        SizedBox(height: 4),
-                        Text(
+                        const SizedBox(height: 4),
+                        const Text(
                           'App Preferences • Dynamic Legal Pages • Support',
                           style: TextStyle(fontSize: 10, color: AppColors.textMuted),
                         ),

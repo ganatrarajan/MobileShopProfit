@@ -1,3 +1,5 @@
+import '../../../core/utils/whatsapp_helper.dart';
+import '../../../core/widgets/whatsapp_icon.dart';
 import '../../../core/widgets/app_shimmer.dart';
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
@@ -174,7 +176,42 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
                 children: [
                   const Text('Contact & Location Info', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                   const SizedBox(height: 14),
-                  _buildDetailRow(Icons.phone_android_rounded, 'Primary Mobile', _currentCustomer.mobile),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildDetailRow(Icons.phone_android_rounded, 'Primary Mobile', _currentCustomer.mobile),
+                      ),
+                      if (_currentCustomer.mobile.isNotEmpty)
+                        InkWell(
+                          onTap: () => WhatsAppHelper.showCustomerWhatsAppOptions(context, _currentCustomer),
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF25D366).withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: const Color(0xFF25D366), width: 1.2),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                WhatsAppIcon(size: 16),
+                                SizedBox(width: 4),
+                                Text(
+                                  'WhatsApp',
+                                  style: TextStyle(
+                                    color: Color(0xFF128C7E),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                   if (_currentCustomer.alternateMobile != null && _currentCustomer.alternateMobile!.isNotEmpty)
                     _buildDetailRow(Icons.phone_outlined, 'Alternate Mobile', _currentCustomer.alternateMobile!),
                   if (_currentCustomer.email != null && _currentCustomer.email!.isNotEmpty)

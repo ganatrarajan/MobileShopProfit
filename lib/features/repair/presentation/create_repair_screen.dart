@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_feedback.dart';
 import '../../../core/utils/whatsapp_helper.dart';
+import '../../../core/storage/preferences_storage.dart';
 import '../../../core/widgets/app_empty_state.dart';
 import '../../../core/widgets/app_searchable_bottom_sheet.dart';
 import '../../../core/widgets/custom_button.dart';
@@ -765,50 +766,73 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
             ),
           );
 
-          await showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (ctx) => AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              title: const Row(
-                children: [
-                  Icon(Icons.check_circle_rounded, color: Colors.green, size: 24),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text('Job Card Created'),
+          final jobDisplayNum = createdRepair.jobNumber.isNotEmpty ? '#${createdRepair.jobNumber}' : '';
+          final initialLangCode = await PreferencesStorage().getWhatsAppLanguage();
+          var selectedLang = WhatsAppLanguage.fromCode(initialLangCode);
+
+          if (mounted) {
+            await showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (ctx) => StatefulBuilder(
+                builder: (context, setDialogState) => AlertDialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  title: const Row(
+                    children: [
+                      Icon(Icons.check_circle_rounded, color: Colors.green, size: 24),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text('Job Card Created'),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Job Card  has been created successfully.'),
-                  const SizedBox(height: 12),
-                  const Text('Would you like to send a WhatsApp notification to the customer now?'),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Skip / Done'),
-                ),
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    Navigator.pop(ctx);
-                    await WhatsAppHelper.sendRepairWhatsAppMessage(context, createdRepair);
-                  },
-                  icon: const WhatsAppIcon(size: 18, showBackground: false),
-                  label: const Text('Send WhatsApp'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF25D366),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Job Card $jobDisplayNum has been created successfully.'),
+                      const SizedBox(height: 12),
+                      const Text('Would you like to send a WhatsApp notification to the customer now?'),
+                      const SizedBox(height: 14),
+                      WhatsAppLanguageSelector(
+                        compact: true,
+                        selectedLanguage: selectedLang,
+                        onLanguageChanged: (lang) {
+                          setDialogState(() {
+                            selectedLang = lang;
+                          });
+                          PreferencesStorage().saveWhatsAppLanguage(lang.code);
+                        },
+                      ),
+                    ],
                   ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Skip / Done'),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        Navigator.pop(ctx);
+                        await WhatsAppHelper.sendRepairWhatsAppMessage(
+                          context,
+                          createdRepair,
+                          language: selectedLang,
+                        );
+                      },
+                      icon: const WhatsAppIcon(size: 18, showBackground: false),
+                      label: const Text('Send WhatsApp'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF25D366),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          );
+              ),
+            );
+          }
 
             if (mounted) {
               Navigator.pop(context, true);

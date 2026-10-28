@@ -1,7 +1,8 @@
+import 'package:package_info_plus/package_info_plus.dart';
+
 class EnvConfig {
-  /// Base API URL configured for live backend server.
   // static String get baseUrl => 'https://myrepairhub.noviqe.in/api/v1';
-  static String get baseUrl => 'http://192.168.1.8:8000/api/v1';
+  static String get baseUrl => 'http://192.168.1.15:8000/api/v1';
 
   /// Base Web Domain URL derived dynamically from API baseUrl
   static String get webBaseUrl => baseUrl.replaceAll('/api/v1', '');
@@ -12,5 +13,19 @@ class EnvConfig {
   static String get deleteAccountWebUrl => '$webBaseUrl/delete-account';
 
   static const String appName = 'MyRepairHub';
-  static const String currentAppVersion = '1.0.9';
+
+  static String _currentAppVersion = '1.0.0';
+  static String _buildNumber = '1';
+
+  static String get currentAppVersion => _currentAppVersion;
+  static String get buildNumber => _buildNumber;
+
+  /// Loads the app version dynamically from the platform package info (pubspec.yaml / build config)
+  static Future<void> init() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      _currentAppVersion = info.version;
+      _buildNumber = info.buildNumber;
+    } catch (_) {}
+  }
 }

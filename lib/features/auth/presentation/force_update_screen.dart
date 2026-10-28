@@ -33,8 +33,14 @@ class _ForceUpdateScreenState extends State<ForceUpdateScreen> {
           updateUrl: '',
           updateTitle: 'Update Required',
           updateMessage:
-              'A mandatory app update is required to continue using Mobile Shop Profit. Please update your app to the latest version.',
+              'A mandatory app update is required to continue using ${EnvConfig.appName}. Please update your app to the latest version.',
         );
+    _refreshVersionInfo();
+  }
+
+  Future<void> _refreshVersionInfo() async {
+    await EnvConfig.init();
+    if (mounted) setState(() {});
   }
 
   Future<void> _openUpdateUrl() async {
@@ -72,6 +78,7 @@ class _ForceUpdateScreenState extends State<ForceUpdateScreen> {
     setState(() {
       _isChecking = true;
     });
+    await EnvConfig.init();
     final response = await ApiClient().get(
       ApiEndpoints.appVersion,
       fromJson: (json) => AppVersionInfo.fromJson(json),

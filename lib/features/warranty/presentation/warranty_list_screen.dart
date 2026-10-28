@@ -1,3 +1,5 @@
+import '../../../core/utils/whatsapp_helper.dart';
+import '../../../core/widgets/whatsapp_icon.dart';
 import '../../../core/utils/date_helper.dart';
 import '../../../core/widgets/app_shimmer.dart';
 import 'package:flutter/material.dart';
@@ -386,6 +388,14 @@ class _WarrantyListScreenState extends State<WarrantyListScreen> {
                                                 label: warranty.status.replaceAll('_', ' ').toUpperCase(),
                                                 backgroundColor: statusColor.withOpacity(0.12),
                                                 textColor: statusColor,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              InkWell(
+                                                onTap: () => WhatsAppHelper.showWarrantyWhatsAppOptions(context, warranty),
+                                                child: const Padding(
+                                                  padding: EdgeInsets.all(4.0),
+                                                  child: WhatsAppIcon(size: 18),
+                                                ),
                                               ),
                                               const SizedBox(width: 4),
                                               InkWell(

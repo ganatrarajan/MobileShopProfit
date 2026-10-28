@@ -30,6 +30,9 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _checkAuthStatus() async {
     await Future.delayed(const Duration(milliseconds: 1000));
 
+    // Ensure app version is loaded from package info
+    await EnvConfig.init();
+
     // Check version status & force update from API
     try {
       final versionResponse = await ApiClient().get(

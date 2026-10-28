@@ -1,3 +1,5 @@
+import '../../../core/utils/whatsapp_helper.dart';
+import '../../../core/widgets/whatsapp_icon.dart';
 import '../../../core/utils/date_helper.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
@@ -173,6 +175,11 @@ class _WarrantyDetailsScreenState extends State<WarrantyDetailsScreen> {
         backgroundColor: AppColors.primary,
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const WhatsAppIcon(size: 22),
+            onPressed: () => WhatsAppHelper.showWarrantyWhatsAppOptions(context, _warranty),
+            tooltip: 'Send Warranty on WhatsApp',
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: _refreshDetails,

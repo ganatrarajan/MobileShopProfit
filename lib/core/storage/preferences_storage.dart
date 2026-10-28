@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class PreferencesStorage {
   static const String _keyThemeMode = 'pref_theme_mode'; // 'system', 'light', 'dark'
   static const String _keyLanguage = 'pref_language';    // 'en'
+  static const String _keyWhatsAppLanguage = 'pref_whatsapp_language'; // 'en', 'hi', 'gu'
   static const String _keyCurrency = 'pref_currency';    // 'INR'
   static const String _keyAppLock = 'pref_app_lock_enabled';
   static const String _keyAppLockPin = 'pref_app_lock_pin';
@@ -25,6 +26,16 @@ class PreferencesStorage {
   Future<void> saveLanguage(String lang) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyLanguage, lang);
+  }
+
+  Future<String> getWhatsAppLanguage() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyWhatsAppLanguage) ?? 'en';
+  }
+
+  Future<void> saveWhatsAppLanguage(String lang) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyWhatsAppLanguage, lang);
   }
 
   Future<String> getCurrency() async {

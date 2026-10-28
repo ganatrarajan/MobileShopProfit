@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../../../../core/config/env_config.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_colors.dart';
 
@@ -39,7 +40,7 @@ class _ReportProblemDialogState extends State<ReportProblemDialog> {
           'subject': 'Problem Report from App Settings',
           'message': _descriptionController.text.trim(),
           'metadata': {
-            'app_version': '1.0.0+1',
+            'app_version': '${EnvConfig.currentAppVersion}+${EnvConfig.buildNumber}',
             'platform': Platform.isAndroid ? 'Android' : Platform.isIOS ? 'iOS' : Platform.operatingSystem,
             'shop_id': widget.shop?['id']?.toString(),
             'user_id': widget.user?['id']?.toString(),
@@ -73,7 +74,7 @@ class _ReportProblemDialogState extends State<ReportProblemDialog> {
 
   @override
   Widget build(BuildContext context) {
-    const appVersion = '1.0.0+1';
+    final appVersion = '${EnvConfig.currentAppVersion}+${EnvConfig.buildNumber}';
     final platformStr = Platform.isAndroid ? 'Android' : Platform.isIOS ? 'iOS' : Platform.operatingSystem;
     final shopId = widget.shop?['id']?.toString() ?? 'N/A';
     final userId = widget.user?['id']?.toString() ?? 'N/A';

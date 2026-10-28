@@ -1,3 +1,5 @@
+import '../../../core/utils/whatsapp_helper.dart';
+import '../../../core/widgets/whatsapp_icon.dart';
 import 'package:pdf/pdf.dart';
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
@@ -30,6 +32,13 @@ class SaleInvoicePdfScreen extends StatelessWidget {
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const WhatsAppIcon(size: 22),
+            tooltip: 'Send Invoice on WhatsApp',
+            onPressed: () async {
+              await WhatsAppHelper.sendSaleWhatsAppMessage(context, sale);
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.share_rounded, color: Colors.white),
             tooltip: 'Share Invoice PDF',
