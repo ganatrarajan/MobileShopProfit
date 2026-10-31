@@ -65,6 +65,11 @@ import '../../features/warranty/presentation/warranty_claim_list_screen.dart';
 import '../../features/warranty/presentation/warranty_details_screen.dart';
 import '../../features/warranty/presentation/warranty_list_screen.dart';
 
+import '../../features/used_mobile/models/used_mobile.dart';
+import '../../features/used_mobile/presentation/buy_used_mobile_screen.dart';
+import '../../features/used_mobile/presentation/used_mobile_details_screen.dart';
+import '../../features/used_mobile/presentation/used_mobile_list_screen.dart';
+
 class AppRoutes {
   static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -134,6 +139,9 @@ class AppRoutes {
 
   static const String profitIntelligence = '/profit-intelligence';
   static const String profitIntelligenceDetail = '/profit-intelligence-detail';
+  static const String usedMobiles = '/used-mobiles';
+  static const String buyUsedMobile = '/buy-used-mobile';
+  static const String usedMobileDetails = '/used-mobile-details';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -291,6 +299,15 @@ class AppRoutes {
             title: args['title'] as String,
           ),
         );
+
+      case usedMobiles:
+        return MaterialPageRoute(settings: settings, builder: (_) => const UsedMobileListScreen());
+      case buyUsedMobile:
+        final mobile = settings.arguments is UsedMobile ? settings.arguments as UsedMobile : null;
+        return MaterialPageRoute(settings: settings, builder: (_) => BuyUsedMobileScreen(mobileToEdit: mobile));
+      case usedMobileDetails:
+        final mobile = settings.arguments as UsedMobile;
+        return MaterialPageRoute(settings: settings, builder: (_) => UsedMobileDetailsScreen(mobile: mobile));
 
       default:
         return MaterialPageRoute(

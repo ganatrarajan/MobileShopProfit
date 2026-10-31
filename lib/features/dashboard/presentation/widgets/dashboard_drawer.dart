@@ -109,8 +109,13 @@ class DashboardDrawer extends StatelessWidget {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.receipt_long_rounded, color: AppColors.accent),
+            leading: const Icon(Icons.phone_android_rounded, color: AppColors.primary),
+            title: const Text('Used Mobiles (Buy & Sell)', style: textStyle),
+            onTap: () => _navigateToTab(context, 2, AppRoutes.usedMobiles),
+          ),
+          ListTile(
             title: const Text('Sales & Invoices', style: textStyle),
+            leading: const Icon(Icons.receipt_long_rounded, color: AppColors.accent),
             onTap: () => _navigateToTab(context, 3, AppRoutes.sales),
           ),
           ListTile(

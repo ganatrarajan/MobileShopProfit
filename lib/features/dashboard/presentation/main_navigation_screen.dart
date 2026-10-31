@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../purchase/presentation/purchase_list_screen.dart';
 import '../../repair/presentation/repair_list_screen.dart';
-import '../../sales/presentation/quick_sale_screen.dart';
 import '../../sales/presentation/sales_list_screen.dart';
+import '../../used_mobile/presentation/used_mobile_list_screen.dart';
 import 'dashboard_screen.dart';
-
 import '../../subscription/utils/subscription_guard.dart';
 
 class MainNavigationScreen extends StatefulWidget {
@@ -23,7 +22,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   final GlobalKey<DashboardScreenState> _dashboardKey = GlobalKey<DashboardScreenState>();
   final GlobalKey<SalesListScreenState> _salesListKey = GlobalKey<SalesListScreenState>();
-  final GlobalKey<QuickSaleScreenState> _quickSaleKey = GlobalKey<QuickSaleScreenState>();
+  final GlobalKey<UsedMobileListScreenState> _usedMobileKey = GlobalKey<UsedMobileListScreenState>();
   final GlobalKey<RepairListScreenState> _repairListKey = GlobalKey<RepairListScreenState>();
   final GlobalKey<PurchaseListScreenState> _purchaseListKey = GlobalKey<PurchaseListScreenState>();
 
@@ -38,23 +37,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     _pages = [
       DashboardScreen(key: _dashboardKey, onTabSelected: _onTabTapped),
       RepairListScreen(key: _repairListKey),
-      QuickSaleScreen(key: _quickSaleKey, onSuccess: _onQuickSaleSuccess),
+      UsedMobileListScreen(key: _usedMobileKey),
       SalesListScreen(key: _salesListKey),
       PurchaseListScreen(key: _purchaseListKey),
     ];
   }
 
-  void _onQuickSaleSuccess() {
-    setState(() {
-      _currentIndex = 3; // Switch to Sales & Billing tab
-      _visitedTabs.add(3);
-    });
-    _salesListKey.currentState?.fetchSales();
-  }
-
   Future<void> _onTabTapped(int index) async {
     if (index == 2) {
-      final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'make quick sales');
+      final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'access used mobiles');
       if (!ok) return;
     }
 
@@ -70,6 +61,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (index == 1) {
         _repairListKey.currentState?.applyDateFilter(period, customRange);
+      } else if (index == 2) {
+        _usedMobileKey.currentState?.fetchMobiles();
       } else if (index == 3) {
         _salesListKey.currentState?.applyDateFilter(period, customRange);
       } else if (index == 4) {
@@ -154,9 +147,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                       ),
                     ],
                   ),
-                  child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 20),
+                  child: const Icon(Icons.phone_android_rounded, color: Colors.white, size: 20),
                 ),
-                label: 'Quick Sale',
+                label: 'Used Mobiles',
               ),
               const BottomNavigationBarItem(
                 icon: Icon(Icons.receipt_long_rounded),

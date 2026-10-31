@@ -10,6 +10,8 @@ import '../../features/sales/models/sale.dart';
 import '../../features/repair/models/repair.dart';
 import '../../features/customer/models/customer.dart';
 import '../../features/warranty/models/warranty.dart';
+import '../../features/used_mobile/models/used_mobile.dart';
+import 'pdf_used_mobile_builder.dart';
 import '../storage/auth_storage.dart';
 import '../storage/preferences_storage.dart';
 import '../widgets/whatsapp_icon.dart';
@@ -62,7 +64,7 @@ class WhatsAppLanguageSelector extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         const Row(
-          children: const [
+          children: [
             Icon(Icons.translate_rounded, size: 15, color: AppColors.textSecondary),
             SizedBox(width: 6),
             Text(
@@ -1902,6 +1904,540 @@ class WhatsAppHelper {
                               await launchUrl(wameUri, mode: LaunchMode.externalApplication);
                             }
                           }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ==========================================
+  // USED MOBILE PURCHASE & SALE WHATSAPP METHODS
+  // ==========================================
+
+  /// Builds WhatsApp message to the Seller when shop buys their old phone.
+  static String buildUsedMobilePurchaseWhatsAppMessage(
+    UsedMobile mobile, {
+    String? shopName,
+    WhatsAppLanguage language = WhatsAppLanguage.english,
+  }) {
+    final sellerName = mobile.sellerName.isNotEmpty ? mobile.sellerName : 'Customer';
+    final effectiveShopName = shopName?.trim().isNotEmpty == true
+        ? shopName!.trim()
+        : 'Mobile Repair & Trading Hub';
+    final refNum = mobile.purchaseRefNumber.isNotEmpty ? mobile.purchaseRefNumber : 'UMP-${mobile.id}';
+    final dateStr = DateHelper.formatDate(mobile.purchaseDate.toIso8601String());
+
+    final sb = StringBuffer();
+
+    switch (language) {
+      case WhatsAppLanguage.gujarati:
+        sb.writeln('નમસ્તે $sellerName 👋');
+        sb.writeln('');
+        sb.writeln('*$effectiveShopName* ખાતે આપનો જૂનો ફોન વેચવા બદલ આભાર! 📱🤝');
+        sb.writeln('');
+        sb.writeln('📋 *જૂના મોબાઇલ ખરીદી પાવતી (PURCHASE VOUCHER)*');
+        sb.writeln('* સંદર્ભ નંબર: #$refNum');
+        sb.writeln('* તારીખ: $dateStr');
+        sb.writeln('* ડિવાઇસ: *${mobile.brand} ${mobile.model}*');
+        sb.writeln('* પ્રાથમિક IMEI: *${mobile.imei1}*');
+        if (mobile.ram != null || mobile.storage != null) {
+          sb.writeln('* કન્ફિગરેશન: ${[mobile.ram, mobile.storage].where((e) => e != null && e.isNotEmpty).join(' / ')}');
+        }
+        sb.writeln('');
+        sb.writeln('💰 *ચુકવણી વિગતો (PAYMENT CONFIRMATION)*:');
+        sb.writeln('* ચૂકવેલ રકમ: *₹${mobile.purchasePrice.toStringAsFixed(2)}* ✅');
+        sb.writeln('* પેમેન્ટ મોડ: ${mobile.paymentMode}');
+        sb.writeln('* સ્થિતિ: પૂરેપૂરી રકમ પ્રાપ્ત થયેલ છે.');
+        sb.writeln('');
+        sb.writeln('🛡️ *માલિકી ઘોષણા*: આ ડિવાઇસની કાયદેસર માલિકીની ચકાસણી કરવામાં આવી છે.');
+        sb.writeln('');
+        sb.writeln('ભવિષ્યમાં પણ આપના મોબાઇલ સેવા માટે અમારો સંપર્ક કરશો! આભાર! 🙏');
+        break;
+
+      case WhatsAppLanguage.hindi:
+        sb.writeln('नमस्ते $sellerName 👋');
+        sb.writeln('');
+        sb.writeln('*$effectiveShopName* पर अपना पुराना फोन बेचने के लिए धन्यवाद! 📱🤝');
+        sb.writeln('');
+        sb.writeln('📋 *पुराने मोबाइल खरीद रसीद (PURCHASE VOUCHER)*');
+        sb.writeln('* संदर्भ क्रमांक: #$refNum');
+        sb.writeln('* दिनांक: $dateStr');
+        sb.writeln('* डिवाइस: *${mobile.brand} ${mobile.model}*');
+        sb.writeln('* मुख्य IMEI: *${mobile.imei1}*');
+        if (mobile.ram != null || mobile.storage != null) {
+          sb.writeln('* रैम/स्टोरेज: ${[mobile.ram, mobile.storage].where((e) => e != null && e.isNotEmpty).join(' / ')}');
+        }
+        sb.writeln('');
+        sb.writeln('💰 *भुगतान विवरण (PAYMENT CONFIRMATION)*:');
+        sb.writeln('* भुगतान राशि: *₹${mobile.purchasePrice.toStringAsFixed(2)}* ✅');
+        sb.writeln('* भुगतान माध्यम: ${mobile.paymentMode}');
+        sb.writeln('* स्थिति: पूर्ण भुगतान संपन्न।');
+        sb.writeln('');
+        sb.writeln('🛡️ *स्वामित्व घोषणा*: डिवाइस के वैध स्वामित्व सत्यापन के साथ यह रसीद जारी की गई है।');
+        sb.writeln('');
+        sb.writeln('किसी भी मोबाइल रिपेयर या खरीदारी के लिए हमेशा याद रखें! धन्यवाद! 🙏');
+        break;
+
+      case WhatsAppLanguage.english:
+      default:
+        sb.writeln('Hello $sellerName 👋');
+        sb.writeln('');
+        sb.writeln('Thank you for selling your mobile to *$effectiveShopName*! 📱🤝');
+        sb.writeln('');
+        sb.writeln('📋 *USED MOBILE PURCHASE RECEIPT*');
+        sb.writeln('* Reference No: #$refNum');
+        sb.writeln('* Date: $dateStr');
+        sb.writeln('* Device: *${mobile.brand} ${mobile.model}*');
+        sb.writeln('* Primary IMEI: *${mobile.imei1}*');
+        if (mobile.ram != null || mobile.storage != null) {
+          sb.writeln('* Specs: ${[mobile.ram, mobile.storage].where((e) => e != null && e.isNotEmpty).join(' / ')}');
+        }
+        sb.writeln('');
+        sb.writeln('💰 *PAYMENT CONFIRMATION*:');
+        sb.writeln('* Purchase Amount: *₹${mobile.purchasePrice.toStringAsFixed(2)}* ✅');
+        sb.writeln('* Payment Mode: ${mobile.paymentMode}');
+        sb.writeln('* Status: Paid in full to seller.');
+        sb.writeln('');
+        sb.writeln('🛡️ *Ownership Undertaking*: Stored with verified legal seller declaration.');
+        sb.writeln('');
+        sb.writeln('Looking forward to serving you again! Have a great day! 🙏');
+        break;
+    }
+
+    return sb.toString();
+  }
+
+  /// Builds WhatsApp message to the Buyer when shop sells a used/refurbished phone.
+  static String buildUsedMobileSaleWhatsAppMessage(
+    UsedMobile mobile, {
+    String? shopName,
+    WhatsAppLanguage language = WhatsAppLanguage.english,
+  }) {
+    final buyerName = mobile.buyerName?.isNotEmpty == true ? mobile.buyerName! : 'Customer';
+    final effectiveShopName = shopName?.trim().isNotEmpty == true
+        ? shopName!.trim()
+        : 'Mobile Repair & Trading Hub';
+    final invoiceNum = mobile.saleInvoiceNumber?.isNotEmpty == true ? mobile.saleInvoiceNumber! : 'UMS-${mobile.id}';
+    final dateStr = DateHelper.formatDate((mobile.saleDate ?? DateTime.now()).toIso8601String());
+    final warrantyDays = mobile.warrantyDays ?? 0;
+
+    final sb = StringBuffer();
+
+    switch (language) {
+      case WhatsAppLanguage.gujarati:
+        sb.writeln('નમસ્તે $buyerName 👋');
+        sb.writeln('');
+        sb.writeln('*$effectiveShopName* માંથી મોબાઇલ ખરીદવા બદલ આપનો ખૂબ ખૂબ આભાર! 📱🎉✨');
+        sb.writeln('');
+        sb.writeln('🧾 *ઇનવોઇસ અને બિલ વિગતો (SALE INVOICE)*');
+        sb.writeln('* બિલ નંબર: #$invoiceNum');
+        sb.writeln('* તારીખ: $dateStr');
+        sb.writeln('* ડિવાઇસ: *${mobile.brand} ${mobile.model}*');
+        sb.writeln('* IMEI 1: *${mobile.imei1}*');
+        if (mobile.accessoriesIncluded.isNotEmpty) {
+          sb.writeln('* સાથે આપેલ વસ્તુઓ: ${mobile.accessoriesIncluded.join(', ')}');
+        }
+        sb.writeln('');
+        sb.writeln('💳 *બિલ રકમ (PAYMENT DETAILS)*:');
+        sb.writeln('* કુલ ચૂકવેલ રકમ: *₹${(mobile.sellingPrice ?? 0.0).toStringAsFixed(2)}* ✅');
+        sb.writeln('* પેમેન્ટ મોડ: ${mobile.salePaymentMode ?? 'Cash'}');
+        sb.writeln('');
+        if (warrantyDays > 0) {
+          sb.writeln('🛡️ *ટેસ્ટિંગ વોરંટી (TESTING WARRANTY)*:');
+          sb.writeln('* સમયગાળો: *$warrantyDays દિવસ ટેસ્ટિંગ વોરંટી*');
+          sb.writeln('* નોંધ: વોરંટી મધરબોર્ડ/હાર્ડવેર માટે માન્ય છે (તૂટફૂટ કે પાણીથી નુકસાન બાકાત રહેશે).');
+        } else {
+          sb.writeln('🛡️ *વોરંટી*: તપાસીને ચાલુ સ્થિતિમાં આપવામાં આવેલ છે.');
+        }
+        sb.writeln('');
+        sb.writeln('અમારા પર વિશ્વાસ મૂકવા બદલ આભાર! આપનો દિવસ શુભ રહે! 🤝✨');
+        break;
+
+      case WhatsAppLanguage.hindi:
+        sb.writeln('नमस्ते $buyerName 👋');
+        sb.writeln('');
+        sb.writeln('*$effectiveShopName* से मोबाइल खरीदने के लिए आपका बहुत-बहुत धन्यवाद! 📱🎉✨');
+        sb.writeln('');
+        sb.writeln('🧾 *बिल व इनवॉइस विवरण (SALE INVOICE)*');
+        sb.writeln('* बिल क्रमांक: #$invoiceNum');
+        sb.writeln('* दिनांक: $dateStr');
+        sb.writeln('* फोन: *${mobile.brand} ${mobile.model}*');
+        sb.writeln('* IMEI 1: *${mobile.imei1}*');
+        if (mobile.accessoriesIncluded.isNotEmpty) {
+          sb.writeln('* साथ दिए गए सामान: ${mobile.accessoriesIncluded.join(', ')}');
+        }
+        sb.writeln('');
+        sb.writeln('💳 *भुगतान विवरण (PAYMENT DETAILS)*:');
+        sb.writeln('* कुल भुगतान: *₹${(mobile.sellingPrice ?? 0.0).toStringAsFixed(2)}* ✅');
+        sb.writeln('* भुगतान माध्यम: ${mobile.salePaymentMode ?? 'Cash'}');
+        sb.writeln('');
+        if (warrantyDays > 0) {
+          sb.writeln('🛡️ *टेस्टिंग वारंटी (TESTING WARRANTY)*:');
+          sb.writeln('* अवधि: *$warrantyDays दिन की टेस्टिंग वारंटी*');
+          sb.writeln('* नोट: वारंटी इंटरनल हार्डवेयर/मदरबोर्ड के लिए मान्य है (फिजिकल डैमेज और लिक्विड डैमेज शामिल नहीं है)।');
+        } else {
+          sb.writeln('🛡️ *वारंटी*: फोन चेक करके चालू स्थिति में डिलीवर किया गया है।');
+        }
+        sb.writeln('');
+        sb.writeln('हमारे स्टोर पर विश्वास करने के लिए धन्यवाद! आपका दिन शुभ हो! 🤝✨');
+        break;
+
+      case WhatsAppLanguage.english:
+      default:
+        sb.writeln('Hello $buyerName 👋');
+        sb.writeln('');
+        sb.writeln('Congratulations on purchasing your phone from *$effectiveShopName*! 📱🎉✨');
+        sb.writeln('');
+        sb.writeln('🧾 *SALE INVOICE SUMMARY*');
+        sb.writeln('* Invoice No: #$invoiceNum');
+        sb.writeln('* Date: $dateStr');
+        sb.writeln('* Device: *${mobile.brand} ${mobile.model}*');
+        sb.writeln('* IMEI 1: *${mobile.imei1}*');
+        if (mobile.accessoriesIncluded.isNotEmpty) {
+          sb.writeln('* Accessories: ${mobile.accessoriesIncluded.join(', ')}');
+        }
+        sb.writeln('');
+        sb.writeln('💳 *PAYMENT SUMMARY*:');
+        sb.writeln('* Total Paid: *₹${(mobile.sellingPrice ?? 0.0).toStringAsFixed(2)}* ✅');
+        sb.writeln('* Payment Mode: ${mobile.salePaymentMode ?? 'Cash'}');
+        sb.writeln('');
+        if (warrantyDays > 0) {
+          sb.writeln('🛡️ *TESTING WARRANTY*:');
+          sb.writeln('* Duration: *$warrantyDays Days Testing Warranty*');
+          sb.writeln('* Terms: Hardware testing coverage (Physical & liquid damages excluded).');
+        }
+        sb.writeln('');
+        sb.writeln('Thank you for trusting us! Enjoy your new device! 🤝✨');
+        break;
+    }
+
+    return sb.toString();
+  }
+
+  /// Opens the interactive WhatsApp share sheet for a Used Mobile Purchase Receipt (to Seller).
+  static Future<void> sendUsedMobilePurchaseWhatsAppMessage(
+    BuildContext context,
+    UsedMobile mobile,
+  ) async {
+    final rawPhone = mobile.sellerPhone;
+    final formattedPhone = formatPhoneNumber(rawPhone);
+
+    final savedCode = await PreferencesStorage().getWhatsAppLanguage();
+    WhatsAppLanguage currentLang = WhatsAppLanguage.fromCode(savedCode);
+
+    if (!context.mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (modalCtx, setModalState) {
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: SafeArea(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF25D366).withOpacity(0.12),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const WhatsAppIcon(size: 22, showBackground: false),
+                              ),
+                              const SizedBox(width: 10),
+                              const Text(
+                                'Send Purchase Receipt',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 16,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded, color: AppColors.textMuted),
+                            onPressed: () => Navigator.pop(ctx),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.person_rounded, size: 18, color: AppColors.primary),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                '${mobile.sellerName} (${mobile.sellerPhone})',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      WhatsAppLanguageSelector(
+                        selectedLanguage: currentLang,
+                        onLanguageChanged: (newLang) {
+                          setModalState(() {
+                            currentLang = newLang;
+                          });
+                          PreferencesStorage().saveWhatsAppLanguage(newLang.code);
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      const Divider(height: 1),
+                      const SizedBox(height: 12),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF25D366).withOpacity(0.12),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const WhatsAppIcon(size: 20, showBackground: false),
+                        ),
+                        title: const Text('Send Receipt Text', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        subtitle: Text('Sends purchase confirmation & IMEI slip in ${currentLang.label}'),
+                        onTap: () async {
+                          Navigator.pop(ctx);
+                          String? shopName;
+                          try {
+                            final shop = await AuthStorage().getShop();
+                            if (shop != null && shop['name'] != null) {
+                              shopName = shop['name'].toString().trim();
+                            }
+                          } catch (_) {}
+
+                          final msg = buildUsedMobilePurchaseWhatsAppMessage(mobile, shopName: shopName, language: currentLang);
+                          if (formattedPhone != null) {
+                            final encoded = Uri.encodeComponent(msg);
+                            final uri = Uri.parse('whatsapp://send?phone=$formattedPhone&text=$encoded');
+                            final wameUri = Uri.parse('https://wa.me/$formattedPhone?text=$encoded');
+                            if (await canLaunchUrl(uri)) {
+                              await launchUrl(uri, mode: LaunchMode.externalApplication);
+                            } else if (await canLaunchUrl(wameUri)) {
+                              await launchUrl(wameUri, mode: LaunchMode.externalApplication);
+                            }
+                          }
+                        },
+                      ),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.picture_as_pdf_rounded, color: AppColors.primary, size: 20),
+                        ),
+                        title: const Text('Share Legal Agreement PDF', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        subtitle: const Text('Generates and shares legal signed PDF voucher'),
+                        onTap: () async {
+                          Navigator.pop(ctx);
+                          final bytes = await PdfUsedMobileBuilder.generatePurchaseAgreementPdf(mobile);
+                          final tempDir = await getTemporaryDirectory();
+                          final file = File('${tempDir.path}/Purchase_Agreement_${mobile.purchaseRefNumber}.pdf');
+                          await file.writeAsBytes(bytes);
+                          await Share.shareXFiles(
+                            [XFile(file.path)],
+                            text: 'Purchase Agreement & Voucher #${mobile.purchaseRefNumber}',
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// Opens the interactive WhatsApp share sheet for a Used Mobile Sale Invoice (to Buyer).
+  static Future<void> sendUsedMobileSaleWhatsAppMessage(
+    BuildContext context,
+    UsedMobile mobile,
+  ) async {
+    final rawPhone = mobile.buyerPhone;
+    final formattedPhone = formatPhoneNumber(rawPhone);
+
+    final savedCode = await PreferencesStorage().getWhatsAppLanguage();
+    WhatsAppLanguage currentLang = WhatsAppLanguage.fromCode(savedCode);
+
+    if (!context.mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (modalCtx, setModalState) {
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: SafeArea(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF25D366).withOpacity(0.12),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const WhatsAppIcon(size: 22, showBackground: false),
+                              ),
+                              const SizedBox(width: 10),
+                              const Text(
+                                'Send Sale Invoice & Warranty',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 16,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded, color: AppColors.textMuted),
+                            onPressed: () => Navigator.pop(ctx),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.person_rounded, size: 18, color: AppColors.accent),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                '${mobile.buyerName ?? "Customer"} (${mobile.buyerPhone ?? "No phone"})',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      WhatsAppLanguageSelector(
+                        selectedLanguage: currentLang,
+                        onLanguageChanged: (newLang) {
+                          setModalState(() {
+                            currentLang = newLang;
+                          });
+                          PreferencesStorage().saveWhatsAppLanguage(newLang.code);
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      const Divider(height: 1),
+                      const SizedBox(height: 12),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF25D366).withOpacity(0.12),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const WhatsAppIcon(size: 20, showBackground: false),
+                        ),
+                        title: const Text('Send Invoice & Warranty Bill', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        subtitle: Text('Sends full invoice breakdown in ${currentLang.label}'),
+                        onTap: () async {
+                          Navigator.pop(ctx);
+                          String? shopName;
+                          try {
+                            final shop = await AuthStorage().getShop();
+                            if (shop != null && shop['name'] != null) {
+                              shopName = shop['name'].toString().trim();
+                            }
+                          } catch (_) {}
+
+                          final msg = buildUsedMobileSaleWhatsAppMessage(mobile, shopName: shopName, language: currentLang);
+                          if (formattedPhone != null) {
+                            final encoded = Uri.encodeComponent(msg);
+                            final uri = Uri.parse('whatsapp://send?phone=$formattedPhone&text=$encoded');
+                            final wameUri = Uri.parse('https://wa.me/$formattedPhone?text=$encoded');
+                            if (await canLaunchUrl(uri)) {
+                              await launchUrl(uri, mode: LaunchMode.externalApplication);
+                            } else if (await canLaunchUrl(wameUri)) {
+                              await launchUrl(wameUri, mode: LaunchMode.externalApplication);
+                            }
+                          }
+                        },
+                      ),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.picture_as_pdf_rounded, color: AppColors.primary, size: 20),
+                        ),
+                        title: const Text('Share Invoice PDF Certificate', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        subtitle: const Text('Generates branded invoice PDF with warranty slip'),
+                        onTap: () async {
+                          Navigator.pop(ctx);
+                          final bytes = await PdfUsedMobileBuilder.generateSaleInvoicePdf(mobile);
+                          final tempDir = await getTemporaryDirectory();
+                          final file = File('${tempDir.path}/Sale_Invoice_${mobile.saleInvoiceNumber ?? mobile.id}.pdf');
+                          await file.writeAsBytes(bytes);
+                          await Share.shareXFiles(
+                            [XFile(file.path)],
+                            text: 'Sale Invoice & Testing Warranty #${mobile.saleInvoiceNumber ?? mobile.id}',
+                          );
                         },
                       ),
                     ],

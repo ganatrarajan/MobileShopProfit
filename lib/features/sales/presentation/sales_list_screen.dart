@@ -493,16 +493,8 @@ class SalesListScreenState extends State<SalesListScreen> {
                           icon: Icons.receipt_long_outlined,
                           title: 'No sales found',
                           message: 'No sales invoices matching $_dateFilterLabel.',
-                          actionLabel: 'Create Sale',
-                          onAction: () async {
-                            final allowed = await SubscriptionGuard.checkLimitAndAlert(
-                              context,
-                              FeatureLimitType.createSale,
-                            );
-                            if (allowed && context.mounted) {
-                              Navigator.pushNamed(context, AppRoutes.createSale).then((_) => _fetchSales());
-                            }
-                          },
+                          actionLabel: 'Add Sale',
+                          onAction: () => _showCreateSaleOptions(context),
                         )
                       : RefreshIndicator(
                           onRefresh: _fetchSales,
@@ -715,32 +707,82 @@ class SalesListScreenState extends State<SalesListScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.add_rounded),
-            onPressed: () async {
-              final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create sales invoices');
-              if (!ok || !context.mounted) return;
-              final result = await Navigator.pushNamed(context, AppRoutes.createSale);
-              if (result == true) {
-                _fetchSales();
-              }
-            },
+            onPressed: () => _showCreateSaleOptions(context),
           ),
         ],
       ),
       body: content,
       floatingActionButton: FloatingActionButton.extended(
         heroTag: null,
-        onPressed: () async {
-          final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create sales invoices');
-          if (!ok || !context.mounted) return;
-          final result = await Navigator.pushNamed(context, AppRoutes.createSale);
-          if (result == true) {
-            _fetchSales();
-          }
-        },
+        onPressed: () => _showCreateSaleOptions(context),
         backgroundColor: AppColors.accent,
         icon: const Icon(Icons.add_shopping_cart_rounded, color: Colors.white),
-        label: const Text('Create Sale', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        label: const Text('Add Sale', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
+    );
+  }
+
+  void _showCreateSaleOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Choose Sale Type',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+                ),
+                const SizedBox(height: 14),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade100,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.bolt_rounded, color: Colors.amber.shade900, size: 22),
+                  ),
+                  title: const Text('⚡ Quick Sale (Fast Checkout)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  subtitle: const Text('Instant counter billing with WhatsApp receipt'),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'make quick sales');
+                    if (!ok || !context.mounted) return;
+                    await Navigator.pushNamed(context, AppRoutes.quickSale);
+                    _fetchSales();
+                  },
+                ),
+                const SizedBox(height: 8),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.receipt_long_rounded, color: AppColors.primary, size: 22),
+                  ),
+                  title: const Text('📝 Detailed Invoice Sale', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  subtitle: const Text('Multi-item invoice with customer linking & taxes'),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create sales invoices');
+                    if (!ok || !context.mounted) return;
+                    final res = await Navigator.pushNamed(context, AppRoutes.createSale);
+                    if (res == true) _fetchSales();
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
