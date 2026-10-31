@@ -90,8 +90,8 @@ class AdminShopController extends Controller
         $shopData['recent_sales'] = Sale::withoutGlobalScope('shop')
             ->where('shop_id', $id)
             ->with(['customer' => fn($q) => $q->withoutGlobalScope('shop')->withTrashed(), 'items'])
-            ->latest('sale_date')
-            ->take(10)
+            ->orderByDesc('id')
+            ->take(15)
             ->get();
 
         $shopData['recent_repairs'] = Repair::withoutGlobalScope('shop')
@@ -101,8 +101,8 @@ class AdminShopController extends Controller
                 'device' => fn($q) => $q->withoutGlobalScope('shop')->withTrashed(),
                 'technician',
             ])
-            ->latest('date_received')
-            ->take(10)
+            ->orderByDesc('id')
+            ->take(15)
             ->get();
 
         $shopData['recent_customers'] = Customer::withoutGlobalScope('shop')

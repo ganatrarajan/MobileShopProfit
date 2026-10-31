@@ -517,6 +517,7 @@
         .badge-inactive { background: #fee2e2; color: #b91c1c; }
         .badge-trial { background: #fef3c7; color: #b45309; }
         .badge-resolved { background: #e0e7ff; color: #4338ca; }
+        .badge-blue { background: #dbeafe; color: #1d4ed8; }
 
         .btn-sm {
             padding: 6px 12px;
@@ -564,40 +565,59 @@
             align-items: center;
             justify-content: center;
             z-index: 1100;
+            padding: 24px;
+            overflow-y: auto;
         }
 
         .modal-content {
             background: white;
             width: 100%;
             max-width: 540px;
+            max-height: 90vh;
             border-radius: 14px;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            display: flex;
+            flex-direction: column;
             overflow: hidden;
+            margin: auto;
         }
 
         .modal-header {
-            padding: 18px 24px;
+            padding: 16px 24px;
             border-bottom: 1px solid var(--border-color);
             display: flex;
             align-items: center;
             justify-content: space-between;
+            flex-shrink: 0;
+            background: #ffffff;
         }
 
         .modal-header h3 {
             font-size: 16px;
             font-weight: 700;
+            margin: 0;
         }
 
         .modal-close {
             background: none;
             border: none;
-            font-size: 20px;
+            font-size: 22px;
+            line-height: 1;
             cursor: pointer;
             color: #64748b;
+            padding: 4px;
+            border-radius: 6px;
+        }
+
+        .modal-close:hover {
+            color: #0f172a;
+            background: #f1f5f9;
         }
 
         .modal-body {
-            padding: 24px;
+            padding: 20px 24px;
+            overflow-y: auto;
+            flex: 1 1 auto;
         }
     </style>
 </head>
@@ -643,6 +663,7 @@
                 <li><a href="#dashboard" class="nav-item active" onclick="switchNav('dashboard')">📊 Dashboard</a></li>
                 <li><a href="#shops" class="nav-item" onclick="switchNav('shops')">🏪 Shops Directory</a></li>
                 <li><a href="#operations" class="nav-item" onclick="switchNav('operations')">📑 Shop Operations</a></li>
+                <li><a href="#used-mobiles" class="nav-item" onclick="switchNav('used-mobiles')">📱 Used Mobiles</a></li>
                 <li><a href="#billing" class="nav-item" onclick="switchNav('billing')">💳 Subscriptions & Revenue</a></li>
                 <li><a href="#reports" class="nav-item" onclick="switchNav('reports')">📈 Business Reports</a></li>
                 <li><a href="#notifications" class="nav-item" onclick="switchNav('notifications')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-2px; margin-right:6px;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Push Notifications</a></li>
@@ -794,6 +815,9 @@
             if (['sales', 'repairs', 'customers', 'inventory', 'expenses', 'warranties', 'technicians', 'purchases', 'vendors', 'operations'].includes(route)) {
                 mainSection = 'operations';
                 subTab = subTab || (route === 'operations' ? 'sales' : route);
+            } else if (['used-mobiles', 'used-mobile-users', 'used-mobile-devices'].includes(route)) {
+                mainSection = 'used-mobiles';
+                subTab = subTab || (route === 'used-mobile-devices' ? 'devices' : 'users');
             } else if (['subscriptions', 'payments', 'plans', 'revenue', 'billing'].includes(route)) {
                 mainSection = 'billing';
                 subTab = subTab || (route === 'billing' ? 'subscriptions' : route);
@@ -810,6 +834,7 @@
                 'dashboard': 'Dashboard Overview',
                 'shops': 'Shops Directory',
                 'operations': 'Shop Operations Data Hub',
+                'used-mobiles': '📱 Used Mobiles Feature & Adoption Hub',
                 'billing': 'Subscriptions & Revenue Billing',
                 'reports': 'Platform Business & Financial Reports',
                 'settings': 'System & Platform Settings'
@@ -820,6 +845,11 @@
                 loadDashboardView();
             } else if (mainSection === 'shops') {
                 loadShopsView();
+            } else if (mainSection === 'used-mobiles') {
+                renderSubNavBar('used-mobiles', subTab, [
+                    { id: 'users', label: '👥 Shops Using Feature', fn: loadUsedMobileUsersView },
+                    { id: 'devices', label: '📱 All Used Mobiles Ledger', fn: loadUsedMobileDevicesView },
+                ]);
             } else if (mainSection === 'reports') {
                 loadReportsView();
             } else if (mainSection === 'operations') {
@@ -833,6 +863,7 @@
                     { id: 'expenses', label: '💸 Shop Expenses', fn: loadExpensesView },
                     { id: 'warranties', label: '🛡️ Warranties', fn: loadWarrantiesView },
                     { id: 'technicians', label: '🧰 Technicians', fn: loadTechniciansView },
+                    { id: 'used-mobiles-tab', label: '📱 Used Mobiles', fn: () => switchNav('used-mobiles') },
                 ]);
             } else if (mainSection === 'billing') {
                 renderSubNavBar('billing', subTab, [
@@ -951,6 +982,14 @@
                         </div>
                         <div class="metric-value" style="color:#059669;">${m.usage.today_app_opens || 0} Users</div>
                         <div class="metric-sub">Opened mobile app today — click to view list</div>
+                    </div>
+                    <div class="metric-card" style="border-left:4px solid #8b5cf6; cursor:pointer; transition:all 0.2s; position:relative;" onclick="switchNav('used-mobiles')" title="Click to view shops using Used Mobile Buy & Sell feature">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div class="metric-title"><span style="font-size:14px; margin-right:4px;">📱</span> Used Mobiles Feature</div>
+                            <span style="font-size:11px; background:#ede9fe; color:#6d28d9; padding:2px 8px; border-radius:12px; font-weight:600;">${m.used_mobiles ? m.used_mobiles.shops_count : 0} Shops Using →</span>
+                        </div>
+                        <div class="metric-value" style="color:#7c3aed;">${m.used_mobiles ? m.used_mobiles.total_devices : 0} Devices</div>
+                        <div class="metric-sub" style="color:#64748b;">${m.used_mobiles ? m.used_mobiles.in_stock : 0} In Stock | ${m.used_mobiles ? m.used_mobiles.sold : 0} Sold (${m.used_mobiles ? '₹' + Number(m.used_mobiles.total_profit).toLocaleString() + ' profit' : '₹0'})</div>
                     </div>
                 </div>
 
@@ -1163,12 +1202,12 @@
 
             openModal(`Shop Details — ${s.name}`, `
                 <div style="font-size:13px; line-height:1.5;">
-                    <div style="display:flex; gap:8px; border-bottom:1px solid #e2e8f0; margin-bottom:14px; padding-bottom:8px; overflow-x:auto;">
-                        <button class="btn-sm" style="background:#2563eb; color:white; border:none;" onclick="switchShopTab('overview')">📋 Overview</button>
-                        <button class="btn-sm" onclick="switchShopTab('sales')">🛒 Sales (${s.sales_count})</button>
-                        <button class="btn-sm" onclick="switchShopTab('repairs')">🔧 Repairs (${s.repairs_count})</button>
-                        <button class="btn-sm" onclick="switchShopTab('customers')">👥 Customers (${s.customers_count})</button>
-                        <button class="btn-sm" onclick="switchShopTab('inventory')">📦 Stock (${s.inventory_items_count})</button>
+                    <div style="display:flex; gap:8px; border-bottom:1px solid #e2e8f0; margin-bottom:16px; padding-bottom:10px; overflow-x:auto;">
+                        <button id="shop-tab-btn-overview" class="btn-sm" style="background:#2563eb; color:white; border-color:#2563eb;" onclick="switchShopTab('overview')">📋 Overview</button>
+                        <button id="shop-tab-btn-sales" class="btn-sm" onclick="switchShopTab('sales')">🛒 Sales (${s.sales_count})</button>
+                        <button id="shop-tab-btn-repairs" class="btn-sm" onclick="switchShopTab('repairs')">🔧 Repairs (${s.repairs_count})</button>
+                        <button id="shop-tab-btn-customers" class="btn-sm" onclick="switchShopTab('customers')">👥 Customers (${s.customers_count})</button>
+                        <button id="shop-tab-btn-inventory" class="btn-sm" onclick="switchShopTab('inventory')">📦 Stock (${s.inventory_items_count})</button>
                     </div>
 
                     <div id="shop-tab-overview">
@@ -1189,52 +1228,101 @@
                     </div>
 
                     <div id="shop-tab-sales" style="display:none;">
-                        <h4 style="font-size:13px; font-weight:700; margin-bottom:8px;">Recent Sales Invoices</h4>
-                        ${(s.recent_sales || []).length === 0 ? '<p style="color:#94a3b8;">No sales logged yet for this shop.</p>' : `
-                            <table style="width:100%; border-collapse:collapse; font-size:12px;">
-                                <thead>
-                                    <tr style="background:#f8fafc;"><th>Invoice #</th><th>Customer</th><th>Date</th><th>Total</th><th>Status</th></tr>
-                                </thead>
-                                <tbody>
-                                    ${s.recent_sales.map(rs => `
-                                        <tr>
-                                            <td style="padding:6px; border-bottom:1px solid #e2e8f0;">${rs.invoice_number || 'INV-' + rs.id}</td>
-                                            <td style="padding:6px; border-bottom:1px solid #e2e8f0;">${rs.customer ? rs.customer.name : (rs.customer_name || 'Walk-in Customer')}</td>
-                                            <td style="padding:6px; border-bottom:1px solid #e2e8f0;">${new Date(rs.sale_date || rs.created_at).toLocaleDateString()}</td>
-                                            <td style="padding:6px; border-bottom:1px solid #e2e8f0;">₹${parseFloat(rs.grand_total).toFixed(2)}</td>
-                                            <td style="padding:6px; border-bottom:1px solid #e2e8f0;"><span class="badge ${rs.payment_status === 'paid' ? 'badge-active' : 'badge-trial'}">${rs.payment_status}</span></td>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                            <h4 style="font-size:14px; font-weight:700; color:#0f172a; margin:0;">Recent Sales Invoices</h4>
+                            <span style="font-size:12px; color:#64748b;">Showing latest ${(s.recent_sales || []).length} of ${s.sales_count}</span>
+                        </div>
+                        ${(s.recent_sales || []).length === 0 ? '<p style="color:#94a3b8; padding:20px; text-align:center;">No sales logged yet for this shop.</p>' : `
+                            <div style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:8px;">
+                                <table style="width:100%; border-collapse:collapse; font-size:12.5px; text-align:left;">
+                                    <thead>
+                                        <tr style="background:#f8fafc; border-bottom:1px solid #e2e8f0; color:#475569; font-size:11.5px; text-transform:uppercase; letter-spacing:0.5px;">
+                                            <th style="padding:10px 12px; white-space:nowrap;">Invoice #</th>
+                                            <th style="padding:10px 12px; white-space:nowrap;">Customer</th>
+                                            <th style="padding:10px 12px; white-space:nowrap;">Date</th>
+                                            <th style="padding:10px 12px; text-align:right; white-space:nowrap;">Total</th>
+                                            <th style="padding:10px 12px; text-align:center; white-space:nowrap;">Status</th>
                                         </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        ${s.recent_sales.map(rs => {
+                                            const isPaid = (rs.payment_status || '').toLowerCase() === 'paid';
+                                            const isPartial = (rs.payment_status || '').toLowerCase() === 'partial';
+                                            const badgeCls = isPaid ? 'badge-active' : (isPartial ? 'badge-trial' : 'badge-inactive');
+                                            return `
+                                            <tr style="border-bottom:1px solid #f1f5f9; transition:background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                                                <td style="padding:10px 12px; white-space:nowrap;"><strong style="font-family:monospace; color:#0f172a;">${rs.invoice_number || 'INV-' + rs.id}</strong></td>
+                                                <td style="padding:10px 12px; white-space:nowrap;">${rs.customer ? rs.customer.name : (rs.customer_name || 'Walk-in Customer')}</td>
+                                                <td style="padding:10px 12px; white-space:nowrap; color:#64748b;">${new Date(rs.sale_date || rs.created_at).toLocaleDateString()}</td>
+                                                <td style="padding:10px 12px; text-align:right; white-space:nowrap; font-weight:700; color:#0f172a;">₹${parseFloat(rs.grand_total).toFixed(2)}</td>
+                                                <td style="padding:10px 12px; text-align:center; white-space:nowrap;"><span class="badge ${badgeCls}">${(rs.payment_status || '').toUpperCase()}</span></td>
+                                            </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
                         `}
                     </div>
 
                     <div id="shop-tab-repairs" style="display:none;">
-                        <h4 style="font-size:13px; font-weight:700; margin-bottom:8px;">Recent Repair Jobs</h4>
-                        ${(s.recent_repairs || []).length === 0 ? '<p style="color:#94a3b8;">No repair jobs logged yet for this shop.</p>' : `
-                            <table style="width:100%; border-collapse:collapse; font-size:12px;">
-                                <thead>
-                                    <tr style="background:#f8fafc;"><th>Job #</th><th>Customer & Contact</th><th>Device</th><th>Problem</th><th>Cost</th><th>Status</th></tr>
-                                </thead>
-                                <tbody>
-                                    ${s.recent_repairs.map(rr => {
-                                        const rcName = rr.customer ? rr.customer.name : (rr.customer_name || 'Walk-in Customer');
-                                        const rcMobile = rr.customer ? (rr.customer.mobile || rr.customer.phone || '') : '';
-                                        const rdInfo = rr.device ? `${rr.device.brand || ''} ${rr.device.model || ''}`.trim() : 'N/A';
-                                        return `
-                                        <tr>
-                                            <td style="padding:6px; border-bottom:1px solid #e2e8f0;"><strong>${rr.job_number || 'JOB-' + rr.id}</strong></td>
-                                            <td style="padding:6px; border-bottom:1px solid #e2e8f0;"><strong>${rcName}</strong>${rcMobile ? `<br><span style="font-size:11px; color:#64748b;">📞 ${rcMobile}</span>` : ''}</td>
-                                            <td style="padding:6px; border-bottom:1px solid #e2e8f0;">📱 ${rdInfo}</td>
-                                            <td style="padding:6px; border-bottom:1px solid #e2e8f0;">${rr.problem_description || '—'}</td>
-                                            <td style="padding:6px; border-bottom:1px solid #e2e8f0;">₹${parseFloat(rr.final_cost > 0 ? rr.final_cost : rr.estimated_cost).toFixed(2)}</td>
-                                            <td style="padding:6px; border-bottom:1px solid #e2e8f0;"><span class="badge badge-trial">${rr.repair_status}</span></td>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                            <h4 style="font-size:14px; font-weight:700; color:#0f172a; margin:0;">Recent Repair Jobs</h4>
+                            <span style="font-size:12px; color:#64748b;">Showing latest ${(s.recent_repairs || []).length} of ${s.repairs_count}</span>
+                        </div>
+                        ${(s.recent_repairs || []).length === 0 ? '<p style="color:#94a3b8; padding:20px; text-align:center;">No repair jobs logged yet for this shop.</p>' : `
+                            <div style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:8px;">
+                                <table style="width:100%; border-collapse:collapse; font-size:12.5px; text-align:left;">
+                                    <thead>
+                                        <tr style="background:#f8fafc; border-bottom:1px solid #e2e8f0; color:#475569; font-size:11.5px; text-transform:uppercase; letter-spacing:0.5px;">
+                                            <th style="padding:10px 12px; white-space:nowrap;">Job #</th>
+                                            <th style="padding:10px 12px; white-space:nowrap;">Customer & Contact</th>
+                                            <th style="padding:10px 12px; white-space:nowrap;">Device</th>
+                                            <th style="padding:10px 12px; min-width:180px;">Problem</th>
+                                            <th style="padding:10px 12px; text-align:right; white-space:nowrap;">Cost</th>
+                                            <th style="padding:10px 12px; text-align:center; white-space:nowrap;">Status</th>
                                         </tr>
-                                        `;
-                                    }).join('')}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        ${s.recent_repairs.map(rr => {
+                                            const rcName = rr.customer ? rr.customer.name : (rr.customer_name || 'Walk-in Customer');
+                                            const rcMobile = rr.customer ? (rr.customer.mobile || rr.customer.phone || '') : '';
+                                            const rdInfo = rr.device ? `${rr.device.brand || ''} ${rr.device.model || ''}`.trim() : 'N/A';
+                                            const costVal = parseFloat(rr.final_cost > 0 ? rr.final_cost : (rr.estimated_cost || 0)).toFixed(2);
+                                            const statusLower = (rr.repair_status || '').toLowerCase();
+                                            let badgeClass = 'badge-trial';
+                                            if (['delivered', 'completed'].includes(statusLower)) badgeClass = 'badge-active';
+                                            else if (['cancelled', 'unrepairable', 'cannot_repair'].includes(statusLower)) badgeClass = 'badge-inactive';
+                                            else if (['ready'].includes(statusLower)) badgeClass = 'badge-blue';
+                                            else if (['in_progress'].includes(statusLower)) badgeClass = 'badge-trial';
+
+                                            return `
+                                            <tr style="border-bottom:1px solid #f1f5f9; transition:background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                                                <td style="padding:10px 12px; white-space:nowrap; vertical-align:top;">
+                                                    <strong style="color:#0f172a; font-family:monospace; font-size:12.5px;">${rr.job_number || 'JOB-' + rr.id}</strong>
+                                                </td>
+                                                <td style="padding:10px 12px; vertical-align:top; white-space:nowrap;">
+                                                    <strong style="color:#0f172a;">${rcName}</strong>
+                                                    ${rcMobile ? `<br><a href="tel:${rcMobile}" style="font-size:11px; color:#2563eb; text-decoration:none; display:inline-block; margin-top:2px;">📞 ${rcMobile}</a>` : ''}
+                                                </td>
+                                                <td style="padding:10px 12px; vertical-align:top; white-space:nowrap;">
+                                                    <span style="color:#334155; font-weight:500;">📱 ${rdInfo}</span>
+                                                </td>
+                                                <td style="padding:10px 12px; vertical-align:top; color:#475569; line-height:1.4;">
+                                                    ${rr.problem_description || '—'}
+                                                </td>
+                                                <td style="padding:10px 12px; vertical-align:top; text-align:right; white-space:nowrap; font-weight:700; color:#0f172a;">
+                                                    ₹${costVal}
+                                                </td>
+                                                <td style="padding:10px 12px; vertical-align:top; text-align:center; white-space:nowrap;">
+                                                    <span class="badge ${badgeClass}">${(rr.repair_status || '').toUpperCase()}</span>
+                                                </td>
+                                            </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
                         `}
                     </div>
 
@@ -1243,7 +1331,7 @@
                         ${(s.recent_customers || []).length === 0 ? '<p style="color:#94a3b8;">No customers registered for this shop.</p>' : `
                             <ul style="list-style:none; padding:0;">
                                 ${s.recent_customers.map(rc => `
-                                    <li style="padding:6px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between;">
+                                    <li style="padding:8px 12px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
                                         <span><strong>${rc.name}</strong> (${rc.mobile})</span>
                                         <span style="color:#64748b; font-size:11px;">Added ${new Date(rc.created_at).toLocaleDateString()}</span>
                                     </li>
@@ -1273,13 +1361,26 @@
                         `}
                     </div>
                 </div>
-            `);
+            `, '920px');
         }
 
         function switchShopTab(tab) {
-            ['overview', 'sales', 'repairs', 'customers', 'inventory'].forEach(t => {
+            const tabs = ['overview', 'sales', 'repairs', 'customers', 'inventory'];
+            tabs.forEach(t => {
                 const el = document.getElementById(`shop-tab-${t}`);
                 if (el) el.style.display = t === tab ? 'block' : 'none';
+                const btn = document.getElementById(`shop-tab-btn-${t}`);
+                if (btn) {
+                    if (t === tab) {
+                        btn.style.background = '#2563eb';
+                        btn.style.color = 'white';
+                        btn.style.borderColor = '#2563eb';
+                    } else {
+                        btn.style.background = 'white';
+                        btn.style.color = '#334155';
+                        btn.style.borderColor = '#cbd5e1';
+                    }
+                }
             });
         }
 
@@ -3146,6 +3247,442 @@
             `;
         }
 
+        // ==========================================
+        // 20. USED MOBILES & FEATURE ADOPTION VIEWS
+        // ==========================================
+
+        // TAB 1: SHOPS / USERS USING THE USED MOBILE FEATURE
+        async function loadUsedMobileUsersView(page = 1, search = '') {
+            const content = getContentContainer();
+            content.innerHTML = '<div style="padding:28px; color:#64748b; text-align:center;"><div style="font-size:28px; margin-bottom:8px;">⏳</div>Loading shops using Used Mobile feature...</div>';
+
+            const data = await apiFetch(`/used-mobiles/users?page=${page}&search=${encodeURIComponent(search)}`);
+            if (!data || !data.success) {
+                content.innerHTML = '<div style="padding:24px; color:#ef4444; text-align:center;">Failed to load Used Mobile user adoption data.</div>';
+                return;
+            }
+
+            const pageData = data.data;
+            const shops = pageData.data || [];
+            const summary = pageData.summary || {
+                total_shops_using: 0,
+                total_devices: 0,
+                total_in_stock: 0,
+                total_sold: 0,
+                total_invested: 0,
+                total_profit: 0
+            };
+
+            content.innerHTML = `
+                <!-- Overall Adoption Matrix KPI Cards -->
+                <div class="grid-4" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom:18px;">
+                    <div class="metric-card" style="border-left:4px solid #8b5cf6;">
+                        <div class="metric-title">Active Shops Using</div>
+                        <div class="metric-value" style="color:#7c3aed;">${summary.total_shops_using}</div>
+                        <div class="metric-sub" style="color:#64748b;">Shops bought/sold used phones</div>
+                    </div>
+                    <div class="metric-card" style="border-left:4px solid #3b82f6;">
+                        <div class="metric-title">Total Devices Logged</div>
+                        <div class="metric-value" style="color:#2563eb;">${summary.total_devices}</div>
+                        <div class="metric-sub" style="color:#64748b;">Across all registered shops</div>
+                    </div>
+                    <div class="metric-card" style="border-left:4px solid #f59e0b;">
+                        <div class="metric-title">Current In Stock</div>
+                        <div class="metric-value" style="color:#d97706;">${summary.total_in_stock}</div>
+                        <div class="metric-sub" style="color:#64748b;">Available for resale</div>
+                    </div>
+                    <div class="metric-card" style="border-left:4px solid #10b981;">
+                        <div class="metric-title">Total Sold Devices</div>
+                        <div class="metric-value" style="color:#059669;">${summary.total_sold}</div>
+                        <div class="metric-sub" style="color:#64748b;">Completed sales to buyers</div>
+                    </div>
+                    <div class="metric-card" style="border-left:4px solid #059669;">
+                        <div class="metric-title">Total Shop Profit</div>
+                        <div class="metric-value" style="color:#059669;">₹${(summary.total_profit || 0).toLocaleString()}</div>
+                        <div class="metric-sub" style="color:#64748b;">Total invested: ₹${(summary.total_invested || 0).toLocaleString()}</div>
+                    </div>
+                </div>
+
+                <div class="card-table">
+                    <div class="table-toolbar">
+                        <div style="display:flex; gap:10px; flex:1; min-width:280px; align-items:center;">
+                            <div class="search-box" style="flex:1;">
+                                <input type="text" id="used-mobile-users-search" placeholder="Search shop name, owner name, mobile, email, city..." value="${search}" oninput="debounceSearch(() => loadUsedMobileUsersView(1, document.getElementById('used-mobile-users-search').value))">
+                            </div>
+                            ${search ? `<button class="btn-sm" style="background:#e2e8f0; color:#334155;" onclick="loadUsedMobileUsersView(1, '')">Clear</button>` : ''}
+                        </div>
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <button class="btn-sm" style="background:#8b5cf6; color:white; border:none; padding:8px 14px; font-weight:600; cursor:pointer;" onclick="switchNav('used-mobiles', 'devices')">
+                                📱 View All Devices Ledger →
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Shop Name & Location</th>
+                                <th>Owner / Account</th>
+                                <th>Purchased</th>
+                                <th>In Stock</th>
+                                <th>Sold</th>
+                                <th>Total Invested</th>
+                                <th>Total Profit</th>
+                                <th>Last Activity</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${shops.length === 0 ? `
+                                <tr>
+                                    <td colspan="9" style="text-align:center; padding:36px; color:#94a3b8;">
+                                        <div style="font-size:32px; margin-bottom:8px;">📱</div>
+                                        <strong>No shops found using the Used Mobile feature yet.</strong>
+                                        <div style="font-size:12px; margin-top:4px;">As soon as shop owners start purchasing or selling used phones from the mobile app, their stats will appear here.</div>
+                                    </td>
+                                </tr>
+                            ` : ''}
+                            ${shops.map(s => {
+                                const m = s.metrics || {};
+                                const lastAct = m.last_activity_at ? new Date(m.last_activity_at).toLocaleDateString([], { day:'numeric', month:'short', year:'numeric' }) : 'N/A';
+                                return `
+                                <tr>
+                                    <td>
+                                        <div style="font-weight:700; color:#0f172a; font-size:14px;">${s.shop_name}</div>
+                                        <div style="font-size:12px; color:#64748b; margin-top:2px;">📍 ${s.city || 'N/A'}${s.state ? ', ' + s.state : ''}</div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight:600; color:#1e293b;">${s.owner_name}</div>
+                                        <div style="font-size:12px; color:#64748b; margin-top:2px;">
+                                            ${s.mobile ? `📞 <a href="tel:${s.mobile}" style="color:#2563eb; text-decoration:none;">${s.mobile}</a>` : ''}
+                                            ${s.email ? `<div style="font-size:11px; color:#94a3b8;">✉️ ${s.email}</div>` : ''}
+                                        </div>
+                                    </td>
+                                    <td><span style="font-weight:700; font-size:14px; color:#1e293b;">${m.total_purchased || 0}</span></td>
+                                    <td><span class="badge" style="background:#fef3c7; color:#92400e; font-weight:700;">${m.in_stock_count || 0} In Stock</span></td>
+                                    <td><span class="badge badge-active" style="font-weight:700;">${m.sold_count || 0} Sold</span></td>
+                                    <td><strong>₹${(m.total_invested || 0).toLocaleString()}</strong></td>
+                                    <td><strong style="color:#059669; font-size:14px;">₹${(m.total_profit || 0).toLocaleString()}</strong></td>
+                                    <td style="font-size:12px; color:#64748b;">${lastAct}</td>
+                                    <td>
+                                        <button class="btn-sm" style="background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; font-weight:600; padding:5px 10px; cursor:pointer;" onclick="switchNav('used-mobiles', 'devices'); setTimeout(() => loadUsedMobileDevicesView(1, '', '', '${s.shop_id}'), 60);" title="View all devices of ${s.shop_name}">
+                                            📱 View Devices
+                                        </button>
+                                    </td>
+                                </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                    </div>
+                    ${renderPagination(pageData, 'loadUsedMobileUsersView', search)}
+                </div>
+            `;
+        }
+
+        // TAB 2: ALL USED MOBILES LEDGER ACROSS PLATFORM
+        async function loadUsedMobileDevicesView(page = 1, search = '', status = '', shopId = '', dateFrom = '', dateTo = '') {
+            const content = getContentContainer();
+            const shopOptions = await getShopsDropdownOptions(shopId);
+
+            content.innerHTML = '<div style="padding:28px; color:#64748b; text-align:center;"><div style="font-size:28px; margin-bottom:8px;">⏳</div>Loading used mobile devices ledger...</div>';
+
+            const query = `/used-mobiles?page=${page}&search=${encodeURIComponent(search)}&status=${status}&shop_id=${shopId}&date_from=${dateFrom}&date_to=${dateTo}`;
+            const res = await apiFetch(query);
+            if (!res || !res.success) {
+                content.innerHTML = '<div style="padding:24px; color:#ef4444; text-align:center;">Failed to load used mobiles list.</div>';
+                return;
+            }
+
+            const pageData = res.data;
+            const mobiles = pageData.data || [];
+            const summary = pageData.summary || {
+                total_devices: 0,
+                total_in_stock: 0,
+                total_sold: 0,
+                total_invested: 0,
+                total_profit: 0
+            };
+
+            content.innerHTML = `
+                <!-- Device Metrics -->
+                <div class="grid-4" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin-bottom:18px;">
+                    <div class="metric-card" style="padding:14px 18px;">
+                        <div class="metric-title">Filtered Devices</div>
+                        <div class="metric-value" style="font-size:20px;">${summary.total_devices}</div>
+                    </div>
+                    <div class="metric-card" style="padding:14px 18px; border-left:3px solid #f59e0b;">
+                        <div class="metric-title">In Stock</div>
+                        <div class="metric-value" style="font-size:20px; color:#d97706;">${summary.total_in_stock}</div>
+                    </div>
+                    <div class="metric-card" style="padding:14px 18px; border-left:3px solid #10b981;">
+                        <div class="metric-title">Sold</div>
+                        <div class="metric-value" style="font-size:20px; color:#059669;">${summary.total_sold}</div>
+                    </div>
+                    <div class="metric-card" style="padding:14px 18px; border-left:3px solid #2563eb;">
+                        <div class="metric-title">Total Invested</div>
+                        <div class="metric-value" style="font-size:20px; color:#2563eb;">₹${(summary.total_invested || 0).toLocaleString()}</div>
+                    </div>
+                    <div class="metric-card" style="padding:14px 18px; border-left:3px solid #059669;">
+                        <div class="metric-title">Total Profit</div>
+                        <div class="metric-value" style="font-size:20px; color:#059669;">₹${(summary.total_profit || 0).toLocaleString()}</div>
+                    </div>
+                </div>
+
+                <div class="card-table">
+                    <div class="table-toolbar">
+                        <div style="display:flex; gap:10px; flex:1; min-width:280px; align-items:center;">
+                            <div class="search-box" style="flex:1;">
+                                <input type="text" id="used-devices-search-input" placeholder="Search brand, model, IMEI, ref #, seller, buyer..." value="${search}" oninput="debounceSearch(() => loadUsedMobileDevicesView(1, document.getElementById('used-devices-search-input').value, '${status}', '${shopId}', '${dateFrom}', '${dateTo}'))">
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                            <select class="filter-select" onchange="loadUsedMobileDevicesView(1, '${search}', this.value, '${shopId}', '${dateFrom}', '${dateTo}')">
+                                <option value="" ${status === '' ? 'selected' : ''}>All Statuses</option>
+                                <option value="in_stock" ${status === 'in_stock' ? 'selected' : ''}>In Stock</option>
+                                <option value="sold" ${status === 'sold' ? 'selected' : ''}>Sold</option>
+                            </select>
+                            <select class="filter-select" onchange="loadUsedMobileDevicesView(1, '${search}', '${status}', this.value, '${dateFrom}', '${dateTo}')">
+                                ${shopOptions}
+                            </select>
+                            ${(search || status || shopId || dateFrom || dateTo) ? `
+                                <button class="btn-sm" style="background:#e2e8f0; color:#334155;" onclick="loadUsedMobileDevicesView(1, '', '', '', '', '')">Reset</button>
+                            ` : ''}
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Ref # / Invoice</th>
+                                <th>Shop</th>
+                                <th>Device</th>
+                                <th>IMEI 1</th>
+                                <th>Seller (Bought From)</th>
+                                <th>Purchase Cost</th>
+                                <th>Status</th>
+                                <th>Sale & Profit</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${mobiles.length === 0 ? `
+                                <tr>
+                                    <td colspan="9" style="text-align:center; padding:32px; color:#94a3b8;">No used mobile records match the current filters.</td>
+                                </tr>
+                            ` : ''}
+                            ${mobiles.map(m => {
+                                const isSold = m.status === 'sold';
+                                const badgeClass = isSold ? 'badge-active' : 'badge-trial';
+                                const statusLabel = isSold ? 'Sold' : 'In Stock';
+                                const pDate = m.purchase_date ? new Date(m.purchase_date).toLocaleDateString([], { day:'numeric', month:'short', year:'numeric' }) : 'N/A';
+                                const shopName = m.shop ? m.shop.name : ('Shop #' + m.shop_id);
+                                return `
+                                <tr>
+                                    <td>
+                                        <div style="font-weight:700; color:#2563eb; font-size:13px;">${m.purchase_ref_number || ('UMB-' + m.id)}</div>
+                                        ${m.sale_invoice_number ? `<div style="font-size:11px; color:#059669; font-weight:600;">🧾 ${m.sale_invoice_number}</div>` : ''}
+                                    </td>
+                                    <td>
+                                        <div style="font-weight:600; color:#0f172a;">${shopName}</div>
+                                        ${m.shop && m.shop.city ? `<div style="font-size:11px; color:#64748b;">📍 ${m.shop.city}</div>` : ''}
+                                    </td>
+                                    <td>
+                                        <div style="font-weight:700; color:#0f172a;">${m.brand} ${m.model}</div>
+                                        <div style="font-size:12px; color:#64748b;">${m.storage ? m.storage : ''}${m.ram ? ' / ' + m.ram : ''}${m.color ? ' • ' + m.color : ''}</div>
+                                    </td>
+                                    <td>
+                                        <span style="font-family:monospace; background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:12px; font-weight:600; letter-spacing:0.5px;">${m.imei1 || 'N/A'}</span>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight:600; color:#1e293b;">${m.seller_name || 'N/A'}</div>
+                                        <div style="font-size:12px; color:#64748b;">${m.seller_phone || ''}</div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight:600;">₹${Number(m.total_cost || m.purchase_price || 0).toLocaleString()}</div>
+                                        <div style="font-size:11px; color:#64748b;">${pDate}</div>
+                                    </td>
+                                    <td>
+                                        <span class="badge ${badgeClass}">${statusLabel}</span>
+                                    </td>
+                                    <td>
+                                        ${isSold ? `
+                                            <div style="font-weight:600; color:#0f172a;">₹${Number(m.selling_price || 0).toLocaleString()}</div>
+                                            <div style="font-size:12px; color:#059669; font-weight:700;">+₹${Number(m.profit || 0).toLocaleString()} profit</div>
+                                        ` : `
+                                            <span style="color:#94a3b8; font-size:12px;">In Inventory</span>
+                                        `}
+                                    </td>
+                                    <td>
+                                        <button class="btn-sm" style="background:#f1f5f9; color:#0f172a; border:1px solid #cbd5e1; font-weight:600; padding:5px 10px; cursor:pointer;" onclick="openUsedMobileDetails(${m.id})">
+                                            👁️ View
+                                        </button>
+                                    </td>
+                                </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                    </div>
+                    ${renderPagination(pageData, 'loadUsedMobileDevicesView', search, status, shopId, dateFrom, dateTo)}
+                </div>
+            `;
+        }
+
+        // MODAL: COMPLETE USED MOBILE DETAILS & ID VERIFICATION
+        async function openUsedMobileDetails(id) {
+            openModal('📱 Used Mobile Record Details', `
+                <div style="padding:28px; text-align:center; color:#64748b;">
+                    <div style="font-size:28px; margin-bottom:8px;">⏳</div>
+                    <div>Loading device details...</div>
+                </div>
+            `, '760px');
+
+            const res = await apiFetch(`/used-mobiles/${id}`);
+            if (!res || !res.success || !res.data) {
+                document.getElementById('modal-body').innerHTML = '<div style="color:#ef4444; padding:20px; text-align:center;">Failed to load device details.</div>';
+                return;
+            }
+
+            const m = res.data;
+            const isSold = m.status === 'sold';
+            const shopName = m.shop ? m.shop.name : ('Shop #' + m.shop_id);
+            const shopOwner = m.shop ? (m.shop.owner_name || (m.shop.user ? m.shop.user.name : '')) : '';
+            const shopContact = m.shop ? (m.shop.mobile || m.shop.phone || '') : '';
+
+            // ID proof images
+            const idProofFront = m.id_proof_photo || '';
+            const idProofBack = m.id_proof_back_photo || '';
+            const sellerPhoto = m.seller_photo || '';
+
+            const html = `
+                <div style="font-size:13px; line-height:1.5; color:#1e293b;">
+                    <!-- Shop & Header Bar -->
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:14px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                        <div>
+                            <div style="font-weight:700; font-size:16px; color:#0f172a;">${m.brand} ${m.model}</div>
+                            <div style="font-size:12px; color:#64748b; margin-top:2px;">
+                                🏪 <strong>${shopName}</strong> ${shopOwner ? `(${shopOwner})` : ''} ${shopContact ? `• 📞 ${shopContact}` : ''}
+                            </div>
+                        </div>
+                        <div style="text-align:right;">
+                            <span class="badge ${isSold ? 'badge-active' : 'badge-trial'}" style="font-size:12px; padding:4px 10px;">
+                                ${isSold ? '✓ SOLD' : '📦 IN STOCK'}
+                            </span>
+                            <div style="font-size:11px; color:#64748b; margin-top:4px;">Ref: <strong>${m.purchase_ref_number || ('UMB-' + m.id)}</strong></div>
+                        </div>
+                    </div>
+
+                    <!-- 2 Columns Grid for Device & Seller -->
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:14px; margin-bottom:16px;">
+                        <!-- Column 1: Device Details -->
+                        <div style="background:white; border:1px solid #e2e8f0; border-radius:10px; padding:14px;">
+                            <div style="font-weight:700; font-size:13px; color:#2563eb; text-transform:uppercase; margin-bottom:10px; border-bottom:1px solid #f1f5f9; padding-bottom:6px;">
+                                📱 Device Specifications
+                            </div>
+                            <table style="width:100%; font-size:12px; border-collapse:collapse;">
+                                <tr><td style="color:#64748b; padding:4px 0;">Brand & Model:</td><td style="font-weight:600; padding:4px 0;">${m.brand} ${m.model}</td></tr>
+                                <tr><td style="color:#64748b; padding:4px 0;">IMEI 1:</td><td style="font-family:monospace; font-weight:700; padding:4px 0; color:#0f172a;">${m.imei1 || 'N/A'}</td></tr>
+                                ${m.imei2 ? `<tr><td style="color:#64748b; padding:4px 0;">IMEI 2:</td><td style="font-family:monospace; padding:4px 0;">${m.imei2}</td></tr>` : ''}
+                                ${m.serial_number ? `<tr><td style="color:#64748b; padding:4px 0;">Serial No:</td><td style="font-family:monospace; padding:4px 0;">${m.serial_number}</td></tr>` : ''}
+                                <tr><td style="color:#64748b; padding:4px 0;">RAM / Storage:</td><td style="font-weight:600; padding:4px 0;">${m.ram || '-'} / ${m.storage || '-'}</td></tr>
+                                <tr><td style="color:#64748b; padding:4px 0;">Color:</td><td style="font-weight:600; padding:4px 0;">${m.color || 'N/A'}</td></tr>
+                                <tr><td style="color:#64748b; padding:4px 0;">Condition:</td><td style="padding:4px 0;"><span class="badge" style="background:#e0f2fe; color:#0369a1;">${m.device_condition || 'Normal'}</span></td></tr>
+                                ${m.battery_health ? `<tr><td style="color:#64748b; padding:4px 0;">Battery Health:</td><td style="font-weight:600; padding:4px 0;">${m.battery_health}</td></tr>` : ''}
+                                ${m.condition_notes ? `<tr><td style="color:#64748b; padding:4px 0;">Condition Notes:</td><td style="padding:4px 0;">${m.condition_notes}</td></tr>` : ''}
+                            </table>
+                        </div>
+
+                        <!-- Column 2: Seller & Purchase Verification -->
+                        <div style="background:white; border:1px solid #e2e8f0; border-radius:10px; padding:14px;">
+                            <div style="font-weight:700; font-size:13px; color:#059669; text-transform:uppercase; margin-bottom:10px; border-bottom:1px solid #f1f5f9; padding-bottom:6px;">
+                                👤 Seller Verification & Purchase
+                            </div>
+                            <table style="width:100%; font-size:12px; border-collapse:collapse;">
+                                <tr><td style="color:#64748b; padding:4px 0;">Seller Name:</td><td style="font-weight:700; padding:4px 0;">${m.seller_name || 'N/A'}</td></tr>
+                                <tr><td style="color:#64748b; padding:4px 0;">Seller Mobile:</td><td style="padding:4px 0;">${m.seller_phone ? `📞 <a href="tel:${m.seller_phone}" style="color:#2563eb; text-decoration:none;">${m.seller_phone}</a>` : 'N/A'}</td></tr>
+                                ${m.seller_address ? `<tr><td style="color:#64748b; padding:4px 0;">Seller Address:</td><td style="padding:4px 0;">${m.seller_address}</td></tr>` : ''}
+                                <tr><td style="color:#64748b; padding:4px 0;">ID Proof Type:</td><td style="font-weight:600; padding:4px 0;">${m.id_proof_type || 'Aadhaar Card'}</td></tr>
+                                <tr><td style="color:#64748b; padding:4px 0;">ID Number:</td><td style="font-family:monospace; font-weight:700; padding:4px 0;">${m.id_proof_number || 'N/A'}</td></tr>
+                                <tr><td style="color:#64748b; padding:4px 0;">Purchase Date:</td><td style="padding:4px 0;">${m.purchase_date ? new Date(m.purchase_date).toLocaleDateString() : 'N/A'}</td></tr>
+                                <tr><td style="color:#64748b; padding:4px 0;">Purchase Price:</td><td style="font-weight:700; padding:4px 0;">₹${Number(m.purchase_price || 0).toLocaleString()}</td></tr>
+                                ${Number(m.repair_cost) > 0 ? `<tr><td style="color:#64748b; padding:4px 0;">Repair Cost:</td><td style="font-weight:600; color:#dc2626; padding:4px 0;">+₹${Number(m.repair_cost).toLocaleString()}</td></tr>` : ''}
+                                <tr><td style="color:#64748b; padding:4px 0; border-top:1px dashed #e2e8f0;">Total Cost:</td><td style="font-weight:700; color:#0f172a; padding:4px 0; border-top:1px dashed #e2e8f0;">₹${Number(m.total_cost || m.purchase_price || 0).toLocaleString()}</td></tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- ID Proof Photos Section (if uploaded) -->
+                    ${(idProofFront || idProofBack || sellerPhoto) ? `
+                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:14px; margin-bottom:16px;">
+                            <div style="font-weight:700; font-size:13px; color:#475569; margin-bottom:10px;">
+                                📷 Verification Document Photos
+                            </div>
+                            <div style="display:flex; gap:14px; flex-wrap:wrap;">
+                                ${idProofFront ? `
+                                    <div style="text-align:center;">
+                                        <div style="font-size:11px; color:#64748b; margin-bottom:4px; font-weight:600;">ID Proof (Front)</div>
+                                        <a href="${idProofFront}" target="_blank" title="Click to view full image">
+                                            <img src="${idProofFront}" alt="ID Proof Front" style="width:130px; height:85px; object-fit:cover; border-radius:6px; border:1px solid #cbd5e1; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+                                        </a>
+                                    </div>
+                                ` : ''}
+                                ${idProofBack ? `
+                                    <div style="text-align:center;">
+                                        <div style="font-size:11px; color:#64748b; margin-bottom:4px; font-weight:600;">ID Proof (Back)</div>
+                                        <a href="${idProofBack}" target="_blank" title="Click to view full image">
+                                            <img src="${idProofBack}" alt="ID Proof Back" style="width:130px; height:85px; object-fit:cover; border-radius:6px; border:1px solid #cbd5e1; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+                                        </a>
+                                    </div>
+                                ` : ''}
+                                ${sellerPhoto ? `
+                                    <div style="text-align:center;">
+                                        <div style="font-size:11px; color:#64748b; margin-bottom:4px; font-weight:600;">Seller Photo</div>
+                                        <a href="${sellerPhoto}" target="_blank" title="Click to view full image">
+                                            <img src="${sellerPhoto}" alt="Seller Photo" style="width:85px; height:85px; object-fit:cover; border-radius:6px; border:1px solid #cbd5e1; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+                                        </a>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <!-- Sale Details (If Sold) -->
+                    ${isSold ? `
+                        <div style="background:#ecfdf5; border:1px solid #a7f3d0; border-radius:10px; padding:14px; margin-bottom:14px;">
+                            <div style="font-weight:700; font-size:13px; color:#065f46; text-transform:uppercase; margin-bottom:10px; border-bottom:1px solid #d1fae5; padding-bottom:6px;">
+                                🧾 Sale & Customer Delivery Details
+                            </div>
+                            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:12px;">
+                                <table style="width:100%; font-size:12px; border-collapse:collapse;">
+                                    <tr><td style="color:#047857; padding:4px 0;">Invoice #:</td><td style="font-weight:700; padding:4px 0;">${m.sale_invoice_number || 'N/A'}</td></tr>
+                                    <tr><td style="color:#047857; padding:4px 0;">Sale Date:</td><td style="padding:4px 0;">${m.sale_date ? new Date(m.sale_date).toLocaleDateString() : 'N/A'}</td></tr>
+                                    <tr><td style="color:#047857; padding:4px 0;">Buyer Name:</td><td style="font-weight:700; padding:4px 0;">${m.buyer_name || 'N/A'}</td></tr>
+                                    <tr><td style="color:#047857; padding:4px 0;">Buyer Mobile:</td><td style="padding:4px 0;">${m.buyer_phone ? `📞 <a href="tel:${m.buyer_phone}" style="color:#2563eb; text-decoration:none;">${m.buyer_phone}</a>` : 'N/A'}</td></tr>
+                                    ${m.buyer_address ? `<tr><td style="color:#047857; padding:4px 0;">Buyer Address:</td><td style="padding:4px 0;">${m.buyer_address}</td></tr>` : ''}
+                                </table>
+                                <table style="width:100%; font-size:12px; border-collapse:collapse;">
+                                    <tr><td style="color:#047857; padding:4px 0;">Selling Price:</td><td style="font-weight:700; font-size:14px; padding:4px 0; color:#0f172a;">₹${Number(m.selling_price || 0).toLocaleString()}</td></tr>
+                                    <tr><td style="color:#047857; padding:4px 0;">Total Cost:</td><td style="padding:4px 0;">₹${Number(m.total_cost || 0).toLocaleString()}</td></tr>
+                                    <tr><td style="color:#047857; padding:4px 0;">Net Profit:</td><td style="font-weight:800; font-size:15px; color:#059669; padding:4px 0;">+₹${Number(m.profit || 0).toLocaleString()} (${m.profit_percentage || 0}%)</td></tr>
+                                    <tr><td style="color:#047857; padding:4px 0;">Warranty:</td><td style="font-weight:600; padding:4px 0;">${m.warranty_days ? m.warranty_days + ' Days' : 'No Warranty'}</td></tr>
+                                    ${m.sale_payment_mode ? `<tr><td style="color:#047857; padding:4px 0;">Payment Mode:</td><td style="padding:4px 0;">${m.sale_payment_mode.toUpperCase()}</td></tr>` : ''}
+                                </table>
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <div style="text-align:right; margin-top:14px;">
+                        <button class="btn-sm" style="background:#64748b; color:white; border:none; padding:8px 18px; cursor:pointer;" onclick="closeModal()">Close</button>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('modal-body').innerHTML = html;
+        }
+
         // 19. PLATFORM BUSINESS INTELLIGENCE & FINANCIAL REPORTS VIEW
         async function loadReportsView(range = '30days', shopId = '', startDate = '', endDate = '') {
             const content = getContentContainer();
@@ -3287,14 +3824,22 @@
         }
 
         // MODAL HELPERS
-        function openModal(title, htmlContent) {
+        function openModal(title, htmlContent, maxWidth = '540px') {
             document.getElementById('modal-title').innerText = title;
             document.getElementById('modal-body').innerHTML = htmlContent;
+            const modalContent = document.querySelector('.modal-content');
+            if (modalContent) {
+                modalContent.style.maxWidth = maxWidth;
+            }
             document.getElementById('modal-container').style.display = 'flex';
         }
 
         function closeModal() {
             document.getElementById('modal-container').style.display = 'none';
+            const modalContent = document.querySelector('.modal-content');
+            if (modalContent) {
+                modalContent.style.maxWidth = '540px';
+            }
         }
     
         // ==========================================

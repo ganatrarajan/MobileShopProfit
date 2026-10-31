@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\V1\Admin\AdminShopController;
 use App\Http\Controllers\Api\V1\Admin\AdminSubscriptionController;
 use App\Http\Controllers\Api\V1\Admin\AdminSupportController;
 use App\Http\Controllers\Api\V1\Admin\AdminTechnicianController;
+use App\Http\Controllers\Api\V1\Admin\AdminUsedMobileController;
 use App\Http\Controllers\Api\V1\Admin\AdminUserController;
 use App\Http\Controllers\Api\V1\Admin\AdminWarrantyController;
 use App\Http\Controllers\Api\V1\PublicPageApiController;
@@ -40,6 +41,7 @@ use App\Http\Controllers\Api\V1\ShopController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
 use App\Http\Controllers\Api\V1\TechnicianController;
 use App\Http\Controllers\Api\V1\TechnicianPaymentController;
+use App\Http\Controllers\Api\V1\UsedMobileController;
 use App\Http\Controllers\Api\V1\WarrantyClaimController;
 use App\Http\Controllers\Api\V1\WarrantyController;
 use App\Http\Controllers\Api\V1\Admin\AdminVendorController;
@@ -156,6 +158,11 @@ Route::prefix('v1')->group(function () {
         Route::get('/purchases', [AdminPurchaseController::class, 'index']);
         Route::get('/purchases/{id}', [AdminPurchaseController::class, 'show']);
 
+        // Admin Used Mobiles Management & Feature Adoption
+        Route::get('/used-mobiles', [AdminUsedMobileController::class, 'index']);
+        Route::get('/used-mobiles/users', [AdminUsedMobileController::class, 'usersUsage']);
+        Route::get('/used-mobiles/{id}', [AdminUsedMobileController::class, 'show']);
+
                 // Admin Push Notifications Broadcast Management
         Route::get('/notifications', [AdminNotificationController::class, 'index']);
         Route::get('/notifications/users', [AdminNotificationController::class, 'getUsers']);
@@ -263,6 +270,12 @@ Route::prefix('v1')->group(function () {
         Route::post('/purchases/{purchase}/remove-stock', [PurchaseController::class, 'removeStock']);
         Route::post('/purchases/{purchase}/payments', [PurchasePaymentController::class, 'store']);
         Route::apiResource('purchases', PurchaseController::class);
+
+        // Used Mobiles Module (Second-hand Buy & Sell)
+        Route::get('/used-mobiles/stats', [UsedMobileController::class, 'stats']);
+        Route::post('/used-mobiles/{id}/repair-expense', [UsedMobileController::class, 'addRepairExpense']);
+        Route::post('/used-mobiles/{id}/sell', [UsedMobileController::class, 'sell']);
+        Route::apiResource('used-mobiles', UsedMobileController::class);
 
         // Expense Management
         Route::apiResource('expense-categories', ExpenseCategoryController::class);

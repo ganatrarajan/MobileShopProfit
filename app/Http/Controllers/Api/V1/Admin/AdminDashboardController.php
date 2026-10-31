@@ -10,6 +10,7 @@ use App\Models\Sale;
 use App\Models\Shop;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Models\UsedMobile;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -54,6 +55,13 @@ class AdminDashboardController extends Controller
         $totalDevices = Device::withoutGlobalScope('shop')->count();
         $todayAppOpens = User::whereDate('last_app_opened_at', today())->count();
 
+        // 4b. Used Mobiles Feature Adoption Metrics
+        $totalUsedMobiles = UsedMobile::count();
+        $usedMobilesShopsCount = UsedMobile::distinct('shop_id')->count('shop_id');
+        $usedMobilesInStock = UsedMobile::where('status', 'in_stock')->count();
+        $usedMobilesSold = UsedMobile::where('status', 'sold')->count();
+        $usedMobilesTotalProfit = (float) UsedMobile::where('status', 'sold')->sum('profit');
+
         // 5. Recent Shops List (Last 5)
         $recentShops = Shop::with(['user', 'latestSubscription.plan'])
             ->latest()
@@ -84,6 +92,13 @@ class AdminDashboardController extends Controller
                 'total_sales'      => $totalSales,
                 'total_devices'    => $totalDevices,
                 'today_app_opens'  => $todayAppOpens,
+            ],
+            'used_mobiles' => [
+                'total_devices' => $totalUsedMobiles,
+                'shops_count'   => $usedMobilesShopsCount,
+                'in_stock'      => $usedMobilesInStock,
+                'sold'          => $usedMobilesSold,
+                'total_profit'  => $usedMobilesTotalProfit,
             ],
             'recent_shops' => $recentShops,
         ], 'Admin dashboard metrics retrieved successfully');
