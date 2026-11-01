@@ -5,14 +5,12 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/utils/date_helper.dart';
-import '../../../../core/utils/whatsapp_helper.dart';
 import '../../../../core/widgets/app_searchable_bottom_sheet.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/custom_text_field.dart';
 import '../../device/data/device_repository.dart';
 import '../data/used_mobile_repository.dart';
 import '../models/used_mobile.dart';
-import 'used_mobile_pdf_screen.dart';
 
 class BuyUsedMobileScreen extends StatefulWidget {
   final UsedMobile? mobileToEdit;
@@ -540,20 +538,11 @@ class _BuyUsedMobileScreenState extends State<BuyUsedMobileScreen> {
 
     // 7. Primary IMEI 1
     final imei1 = _imei1Controller.text.trim();
-    final imeiDigits = imei1.replaceAll(RegExp(r'\D'), '');
     if (imei1.isEmpty) {
       AppFeedback.showError(
         context,
         title: 'IMEI 1 Required',
-        message: 'Primary IMEI 1 is mandatory. Dial *#06# to find 15-digit IMEI *.',
-      );
-      return;
-    }
-    if (imeiDigits.length < 14 || imeiDigits.length > 16) {
-      AppFeedback.showError(
-        context,
-        title: 'Invalid IMEI 1',
-        message: 'Primary IMEI must be 15 digits (currently ${imeiDigits.length} digits). Please enter valid IMEI.',
+        message: 'Primary IMEI 1 or Serial number is mandatory *.',
       );
       return;
     }
@@ -647,17 +636,17 @@ class _BuyUsedMobileScreenState extends State<BuyUsedMobileScreen> {
 
       if (res.success && res.data != null) {
         if (!mounted) return;
+        Navigator.pop(context, res.data);
         AppFeedback.showSuccess(
           context,
-          title: '✓ Mobile Updated',
+          title: 'Mobile Updated',
           message: '${res.data!.deviceDisplayName} details updated successfully.',
         );
-        Navigator.pop(context, res.data);
       } else {
         if (!mounted) return;
         AppFeedback.showError(
           context,
-          title: '❌ Update Failed',
+          title: 'Update Failed',
           message: res.message.isNotEmpty ? res.message : 'Failed to update details.',
         );
       }
@@ -668,108 +657,21 @@ class _BuyUsedMobileScreenState extends State<BuyUsedMobileScreen> {
       if (res.success && res.data != null) {
         if (!mounted) return;
         final created = res.data!;
+        Navigator.pop(context, true);
         AppFeedback.showSuccess(
           context,
-          title: '✓ Purchase Recorded',
+          title: 'Purchase Recorded',
           message: '${created.deviceDisplayName} (#${created.purchaseRefNumber}) saved to inventory.',
         );
-        _showPurchaseSuccessDialog(created);
       } else {
         if (!mounted) return;
         AppFeedback.showError(
           context,
-          title: '❌ Purchase Failed',
+          title: 'Purchase Failed',
           message: res.message.isNotEmpty ? res.message : 'Failed to save purchase. Please try again.',
         );
       }
     }
-  }
-
-  void _showPurchaseSuccessDialog(UsedMobile mobile) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogCtx) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Row(
-            children: [
-              Icon(Icons.check_circle_rounded, color: AppColors.accent, size: 28),
-              SizedBox(width: 8),
-              Text('Purchase Recorded!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '${mobile.deviceDisplayName} is now logged into your In-Stock inventory (#${mobile.purchaseRefNumber}).',
-                style: const TextStyle(fontSize: 14, height: 1.4),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.background,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.shield_outlined, color: AppColors.primary, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Legal anti-theft owner undertaking & receipt ready for ${mobile.sellerName}.',
-                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogCtx);
-                Navigator.pop(context, true);
-              },
-              child: const Text('Back to List', style: TextStyle(color: AppColors.textMuted)),
-            ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
-              label: const Text('View PDF', style: TextStyle(fontWeight: FontWeight.bold)),
-              onPressed: () {
-                Navigator.pop(dialogCtx);
-                Navigator.pop(context, true);
-                UsedMobilePdfScreen.show(context, mobile, UsedMobilePdfType.purchaseAgreement);
-              },
-            ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF25D366),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              icon: const Icon(Icons.send_rounded, size: 16),
-              label: const Text('WhatsApp Slip', style: TextStyle(fontWeight: FontWeight.bold)),
-              onPressed: () {
-                Navigator.pop(dialogCtx);
-                Navigator.pop(context, true);
-                WhatsAppHelper.sendUsedMobilePurchaseWhatsAppMessage(context, mobile);
-              },
-            ),
-          ],
-        );
-      },
-    );
   }
 
   @override
@@ -984,14 +886,10 @@ class _BuyUsedMobileScreenState extends State<BuyUsedMobileScreen> {
                       label: 'Primary IMEI 1 (Mandatory)',
                       hint: 'Dial *#06# on phone (15 digits)',
                       prefixIcon: Icons.qr_code_2_rounded,
-                      keyboardType: TextInputType.number,
+                      keyboardType: TextInputType.text,
                       isRequired: true,
                       validator: (v) {
-                        if (v == null || v.trim().isEmpty) return 'Enter primary IMEI (15 digits)';
-                        final clean = v.trim().replaceAll(RegExp(r'\D'), '');
-                        if (clean.length < 14 || clean.length > 16) {
-                          return 'IMEI must be 15 digits (currently ${clean.length})';
-                        }
+                        if (v == null || v.trim().isEmpty) return 'Enter primary IMEI 1 or Serial number';
                         return null;
                       },
                     ),

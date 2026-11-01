@@ -2,13 +2,11 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/utils/date_helper.dart';
-import '../../../../core/utils/whatsapp_helper.dart';
 import '../../../../core/widgets/app_searchable_bottom_sheet.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/custom_text_field.dart';
 import '../../data/used_mobile_repository.dart';
 import '../../models/used_mobile.dart';
-import '../used_mobile_pdf_screen.dart';
 
 class SellUsedMobileModal extends StatefulWidget {
   final UsedMobile mobile;
@@ -156,117 +154,21 @@ class _SellUsedMobileModalState extends State<SellUsedMobileModal> {
     if (result.success && result.data != null) {
       if (!mounted) return;
       final updatedMobile = result.data!;
-      AppFeedback.showSuccess(
-        context,
-        title: '⚡ Sale Completed',
-        message: 'Invoice #${updatedMobile.saleInvoiceNumber ?? updatedMobile.id} recorded successfully.',
-      );
-
       Navigator.pop(context, true);
       widget.onSaleComplete?.call();
-      _promptWhatsAppReceipt(context, updatedMobile);
+      AppFeedback.showSuccess(
+        context,
+        title: '⚡ Quick Sale Completed',
+        message: 'Invoice #${updatedMobile.saleInvoiceNumber ?? updatedMobile.id} completed successfully.',
+      );
     } else {
       if (!mounted) return;
       AppFeedback.showError(
         context,
-        title: '❌ Sale Failed',
+        title: 'Sale Failed',
         message: result.message.isNotEmpty ? result.message : 'Failed to record sale. Please try again.',
       );
     }
-  }
-
-  void _promptWhatsAppReceipt(BuildContext ctx, UsedMobile mobile) {
-    showDialog(
-      context: ctx,
-      barrierDismissible: false,
-      builder: (dialogCtx) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          title: const Row(
-            children: [
-              Icon(Icons.check_circle_rounded, color: AppColors.accent, size: 28),
-              SizedBox(width: 8),
-              Text('Mobile Sold Successfully!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '${mobile.deviceDisplayName} is now marked as SOLD (#${mobile.saleInvoiceNumber ?? ""}).',
-                style: const TextStyle(fontSize: 14, height: 1.4, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.accentLight.withOpacity(0.4),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.accent.withOpacity(0.4)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Buyer', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
-                        Text('${mobile.buyerName} (${mobile.buyerPhone})', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                      ],
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        const Text('Net Profit', style: TextStyle(fontSize: 11, color: Colors.green)),
-                        Text('₹${mobile.profit?.toStringAsFixed(0) ?? "0"}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: AppColors.accent)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'Generate official Buyer Sale Bill PDF or deliver digital warranty receipt on WhatsApp:',
-                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogCtx),
-              child: const Text('Done', style: TextStyle(color: AppColors.textMuted)),
-            ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
-              label: const Text('Buyer PDF', style: TextStyle(fontWeight: FontWeight.bold)),
-              onPressed: () {
-                Navigator.pop(dialogCtx);
-                UsedMobilePdfScreen.show(ctx, mobile, UsedMobilePdfType.saleInvoice);
-              },
-            ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF25D366),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              icon: const Icon(Icons.send_rounded, size: 16),
-              label: const Text('WhatsApp Bill', style: TextStyle(fontWeight: FontWeight.bold)),
-              onPressed: () {
-                Navigator.pop(dialogCtx);
-                WhatsAppHelper.sendUsedMobileSaleWhatsAppMessage(ctx, mobile);
-              },
-            ),
-          ],
-        );
-      },
-    );
   }
 
   @override

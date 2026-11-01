@@ -31,12 +31,61 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
   List<UsedMobile> _mobiles = [];
   UsedMobileStats _stats = UsedMobileStats.empty();
   bool _isLoading = true;
-  String _selectedFilter = 'all'; // all, in_stock, sold
+  String _selectedFilter = 'in_stock'; // default: in_stock for showroom
+  String _selectedBrand = 'all'; // all, or specific brand filter
+  bool _isKpiExpanded = false; // collapsible by default to save 60% of the screen
+  bool _hasParsedArgs = false;
   Timer? _debounceTimer;
 
   // Date Filtering state (defaults to 'this_month' matching other modules)
   String _datePreset = 'this_month';
   DateTimeRange? _customDateRange;
+
+  void applyDateFilter(String period, DateTimeRange? customRange) {
+    if (_datePreset != period || _customDateRange != customRange) {
+      setState(() {
+        _datePreset = period;
+        _customDateRange = customRange;
+      });
+      fetchMobiles();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_hasParsedArgs) {
+      _hasParsedArgs = true;
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args != null && args is Map) {
+        if (args.containsKey('period')) {
+          _datePreset = args['period'].toString();
+        }
+        if (args.containsKey('customRange') && args['customRange'] is DateTimeRange) {
+          _customDateRange = args['customRange'] as DateTimeRange;
+        }
+      }
+      fetchMobiles();
+    }
+  }
+
+  Map<String, int> get _brandCounts {
+    final Map<String, int> counts = {};
+    for (final m in _mobiles) {
+      final b = m.brand.trim();
+      if (b.isNotEmpty) {
+        counts[b] = (counts[b] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }
+
+  List<UsedMobile> get _filteredMobiles {
+    if (_selectedBrand == 'all') {
+      return _mobiles;
+    }
+    return _mobiles.where((m) => m.brand.trim().toLowerCase() == _selectedBrand.trim().toLowerCase()).toList();
+  }
 
   String? get _dateFrom => DateHelper.getDateRangeForPreset(_datePreset, customRange: _customDateRange).dateFrom;
   String? get _dateTo => DateHelper.getDateRangeForPreset(_datePreset, customRange: _customDateRange).dateTo;
@@ -172,7 +221,6 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
   @override
   void initState() {
     super.initState();
-    fetchMobiles();
   }
 
   @override
@@ -205,6 +253,9 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
         _mobiles = res.mobiles;
         _stats = res.stats;
         _isLoading = false;
+        if (_selectedBrand != 'all' && !_brandCounts.containsKey(_selectedBrand)) {
+          _selectedBrand = 'all';
+        }
       });
     }
   }
@@ -312,8 +363,9 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
                       ],
                     ),
                     const SizedBox(height: 10),
-                    _buildFilterTabs(),
-                    _buildExportToolbar(isDark),
+                    _buildFilterTabs(isDark),
+                    const SizedBox(height: 8),
+                    _buildBrandAndExportToolbar(isDark),
                   ],
                 ),
               ),
@@ -336,13 +388,43 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
                   onAction: () => _navigateToAdd(context),
                 ),
               )
+            else if (_filteredMobiles.isEmpty)
+              SliverFillRemaining(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.filter_alt_off_rounded, size: 48, color: Colors.grey),
+                        const SizedBox(height: 12),
+                        Text(
+                          'No devices found for "$_selectedBrand"',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Tap below to show all available brands.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                        ),
+                        const SizedBox(height: 14),
+                        OutlinedButton(
+                          onPressed: () => setState(() => _selectedBrand = 'all'),
+                          child: const Text('View All Brands'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
             else
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+                padding: const EdgeInsets.fromLTRB(16, 6, 16, 80),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
-                    (ctx, i) => _buildMobileCard(_mobiles[i], isDark),
-                    childCount: _mobiles.length,
+                    (ctx, i) => _buildMobileCard(_filteredMobiles[i], isDark),
+                    childCount: _filteredMobiles.length,
                   ),
                 ),
               ),
@@ -378,63 +460,169 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
   Widget _buildKpiSection(bool isDark) {
     final periodTag = _datePreset == 'all_time' ? 'All Time' : _dateFilterLabel;
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _buildMetricCard(
-                  title: 'In Stock Devices',
-                  value: '${_stats.inStockCount} Units',
-                  subtitle: 'Invested: ₹${_stats.inStockInvestment.toStringAsFixed(0)}',
-                  icon: Icons.inventory_2_rounded,
-                  color: AppColors.primary,
-                  isDark: isDark,
+    return AnimatedCrossFade(
+      duration: const Duration(milliseconds: 250),
+      crossFadeState: _isKpiExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+      firstChild: Container(
+        margin: const EdgeInsets.fromLTRB(16, 8, 16, 2),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkSurface : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 6,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.phone_android_rounded, size: 16, color: AppColors.primary),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${_stats.inStockCount} In Stock',
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.primary),
+                    ),
+                    const SizedBox(width: 6),
+                    const Text('•', style: TextStyle(color: Colors.grey)),
+                    const SizedBox(width: 6),
+                    Text(
+                      '₹${_stats.inStockInvestment.toStringAsFixed(0)} Value',
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.textSecondary),
+                    ),
+                    if (_stats.soldCount > 0) ...[
+                      const SizedBox(width: 6),
+                      const Text('•', style: TextStyle(color: Colors.grey)),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${_stats.soldCount} Sold',
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.accent),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _buildMetricCard(
-                  title: 'Net Profit',
-                  value: '₹${_stats.totalProfitEarned.toStringAsFixed(0)}',
-                  subtitle: '$periodTag | ${_stats.profitMarginPercentage.toStringAsFixed(1)}% ROI',
-                  icon: Icons.trending_up_rounded,
-                  color: AppColors.accent,
-                  isDark: isDark,
-                  isHighlight: true,
+            ),
+            const SizedBox(width: 6),
+            InkWell(
+              onTap: () => setState(() => _isKpiExpanded = true),
+              borderRadius: BorderRadius.circular(6),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                child: Row(
+                  children: [
+                    Text(
+                      'Overview',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue.shade700),
+                    ),
+                    Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: Colors.blue.shade700),
+                  ],
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _buildMetricCard(
-                  title: 'Sold Revenue',
-                  value: '₹${_stats.totalSaleRevenue.toStringAsFixed(0)}',
-                  subtitle: '$periodTag (${_stats.soldCount} Sold)',
-                  icon: Icons.point_of_sale_rounded,
-                  color: Colors.blue.shade700,
-                  isDark: isDark,
+            ),
+          ],
+        ),
+      ),
+      secondChild: Container(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.analytics_rounded, size: 15, color: AppColors.textMuted),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Business Summary ($periodTag)',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMuted),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _buildMetricCard(
-                  title: 'Total Purchased',
-                  value: '${_stats.totalPurchasedCount} Phones',
-                  subtitle: '$periodTag (₹${_stats.totalPurchasedAmount.toStringAsFixed(0)})',
-                  icon: Icons.shopping_bag_outlined,
-                  color: Colors.indigo,
-                  isDark: isDark,
+                InkWell(
+                  onTap: () => setState(() => _isKpiExpanded = false),
+                  child: const Row(
+                    children: [
+                      Text('Hide', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                      Icon(Icons.keyboard_arrow_up_rounded, size: 18, color: AppColors.primary),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildMetricCard(
+                    title: 'In Stock Devices',
+                    value: '${_stats.inStockCount} Units',
+                    subtitle: 'Invested: ₹${_stats.inStockInvestment.toStringAsFixed(0)}',
+                    icon: Icons.inventory_2_rounded,
+                    color: AppColors.primary,
+                    isDark: isDark,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildMetricCard(
+                    title: 'Net Profit',
+                    value: '₹${_stats.totalProfitEarned.toStringAsFixed(0)}',
+                    subtitle: '$periodTag | ${_stats.profitMarginPercentage.toStringAsFixed(1)}% ROI',
+                    icon: Icons.trending_up_rounded,
+                    color: AppColors.accent,
+                    isDark: isDark,
+                    isHighlight: true,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildMetricCard(
+                    title: 'Sold Revenue',
+                    value: '₹${_stats.totalSaleRevenue.toStringAsFixed(0)}',
+                    subtitle: '$periodTag (${_stats.soldCount} Sold)',
+                    icon: Icons.point_of_sale_rounded,
+                    color: Colors.blue.shade700,
+                    isDark: isDark,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildMetricCard(
+                    title: 'Total Purchased',
+                    value: '${_stats.totalPurchasedCount} Phones',
+                    subtitle: '$periodTag (₹${_stats.totalPurchasedAmount.toStringAsFixed(0)})',
+                    icon: Icons.shopping_bag_outlined,
+                    color: Colors.indigo,
+                    isDark: isDark,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -511,34 +699,67 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
     );
   }
 
-  Widget _buildFilterTabs() {
+  Widget _buildFilterTabs(bool isDark) {
     final tabs = [
-      {'id': 'all', 'label': 'Purchases (${_stats.totalPurchasedCount})'},
       {'id': 'in_stock', 'label': 'In Stock (${_stats.inStockCount})'},
-      {'id': 'sold', 'label': 'Sold Mobiles (${_stats.soldCount})'},
+      {'id': 'sold', 'label': 'Sold (${_stats.soldCount})'},
+      {'id': 'all', 'label': 'All (${_stats.totalPurchasedCount})'},
     ];
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
+    return Container(
+      height: 38,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: isDark ? AppColors.darkBorder : Colors.grey.shade300),
+      ),
       child: Row(
         children: tabs.map((t) {
           final isSelected = _selectedFilter == t['id'];
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: ChoiceChip(
-              label: Text(t['label']!),
-              selected: isSelected,
-              onSelected: (sel) {
-                if (sel) {
-                  setState(() => _selectedFilter = t['id']!);
+          final isSold = t['id'] == 'sold';
+          final activeColor = isSold ? AppColors.accent : AppColors.primary;
+
+          return Expanded(
+            child: GestureDetector(
+              onTap: () {
+                if (_selectedFilter != t['id']) {
+                  setState(() {
+                    _selectedFilter = t['id']!;
+                    _selectedBrand = 'all';
+                  });
                   fetchMobiles();
                 }
               },
-              selectedColor: t['id'] == 'sold' ? AppColors.accent : AppColors.primary,
-              labelStyle: TextStyle(
-                color: isSelected ? Colors.white : AppColors.textPrimary,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                fontSize: 12,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeInOut,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isSelected ? activeColor : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: activeColor.withOpacity(0.3),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Text(
+                  t['label']!,
+                  style: TextStyle(
+                    color: isSelected
+                        ? Colors.white
+                        : (isDark ? Colors.grey.shade300 : AppColors.textSecondary),
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ),
           );
@@ -547,116 +768,336 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
     );
   }
 
-  Widget _buildExportToolbar(bool isDark) {
+  void _showBrandFilterBottomSheet(bool isDark) {
+    final brandMap = _brandCounts;
+    final sortedBrands = brandMap.keys.toList()..sort();
+    String searchQuery = '';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final displayedBrands = sortedBrands.where((b) {
+              if (searchQuery.trim().isEmpty) return true;
+              return b.toLowerCase().contains(searchQuery.trim().toLowerCase());
+            }).toList();
+
+            return SafeArea(
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.75,
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header Bar
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.branding_watermark_rounded, color: AppColors.primary, size: 20),
+                            ),
+                            const SizedBox(width: 10),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Select Mobile Brand',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                ),
+                                Text(
+                                  '${_brandCounts.length} brands available in stock',
+                                  style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 22),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Search input if multiple brands
+                    if (sortedBrands.length > 5) ...[
+                      TextField(
+                        onChanged: (val) {
+                          setModalState(() => searchQuery = val);
+                        },
+                        decoration: InputDecoration(
+                          hintText: 'Search brand name...',
+                          hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade400),
+                          prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.primary),
+                          filled: true,
+                          fillColor: isDark ? AppColors.darkBackground : Colors.grey.shade100,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+
+                    // Brand List
+                    Flexible(
+                      child: ListView(
+                        shrinkWrap: true,
+                        children: [
+                          // "All Brands" option
+                          ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                            leading: Container(
+                              padding: const EdgeInsets.all(7),
+                              decoration: BoxDecoration(
+                                color: _selectedBrand == 'all'
+                                    ? AppColors.primary
+                                    : (isDark ? AppColors.darkBorder : Colors.grey.shade200),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                Icons.category_rounded,
+                                size: 18,
+                                color: _selectedBrand == 'all' ? Colors.white : AppColors.textSecondary,
+                              ),
+                            ),
+                            title: const Text(
+                              'All Brands',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                            ),
+                            subtitle: Text(
+                              '${_mobiles.length} total devices',
+                              style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                            ),
+                            trailing: _selectedBrand == 'all'
+                                ? const Icon(Icons.check_circle_rounded, color: AppColors.accent, size: 22)
+                                : null,
+                            onTap: () {
+                              Navigator.pop(ctx);
+                              setState(() => _selectedBrand = 'all');
+                            },
+                          ),
+                          const Divider(height: 8),
+
+                          // Brand items
+                          if (displayedBrands.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Center(
+                                child: Text(
+                                  'No brands match "$searchQuery"',
+                                  style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+                                ),
+                              ),
+                            )
+                          else
+                            ...displayedBrands.map((b) {
+                              final count = brandMap[b] ?? 0;
+                              final isSelected = _selectedBrand.toLowerCase() == b.toLowerCase();
+
+                              return ListTile(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                                leading: Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? AppColors.primary.withOpacity(0.15)
+                                        : (isDark ? AppColors.darkBackground : Colors.grey.shade100),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: isSelected ? AppColors.primary : Colors.transparent,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    b.isNotEmpty ? b[0].toUpperCase() : '📱',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                                    ),
+                                  ),
+                                ),
+                                title: Text(
+                                  b,
+                                  style: TextStyle(
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                    fontSize: 14,
+                                    color: isSelected ? AppColors.primary : null,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  '$count ${count == 1 ? "device" : "devices"} in stock',
+                                  style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                ),
+                                trailing: isSelected
+                                    ? const Icon(Icons.check_circle_rounded, color: AppColors.accent, size: 22)
+                                    : null,
+                                onTap: () {
+                                  Navigator.pop(ctx);
+                                  setState(() => _selectedBrand = b);
+                                },
+                              );
+                            }),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildBrandAndExportToolbar(bool isDark) {
     final isSoldTab = _selectedFilter == 'sold';
     final count = _mobiles.length;
 
-    return Container(
-      margin: const EdgeInsets.only(top: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Icon(
-                isSoldTab ? Icons.sell_rounded : Icons.shopping_bag_rounded,
-                size: 16,
-                color: isSoldTab ? AppColors.accent : AppColors.primary,
+    return Row(
+      children: [
+        // Brand Selector (Opens Modal Bottom Sheet)
+        Expanded(
+          child: InkWell(
+            onTap: () => _showBrandFilterBottomSheet(isDark),
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              height: 38,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkSurface : Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
               ),
-              const SizedBox(width: 6),
-              Text(
-                isSoldTab ? 'Sold Phones ($count)' : 'Purchases List ($count)',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              child: Row(
+                children: [
+                  Icon(
+                    _selectedBrand == 'all' ? Icons.category_rounded : Icons.branding_watermark_rounded,
+                    size: 15,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _selectedBrand == 'all'
+                          ? 'All Brands ($count)'
+                          : '$_selectedBrand (${_brandCounts[_selectedBrand] ?? 0})',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary, size: 20),
+                ],
               ),
-            ],
+            ),
           ),
-          Row(
-            children: [
-              // Excel Download
-              InkWell(
-                onTap: () async {
-                  if (_mobiles.isEmpty) {
-                    AppFeedback.showError(
-                      context,
-                      title: 'No Records',
-                      message: 'No devices found to download in this tab.',
-                    );
-                    return;
-                  }
-                  if (isSoldTab) {
-                    await UsedMobileExportHelper.exportSalesToExcel(context, _mobiles);
-                  } else {
-                    await UsedMobileExportHelper.exportPurchasesToExcel(context, _mobiles);
-                  }
-                },
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF107C41).withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFF107C41).withOpacity(0.3)),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.download_rounded, size: 14, color: Color(0xFF107C41)),
-                      SizedBox(width: 4),
-                      Text(
-                        'Excel',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF107C41)),
-                      ),
-                    ],
-                  ),
+        ),
+        const SizedBox(width: 8),
+
+        // Excel Download Button
+        InkWell(
+          onTap: () async {
+            if (_mobiles.isEmpty) {
+              AppFeedback.showError(
+                context,
+                title: 'No Records',
+                message: 'No devices found to download in this tab.',
+              );
+              return;
+            }
+            if (isSoldTab) {
+              await UsedMobileExportHelper.exportSalesToExcel(context, _mobiles);
+            } else {
+              await UsedMobileExportHelper.exportPurchasesToExcel(context, _mobiles);
+            }
+          },
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            height: 38,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF107C41).withOpacity(0.12),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFF107C41).withOpacity(0.3)),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.download_rounded, size: 15, color: Color(0xFF107C41)),
+                SizedBox(width: 4),
+                Text(
+                  'Excel',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF107C41)),
                 ),
-              ),
-              const SizedBox(width: 8),
-              // PDF Download
-              InkWell(
-                onTap: () async {
-                  if (_mobiles.isEmpty) {
-                    AppFeedback.showError(
-                      context,
-                      title: 'No Records',
-                      message: 'No devices found to download report in this tab.',
-                    );
-                    return;
-                  }
-                  if (isSoldTab) {
-                    await UsedMobileExportHelper.downloadSalesPdf(context, _mobiles);
-                  } else {
-                    await UsedMobileExportHelper.downloadPurchasesPdf(context, _mobiles);
-                  }
-                },
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red.withOpacity(0.3)),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.download_rounded, size: 14, color: Colors.red),
-                      SizedBox(width: 4),
-                      Text(
-                        'PDF',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 6),
+
+        // PDF Download Button
+        InkWell(
+          onTap: () async {
+            if (_mobiles.isEmpty) {
+              AppFeedback.showError(
+                context,
+                title: 'No Records',
+                message: 'No devices found to download report in this tab.',
+              );
+              return;
+            }
+            if (isSoldTab) {
+              await UsedMobileExportHelper.downloadSalesPdf(context, _mobiles);
+            } else {
+              await UsedMobileExportHelper.downloadPurchasesPdf(context, _mobiles);
+            }
+          },
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            height: 38,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.red.withOpacity(0.3)),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.download_rounded, size: 15, color: Colors.red),
+                SizedBox(width: 4),
+                Text(
+                  'PDF',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.red),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -837,26 +1278,31 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
   Widget _buildMobileCard(UsedMobile mobile, bool isDark) {
     final isSold = mobile.isSold;
     final profit = mobile.profit ?? 0.0;
+    final specs = [
+      if (mobile.storage != null && mobile.storage!.isNotEmpty) mobile.storage!,
+      if (mobile.ram != null && mobile.ram!.isNotEmpty) mobile.ram!,
+      if (mobile.color != null && mobile.color!.isNotEmpty) mobile.color!,
+    ].join(' • ');
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurface : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isSold ? AppColors.accent.withOpacity(0.3) : (isDark ? AppColors.darkBorder : AppColors.border),
+          color: isSold ? AppColors.accent.withOpacity(0.35) : (isDark ? AppColors.darkBorder : AppColors.border),
           width: isSold ? 1.2 : 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 1),
           ),
         ],
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         onTap: () async {
           final result = await Navigator.push(
             context,
@@ -867,209 +1313,250 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
           if (result == true) fetchMobiles();
         },
         child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Top Row: Ref #, Status & Date
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: isSold ? AppColors.accent.withOpacity(0.15) : AppColors.primary.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          isSold ? 'SOLD' : 'IN STOCK',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w800,
-                            color: isSold ? AppColors.accent : AppColors.primary,
-                            letterSpacing: 0.5,
+              // Brand Initial / Logo Avatar
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: isSold
+                      ? AppColors.accent.withOpacity(0.12)
+                      : AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isSold
+                        ? AppColors.accent.withOpacity(0.25)
+                        : AppColors.primary.withOpacity(0.2),
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  mobile.brand.isNotEmpty ? mobile.brand[0].toUpperCase() : '📱',
+                  style: TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                    color: isSold ? AppColors.accent : AppColors.primary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // Device Details (Company/Model, Storage/Color, Condition)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Brand & Model
+                    Text(
+                      '${mobile.brand} ${mobile.model}',
+                      style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 3),
+
+                    // RAM / Storage / Color
+                    Text(
+                      specs.isNotEmpty ? specs : 'Standard Spec',
+                      style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 5),
+
+                    // Condition Pill & Status/Battery
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(5),
+                            border: Border.all(color: isDark ? Colors.grey.shade700 : Colors.grey.shade300),
+                          ),
+                          child: Text(
+                            mobile.conditionLabel,
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.grey.shade300 : AppColors.textSecondary,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        isSold ? (mobile.saleInvoiceNumber ?? '') : mobile.purchaseRefNumber,
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textMuted),
-                      ),
-                    ],
-                  ),
-                  Text(
-                    DateHelper.formatDate((isSold ? mobile.saleDate : mobile.purchaseDate)?.toIso8601String() ?? ''),
-                    style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 10),
-
-              // Device Title
-              Text(
-                mobile.deviceDisplayName,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-
-              const SizedBox(height: 4),
-
-              // IMEI & Condition Pill
-              Row(
-                children: [
-                  Text(
-                    'IMEI: ${mobile.imei1}',
-                    style: const TextStyle(fontSize: 11, color: AppColors.textSecondary, fontFamily: 'monospace'),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Text(
-                      mobile.conditionLabel,
-                      style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
-                    ),
-                  ),
-                ],
-              ),
-
-              const Divider(height: 18),
-
-              // Financial Figures Row
-              if (!isSold)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _financialSnippet('Bought', '₹${mobile.purchasePrice.toStringAsFixed(0)}'),
-                    if (mobile.repairCost > 0)
-                      _financialSnippet('Repair', '₹${mobile.repairCost.toStringAsFixed(0)}', color: Colors.orange)
-                    else
-                      _financialSnippet('Repair', '₹0', color: AppColors.textMuted),
-                    _financialSnippet('Total Investment', '₹${mobile.totalCost.toStringAsFixed(0)}', isHighlight: true),
-                  ],
-                )
-              else
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _financialSnippet('Cost Invested', '₹${mobile.totalCost.toStringAsFixed(0)}'),
-                    _financialSnippet('Sold Price', '₹${(mobile.sellingPrice ?? 0).toStringAsFixed(0)}'),
-                    _financialSnippet(
-                      'Net Profit',
-                      '${profit >= 0 ? "+" : "-"}₹${profit.abs().toStringAsFixed(0)}',
-                      color: profit >= 0 ? AppColors.accent : AppColors.error,
-                      isHighlight: true,
+                        if (mobile.batteryHealth != null && mobile.batteryHealth!.isNotEmpty) ...[
+                          const SizedBox(width: 5),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade50,
+                              borderRadius: BorderRadius.circular(5),
+                              border: Border.all(color: Colors.green.shade200),
+                            ),
+                            child: Text(
+                              '🔋 ${mobile.batteryHealth}',
+                              style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: Colors.green.shade800),
+                            ),
+                          ),
+                        ],
+                        if (isSold) ...[
+                          const SizedBox(width: 5),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.accent.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: const Text(
+                              'SOLD',
+                              style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: AppColors.accent),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
+              ),
 
-              const SizedBox(height: 12),
+              const SizedBox(width: 8),
 
-              // Action Buttons Row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              // Price & Action Button Column
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  // PDF Preview
-                  IconButton(
-                    icon: const Icon(Icons.picture_as_pdf_rounded, size: 20, color: AppColors.primary),
-                    tooltip: isSold ? 'Sale Invoice PDF' : 'Purchase Agreement PDF',
-                    constraints: const BoxConstraints(),
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    onPressed: () {
-                      UsedMobilePdfScreen.show(
-                        context,
-                        mobile,
-                        isSold ? UsedMobilePdfType.saleInvoice : UsedMobilePdfType.purchaseAgreement,
-                      );
-                    },
-                  ),
-
-                  // WhatsApp
-                  IconButton(
-                    icon: const WhatsAppIcon(size: 20),
-                    tooltip: isSold ? 'WhatsApp Invoice to Buyer' : 'WhatsApp Receipt to Seller',
-                    constraints: const BoxConstraints(),
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    onPressed: () {
-                      if (isSold) {
-                        WhatsAppHelper.sendUsedMobileSaleWhatsAppMessage(context, mobile);
-                      } else {
-                        WhatsAppHelper.sendUsedMobilePurchaseWhatsAppMessage(context, mobile);
-                      }
-                    },
-                  ),
-
                   if (!isSold) ...[
-                    const SizedBox(width: 6),
-                    // Add Repair Cost
-                    OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        minimumSize: Size.zero,
-                        side: BorderSide(color: Colors.orange.shade700),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      onPressed: () {
-                        AddRepairExpenseModal.show(context, mobile, onExpenseAdded: fetchMobiles);
-                      },
-                      child: Text(
-                        '+ Repair',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange.shade700),
-                      ),
+                    // In-Stock: Cost / Value Price
+                    Text(
+                      '₹${mobile.totalCost.toStringAsFixed(0)}',
+                      style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w900, color: AppColors.primary),
                     ),
-                    const SizedBox(width: 8),
-                    // Sell Button
+                    const SizedBox(height: 5),
+                    // Quick Sell Button
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.accent,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        elevation: 0,
                       ),
-                      icon: const Icon(Icons.bolt_rounded, size: 16),
-                      label: const Text('Sell', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+                      icon: const Icon(Icons.bolt_rounded, size: 14),
+                      label: const Text('Sell', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5)),
                       onPressed: () {
                         SellUsedMobileModal.show(context, mobile, onSaleComplete: fetchMobiles);
                       },
                     ),
+                  ] else ...[
+                    // Sold: Selling Price & Profit
+                    Text(
+                      '₹${(mobile.sellingPrice ?? 0).toStringAsFixed(0)}',
+                      style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
+                    ),
+                    const SizedBox(height: 3),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: profit >= 0 ? AppColors.accent.withOpacity(0.12) : AppColors.error.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      child: Text(
+                        '${profit >= 0 ? "+" : "-"}₹${profit.abs().toStringAsFixed(0)}',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          color: profit >= 0 ? AppColors.accent : AppColors.error,
+                        ),
+                      ),
+                    ),
                   ],
+
+                  // More Menu (PDF, WhatsApp, Repair, Details)
+                  const SizedBox(height: 4),
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_horiz_rounded, size: 18, color: AppColors.textMuted),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onSelected: (val) {
+                      if (val == 'pdf') {
+                        UsedMobilePdfScreen.show(
+                          context,
+                          mobile,
+                          isSold ? UsedMobilePdfType.saleInvoice : UsedMobilePdfType.purchaseAgreement,
+                        );
+                      } else if (val == 'whatsapp') {
+                        if (isSold) {
+                          WhatsAppHelper.sendUsedMobileSaleWhatsAppMessage(context, mobile);
+                        } else {
+                          WhatsAppHelper.sendUsedMobilePurchaseWhatsAppMessage(context, mobile);
+                        }
+                      } else if (val == 'repair') {
+                        AddRepairExpenseModal.show(context, mobile, onExpenseAdded: fetchMobiles);
+                      } else if (val == 'details') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => UsedMobileDetailsScreen(mobile: mobile)),
+                        ).then((res) {
+                          if (res == true) fetchMobiles();
+                        });
+                      }
+                    },
+                    itemBuilder: (ctx) => [
+                      const PopupMenuItem(
+                        value: 'details',
+                        child: Row(
+                          children: [
+                            Icon(Icons.visibility_rounded, size: 16, color: AppColors.primary),
+                            SizedBox(width: 8),
+                            Text('View Full Details', style: TextStyle(fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'pdf',
+                        child: Row(
+                          children: [
+                            const Icon(Icons.picture_as_pdf_rounded, size: 16, color: Colors.red),
+                            const SizedBox(width: 8),
+                            Text(isSold ? 'Sale Invoice PDF' : 'Purchase Agreement PDF', style: const TextStyle(fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'whatsapp',
+                        child: Row(
+                          children: [
+                            WhatsAppIcon(size: 16),
+                            SizedBox(width: 8),
+                            Text('Send on WhatsApp', style: TextStyle(fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                      if (!isSold)
+                        PopupMenuItem(
+                          value: 'repair',
+                          child: Row(
+                            children: [
+                              Icon(Icons.build_circle_rounded, size: 16, color: Colors.orange.shade700),
+                              const SizedBox(width: 8),
+                              const Text('Add Repair Expense', style: TextStyle(fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
                 ],
               ),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget _financialSnippet(String label, String value, {Color? color, bool isHighlight = false}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: isHighlight ? 14 : 12.5,
-            fontWeight: isHighlight ? FontWeight.w900 : FontWeight.bold,
-            color: color ?? (isHighlight ? AppColors.primary : AppColors.textPrimary),
-          ),
-        ),
-      ],
     );
   }
 }

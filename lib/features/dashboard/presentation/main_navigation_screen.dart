@@ -62,7 +62,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       if (index == 1) {
         _repairListKey.currentState?.applyDateFilter(period, customRange);
       } else if (index == 2) {
-        _usedMobileKey.currentState?.fetchMobiles();
+        _usedMobileKey.currentState?.applyDateFilter(period, customRange);
       } else if (index == 3) {
         _salesListKey.currentState?.applyDateFilter(period, customRange);
       } else if (index == 4) {
