@@ -50,26 +50,55 @@ class UsedMobileController extends Controller
 
         // Date Filters
         if ($request->filled('date_from') || $request->filled('date_to')) {
-            $dateField = ($request->input('status') === 'sold') ? 'sale_date' : 'purchase_date';
-            if ($request->filled('date_from')) {
-                $query->whereDate($dateField, '>=', $request->input('date_from'));
-            }
-            if ($request->filled('date_to')) {
-                $query->whereDate($dateField, '<=', $request->input('date_to'));
+            $status = $request->input('status');
+
+            if ($status === 'sold') {
+                if ($request->filled('date_from')) {
+                    $query->whereDate('sale_date', '>=', $request->input('date_from'));
+                }
+                if ($request->filled('date_to')) {
+                    $query->whereDate('sale_date', '<=', $request->input('date_to'));
+                }
+            } elseif ($status === 'in_stock') {
+                // In-Stock phones are active unsold inventory currently in the shop.
+                // An unsold mobile must ALWAYS remain visible in the In-Stock showroom list
+                // regardless of what month it was acquired in, so the owner can view and sell it!
+            } else {
+                // Status is 'all' or not specified:
+                // If a mobile is not sold (status == 'in_stock'), keep it visible in the listing!
+                // For sold mobiles, only include if purchase_date matches the filtered period.
+                $query->where(function ($q) use ($request) {
+                    $q->where('status', 'in_stock')
+                      ->orWhere(function ($subQ) use ($request) {
+                          if ($request->filled('date_from')) {
+                              $subQ->whereDate('purchase_date', '>=', $request->input('date_from'));
+                          }
+                          if ($request->filled('date_to')) {
+                              $subQ->whereDate('purchase_date', '<=', $request->input('date_to'));
+                          }
+                      });
+                });
             }
         }
 
-        // Active In-Stock devices currently in shop
+        // Active In-Stock devices currently in shop (lifetime unsold inventory)
         $inStockCount = UsedMobile::forShop($user->shop_id)->where('status', 'in_stock')->count();
         $inStockInvestment = UsedMobile::forShop($user->shop_id)->where('status', 'in_stock')->sum('total_cost');
 
-        // Purchased devices in the filtered date range (or all-time if not specified)
+        // Purchased devices: includes all unsold in-stock inventory + devices purchased in the date range
         $purchasedQuery = UsedMobile::forShop($user->shop_id);
-        if ($request->filled('date_from')) {
-            $purchasedQuery->whereDate('purchase_date', '>=', $request->input('date_from'));
-        }
-        if ($request->filled('date_to')) {
-            $purchasedQuery->whereDate('purchase_date', '<=', $request->input('date_to'));
+        if ($request->filled('date_from') || $request->filled('date_to')) {
+            $purchasedQuery->where(function ($q) use ($request) {
+                $q->where('status', 'in_stock')
+                  ->orWhere(function ($subQ) use ($request) {
+                      if ($request->filled('date_from')) {
+                          $subQ->whereDate('purchase_date', '>=', $request->input('date_from'));
+                      }
+                      if ($request->filled('date_to')) {
+                          $subQ->whereDate('purchase_date', '<=', $request->input('date_to'));
+                      }
+                  });
+            });
         }
         $totalPurchasedCount = (clone $purchasedQuery)->count();
         $totalPurchasedAmount = (clone $purchasedQuery)->sum('purchase_price');
