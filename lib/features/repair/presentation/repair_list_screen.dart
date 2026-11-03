@@ -40,6 +40,9 @@ class RepairListScreenState extends State<RepairListScreen> {
   double _totalRepairVolume = 0.0;
   double _totalPaidSum = 0.0;
   double _totalDueSum = 0.0;
+  double _totalPartsCost = 0.0;
+  double _totalTechCost = 0.0;
+  double _totalNetProfit = 0.0;
 
   final Map<String, String> _statusLabels = {
     'all': 'All Repairs',
@@ -167,11 +170,17 @@ class RepairListScreenState extends State<RepairListScreen> {
           double volSum = 0.0;
           double paidSum = 0.0;
           double dueSum = 0.0;
+          double partsCostSum = 0.0;
+          double techCostSum = 0.0;
+          double netProfitSum = 0.0;
 
           for (final r in list) {
             volSum += r.netCost;
             paidSum += r.amountPaid;
             dueSum += r.amountDue;
+            partsCostSum += r.partsCostTotal;
+            techCostSum += r.technicianCost;
+            netProfitSum += r.netProfit;
           }
 
           setState(() {
@@ -179,6 +188,9 @@ class RepairListScreenState extends State<RepairListScreen> {
             _totalRepairVolume = volSum;
             _totalPaidSum = paidSum;
             _totalDueSum = dueSum;
+            _totalPartsCost = partsCostSum;
+            _totalTechCost = techCostSum;
+            _totalNetProfit = netProfitSum;
             _isLoading = false;
           });
         } else {
@@ -196,6 +208,82 @@ class RepairListScreenState extends State<RepairListScreen> {
         });
       }
     }
+  }
+
+  void _showStatusFilterBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.filter_list_rounded, color: AppColors.primary),
+                        SizedBox(width: 8),
+                        Text('Filter by Status', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    if (_selectedStatus != 'all')
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          setState(() => _selectedStatus = 'all');
+                          _fetchRepairs();
+                        },
+                        child: const Text('Reset', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold)),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Divider(height: 1),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: _statusLabels.entries.map((entry) {
+                      final key = entry.key;
+                      final label = entry.value;
+                      final isSelected = _selectedStatus == key;
+                      final color = _statusColors[key] ?? AppColors.primary;
+
+                      return ListTile(
+                        leading: CircleAvatar(
+                          radius: 10,
+                          backgroundColor: key == 'all' ? Colors.grey.shade400 : color,
+                        ),
+                        title: Text(
+                          label,
+                          style: TextStyle(
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: isSelected ? AppColors.primary : Colors.black87,
+                          ),
+                        ),
+                        trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          setState(() => _selectedStatus = key);
+                          _fetchRepairs();
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _showDateFilterBottomSheet() {
@@ -325,93 +413,166 @@ class RepairListScreenState extends State<RepairListScreen> {
   Widget build(BuildContext context) {
     final content = Column(
       children: [
-        // Summary Header Cards & Search
+        // Summary Header & Integrated Compact Search/Filters
         Container(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
           color: AppColors.primary,
           child: Column(
             children: [
+              // Row 1: Compact 3-metric strip
               Row(
                 children: [
                   Expanded(
                     child: _buildSummaryMetric(
-                      title: 'Total Value',
+                      title: 'Total Bill',
                       value: '\u20B9 ${_totalRepairVolume.toStringAsFixed(0)}',
-                      icon: Icons.build_circle_rounded,
+                      icon: Icons.receipt_long_rounded,
                       color: Colors.white,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   Expanded(
                     child: _buildSummaryMetric(
-                      title: 'Advance/Paid',
+                      title: 'Amount Paid',
                       value: '\u20B9 ${_totalPaidSum.toStringAsFixed(0)}',
                       icon: Icons.check_circle_rounded,
                       color: Colors.greenAccent.shade400,
+                      borderColor: Colors.greenAccent.withOpacity(0.4),
+                      bgColor: Colors.greenAccent.withOpacity(0.15),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   Expanded(
                     child: _buildSummaryMetric(
                       title: 'Total Due',
                       value: '\u20B9 ${_totalDueSum.toStringAsFixed(0)}',
                       icon: Icons.pending_actions_rounded,
-                      color: Colors.amberAccent.shade200,
+                      color: _totalDueSum > 0 ? Colors.amberAccent.shade200 : Colors.white70,
+                      borderColor: _totalDueSum > 0 ? Colors.amberAccent.withOpacity(0.5) : null,
+                      bgColor: _totalDueSum > 0 ? Colors.amber.withOpacity(0.15) : null,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              // Search Field & Date Filter Chip
+              const SizedBox(height: 6),
+              // Row 2: Ultra-compact Net Profit & Cost breakdown strip
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.currency_rupee_rounded, size: 12, color: Colors.greenAccent),
+                        Text('Net Profit: ', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 10)),
+                        Text('+\u20B9${_totalNetProfit.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12)),
+                      ],
+                    ),
+                    const Text('|', style: TextStyle(color: Colors.white24, fontSize: 11)),
+                    Text('Parts: \u20B9${_totalPartsCost.toStringAsFixed(0)}', style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 10.5, fontWeight: FontWeight.bold)),
+                    const Text('|', style: TextStyle(color: Colors.white24, fontSize: 11)),
+                    Text('Tech: \u20B9${_totalTechCost.toStringAsFixed(0)}', style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 10.5, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 6),
+              // Row 3: Compact Search & 2 Dropdowns (Status + Date)
               Row(
                 children: [
                   Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      onChanged: (_) => _fetchRepairs(),
-                      decoration: InputDecoration(
-                        hintText: 'Search Job #, Customer, IMEI, Model...',
-                        hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
-                        prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
-                        suffixIcon: _searchController.text.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear_rounded, color: AppColors.textMuted),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  _fetchRepairs();
-                                },
-                              )
-                            : null,
-                        filled: true,
-                        fillColor: Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide.none,
+                    child: SizedBox(
+                      height: 36,
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: (_) => _fetchRepairs(),
+                        style: const TextStyle(fontSize: 12),
+                        decoration: InputDecoration(
+                          hintText: 'Search...',
+                          hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 11.5),
+                          prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary, size: 16),
+                          suffixIcon: _searchController.text.isNotEmpty
+                              ? IconButton(
+                                  padding: EdgeInsets.zero,
+                                  icon: const Icon(Icons.clear_rounded, size: 16, color: AppColors.textMuted),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    _fetchRepairs();
+                                  },
+                                )
+                              : null,
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide.none,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
+                  // Compact Status Dropdown button
                   InkWell(
-                    onTap: _showDateFilterBottomSheet,
-                    borderRadius: BorderRadius.circular(10),
+                    onTap: _showStatusFilterBottomSheet,
+                    borderRadius: BorderRadius.circular(8),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      height: 36,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
                       decoration: BoxDecoration(
-                        color: AppColors.accent,
-                        borderRadius: BorderRadius.circular(10),
+                        color: _selectedStatus == 'all' ? Colors.white.withOpacity(0.2) : Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.white.withOpacity(0.4)),
                       ),
                       child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.calendar_month_rounded, color: Colors.white, size: 18),
+                          Icon(
+                            _selectedStatus == 'all' ? Icons.filter_list_rounded : Icons.circle,
+                            size: _selectedStatus == 'all' ? 14 : 9,
+                            color: _selectedStatus == 'all' ? Colors.white : AppColors.primary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _selectedStatus == 'all' ? 'Status' : (_statusLabels[_selectedStatus] ?? 'Status'),
+                            style: TextStyle(
+                              color: _selectedStatus == 'all' ? Colors.white : AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                            ),
+                          ),
+                          const Icon(Icons.arrow_drop_down_rounded, color: Colors.white, size: 16),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  // Compact Date Dropdown button
+                  InkWell(
+                    onTap: _showDateFilterBottomSheet,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      height: 36,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.calendar_month_rounded, color: Colors.white, size: 13),
                           const SizedBox(width: 4),
                           Text(
                             _dateFilterLabel,
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
                           ),
-                          const SizedBox(width: 2),
-                          const Icon(Icons.arrow_drop_down_rounded, color: Colors.white, size: 18),
+                          const Icon(Icons.arrow_drop_down_rounded, color: Colors.white, size: 16),
                         ],
                       ),
                     ),
@@ -421,20 +582,6 @@ class RepairListScreenState extends State<RepairListScreen> {
             ],
           ),
         ),
-
-        // Status Filter Bar
-        Container(
-          height: 48,
-          color: Colors.white,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            children: _statusLabels.entries.map((entry) {
-              return _buildFilterChip(entry.value, entry.key);
-            }).toList(),
-          ),
-        ),
-        const Divider(height: 1),
 
         // Repair Cards List
         Expanded(
@@ -488,7 +635,7 @@ class RepairListScreenState extends State<RepairListScreen> {
                                       _fetchRepairs();
                                     }
                                   },
-                                  padding: const EdgeInsets.all(14.0),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
@@ -531,8 +678,8 @@ class RepairListScreenState extends State<RepairListScreen> {
                                             children: [
                                               StatusBadge(
                                                 label: statusLabel,
-                                                backgroundColor: statusColor.withOpacity(0.12),
-                                                textColor: statusColor,
+                                                backgroundColor: statusColor,
+                                                textColor: Colors.white,
                                               ),
                                               const SizedBox(width: 4),
                                               InkWell(
@@ -647,7 +794,7 @@ class RepairListScreenState extends State<RepairListScreen> {
                                       ],
                                       const SizedBox(height: 6),
                                       Container(
-                                        padding: const EdgeInsets.all(8),
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                                         decoration: BoxDecoration(
                                           color: Colors.grey.shade50,
                                           borderRadius: BorderRadius.circular(6),
@@ -659,56 +806,8 @@ class RepairListScreenState extends State<RepairListScreen> {
                                           style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                                         ),
                                       ),
-                                      const SizedBox(height: 10),
-                                      const Divider(height: 1),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                repair.finalCost > 0 ? 'Final Cost' : 'Estimated Cost',
-                                                style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
-                                              ),
-                                              Text(
-                                                '\u20B9 ${repair.netCost.toStringAsFixed(2)}',
-                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.primary),
-                                              ),
-                                            ],
-                                          ),
-                                          Row(
-                                            children: [
-                                              Column(
-                                                crossAxisAlignment: CrossAxisAlignment.end,
-                                                children: [
-                                                  Text(
-                                                    repair.amountDue > 0 ? 'Due Amount' : 'Paid',
-                                                    style: TextStyle(
-                                                      fontSize: 11,
-                                                      color: repair.amountDue > 0 ? Colors.red.shade700 : Colors.green.shade700,
-                                                      fontWeight: FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                  Text(
-                                                    repair.amountDue > 0
-                                                        ? '\u20B9 ${repair.amountDue.toStringAsFixed(2)}'
-                                                        : '\u20B9 ${repair.amountPaid.toStringAsFixed(2)}',
-                                                    style: TextStyle(
-                                                      fontWeight: FontWeight.bold,
-                                                      fontSize: 14,
-                                                      color: repair.amountDue > 0 ? Colors.red.shade700 : Colors.green.shade700,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(width: 8),
-                                              const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textMuted),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
+                                      const SizedBox(height: 7),
+                                      _buildVyaparFinancialBox(repair),
                                     ],
                                   ),
                                 ),
@@ -731,7 +830,7 @@ class RepairListScreenState extends State<RepairListScreen> {
             icon: const Icon(Icons.add_rounded),
             onPressed: () async {
               final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create repair tickets');
-              if (!ok) return;
+              if (!ok || !context.mounted) return;
               final result = await Navigator.pushNamed(context, AppRoutes.createRepair);
               if (result == true) {
                 _fetchRepairs();
@@ -745,7 +844,7 @@ class RepairListScreenState extends State<RepairListScreen> {
         heroTag: 'fab_repair_list',
         onPressed: () async {
           final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'create repair tickets');
-          if (!ok) return;
+          if (!ok || !context.mounted) return;
           final result = await Navigator.pushNamed(context, AppRoutes.createRepair);
           if (result == true) {
             _fetchRepairs();
@@ -763,12 +862,15 @@ class RepairListScreenState extends State<RepairListScreen> {
     required String value,
     required IconData icon,
     required Color color,
+    Color? borderColor,
+    Color? bgColor,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.12),
+        color: bgColor ?? Colors.white.withOpacity(0.12),
         borderRadius: BorderRadius.circular(10),
+        border: borderColor != null ? Border.all(color: borderColor, width: 1.2) : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -780,18 +882,19 @@ class RepairListScreenState extends State<RepairListScreen> {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.w500),
+                  style: const TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.w600),
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
               value,
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: color),
             ),
           ),
         ],
@@ -799,30 +902,216 @@ class RepairListScreenState extends State<RepairListScreen> {
     );
   }
 
-  Widget _buildFilterChip(String label, String statusKey) {
-    final isSelected = _selectedStatus == statusKey;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8.0),
-      child: ChoiceChip(
-        label: Text(label),
-        selected: isSelected,
-        onSelected: (selected) {
-          if (selected) {
-            setState(() {
-              _selectedStatus = statusKey;
-            });
-            _fetchRepairs();
-          }
-        },
-        selectedColor: AppColors.primary,
-        backgroundColor: Colors.grey.shade100,
-        labelStyle: TextStyle(
-          color: isSelected ? Colors.white : AppColors.textSecondary,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          fontSize: 12,
+  Widget _buildVyaparFinancialBox(Repair repair) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMutedColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
+
+    final double billed = repair.netCost;
+    final double received = repair.amountPaid;
+    final double due = repair.amountDue;
+    final double partsCost = repair.partsCostTotal;
+    final double techCost = repair.technicianCost;
+    final double realizedProfit = repair.netProfit; // Strictly based on amountPaid!
+    final double margin = repair.profitMarginPercent;
+    final bool hasDue = due > 0;
+    final bool isUnpaid = received <= 0 && hasDue;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: hasDue
+            ? (isDark ? const Color(0xFF2A1C16) : const Color(0xFFFFFDF7))
+            : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC)),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: hasDue
+              ? (isDark ? Colors.amber.shade900 : const Color(0xFFFDE68A))
+              : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+          width: 1.0,
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Line 1: Bill, Paid, and Due / Full Paid
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: SizedBox(
+              width: MediaQuery.of(context).size.width - 56, // card width minus inner paddings
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Bill: ',
+                        style: TextStyle(fontSize: 11.5, color: textMutedColor, fontWeight: FontWeight.w500),
+                      ),
+                      Text(
+                        '\u20B9${billed.toStringAsFixed(0)}',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? Colors.white70 : AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Icon(
+                        Icons.check_circle_rounded,
+                        size: 13,
+                        color: received > 0 ? const Color(0xFF059669) : textMutedColor,
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        'Paid: ',
+                        style: TextStyle(fontSize: 11.5, color: textMutedColor, fontWeight: FontWeight.w500),
+                      ),
+                      Text(
+                        '\u20B9${received.toStringAsFixed(0)}',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                          color: received > 0 ? const Color(0xFF059669) : textColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (hasDue)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: const Color(0xFFFECACA)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.pending_actions_rounded, size: 11, color: Color(0xFFDC2626)),
+                          const SizedBox(width: 3),
+                          Text(
+                            'Due: \u20B9${due.toStringAsFixed(0)}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFFDC2626),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFECFDF5),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: const Color(0xFFA7F3D0)),
+                      ),
+                      child: const Text(
+                        'Full Paid',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF059669),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 5),
+          Divider(
+            height: 1,
+            thickness: 0.6,
+            color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+          ),
+          const SizedBox(height: 5),
+          // Line 2: Parts, Tech, and Realized Net Profit
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: SizedBox(
+              width: MediaQuery.of(context).size.width - 56,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.inventory_2_outlined, size: 12, color: textMutedColor),
+                      const SizedBox(width: 2),
+                      Text(
+                        'Parts: ',
+                        style: TextStyle(fontSize: 11, color: textMutedColor),
+                      ),
+                      Text(
+                        '\u20B9${partsCost.toStringAsFixed(0)}',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: textColor),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(Icons.engineering_outlined, size: 12, color: textMutedColor),
+                      const SizedBox(width: 2),
+                      Text(
+                        'Tech: ',
+                        style: TextStyle(fontSize: 11, color: textMutedColor),
+                      ),
+                      Text(
+                        '\u20B9${techCost.toStringAsFixed(0)}',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: textColor),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Profit: ',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: isUnpaid ? AppColors.textMuted : const Color(0xFF047857),
+                        ),
+                      ),
+                      Text(
+                        isUnpaid
+                            ? '\u20B90'
+                            : '+\u20B9${realizedProfit.toStringAsFixed(0)}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          color: isUnpaid ? AppColors.textSecondary : const Color(0xFF047857),
+                        ),
+                      ),
+                      if (!isUnpaid && margin > 0) ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF059669),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            '${margin.toStringAsFixed(0)}%',
+                            style: const TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

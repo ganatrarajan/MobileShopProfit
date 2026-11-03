@@ -188,6 +188,8 @@ class Sale {
   final Warranty? warranty;
   final String? createdAt;
   final String? updatedAt;
+  final double? rawTotalCost;
+  final double? rawNetProfit;
 
   double get totalDiscount {
     double itemDiscounts = 0.0;
@@ -195,6 +197,37 @@ class Sale {
       itemDiscounts += item.discount;
     }
     return discount + itemDiscounts;
+  }
+
+  /// Total purchase cost of items sold in this sale
+  double get totalCost {
+    if (rawTotalCost != null && rawTotalCost! > 0) return rawTotalCost!;
+    double sum = 0.0;
+    for (final item in items) {
+      if (item.costPrice != null && item.costPrice! > 0) {
+        sum += (item.costPrice! * item.quantity);
+      }
+    }
+    return sum;
+  }
+
+  /// Realized Net Profit based strictly on amountPaid - totalCost
+  double get netProfit {
+    if (amountPaid <= 0) return 0.0;
+    final cost = totalCost;
+    if (amountPaid <= cost) return 0.0;
+    return amountPaid - cost;
+  }
+
+  /// Expected Net Profit when invoice is fully paid
+  double get expectedNetProfit {
+    return grandTotal - totalCost;
+  }
+
+  /// Profit Margin % = (netProfit / amountPaid) * 100
+  double get profitMarginPercent {
+    if (amountPaid <= 0 || netProfit <= 0) return 0.0;
+    return (netProfit / amountPaid) * 100;
   }
 
   bool get isQuickSale => saleType == 'quick';
@@ -226,6 +259,8 @@ class Sale {
     this.warranty,
     this.createdAt,
     this.updatedAt,
+    this.rawTotalCost,
+    this.rawNetProfit,
   });
 
   factory Sale.fromJson(Map<String, dynamic> json) {
@@ -266,6 +301,8 @@ class Sale {
           : null,
       createdAt: json['created_at']?.toString(),
       updatedAt: json['updated_at']?.toString(),
+      rawTotalCost: json['total_cost'] != null ? _parseDouble(json['total_cost']) : null,
+      rawNetProfit: json['net_profit'] != null ? _parseDouble(json['net_profit']) : null,
     );
   }
 

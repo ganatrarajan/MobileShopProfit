@@ -38,6 +38,8 @@ class SalesListScreenState extends State<SalesListScreen> {
   double _totalSalesSum = 0.0;
   double _totalPaidSum = 0.0;
   double _totalDueSum = 0.0;
+  double _totalCostSum = 0.0;
+  double _totalNetProfitSum = 0.0;
 
   bool _hasParsedArgs = false;
 
@@ -147,11 +149,15 @@ class SalesListScreenState extends State<SalesListScreen> {
           double salesSum = 0.0;
           double paidSum = 0.0;
           double dueSum = 0.0;
+          double costSum = 0.0;
+          double profitSum = 0.0;
 
           for (final s in list) {
             salesSum += s.grandTotal;
             paidSum += s.amountPaid;
             dueSum += s.amountDue;
+            costSum += s.totalCost;
+            profitSum += s.netProfit;
           }
 
           setState(() {
@@ -159,6 +165,8 @@ class SalesListScreenState extends State<SalesListScreen> {
             _totalSalesSum = salesSum;
             _totalPaidSum = paidSum;
             _totalDueSum = dueSum;
+            _totalCostSum = costSum;
+            _totalNetProfitSum = profitSum;
             _isLoading = false;
           });
         } else {
@@ -388,7 +396,31 @@ class SalesListScreenState extends State<SalesListScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
+              // Compact Profit & Costs Breakdown Strip
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.currency_rupee_rounded, size: 12, color: Colors.greenAccent),
+                        Text('Net Profit: ', style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 10)),
+                        Text('+\u20B9${_totalNetProfitSum.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12)),
+                      ],
+                    ),
+                    const Text('|', style: TextStyle(color: Colors.white24, fontSize: 11)),
+                    Text('Items Cost: \u20B9${_totalCostSum.toStringAsFixed(0)}', style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 10.5, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
               // Search Field & Date Filter Chip
               Row(
                 children: [
@@ -521,7 +553,7 @@ class SalesListScreenState extends State<SalesListScreen> {
                                       _fetchSales();
                                     }
                                   },
-                                  padding: const EdgeInsets.all(14.0),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
@@ -567,8 +599,8 @@ class SalesListScreenState extends State<SalesListScreen> {
                                             children: [
                                               StatusBadge(
                                                 label: statusLabel,
-                                                backgroundColor: statusColor.withOpacity(0.12),
-                                                textColor: statusColor,
+                                                backgroundColor: statusColor,
+                                                textColor: Colors.white,
                                               ),
                                               if (customerMobile.isNotEmpty) ...[
                                                 const SizedBox(width: 2),
@@ -640,53 +672,8 @@ class SalesListScreenState extends State<SalesListScreen> {
                                           ],
                                         ),
                                       ],
-                                      const SizedBox(height: 12),
-                                      const Divider(height: 1),
-                                      const SizedBox(height: 10),
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              const Text('Grand Total', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
-                                              Text(
-                                                '₹ ${sale.grandTotal.toStringAsFixed(2)}',
-                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary),
-                                              ),
-                                            ],
-                                          ),
-                                          Row(
-                                            children: [
-                                              Column(
-                                                crossAxisAlignment: CrossAxisAlignment.end,
-                                                children: [
-                                                  Text(
-                                                    sale.amountDue > 0 ? 'Due' : 'Paid',
-                                                    style: TextStyle(
-                                                      fontSize: 11,
-                                                      color: sale.amountDue > 0 ? Colors.red.shade700 : Colors.green.shade700,
-                                                      fontWeight: FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                  Text(
-                                                    sale.amountDue > 0
-                                                        ? '₹ ${sale.amountDue.toStringAsFixed(2)}'
-                                                        : '₹ ${sale.amountPaid.toStringAsFixed(2)}',
-                                                    style: TextStyle(
-                                                      fontWeight: FontWeight.bold,
-                                                      fontSize: 14,
-                                                      color: sale.amountDue > 0 ? Colors.red.shade700 : Colors.green.shade700,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(width: 8),
-                                              const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textMuted),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
+                                      const SizedBox(height: 8),
+                                      _buildSaleFinancialBox(sale),
                                     ],
                                   ),
                                 ),
@@ -875,6 +862,208 @@ class SalesListScreenState extends State<SalesListScreen> {
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           fontSize: 12,
         ),
+      ),
+    );
+  }
+
+  Widget _buildSaleFinancialBox(Sale sale) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMutedColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
+
+    final double billed = sale.grandTotal;
+    final double received = sale.amountPaid;
+    final double due = sale.amountDue;
+    final double cost = sale.totalCost;
+    final double realizedProfit = sale.netProfit;
+    final double margin = sale.profitMarginPercent;
+    final bool hasDue = due > 0;
+    final bool isUnpaid = received <= 0 && hasDue;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: hasDue
+            ? (isDark ? const Color(0xFF2A1C16) : const Color(0xFFFFFDF7))
+            : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC)),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: hasDue
+              ? (isDark ? Colors.amber.shade900 : const Color(0xFFFDE68A))
+              : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+          width: 1.0,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Line 1: Bill, Paid, and Due / Full Paid
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: SizedBox(
+              width: MediaQuery.of(context).size.width - 56,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Bill: ',
+                        style: TextStyle(fontSize: 11.5, color: textMutedColor, fontWeight: FontWeight.w500),
+                      ),
+                      Text(
+                        '\u20B9${billed.toStringAsFixed(0)}',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? Colors.white70 : AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Icon(
+                        Icons.check_circle_rounded,
+                        size: 13,
+                        color: received > 0 ? const Color(0xFF059669) : textMutedColor,
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        'Paid: ',
+                        style: TextStyle(fontSize: 11.5, color: textMutedColor, fontWeight: FontWeight.w500),
+                      ),
+                      Text(
+                        '\u20B9${received.toStringAsFixed(0)}',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                          color: received > 0 ? const Color(0xFF059669) : textColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (hasDue)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: const Color(0xFFFECACA)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.pending_actions_rounded, size: 11, color: Color(0xFFDC2626)),
+                          const SizedBox(width: 3),
+                          Text(
+                            'Due: \u20B9${due.toStringAsFixed(0)}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFFDC2626),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFECFDF5),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: const Color(0xFFA7F3D0)),
+                      ),
+                      child: const Text(
+                        'Full Paid',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF059669),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 5),
+          Divider(
+            height: 1,
+            thickness: 0.6,
+            color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+          ),
+          const SizedBox(height: 5),
+          // Line 2: Purchase Cost & Realized Net Profit
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: SizedBox(
+              width: MediaQuery.of(context).size.width - 56,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.shopping_bag_outlined, size: 12, color: textMutedColor),
+                      const SizedBox(width: 3),
+                      Text(
+                        'Purchase: ',
+                        style: TextStyle(fontSize: 11, color: textMutedColor),
+                      ),
+                      Text(
+                        '\u20B9${cost.toStringAsFixed(0)}',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: textColor),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Profit: ',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: isUnpaid ? AppColors.textMuted : const Color(0xFF047857),
+                        ),
+                      ),
+                      Text(
+                        isUnpaid
+                            ? '\u20B90'
+                            : '+\u20B9${realizedProfit.toStringAsFixed(0)}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          color: isUnpaid ? AppColors.textSecondary : const Color(0xFF047857),
+                        ),
+                      ),
+                      if (!isUnpaid && margin > 0) ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF059669),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            '${margin.toStringAsFixed(0)}%',
+                            style: const TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

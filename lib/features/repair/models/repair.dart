@@ -173,6 +173,7 @@ class Repair {
   final List<RepairPart> parts;
   final List<RepairPayment> payments;
   final Warranty? warranty;
+  final double? apiNetProfit;
   final String? createdAt;
   final String? updatedAt;
 
@@ -213,11 +214,62 @@ class Repair {
     this.parts = const [],
     this.payments = const [],
     this.warranty,
+    this.apiNetProfit,
     this.createdAt,
     this.updatedAt,
   });
 
   double get netCost => finalCost > 0 ? finalCost : estimatedCost;
+
+  /// Total cost price of parts used in this repair
+  double get partsCostTotal {
+    if (parts.isEmpty) return 0.0;
+    return parts.fold(0.0, (sum, part) {
+      final cost = (part.costPrice != null && part.costPrice! > 0)
+          ? part.costPrice!
+          : part.sellingPrice;
+      return sum + (cost * part.quantity);
+    });
+  }
+
+  /// Total customer-facing selling price of parts
+  double get partsSellingTotal {
+    if (parts.isEmpty) return 0.0;
+    return parts.fold(0.0, (sum, part) => sum + (part.sellingPrice * part.quantity));
+  }
+
+  /// Payout/earning for the technician
+  double get technicianCost => technicianEarning;
+
+  /// Realized Net Profit = Actual Amount Received (amountPaid) - Parts Cost - Technician Earning
+  double get netProfit {
+    if (amountPaid <= 0) return 0.0;
+    if (apiNetProfit != null && apiNetProfit! > 0) {
+      return apiNetProfit!;
+    }
+    final profit = amountPaid - partsCostTotal - technicianCost;
+    return profit > 0 ? profit : 0.0;
+  }
+
+  /// Expected Profit if full bill is collected
+  double get expectedNetProfit {
+    final revenue = netCost;
+    final profit = revenue - partsCostTotal - technicianCost;
+    return profit > 0 ? profit : 0.0;
+  }
+
+  /// Profit margin percentage based on actual received amount
+  double get profitMarginPercent {
+    if (amountPaid <= 0) return 0.0;
+    return (netProfit / amountPaid) * 100.0;
+  }
+
+  /// Quick readable summary of parts used
+  String get partsSummary {
+    if (parts.isEmpty) return 'Labour only';
+    if (parts.length == 1) return parts.first.partName;
+    return '${parts.first.partName} +${parts.length - 1} more';
+  }
 
   factory Repair.fromJson(Map<String, dynamic> json) {
     return Repair(
@@ -226,7 +278,7 @@ class Repair {
       customerId: _parseInt(json['customer_id']),
       deviceId: _parseInt(json['device_id']),
       technicianId: _parseNullableInt(json['technician_id']),
-            technicianName: json['technician_name']?.toString() ?? (json['technician'] is Map ? json['technician']['name']?.toString() : null),
+      technicianName: json['technician_name']?.toString() ?? (json['technician'] is Map ? json['technician']['name']?.toString() : null),
       technicianEarning: _parseDouble(json['technician_earning']),
       technicianPaidAmount: _parseDouble(json['technician_paid_amount']),
       technicianPayable: _parseDouble(json['technician_payable']),
@@ -267,6 +319,7 @@ class Repair {
       warranty: json['warranty'] != null && json['warranty'] is Map<String, dynamic>
           ? Warranty.fromJson(json['warranty'] as Map<String, dynamic>)
           : null,
+      apiNetProfit: json['net_profit'] != null ? _parseDouble(json['net_profit']) : null,
       createdAt: json['created_at']?.toString(),
       updatedAt: json['updated_at']?.toString(),
     );

@@ -53,6 +53,9 @@ class SalesSummary {
   final double totalSales;
   final double totalCollected;
   final double totalDue;
+  final double totalCost;
+  final double netProfit;
+  final double profitMargin;
   final int totalCount;
   final int regularSalesCount;
   final int quickSalesCount;
@@ -62,6 +65,9 @@ class SalesSummary {
     required this.totalSales,
     required this.totalCollected,
     required this.totalDue,
+    this.totalCost = 0.0,
+    this.netProfit = 0.0,
+    this.profitMargin = 0.0,
     required this.totalCount,
     required this.regularSalesCount,
     required this.quickSalesCount,
@@ -73,6 +79,9 @@ class SalesSummary {
       totalSales: _parseDouble(json['total_sales']),
       totalCollected: _parseDouble(json['total_collected']),
       totalDue: _parseDouble(json['total_due']),
+      totalCost: _parseDouble(json['total_cost']),
+      netProfit: _parseDouble(json['net_profit']),
+      profitMargin: _parseDouble(json['profit_margin']),
       totalCount: _parseInt(json['total_count']),
       regularSalesCount: _parseInt(json['regular_sales_count']),
       quickSalesCount: _parseInt(json['quick_sales_count']),
@@ -115,6 +124,10 @@ class RepairSummary {
   final int totalRepairsCount;
   final double totalEarnings;
   final double totalDue;
+  final double partsCost;
+  final double technicianCost;
+  final double netProfit;
+  final int allTimeActiveCount;
 
   RepairSummary({
     required this.activeRepairsCount,
@@ -124,6 +137,10 @@ class RepairSummary {
     required this.totalRepairsCount,
     required this.totalEarnings,
     required this.totalDue,
+    this.partsCost = 0.0,
+    this.technicianCost = 0.0,
+    this.netProfit = 0.0,
+    this.allTimeActiveCount = 0,
   });
 
   factory RepairSummary.fromJson(Map<String, dynamic> json) {
@@ -135,6 +152,10 @@ class RepairSummary {
       totalRepairsCount: _parseInt(json['total_repairs_count']),
       totalEarnings: _parseDouble(json['total_earnings'] ?? json['total_revenue'] ?? json['earnings'] ?? json['total_collected'] ?? json['total_amount']),
       totalDue: _parseDouble(json['total_due'] ?? json['due_amount'] ?? json['outstanding'] ?? json['pending_due']),
+      partsCost: _parseDouble(json['parts_cost']),
+      technicianCost: _parseDouble(json['technician_cost']),
+      netProfit: _parseDouble(json['net_profit']),
+      allTimeActiveCount: _parseInt(json['all_time_active_count']),
     );
   }
 }
