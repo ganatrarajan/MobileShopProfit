@@ -74,6 +74,25 @@ class DashboardController extends Controller
         $regularSalesCount = (int) ($salesAgg->regular_count ?? 0);
         $quickSalesCount = (int) ($salesAgg->quick_count ?? 0);
 
+        // Total cost of items sold in this period
+        $periodSaleIds = DB::table('sales')
+            ->where('shop_id', $shopId)
+            ->whereNull('deleted_at')
+            ->whereBetween('sale_date', [$sDateStr, $eDateStr])
+            ->pluck('id');
+
+        $totalSalesCost = 0.0;
+        if (!empty($periodSaleIds) && count($periodSaleIds) > 0) {
+            $totalSalesCost = (float) DB::table('sale_items')
+                ->leftJoin('inventory_items', 'sale_items.inventory_item_id', '=', 'inventory_items.id')
+                ->whereIn('sale_items.sale_id', $periodSaleIds)
+                ->whereNull('sale_items.deleted_at')
+                ->selectRaw('COALESCE(SUM(COALESCE(NULLIF(sale_items.cost_price, 0), inventory_items.purchase_price, 0) * sale_items.quantity), 0) as cost_sum')
+                ->value('cost_sum');
+        }
+
+        $salesNetProfit = max(0.0, round($totalCollected - $totalSalesCost, 2));
+
         // Total Dues Across All Time
         $allTimeDues = (float) DB::table('sales')
             ->where('shop_id', $shopId)
@@ -81,23 +100,53 @@ class DashboardController extends Controller
             ->where('payment_status', '!=', 'paid')
             ->sum('amount_due');
 
-        // 2. Repair Aggregations
-        $repairsAgg = DB::table('repairs')
+        // 2. Repair Aggregations for the selected date period ($sDateStr to $eDateStr)
+        $repairsPeriodQuery = DB::table('repairs')
             ->where('shop_id', $shopId)
             ->whereNull('deleted_at')
-            ->selectRaw('
-                COUNT(*) as total_count,
-                COALESCE(SUM(CASE WHEN repair_status NOT IN ("delivered", "cancelled") THEN 1 ELSE 0 END), 0) as active_count,
-                COALESCE(SUM(CASE WHEN repair_status = "ready" THEN 1 ELSE 0 END), 0) as ready_count,
-                COALESCE(SUM(CASE WHEN repair_status = "pending_approval" THEN 1 ELSE 0 END), 0) as waiting_customer_count,
-                COALESCE(SUM(CASE WHEN repair_status = "in_progress" THEN 1 ELSE 0 END), 0) as waiting_parts_count
-            ')->first();
+            ->whereBetween('date_received', [$sDateStr, $eDateStr]);
+
+        $repairsAgg = (clone $repairsPeriodQuery)->selectRaw('
+            COUNT(*) as total_count,
+            COALESCE(SUM(CASE WHEN repair_status NOT IN ("delivered", "cancelled") THEN 1 ELSE 0 END), 0) as active_count,
+            COALESCE(SUM(CASE WHEN repair_status = "ready" THEN 1 ELSE 0 END), 0) as ready_count,
+            COALESCE(SUM(CASE WHEN repair_status = "pending_approval" THEN 1 ELSE 0 END), 0) as waiting_customer_count,
+            COALESCE(SUM(CASE WHEN repair_status = "in_progress" THEN 1 ELSE 0 END), 0) as waiting_parts_count,
+            COALESCE(SUM(CASE WHEN repair_status = "delivered" THEN 1 ELSE 0 END), 0) as delivered_count,
+            COALESCE(SUM(CASE WHEN final_cost > 0 THEN final_cost ELSE estimated_cost END), 0) as total_repair_value,
+            COALESCE(SUM(amount_paid), 0) as total_earnings,
+            COALESCE(SUM(amount_due), 0) as total_due,
+            COALESCE(SUM(technician_earning), 0) as total_technician_cost
+        ')->first();
 
         $activeRepairsCount = (int) ($repairsAgg->active_count ?? 0);
         $readyRepairsCount = (int) ($repairsAgg->ready_count ?? 0);
         $waitingCustomerCount = (int) ($repairsAgg->waiting_customer_count ?? 0);
         $waitingPartsCount = (int) ($repairsAgg->waiting_parts_count ?? 0);
         $totalRepairsCount = (int) ($repairsAgg->total_count ?? 0);
+        $totalRepairEarnings = (float) ($repairsAgg->total_earnings ?? 0);
+        $totalRepairDue = (float) ($repairsAgg->total_due ?? 0);
+        $totalRepairValue = (float) ($repairsAgg->total_repair_value ?? 0);
+        $totalRepairTechCost = (float) ($repairsAgg->total_technician_cost ?? 0);
+
+        // Calculate parts cost for repairs in this period
+        $periodRepairIds = (clone $repairsPeriodQuery)->pluck('id');
+        $totalRepairPartsCost = 0.0;
+        if (!empty($periodRepairIds) && count($periodRepairIds) > 0) {
+            $totalRepairPartsCost = (float) DB::table('repair_parts')
+                ->whereIn('repair_id', $periodRepairIds)
+                ->selectRaw('COALESCE(SUM(COALESCE(NULLIF(cost_price, 0), selling_price) * quantity), 0) as total_parts_cost')
+                ->value('total_parts_cost');
+        }
+
+        // Payments collected on repairs during this date period
+        $repairPaymentsCollected = (float) DB::table('repair_payments')
+            ->where('shop_id', $shopId)
+            ->whereBetween('payment_date', [$sDateStr . ' 00:00:00', $eDateStr . ' 23:59:59'])
+            ->sum('amount');
+
+        $effectiveRepairEarnings = max($repairPaymentsCollected, $totalRepairEarnings);
+        $repairNetProfit = max(0.0, round($effectiveRepairEarnings - $totalRepairPartsCost - $totalRepairTechCost, 2));
 
         // 3. Inventory Aggregations
         $inventoryAgg = DB::table('inventory_items')
@@ -297,8 +346,14 @@ class DashboardController extends Controller
         });
         $recentActivities = array_slice($recentActivities, 0, 6);
 
-        // 9. Empty Shop Onboarding Check
-        $isEmptyShop = ($totalSalesCount === 0 && $totalRepairsCount === 0 && $totalItems === 0 && $totalExpensesSum === 0.0 && $totalPurchasesCount === 0);
+        // 9. Truly Empty Shop Onboarding Check (lifetime check across all tables)
+        $hasAnyAllTimeRecords = DB::table('sales')->where('shop_id', $shopId)->whereNull('deleted_at')->exists()
+            || DB::table('repairs')->where('shop_id', $shopId)->whereNull('deleted_at')->exists()
+            || DB::table('purchases')->where('shop_id', $shopId)->whereNull('deleted_at')->exists()
+            || DB::table('inventory_items')->where('shop_id', $shopId)->whereNull('deleted_at')->exists()
+            || DB::table('expenses')->where('shop_id', $shopId)->whereNull('deleted_at')->exists();
+
+        $isEmptyShop = !$hasAnyAllTimeRecords;
 
         $shopObj = Shop::find($shopId);
         $subObj = \App\Models\Subscription::where('shop_id', $shopId)->latest()->first();
@@ -311,8 +366,9 @@ class DashboardController extends Controller
         $shopNameVal = $shopObj ? $shopObj->name : "My Mobile Shop";
         $ownerNameVal = ($shopObj && $shopObj->user) ? $shopObj->user->name : ($user ? $user->name : "Shop Owner");
 
-        $netProfit = $totalSales - $totalPurchases - $totalExpensesSum;
-        $netCashRemaining = $totalCollected - $totalPurchasePaid - $totalExpensesSum;
+        $totalRevenue = $totalSales + $repairNetProfit;
+        $netProfit = $totalRevenue - $totalPurchases - $totalExpensesSum;
+        $netCashRemaining = ($totalCollected + $effectiveRepairEarnings) - $totalPurchasePaid - $totalExpensesSum - $totalRepairPartsCost - $totalRepairTechCost;
 
         return response()->json([
             'success' => true,
@@ -333,10 +389,15 @@ class DashboardController extends Controller
                 'is_expiring_soon' => ($daysRemainingVal <= 10),
                 'financial_overview' => [
                     'total_sales' => round($totalSales, 2),
+                    'sales_cost' => round($totalSalesCost, 2),
+                    'sales_profit' => round($salesNetProfit, 2),
+                    'repair_earnings' => round($repairNetProfit, 2),
+                    'raw_repair_income' => round($effectiveRepairEarnings, 2),
+                    'repair_net_profit' => round($repairNetProfit, 2),
                     'total_purchases' => round($totalPurchases, 2),
                     'total_expenses' => round($totalExpensesSum, 2),
                     'net_profit' => round($netProfit, 2),
-                    'cash_collected' => round($totalCollected, 2),
+                    'cash_collected' => round($totalCollected + $effectiveRepairEarnings, 2),
                     'cash_paid_purchases' => round($totalPurchasePaid, 2),
                     'cash_paid_expenses' => round($totalExpensesSum, 2),
                     'net_cash_remaining' => round($netCashRemaining, 2),
@@ -345,6 +406,9 @@ class DashboardController extends Controller
                     'total_sales' => round($totalSales, 2),
                     'total_collected' => round($totalCollected, 2),
                     'total_due' => round($totalDue, 2),
+                    'total_cost' => round($totalSalesCost, 2),
+                    'net_profit' => round($salesNetProfit, 2),
+                    'profit_margin' => $totalCollected > 0 && $salesNetProfit > 0 ? round(($salesNetProfit / $totalCollected) * 100, 1) : 0,
                     'total_count' => $totalSalesCount,
                     'regular_sales_count' => $regularSalesCount,
                     'quick_sales_count' => $quickSalesCount,
@@ -363,6 +427,13 @@ class DashboardController extends Controller
                     'waiting_customer_count' => $waitingCustomerCount,
                     'waiting_parts_count' => $waitingPartsCount,
                     'total_repairs_count' => $totalRepairsCount,
+                    'total_earnings' => round($effectiveRepairEarnings, 2),
+                    'total_due' => round($totalRepairDue, 2),
+                    'total_repair_value' => round($totalRepairValue, 2),
+                    'parts_cost' => round($totalRepairPartsCost, 2),
+                    'technician_cost' => round($totalRepairTechCost, 2),
+                    'net_profit' => round($repairNetProfit, 2),
+                    'all_time_active_count' => (int) DB::table('repairs')->where('shop_id', $shopId)->whereNull('deleted_at')->whereNotIn('repair_status', ['delivered', 'cancelled'])->count(),
                 ],
                 'inventory' => [
                     'total_items' => $totalItems,

@@ -137,6 +137,18 @@ class Repair extends Model
 
     public function getNetProfitAttribute(): float
     {
+        // Net profit is based strictly on actual amount received, excluding uncollected dues
+        $received = (float) $this->amount_paid;
+        $partsCostTotal = $this->relationLoaded('parts')
+            ? (float) $this->parts->sum(fn($p) => (float) (($p->cost_price !== null && (float)$p->cost_price > 0) ? $p->cost_price : $p->selling_price) * (int) $p->quantity)
+            : (float) $this->parts()->sum(DB::raw('COALESCE(NULLIF(cost_price, 0), selling_price) * quantity'));
+        $earning = (float) $this->technician_earning;
+
+        return max(0.0, round($received - $partsCostTotal - $earning, 2));
+    }
+
+    public function getExpectedNetProfitAttribute(): float
+    {
         $effective = $this->effective_cost;
         $partsCostTotal = $this->relationLoaded('parts')
             ? (float) $this->parts->sum(fn($p) => (float) (($p->cost_price !== null && (float)$p->cost_price > 0) ? $p->cost_price : $p->selling_price) * (int) $p->quantity)

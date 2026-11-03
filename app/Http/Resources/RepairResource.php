@@ -22,6 +22,7 @@ class RepairResource extends JsonResource
             'shop_share' => (float) $this->shop_share,
             'effective_cost' => (float) $this->effective_cost,
             'net_profit' => (float) $this->net_profit,
+            'expected_net_profit' => (float) $this->expected_net_profit,
             'technician_payment_status' => $this->technician_payment_status,
             'job_number' => $this->job_number,
             'date_received' => $this->date_received?->format('Y-m-d'),

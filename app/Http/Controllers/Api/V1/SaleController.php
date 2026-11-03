@@ -28,7 +28,7 @@ class SaleController extends Controller
         }
 
         $query = Sale::forShop($user->shop_id)
-            ->with(['customer', 'device', 'items', 'payments', 'warranty']);
+            ->with(['customer', 'device', 'items.inventoryItem', 'payments', 'warranty']);
 
         // Search by invoice_number, customer_name, customer_mobile, customer model, or item details
         if ($request->filled('search')) {
@@ -221,6 +221,11 @@ class SaleController extends Controller
 
                         // Deduct stock
                         $invItem->decrement('current_stock', $pItem['quantity']);
+
+                        // Ensure cost_price is populated from inventory item purchase_price
+                        if (empty($pItem['cost_price']) && !empty($invItem->purchase_price)) {
+                            $pItem['cost_price'] = $invItem->purchase_price;
+                        }
 
                         // Log StockMovement
                         \App\Models\StockMovement::create([
