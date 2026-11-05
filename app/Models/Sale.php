@@ -105,6 +105,59 @@ class Sale extends Model
         ]);
     }
 
+    /**
+     * Total purchase cost of the items sold in this sale.
+     */
+    public function getTotalCostAttribute(): float
+    {
+        if (!$this->relationLoaded('items')) {
+            $this->load(['items.inventoryItem']);
+        }
+        return (float) $this->items->sum(function ($item) {
+            $cost = $item->cost_price !== null && (float) $item->cost_price > 0
+                ? (float) $item->cost_price
+                : (float) ($item->inventoryItem->purchase_price ?? 0);
+            return $cost * ($item->quantity ?? 1);
+        });
+    }
+
+    /**
+     * Realized cash-based net profit:
+     * strictly based on money received minus item purchase cost.
+     */
+    public function getNetProfitAttribute(): float
+    {
+        $paid = (float) $this->amount_paid;
+        $cost = $this->total_cost;
+        if ($paid <= 0 || $paid <= $cost) {
+            return 0.0;
+        }
+        return round($paid - $cost, 2);
+    }
+
+    /**
+     * Expected net profit when the invoice is fully settled.
+     */
+    public function getExpectedNetProfitAttribute(): float
+    {
+        $grandTotal = (float) $this->grand_total;
+        $cost = $this->total_cost;
+        return round(max(0, $grandTotal - $cost), 2);
+    }
+
+    /**
+     * Profit margin percentage based on collected cash.
+     */
+    public function getProfitMarginPercentAttribute(): float
+    {
+        $paid = (float) $this->amount_paid;
+        $profit = $this->net_profit;
+        if ($paid <= 0 || $profit <= 0) {
+            return 0.0;
+        }
+        return round(($profit / $paid) * 100, 1);
+    }
+
     protected static function booted(): void
     {
         static::deleting(function ($sale) {

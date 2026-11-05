@@ -197,7 +197,7 @@ class UsedMobileController extends Controller
 
             'brand' => 'required|string|max:100',
             'model' => 'required|string|max:100',
-            'imei1' => 'required|string|max:30',
+            'imei1' => 'nullable|string|max:30',
             'imei2' => 'nullable|string|max:30',
             'serial_number' => 'nullable|string|max:100',
             'color' => 'nullable|string|max:50',
@@ -269,7 +269,7 @@ class UsedMobileController extends Controller
 
             'brand' => trim($validated['brand']),
             'model' => trim($validated['model']),
-            'imei1' => trim($validated['imei1']),
+            'imei1' => !empty($validated['imei1']) ? trim($validated['imei1']) : null,
             'imei2' => isset($validated['imei2']) ? trim($validated['imei2']) : null,
             'serial_number' => $validated['serial_number'] ?? null,
             'color' => $validated['color'] ?? null,
@@ -343,7 +343,7 @@ class UsedMobileController extends Controller
 
             'brand' => 'sometimes|required|string|max:100',
             'model' => 'sometimes|required|string|max:100',
-            'imei1' => 'sometimes|required|string|max:30',
+            'imei1' => 'nullable|string|max:30',
             'imei2' => 'nullable|string|max:30',
             'serial_number' => 'nullable|string|max:100',
             'color' => 'nullable|string|max:50',
@@ -416,6 +416,12 @@ class UsedMobileController extends Controller
             } catch (\Exception $e) {}
         }
 
+        if (array_key_exists('imei1', $validated)) {
+            $validated['imei1'] = !empty($validated['imei1']) ? trim($validated['imei1']) : null;
+        }
+        if (array_key_exists('id_proof_number', $validated)) {
+            $validated['id_proof_number'] = !empty($validated['id_proof_number']) ? trim($validated['id_proof_number']) : null;
+        }
         $usedMobile->update($validated);
 
         return response()->json([
