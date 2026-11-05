@@ -88,6 +88,8 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
               warranty: matchingWarranty,
               createdAt: fetchedSale.createdAt,
               updatedAt: fetchedSale.updatedAt,
+              rawTotalCost: fetchedSale.rawTotalCost,
+              rawNetProfit: fetchedSale.rawNetProfit,
             );
           }
           setState(() {
@@ -512,6 +514,13 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                                         Text('${item.brand ?? ''} ${item.model ?? ''}'.trim(), style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
                                       if (item.imei1 != null)
                                         Text('IMEI: ${item.imei1}', style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                                      if (item.costPrice != null && item.costPrice! > 0) ...[
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'Cost: \u20B9${(item.costPrice! * item.quantity).toStringAsFixed(0)} \u2022 Profit: +\u20B9${(item.total - (item.costPrice! * item.quantity)).toStringAsFixed(0)}',
+                                          style: const TextStyle(fontSize: 10.5, color: Color(0xFF047857), fontWeight: FontWeight.w600),
+                                        ),
+                                      ],
                                       if (item.discount > 0)
                                         Text('Disc: -₹${item.discount.toStringAsFixed(2)}', style: TextStyle(fontSize: 10, color: Colors.green.shade700, fontWeight: FontWeight.bold)),
                                     ],
@@ -553,7 +562,89 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                         const SizedBox(height: 6),
                         _buildRow('Amount Paid', '₹ ${_sale.amountPaid.toStringAsFixed(2)}', color: Colors.green.shade700, isBold: true),
                         const SizedBox(height: 6),
-                        _buildRow('AMOUNT DUE', '₹ ${_sale.amountDue.toStringAsFixed(2)}', color: _sale.amountDue > 0 ? Colors.red.shade700 : Colors.green.shade700, isBold: true, fontSize: 18),
+                        _buildRow('AMOUNT DUE', '\u20B9 ${_sale.amountDue.toStringAsFixed(2)}', color: _sale.amountDue > 0 ? Colors.red.shade700 : Colors.green.shade700, isBold: true, fontSize: 18),
+                        const Divider(height: 20),
+                        _buildRow('Item Purchase Cost', '\u20B9 ${_sale.totalCost.toStringAsFixed(2)}', color: AppColors.textSecondary),
+                        const SizedBox(height: 10),
+                        // Net Profit Box
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: _sale.amountPaid > 0 ? const Color(0xFFECFDF5) : const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: _sale.amountPaid > 0 ? const Color(0xFFA7F3D0) : const Color(0xFFE2E8F0),
+                              width: 1.2,
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.monetization_on_rounded,
+                                        size: 18,
+                                        color: _sale.amountPaid > 0 ? const Color(0xFF059669) : AppColors.textMuted,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      const Text(
+                                        'Realized Net Profit',
+                                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF047857)),
+                                      ),
+                                    ],
+                                  ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        _sale.amountPaid > 0 ? '+\u20B9 ${_sale.netProfit.toStringAsFixed(2)}' : '\u20B9 0.00',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w900,
+                                          color: _sale.amountPaid > 0 ? const Color(0xFF059669) : AppColors.textMuted,
+                                        ),
+                                      ),
+                                      if (_sale.amountPaid > 0 && _sale.profitMarginPercent > 0) ...[
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF059669),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            '${_sale.profitMarginPercent.toStringAsFixed(0)}% Margin',
+                                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              if (_sale.amountDue > 0) ...[
+                                const SizedBox(height: 6),
+                                const Divider(height: 1),
+                                const SizedBox(height: 6),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Expected Profit (Full Payment)',
+                                      style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                                    ),
+                                    Text(
+                                      '\u20B9 ${_sale.expectedNetProfit.toStringAsFixed(2)}',
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),

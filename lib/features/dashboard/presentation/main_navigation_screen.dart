@@ -157,9 +157,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 label: 'Sales',
               ),
               const BottomNavigationBarItem(
-                icon: Icon(Icons.shopping_bag_outlined),
-                activeIcon: Icon(Icons.shopping_bag_rounded),
-                label: 'Purchase',
+                icon: Icon(Icons.inventory_2_outlined),
+                activeIcon: Icon(Icons.inventory_2_rounded),
+                label: 'Stock & Purchases',
               ),
             ],
           ),

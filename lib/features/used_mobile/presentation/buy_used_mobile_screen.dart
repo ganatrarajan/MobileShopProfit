@@ -266,7 +266,7 @@ class _BuyUsedMobileScreenState extends State<BuyUsedMobileScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isFront ? 'Attach Front Side of Document *' : 'Attach Back Side of Document (Optional)',
+                  isFront ? 'Attach Front Side of Document (Optional)' : 'Attach Back Side of Document (Optional)',
                   style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
                 ),
                 const SizedBox(height: 4),
@@ -492,29 +492,10 @@ class _BuyUsedMobileScreenState extends State<BuyUsedMobileScreen> {
       return;
     }
 
-    // 3. ID Proof Number
+    // 3. ID Proof (Optional)
     final idNumber = _idProofNumberController.text.trim();
-    if (idNumber.isEmpty) {
-      AppFeedback.showError(
-        context,
-        title: 'ID Number Required',
-        message: 'Please enter $_idProofType document number *.',
-      );
-      return;
-    }
 
-    // 4. Front ID Document Photo
-    final hasFrontPhoto = _idProofFrontFile != null || (_idProofFrontUrl != null && _idProofFrontUrl!.isNotEmpty);
-    if (!hasFrontPhoto) {
-      AppFeedback.showError(
-        context,
-        title: 'Document Photo Required',
-        message: 'Please upload Front Side photo of $_idProofType *.',
-      );
-      return;
-    }
-
-    // 5. Brand
+    // 4. Brand
     final brand = _brandController.text.trim();
     if (brand.isEmpty) {
       AppFeedback.showError(
@@ -525,7 +506,7 @@ class _BuyUsedMobileScreenState extends State<BuyUsedMobileScreen> {
       return;
     }
 
-    // 6. Model
+    // 5. Model
     final model = _modelController.text.trim();
     if (model.isEmpty) {
       AppFeedback.showError(
@@ -536,18 +517,10 @@ class _BuyUsedMobileScreenState extends State<BuyUsedMobileScreen> {
       return;
     }
 
-    // 7. Primary IMEI 1
+    // 6. Primary IMEI 1 (Optional)
     final imei1 = _imei1Controller.text.trim();
-    if (imei1.isEmpty) {
-      AppFeedback.showError(
-        context,
-        title: 'IMEI 1 Required',
-        message: 'Primary IMEI 1 or Serial number is mandatory *.',
-      );
-      return;
-    }
 
-    // 8. Purchase Price
+    // 7. Purchase Price
     final purchasePriceText = _purchasePriceController.text.trim();
     if (purchasePriceText.isEmpty) {
       AppFeedback.showError(
@@ -596,7 +569,7 @@ class _BuyUsedMobileScreenState extends State<BuyUsedMobileScreen> {
       if (_sellerAddressController.text.trim().isNotEmpty)
         'seller_address': _sellerAddressController.text.trim(),
       'id_proof_type': _idProofType,
-      'id_proof_number': idNumber,
+      'id_proof_number': idNumber.isNotEmpty ? idNumber : null,
       if (idProofFrontPayload != null)
         'id_proof_photo': idProofFrontPayload,
       if (idProofBackPayload != null)
@@ -604,7 +577,7 @@ class _BuyUsedMobileScreenState extends State<BuyUsedMobileScreen> {
 
       'brand': _brandController.text.trim(),
       'model': _modelController.text.trim(),
-      'imei1': imei1,
+      'imei1': imei1.isNotEmpty ? imei1 : null,
       if (_imei2Controller.text.trim().isNotEmpty)
         'imei2': _imei2Controller.text.trim(),
       if (_serialController.text.trim().isNotEmpty)
@@ -740,7 +713,7 @@ class _BuyUsedMobileScreenState extends State<BuyUsedMobileScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    // ID Proof Type (Tap to open Bottom Sheet) & ID Number
+                    // ID Proof Type (Tap to open Bottom Sheet) & ID Number (Optional)
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -752,7 +725,7 @@ class _BuyUsedMobileScreenState extends State<BuyUsedMobileScreen> {
                             hint: 'Select ID',
                             prefixIcon: Icons.credit_card_rounded,
                             onTap: _selectIdProofType,
-                            isRequired: true,
+                            isRequired: false,
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -760,11 +733,10 @@ class _BuyUsedMobileScreenState extends State<BuyUsedMobileScreen> {
                           flex: 6,
                           child: CustomTextField(
                             controller: _idProofNumberController,
-                            label: 'ID / Aadhaar No.',
+                            label: 'ID / Aadhaar No. (Optional)',
                             hint: 'Full or Last 4 ID digits',
                             prefixIcon: Icons.badge_outlined,
-                            isRequired: true,
-                            validator: (v) => v == null || v.trim().isEmpty ? 'Enter ID / Aadhaar number' : null,
+                            isRequired: false,
                           ),
                         ),
                       ],
@@ -880,18 +852,14 @@ class _BuyUsedMobileScreenState extends State<BuyUsedMobileScreen> {
 
                     const SizedBox(height: 12),
 
-                    // Primary IMEI 1
+                    // Primary IMEI 1 (Optional)
                     CustomTextField(
                       controller: _imei1Controller,
-                      label: 'Primary IMEI 1 (Mandatory)',
-                      hint: 'Dial *#06# on phone (15 digits)',
+                      label: 'Primary IMEI 1 (Optional)',
+                      hint: 'Dial *#06# on phone (Optional)',
                       prefixIcon: Icons.qr_code_2_rounded,
                       keyboardType: TextInputType.text,
-                      isRequired: true,
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) return 'Enter primary IMEI 1 or Serial number';
-                        return null;
-                      },
+                      isRequired: false,
                     ),
                     const SizedBox(height: 12),
 
@@ -1340,10 +1308,10 @@ class _BuyUsedMobileScreenState extends State<BuyUsedMobileScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: AppColors.error.withOpacity(0.1),
+                color: Colors.grey.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Text('Front Required *', style: TextStyle(fontSize: 10, color: AppColors.error, fontWeight: FontWeight.bold)),
+              child: const Text('Optional', style: TextStyle(fontSize: 10, color: AppColors.textMuted, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -1353,10 +1321,10 @@ class _BuyUsedMobileScreenState extends State<BuyUsedMobileScreen> {
             Expanded(
               child: _buildSinglePhotoCard(
                 title: 'Front Side',
-                subtitle: 'Photo & Name',
+                subtitle: 'Photo & Name (Optional)',
                 file: _idProofFrontFile,
                 url: _idProofFrontUrl,
-                isRequired: true,
+                isRequired: false,
                 onTap: () => _showPhotoPickerSheet(isFront: true),
                 onRemove: () => setState(() {
                   _idProofFrontFile = null;

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_empty_state.dart';
+import '../../../core/widgets/date_range_empty_state.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../subscription/utils/subscription_guard.dart';
@@ -521,12 +522,30 @@ class SalesListScreenState extends State<SalesListScreen> {
                       ),
                     )
                   : _sales.isEmpty
-                      ? AppEmptyState(
+                      ? DateRangeEmptyState(
                           icon: Icons.receipt_long_outlined,
-                          title: 'No sales found',
-                          message: 'No sales invoices matching $_dateFilterLabel.',
-                          actionLabel: 'Add Sale',
-                          onAction: () => _showCreateSaleOptions(context),
+                          entityName: 'Sales',
+                          datePreset: _datePreset,
+                          dateFilterLabel: _dateFilterLabel,
+                          hasActiveSearchOrFilter: _searchController.text.isNotEmpty || _selectedStatus != 'all' || _selectedSaleType != 'all',
+                          onResetFilters: () {
+                            setState(() {
+                              _searchController.clear();
+                              _selectedStatus = 'all';
+                              _selectedSaleType = 'all';
+                              _datePreset = 'all_time';
+                            });
+                            _fetchSales();
+                          },
+                          onSelectDatePreset: (preset) {
+                            setState(() {
+                              _datePreset = preset;
+                              _customDateRange = null;
+                            });
+                            _fetchSales();
+                          },
+                          createActionLabel: '+ Add Sale',
+                          onCreateAction: () => _showCreateSaleOptions(context),
                         )
                       : RefreshIndicator(
                           onRefresh: _fetchSales,

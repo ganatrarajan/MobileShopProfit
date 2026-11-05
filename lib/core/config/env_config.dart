@@ -2,7 +2,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 class EnvConfig {
   // static String get baseUrl => 'https://myrepairhub.noviqe.in/api/v1';
-  static String get baseUrl => 'http://192.168.0.173:8000/api/v1';
+  static String get baseUrl => 'http://192.168.1.5:8000/api/v1';
 
   /// Base Web Domain URL derived dynamically from API baseUrl
   static String get webBaseUrl => baseUrl.replaceAll('/api/v1', '');

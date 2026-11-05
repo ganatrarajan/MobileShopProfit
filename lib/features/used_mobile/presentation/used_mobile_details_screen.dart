@@ -308,25 +308,26 @@ class _UsedMobileDetailsScreenState extends State<UsedMobileDetailsScreen> {
               const Icon(Icons.qr_code_2_rounded, size: 16, color: AppColors.textMuted),
               const SizedBox(width: 6),
               Text(
-                'IMEI: ${_mobile.imei1}',
+                _mobile.imei1.isNotEmpty ? 'IMEI: ${_mobile.imei1}' : 'IMEI: Not recorded',
                 style: const TextStyle(fontSize: 13, fontFamily: 'monospace', fontWeight: FontWeight.w600),
               ),
               const Spacer(),
-              InkWell(
-                onTap: () {
-                  Clipboard.setData(ClipboardData(text: _mobile.imei1));
-                  AppFeedback.showSuccess(
-                    context,
-                    title: '📋 Copied',
-                    message: 'IMEI copied to clipboard: ${_mobile.imei1}',
-                    duration: const Duration(seconds: 2),
-                  );
-                },
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  child: Icon(Icons.copy_rounded, size: 16, color: AppColors.primary),
+              if (_mobile.imei1.isNotEmpty)
+                InkWell(
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: _mobile.imei1));
+                    AppFeedback.showSuccess(
+                      context,
+                      title: '📋 Copied',
+                      message: 'IMEI copied to clipboard: ${_mobile.imei1}',
+                      duration: const Duration(seconds: 2),
+                    );
+                  },
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    child: Icon(Icons.copy_rounded, size: 16, color: AppColors.primary),
+                  ),
                 ),
-              ),
             ],
           ),
         ],
@@ -686,7 +687,12 @@ class _UsedMobileDetailsScreenState extends State<UsedMobileDetailsScreen> {
           _detailRow('Mobile Number', _mobile.sellerPhone),
           if (_mobile.sellerAddress != null && _mobile.sellerAddress!.isNotEmpty)
             _detailRow('Address', _mobile.sellerAddress!),
-          _detailRow('Govt ID Proof', '${_mobile.idProofType ?? 'Aadhaar Card'}: ${_mobile.idProofNumber ?? 'Verified'}'),
+          _detailRow(
+            'Govt ID Proof',
+            (_mobile.idProofNumber != null && _mobile.idProofNumber!.isNotEmpty)
+                ? '${_mobile.idProofType ?? 'ID'}: ${_mobile.idProofNumber}'
+                : 'Not Provided',
+          ),
           if (hasFront || hasBack) ...[
             const SizedBox(height: 12),
             const Text(

@@ -8,6 +8,7 @@ import '../../../core/utils/date_helper.dart';
 import '../../../core/utils/whatsapp_helper.dart';
 import '../../../core/widgets/app_dialogs.dart';
 import '../../../core/widgets/app_empty_state.dart';
+import '../../../core/widgets/date_range_empty_state.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../../core/widgets/whatsapp_icon.dart';
@@ -596,12 +597,29 @@ class RepairListScreenState extends State<RepairListScreen> {
                       onActionPressed: _fetchRepairs,
                     )
                   : _repairs.isEmpty
-                      ? AppEmptyState(
+                      ? DateRangeEmptyState(
                           icon: Icons.build_circle_outlined,
-                          title: 'No repairs yet',
-                          description: 'Create your first repair job to start tracking customer devices.',
-                          actionLabel: '+ Create Repair',
-                          onActionPressed: () {
+                          entityName: 'Repairs',
+                          datePreset: _datePreset,
+                          dateFilterLabel: _dateFilterLabel,
+                          hasActiveSearchOrFilter: _searchController.text.isNotEmpty || _selectedStatus != 'all',
+                          onResetFilters: () {
+                            setState(() {
+                              _searchController.clear();
+                              _selectedStatus = 'all';
+                              _datePreset = 'all_time';
+                            });
+                            _fetchRepairs();
+                          },
+                          onSelectDatePreset: (preset) {
+                            setState(() {
+                              _datePreset = preset;
+                              _customDateRange = null;
+                            });
+                            _fetchRepairs();
+                          },
+                          createActionLabel: '+ Create Repair',
+                          onCreateAction: () {
                             SubscriptionGuard.checkLimit(context, LimitType.repair, () {
                               Navigator.pushNamed(context, AppRoutes.createRepair).then((_) => _fetchRepairs());
                             });

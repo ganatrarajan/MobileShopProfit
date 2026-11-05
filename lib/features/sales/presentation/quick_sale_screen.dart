@@ -114,26 +114,37 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
     bool isLoadingInv = false;
     String? invError;
 
-    Future<void> fetchInventory(StateSetter setDialogState, {String? query}) async {
-      setDialogState(() {
+    Future<void> fetchInventory(StateSetter setSheetState, {String? query}) async {
+      setSheetState(() {
         isLoadingInv = true;
         invError = null;
       });
       try {
         final res = await _inventoryRepository.getInventory(search: query);
         if (res.success && res.data != null) {
-          setDialogState(() {
-            invItems = res.data!.items;
+          final items = List<InventoryItem>.from(res.data!.items);
+          // Sort: In-stock items (stock > 0) FIRST, Out-of-Stock (stock <= 0) at the LAST!
+          items.sort((a, b) {
+            final aIn = a.currentStock > 0 ? 1 : 0;
+            final bIn = b.currentStock > 0 ? 1 : 0;
+            if (aIn != bIn) {
+              return bIn.compareTo(aIn); // in-stock first!
+            }
+            return b.currentStock.compareTo(a.currentStock);
+          });
+
+          setSheetState(() {
+            invItems = items;
             isLoadingInv = false;
           });
         } else {
-          setDialogState(() {
+          setSheetState(() {
             invError = res.message;
             isLoadingInv = false;
           });
         }
       } catch (e) {
-        setDialogState(() {
+        setSheetState(() {
           invError = e.toString();
           isLoadingInv = false;
         });
@@ -142,285 +153,597 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
 
     bool initialFetchDone = false;
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) {
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (context, setSheetState) {
             if (saleMode == 'inventory' && !initialFetchDone) {
               initialFetchDone = true;
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                fetchInventory(setDialogState);
+                fetchInventory(setSheetState);
               });
             }
 
-            return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              titlePadding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-              actionsPadding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
-              title: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.add_shopping_cart_rounded, color: AppColors.primary, size: 20),
-                      ),
-                      const SizedBox(width: 10),
-                      const Text('Add Quick Sale Item', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  // Tabs: From Inventory vs Custom Item
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ChoiceChip(
-                          label: const Center(child: Text('From Inventory', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                          selected: saleMode == 'inventory',
-                          onSelected: (selected) {
-                            if (selected) {
-                              setDialogState(() {
-                                saleMode = 'inventory';
-                                selectedInvItem = null;
-                              });
-                            }
-                          },
-                          selectedColor: AppColors.primary,
-                          backgroundColor: Colors.grey.shade100,
-                          labelStyle: TextStyle(color: saleMode == 'inventory' ? Colors.white : AppColors.textPrimary),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ChoiceChip(
-                          label: const Center(child: Text('Custom Item', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                          selected: saleMode == 'quick',
-                          onSelected: (selected) {
-                            if (selected) {
-                              setDialogState(() {
-                                saleMode = 'quick';
-                                selectedInvItem = null;
-                              });
-                            }
-                          },
-                          selectedColor: AppColors.primary,
-                          backgroundColor: Colors.grey.shade100,
-                          labelStyle: TextStyle(color: saleMode == 'quick' ? Colors.white : AppColors.textPrimary),
-                        ),
-                      ),
-                    ],
-                  ),
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+            final sheetBg = isDark ? const Color(0xFF1E293B) : Colors.white;
+            final textColor = isDark ? Colors.white : AppColors.textPrimary;
+            final subtextColor = isDark ? Colors.white70 : AppColors.textSecondary;
+            final sheetHeight = MediaQuery.of(context).size.height * 0.88;
+
+            return Container(
+              height: sheetHeight,
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              decoration: BoxDecoration(
+                color: sheetBg,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, -2)),
                 ],
               ),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (saleMode == 'inventory') ...[
-                        const SizedBox(height: 6),
-                        TextField(
-                          controller: searchCtrl,
-                          onChanged: (q) => fetchInventory(setDialogState, query: q.trim()),
-                          decoration: InputDecoration(
-                            hintText: 'Search stock items...',
-                            prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Top Drag Handle
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 5,
+                      margin: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+
+                  // Header Row
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 8, 4),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(7),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.add_shopping_cart_rounded, color: AppColors.primary, size: 20),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Add Quick Sale Item',
+                              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: textColor),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 10),
-                        if (isLoadingInv)
-                          const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))
-                        else if (invError != null)
-                          Text('Error: $invError', style: const TextStyle(color: AppColors.error, fontSize: 12))
-                        else if (invItems.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.all(16),
-                            child: Center(child: Text('No inventory items found.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary))),
-                          )
-                        else
-                          Container(
-                            height: 140,
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey.shade300),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: ListView.separated(
-                              itemCount: invItems.length,
-                              separatorBuilder: (_, __) => const Divider(height: 1),
-                              itemBuilder: (ctx, idx) {
-                                final item = invItems[idx];
-                                final isSel = selectedInvItem?.id == item.id;
-                                return ListTile(
-                                  dense: true,
-                                  title: Text(item.name, style: TextStyle(fontWeight: isSel ? FontWeight.bold : FontWeight.w500, fontSize: 13)),
-                                  subtitle: Text(
-                                    'Stock: ${item.currentStock} | Cost: \u20B9${item.purchasePrice.toStringAsFixed(2)} | Sell: \u20B9${item.sellingPrice.toStringAsFixed(2)}',
-                                    style: TextStyle(fontSize: 11, color: item.isOutOfStock ? AppColors.error : AppColors.textSecondary),
-                                  ),
-                                  trailing: isSel ? const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 18) : null,
-                                  onTap: () {
-                                    if (item.isOutOfStock) {
-                                      AppFeedback.showError(context, error: 'Item "${item.name}" is out of stock!');
-                                      return;
-                                    }
-                                    setDialogState(() {
-                                      selectedInvItem = item;
-                                      priceCtrl.text = item.sellingPrice.toStringAsFixed(2);
-                                    });
-                                  },
-                                );
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Tabs: From Inventory vs Custom Item
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF334155) : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: const EdgeInsets.all(4),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: () {
+                                setSheetState(() {
+                                  saleMode = 'inventory';
+                                  selectedInvItem = null;
+                                });
                               },
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 9),
+                                decoration: BoxDecoration(
+                                  color: saleMode == 'inventory' ? AppColors.primary : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Center(
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.inventory_2_rounded, size: 16, color: saleMode == 'inventory' ? Colors.white : subtextColor),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'From Inventory',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          color: saleMode == 'inventory' ? Colors.white : subtextColor,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                        if (selectedInvItem != null) ...[
-                          const SizedBox(height: 12),
-                          Text(
-                            'Selected: ${selectedInvItem!.name}',
-                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 13),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: InkWell(
+                              onTap: () {
+                                setSheetState(() {
+                                  saleMode = 'quick';
+                                  selectedInvItem = null;
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 9),
+                                decoration: BoxDecoration(
+                                  color: saleMode == 'quick' ? AppColors.primary : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Center(
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.flash_on_rounded, size: 16, color: saleMode == 'quick' ? Colors.white : subtextColor),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Custom Item',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          color: saleMode == 'quick' ? Colors.white : subtextColor,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const Divider(height: 12),
+
+                  // MAIN CONTENT
+                  Expanded(
+                    child: saleMode == 'inventory'
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Full-width Search Field
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                                child: TextField(
+                                  controller: searchCtrl,
+                                  onChanged: (q) => fetchInventory(setSheetState, query: q.trim()),
+                                  style: const TextStyle(fontSize: 13),
+                                  decoration: InputDecoration(
+                                    hintText: 'Search stock by name, brand, model...',
+                                    hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                                    prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.primary),
+                                    suffixIcon: searchCtrl.text.isNotEmpty
+                                        ? IconButton(
+                                            icon: const Icon(Icons.clear_rounded, size: 18),
+                                            onPressed: () {
+                                              searchCtrl.clear();
+                                              fetchInventory(setSheetState);
+                                            },
+                                          )
+                                        : null,
+                                    filled: true,
+                                    fillColor: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(height: 6),
+
+                              // Inventory Items List
+                              Expanded(
+                                child: isLoadingInv
+                                    ? const Center(child: CircularProgressIndicator())
+                                    : invError != null
+                                        ? Center(child: Text('Error: $invError', style: const TextStyle(color: AppColors.error)))
+                                        : invItems.isEmpty
+                                            ? Center(
+                                                child: Column(
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(Icons.inventory_2_outlined, size: 40, color: Colors.grey.shade400),
+                                                    const SizedBox(height: 8),
+                                                    const Text('No inventory items found', style: TextStyle(color: AppColors.textSecondary)),
+                                                  ],
+                                                ),
+                                              )
+                                            : ListView.builder(
+                                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                                itemCount: invItems.length,
+                                                itemBuilder: (ctx, idx) {
+                                                  final item = invItems[idx];
+                                                  final isSelected = selectedInvItem?.id == item.id;
+                                                  final isOutOfStock = item.currentStock <= 0;
+
+                                                  return Card(
+                                                    elevation: isSelected ? 2 : 0.5,
+                                                    margin: const EdgeInsets.only(bottom: 8),
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(12),
+                                                      side: BorderSide(
+                                                        color: isSelected
+                                                            ? AppColors.primary
+                                                            : (isOutOfStock ? Colors.red.shade100 : Colors.grey.shade200),
+                                                        width: isSelected ? 2 : 1,
+                                                      ),
+                                                    ),
+                                                    color: isSelected
+                                                        ? AppColors.primary.withOpacity(0.06)
+                                                        : (isOutOfStock
+                                                            ? (isDark ? const Color(0xFF2D1F1F) : const Color(0xFFFFF5F5))
+                                                            : (isDark ? const Color(0xFF1E293B) : Colors.white)),
+                                                    child: InkWell(
+                                                      borderRadius: BorderRadius.circular(12),
+                                                      onTap: () {
+                                                        if (isOutOfStock) {
+                                                          AppFeedback.showError(context, error: 'Item "${item.name}" is out of stock!');
+                                                          return;
+                                                        }
+                                                        setSheetState(() {
+                                                          selectedInvItem = item;
+                                                          priceCtrl.text = item.sellingPrice.toStringAsFixed(2);
+                                                          qtyCtrl.text = '1';
+                                                        });
+                                                      },
+                                                      child: Padding(
+                                                        padding: const EdgeInsets.all(12),
+                                                        child: Row(
+                                                          children: [
+                                                            // Leading Icon
+                                                            Container(
+                                                              width: 40,
+                                                              height: 40,
+                                                              decoration: BoxDecoration(
+                                                                color: isOutOfStock
+                                                                    ? Colors.red.shade100
+                                                                    : (isSelected ? AppColors.primary : AppColors.primary.withOpacity(0.1)),
+                                                                borderRadius: BorderRadius.circular(8),
+                                                              ),
+                                                              child: Icon(
+                                                                isOutOfStock
+                                                                    ? Icons.highlight_off_rounded
+                                                                    : (isSelected ? Icons.check_rounded : Icons.inventory_2_rounded),
+                                                                color: isOutOfStock ? Colors.red.shade700 : (isSelected ? Colors.white : AppColors.primary),
+                                                                size: 20,
+                                                              ),
+                                                            ),
+                                                            const SizedBox(width: 12),
+                                                            // Name & Stock Info
+                                                            Expanded(
+                                                              child: Column(
+                                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                                children: [
+                                                                  Text(
+                                                                    item.name,
+                                                                    style: TextStyle(
+                                                                      fontWeight: FontWeight.bold,
+                                                                      fontSize: 14,
+                                                                      color: isOutOfStock ? Colors.grey.shade600 : textColor,
+                                                                    ),
+                                                                  ),
+                                                                  const SizedBox(height: 4),
+                                                                  Row(
+                                                                    children: [
+                                                                      if (isOutOfStock)
+                                                                        Container(
+                                                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                                                          decoration: BoxDecoration(
+                                                                            color: Colors.red.shade50,
+                                                                            borderRadius: BorderRadius.circular(4),
+                                                                            border: Border.all(color: Colors.red.shade200),
+                                                                          ),
+                                                                          child: Text(
+                                                                            'Out of Stock (0)',
+                                                                            style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.bold, fontSize: 10.5),
+                                                                          ),
+                                                                        )
+                                                                      else
+                                                                        Container(
+                                                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                                                          decoration: BoxDecoration(
+                                                                            color: Colors.green.shade50,
+                                                                            borderRadius: BorderRadius.circular(4),
+                                                                            border: Border.all(color: Colors.green.shade200),
+                                                                          ),
+                                                                          child: Text(
+                                                                            'Stock: ${item.currentStock}',
+                                                                            style: TextStyle(color: Colors.green.shade800, fontWeight: FontWeight.bold, fontSize: 10.5),
+                                                                          ),
+                                                                        ),
+                                                                      const SizedBox(width: 8),
+                                                                      Text(
+                                                                        'Cost: \u20B9${item.purchasePrice.toStringAsFixed(0)}',
+                                                                        style: TextStyle(fontSize: 11, color: subtextColor),
+                                                                      ),
+                                                                    ],
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                            // Selling Price
+                                                            Column(
+                                                              crossAxisAlignment: CrossAxisAlignment.end,
+                                                              children: [
+                                                                Text(
+                                                                  '\u20B9${item.sellingPrice.toStringAsFixed(2)}',
+                                                                  style: TextStyle(
+                                                                    fontWeight: FontWeight.w900,
+                                                                    fontSize: 15,
+                                                                    color: isOutOfStock ? Colors.grey : const Color(0xFF047857),
+                                                                  ),
+                                                                ),
+                                                                if (isSelected)
+                                                                  const Text(
+                                                                    'Selected',
+                                                                    style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 10),
+                                                                  ),
+                                                              ],
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                              ),
+                            ],
+                          )
+                        : SingleChildScrollView(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                CustomTextField(
+                                  label: 'Item Name *',
+                                  hint: 'e.g. Back Cover, Screen Guard, Labour',
+                                  controller: nameCtrl,
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: CustomTextField(
+                                        label: 'Selling Price (\u20B9) *',
+                                        hint: '0.00',
+                                        controller: priceCtrl,
+                                        keyboardType: TextInputType.number,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: CustomTextField(
+                                        label: 'Quantity *',
+                                        hint: '1',
+                                        controller: qtyCtrl,
+                                        keyboardType: TextInputType.number,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                  ),
+
+                  // PINNED BOTTOM ACTION PANEL
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                      border: Border(top: BorderSide(color: isDark ? const Color(0xFF334155) : Colors.grey.shade200)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 6,
+                          offset: const Offset(0, -3),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (saleMode == 'inventory' && selectedInvItem != null) ...[
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Selected: ${selectedInvItem!.name}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              Text(
+                                'Available: ${selectedInvItem!.currentStock}',
+                                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 8),
                           Row(
                             children: [
                               Expanded(
-                                child: CustomTextField(
-                                  label: 'Selling Price (\u20B9) *',
-                                  controller: priceCtrl,
-                                  keyboardType: TextInputType.number,
+                                flex: 3,
+                                child: SizedBox(
+                                  height: 42,
+                                  child: TextField(
+                                    controller: priceCtrl,
+                                    keyboardType: TextInputType.number,
+                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                    decoration: InputDecoration(
+                                      labelText: 'Selling Price (\u20B9)',
+                                      labelStyle: const TextStyle(fontSize: 11),
+                                      prefixText: '\u20B9 ',
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                    onChanged: (_) => setSheetState(() {}),
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              Expanded(
-                                child: CustomTextField(
-                                  label: 'Quantity *',
-                                  controller: qtyCtrl,
-                                  keyboardType: TextInputType.number,
-                                ),
+                              // Quantity Stepper
+                              Row(
+                                children: [
+                                  IconButton(
+                                    visualDensity: VisualDensity.compact,
+                                    icon: const Icon(Icons.remove_circle_outline_rounded, color: AppColors.primary),
+                                    onPressed: () {
+                                      final q = int.tryParse(qtyCtrl.text.trim()) ?? 1;
+                                      if (q > 1) {
+                                        setSheetState(() => qtyCtrl.text = (q - 1).toString());
+                                      }
+                                    },
+                                  ),
+                                  SizedBox(
+                                    width: 32,
+                                    child: Text(
+                                      qtyCtrl.text.isEmpty ? '1' : qtyCtrl.text,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    visualDensity: VisualDensity.compact,
+                                    icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.primary),
+                                    onPressed: () {
+                                      final q = int.tryParse(qtyCtrl.text.trim()) ?? 1;
+                                      if (q < selectedInvItem!.currentStock) {
+                                        setSheetState(() => qtyCtrl.text = (q + 1).toString());
+                                      } else {
+                                        AppFeedback.showError(context, error: 'Maximum available stock is ${selectedInvItem!.currentStock}');
+                                      }
+                                    },
+                                  ),
+                                ],
                               ),
                             ],
                           ),
+                          const SizedBox(height: 10),
                         ],
-                      ] else ...[
-                        // CUSTOM ITEM MODE
-                        const SizedBox(height: 6),
-                        CustomTextField(
-                          label: 'Item Name *',
-                          hint: 'e.g. Back Cover, Screen Guard, Labour',
-                          controller: nameCtrl,
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: CustomTextField(
-                                label: 'Selling Price (\u20B9) *',
-                                hint: '0.00',
-                                controller: priceCtrl,
-                                keyboardType: TextInputType.number,
+
+                        // Main Action Button
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: (saleMode == 'inventory' && selectedInvItem == null)
+                                ? Colors.grey.shade400
+                                : AppColors.primary,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(double.infinity, 48),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            elevation: (saleMode == 'inventory' && selectedInvItem == null) ? 0 : 2,
+                          ),
+                          onPressed: () {
+                            if (saleMode == 'inventory' && selectedInvItem == null) {
+                              AppFeedback.showError(context, error: 'Please tap an in-stock item from the list above first.');
+                              return;
+                            }
+
+                            final price = double.tryParse(priceCtrl.text.trim()) ?? 0.0;
+                            final qty = int.tryParse(qtyCtrl.text.trim()) ?? 1;
+
+                            if (qty <= 0) {
+                              AppFeedback.showError(context, error: 'Quantity must be at least 1');
+                              return;
+                            }
+
+                            if (saleMode == 'inventory') {
+                              if (qty > selectedInvItem!.currentStock) {
+                                AppFeedback.showError(context, error: 'Only ${selectedInvItem!.currentStock} items in stock!');
+                                return;
+                              }
+
+                              setState(() {
+                                _items.add(
+                                  SaleItem(
+                                    inventoryItemId: selectedInvItem!.id,
+                                    productName: selectedInvItem!.name,
+                                    itemType: selectedInvItem!.itemType,
+                                    brand: selectedInvItem!.brand,
+                                    model: selectedInvItem!.model,
+                                    quantity: qty,
+                                    unitPrice: price,
+                                    costPrice: selectedInvItem!.purchasePrice,
+                                    discount: 0.0,
+                                  ),
+                                );
+                              });
+                            } else {
+                              final name = nameCtrl.text.trim();
+                              if (name.isEmpty) {
+                                AppFeedback.showError(context, error: 'Please enter item name');
+                                return;
+                              }
+                              if (price < 0) {
+                                AppFeedback.showError(context, error: 'Please enter valid price');
+                                return;
+                              }
+
+                              setState(() {
+                                _items.add(
+                                  SaleItem(
+                                    inventoryItemId: null,
+                                    productName: name,
+                                    itemType: 'accessory',
+                                    quantity: qty,
+                                    unitPrice: price,
+                                    costPrice: 0.0,
+                                    discount: 0.0,
+                                  ),
+                                );
+                              });
+                            }
+
+                            Navigator.pop(ctx);
+                          },
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.add_shopping_cart_rounded, size: 18),
+                              const SizedBox(width: 8),
+                              Text(
+                                saleMode == 'inventory'
+                                    ? (selectedInvItem != null
+                                        ? 'Add to Sale \u2022 \u20B9${((double.tryParse(priceCtrl.text) ?? 0.0) * (int.tryParse(qtyCtrl.text) ?? 1)).toStringAsFixed(2)}'
+                                        : 'Select an Item Above')
+                                    : 'Add Custom Item to Sale',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: CustomTextField(
-                                label: 'Quantity *',
-                                controller: qtyCtrl,
-                                keyboardType: TextInputType.number,
-                              ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ],
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('Add to Sale'),
-                  onPressed: () {
-                    final price = double.tryParse(priceCtrl.text.trim()) ?? 0.0;
-                    final qty = int.tryParse(qtyCtrl.text.trim()) ?? 1;
-
-                    if (qty <= 0) {
-                      AppFeedback.showError(context, error: 'Quantity must be at least 1');
-                      return;
-                    }
-
-                    if (saleMode == 'inventory') {
-                      if (selectedInvItem == null) {
-                        AppFeedback.showError(context, error: 'Please select an item from inventory.');
-                        return;
-                      }
-                      if (qty > selectedInvItem!.currentStock) {
-                        AppFeedback.showError(context, error: 'Only ${selectedInvItem!.currentStock} items in stock!');
-                        return;
-                      }
-
-                      setState(() {
-                        _items.add(
-                          SaleItem(
-                            inventoryItemId: selectedInvItem!.id,
-                            productName: selectedInvItem!.name,
-                            itemType: selectedInvItem!.itemType,
-                            brand: selectedInvItem!.brand,
-                            model: selectedInvItem!.model,
-                            quantity: qty,
-                            unitPrice: price,
-                            costPrice: selectedInvItem!.purchasePrice,
-                            discount: 0.0,
-                          ),
-                        );
-                      });
-                    } else {
-                      final name = nameCtrl.text.trim();
-                      if (name.isEmpty) {
-                        AppFeedback.showError(context, error: 'Please enter item name');
-                        return;
-                      }
-                      if (price < 0) {
-                        AppFeedback.showError(context, error: 'Please enter valid price');
-                        return;
-                      }
-
-                      setState(() {
-                        _items.add(
-                          SaleItem(
-                            inventoryItemId: null,
-                            productName: name,
-                            itemType: 'accessory',
-                            quantity: qty,
-                            unitPrice: price,
-                            costPrice: 0.0,
-                            discount: 0.0,
-                          ),
-                        );
-                      });
-                    }
-
-                    Navigator.pop(ctx);
-                  },
-                ),
-              ],
             );
           },
         );
@@ -576,29 +899,56 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
                   ),
                   const SizedBox(height: 12),
                   if (_items.isEmpty)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(Icons.add_shopping_cart_rounded, size: 36, color: Colors.grey.shade400),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'No items added to Quick Sale yet.',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textSecondary),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Tap "+ Add Item" to select inventory items or add custom items.',
-                            style: TextStyle(fontSize: 11, color: AppColors.textMuted),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
+                    InkWell(
+                      onTap: _addItemDialog,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.04),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.primary.withOpacity(0.25), width: 1.2),
+                        ),
+                        child: Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.add_shopping_cart_rounded, size: 32, color: AppColors.primary),
+                            ),
+                            const SizedBox(height: 10),
+                            const Text(
+                              'No items added to Quick Sale yet',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textPrimary),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Tap anywhere here or "+ Add Item" above to choose products',
+                              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.add_rounded, size: 16, color: Colors.white),
+                                  SizedBox(width: 4),
+                                  Text('Select Items Now', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     )
                   else

@@ -4,7 +4,9 @@ import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/date_helper.dart';
 import '../../../core/widgets/app_empty_state.dart';
+import '../../../core/widgets/date_range_empty_state.dart';
 import '../../../core/widgets/status_badge.dart';
+import '../../inventory/presentation/inventory_list_screen.dart';
 import '../data/purchase_repository.dart';
 import '../models/purchase.dart';
 import 'add_purchase_screen.dart';
@@ -18,7 +20,12 @@ class PurchaseListScreen extends StatefulWidget {
   State<PurchaseListScreen> createState() => PurchaseListScreenState();
 }
 
-class PurchaseListScreenState extends State<PurchaseListScreen> {
+class PurchaseListScreenState extends State<PurchaseListScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  final GlobalKey<InventoryListScreenState> _inventoryKey = GlobalKey<InventoryListScreenState>();
+  final GlobalKey<VendorListScreenState> _vendorKey = GlobalKey<VendorListScreenState>();
+
   final PurchaseRepository _repository = PurchaseRepository();
   final TextEditingController _searchController = TextEditingController();
 
@@ -48,6 +55,10 @@ class PurchaseListScreenState extends State<PurchaseListScreen> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -57,7 +68,21 @@ class PurchaseListScreenState extends State<PurchaseListScreen> {
       _hasParsedArgs = true;
       final args = ModalRoute.of(context)?.settings.arguments;
       if (args != null) {
+        final strArgs = args.toString().toLowerCase();
+        if (strArgs.contains('vendor')) {
+          _tabController.index = 2;
+        } else if (strArgs.contains('inventory') || strArgs.contains('stock')) {
+          _tabController.index = 1;
+        }
         if (args is Map) {
+          if (args.containsKey('tab')) {
+            final tab = args['tab'].toString().toLowerCase();
+            if (tab == 'vendor' || tab == 'vendors') {
+              _tabController.index = 2;
+            } else if (tab == 'inventory' || tab == 'stock') {
+              _tabController.index = 1;
+            }
+          }
           if (args.containsKey('period')) {
             _datePreset = args['period'].toString();
           }
@@ -65,7 +90,6 @@ class PurchaseListScreenState extends State<PurchaseListScreen> {
             _customDateRange = args['customRange'] as DateTimeRange;
           }
         } else {
-          final strArgs = args.toString().toLowerCase();
           if (strArgs.contains('unpaid') || strArgs.contains('pending') || strArgs.contains('vendor_dues') || strArgs.contains('due')) {
             _paymentStatusFilter = 'pending';
             _datePreset = 'all_time';
@@ -84,6 +108,7 @@ class PurchaseListScreenState extends State<PurchaseListScreen> {
 
   @override
   void dispose() {
+    _tabController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -283,32 +308,36 @@ class PurchaseListScreenState extends State<PurchaseListScreen> {
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white.withOpacity(0.2)),
+        color: Colors.white.withOpacity(0.14),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
-              Icon(icon, size: 14, color: color),
+              Icon(icon, size: 12, color: color),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w500),
+                  style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w500),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+          const SizedBox(height: 2),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -320,81 +349,125 @@ class PurchaseListScreenState extends State<PurchaseListScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Inventory Purchases', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text('Purchases & Stock', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.storefront_rounded, color: Colors.white),
-            tooltip: 'Vendors',
-            onPressed: _openVendorList,
-          ),
-          IconButton(
-            icon: const Icon(Icons.inventory_2_rounded, color: Colors.white),
-            tooltip: 'Inventory',
-            onPressed: _openInventory,
-          ),
-          IconButton(
             icon: const Icon(Icons.refresh_rounded, color: Colors.white),
             tooltip: 'Refresh',
-            onPressed: fetchPurchases,
+            onPressed: () {
+              if (_tabController.index == 0) {
+                fetchPurchases();
+              } else if (_tabController.index == 1) {
+                _inventoryKey.currentState?.fetchInventory();
+              } else {
+                _vendorKey.currentState?.fetchVendors();
+              }
+            },
           ),
         ],
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: AppColors.accent,
+          indicatorWeight: 3.5,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white60,
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+          tabs: const [
+            Tab(
+              icon: Icon(Icons.shopping_bag_rounded, size: 18),
+              text: 'Purchases',
+            ),
+            Tab(
+              icon: Icon(Icons.inventory_2_rounded, size: 18),
+              text: 'Stock',
+            ),
+            Tab(
+              icon: Icon(Icons.storefront_rounded, size: 18),
+              text: 'Vendors',
+            ),
+          ],
+        ),
       ),
-      body: Column(
+      body: TabBarView(
+        controller: _tabController,
         children: [
-          // SUMMARY HEADER
-          Container(
-            color: AppColors.primary,
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildMetricCard(
-                        title: 'Total Purchases',
-                        value: '\u20B9${_totalAmount.toStringAsFixed(0)}',
-                        icon: Icons.shopping_bag_rounded,
-                        color: Colors.white,
-                      ),
+          _buildPurchasesTab(),
+          InventoryListScreen(key: _inventoryKey, isTab: true),
+          VendorListScreen(key: _vendorKey, isTab: true),
+        ],
+      ),
+      floatingActionButton: _tabController.index == 0
+          ? FloatingActionButton.extended(
+              heroTag: 'fab_purchase_list',
+              backgroundColor: AppColors.primary,
+              onPressed: _openAddPurchase,
+              icon: const Icon(Icons.add_rounded, color: Colors.white),
+              label: const Text('Add Purchase', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            )
+          : null,
+    );
+  }
+
+  Widget _buildPurchasesTab() {
+    return Column(
+      children: [
+        // COMPACT SUMMARY & FILTER HEADER
+        Container(
+          color: AppColors.primary,
+          padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildMetricCard(
+                      title: 'Purchases',
+                      value: '\u20B9${_totalAmount.toStringAsFixed(0)}',
+                      icon: Icons.shopping_bag_rounded,
+                      color: Colors.white,
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildMetricCard(
-                        title: 'Total Paid',
-                        value: '\u20B9${_totalPaid.toStringAsFixed(0)}',
-                        icon: Icons.check_circle_rounded,
-                        color: Colors.greenAccent.shade200,
-                      ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: _buildMetricCard(
+                      title: 'Paid',
+                      value: '\u20B9${_totalPaid.toStringAsFixed(0)}',
+                      icon: Icons.check_circle_rounded,
+                      color: Colors.greenAccent.shade200,
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildMetricCard(
-                        title: 'Outstanding',
-                        value: '\u20B9${_totalOutstanding.toStringAsFixed(0)}',
-                        icon: Icons.pending_actions_rounded,
-                        color: Colors.amberAccent.shade200,
-                      ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: _buildMetricCard(
+                      title: 'Outstanding',
+                      value: '\u20B9${_totalOutstanding.toStringAsFixed(0)}',
+                      icon: Icons.pending_actions_rounded,
+                      color: Colors.amberAccent.shade200,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                // SEARCH & FILTERS
-                Row(
-                  children: [
-                    Expanded(
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // SEARCH & FILTERS ROW
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 38,
                       child: TextField(
                         controller: _searchController,
                         onSubmitted: (_) => fetchPurchases(),
+                        style: const TextStyle(fontSize: 12),
                         decoration: InputDecoration(
                           hintText: 'Search purchase #, vendor...',
-                          hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
-                          prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary, size: 20),
+                          hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                          prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary, size: 18),
                           suffixIcon: _searchController.text.isNotEmpty
                               ? IconButton(
-                                  icon: const Icon(Icons.clear_rounded, color: AppColors.textMuted, size: 18),
+                                  icon: const Icon(Icons.clear_rounded, color: AppColors.textMuted, size: 16),
                                   onPressed: () {
                                     _searchController.clear();
                                     fetchPurchases();
@@ -403,176 +476,191 @@ class PurchaseListScreenState extends State<PurchaseListScreen> {
                               : null,
                           filled: true,
                           fillColor: Colors.white,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(8),
                             borderSide: BorderSide.none,
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    // GREEN DATE FILTER BUTTON (MATCHES REPAIR LIST DESIGN)
-                    InkWell(
-                      onTap: _showDateFilterBottomSheet,
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: AppColors.accent,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.calendar_month_rounded, color: Colors.white, size: 18),
-                            const SizedBox(width: 4),
-                            Text(
-                              _dateFilterLabel,
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                            ),
-                            const SizedBox(width: 2),
-                            const Icon(Icons.arrow_drop_down_rounded, color: Colors.white, size: 18),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    // STATUS FILTER DROPDOWN
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  ),
+                  const SizedBox(width: 6),
+                  // GREEN DATE FILTER BUTTON
+                  InkWell(
+                    onTap: _showDateFilterBottomSheet,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      height: 38,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
                       decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
+                        color: AppColors.accent,
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _paymentStatusFilter,
-                          icon: const Icon(Icons.arrow_drop_down_rounded, color: AppColors.primary),
-                          style: const TextStyle(color: AppColors.textPrimary, fontSize: 12, fontWeight: FontWeight.w600),
-                          items: const [
-                            DropdownMenuItem(value: 'all', child: Text('All Status')),
-                            DropdownMenuItem(value: 'paid', child: Text('Paid')),
-                            DropdownMenuItem(value: 'partial', child: Text('Partial')),
-                            DropdownMenuItem(value: 'pending', child: Text('Pending')),
-                          ],
-                          onChanged: (val) {
-                            if (val != null) {
-                              setState(() => _paymentStatusFilter = val);
-                              fetchPurchases();
-                            }
-                          },
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.calendar_month_rounded, color: Colors.white, size: 15),
+                          const SizedBox(width: 4),
+                          Text(
+                            _dateFilterLabel,
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                          ),
+                          const SizedBox(width: 2),
+                          const Icon(Icons.arrow_drop_down_rounded, color: Colors.white, size: 16),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          // LIST OF PURCHASES
-          Expanded(
-            child: _isLoading
-                ? AppShimmer.listLoading()
-                : _purchases.isEmpty
-                    ? const AppEmptyState(
-                        icon: Icons.shopping_bag_outlined,
-                        title: 'No Purchases Found',
-                        message: 'Tap + Add Purchase to record inventory purchases from suppliers.',
-                      )
-                    : RefreshIndicator(
-                        onRefresh: fetchPurchases,
-                        child: ListView.builder(
-                          padding: const EdgeInsets.all(12),
-                          itemCount: _purchases.length,
-                          itemBuilder: (context, index) {
-                            final p = _purchases[index];
-                            final formattedDate = DateHelper.formatDate(p.purchaseDate.toIso8601String());
-                            final itemsSummary = p.items.isNotEmpty
-                                ? p.items.map((i) => '${i.itemName} (x${i.quantity})').join(', ')
-                                : null;
-
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 10),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              elevation: 1.5,
-                              child: ListTile(
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                title: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      '#${p.purchaseNumber}',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.textPrimary),
-                                    ),
-                                    _buildStatusBadge(p.paymentStatus),
-                                  ],
-                                ),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const SizedBox(height: 4),
-                                    Text(p.vendorName, style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary, fontSize: 13)),
-                                    const SizedBox(height: 2),
-                                    Text('Date: $formattedDate     ${p.items.length} item(s)', style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                                    if (itemsSummary != null) ...[
-                                      const SizedBox(height: 4),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: Colors.purple.shade50,
-                                          borderRadius: BorderRadius.circular(6),
-                                          border: Border.all(color: Colors.purple.shade100),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            const Icon(Icons.inventory_2_outlined, size: 12, color: Colors.purple),
-                                            const SizedBox(width: 4),
-                                            Expanded(
-                                              child: Text(
-                                                'Items: $itemsSummary',
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.purple.shade900),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text('Total: \u20B9${p.grandTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textPrimary)),
-                                        Text('Paid: \u20B9${p.amountPaid.toStringAsFixed(2)}', style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.w600, fontSize: 12)),
-                                        Text('Due: \u20B9${p.outstandingAmount.toStringAsFixed(2)}', style: TextStyle(color: p.outstandingAmount > 0 ? AppColors.error : AppColors.success, fontWeight: FontWeight.bold, fontSize: 12)),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                                onTap: () async {
-                                  await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (_) => PurchaseDetailsScreen(purchase: p)),
-                                  );
-                                  fetchPurchases();
-                                },
-                              ),
-                            );
-                          },
-                        ),
+                  ),
+                  const SizedBox(width: 6),
+                  // STATUS FILTER DROPDOWN
+                  Container(
+                    height: 38,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _paymentStatusFilter,
+                        icon: const Icon(Icons.arrow_drop_down_rounded, color: AppColors.primary, size: 18),
+                        style: const TextStyle(color: AppColors.textPrimary, fontSize: 11, fontWeight: FontWeight.w600),
+                        items: const [
+                          DropdownMenuItem(value: 'all', child: Text('All')),
+                          DropdownMenuItem(value: 'paid', child: Text('Paid')),
+                          DropdownMenuItem(value: 'partial', child: Text('Partial')),
+                          DropdownMenuItem(value: 'pending', child: Text('Due')),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() => _paymentStatusFilter = val);
+                            fetchPurchases();
+                          }
+                        },
                       ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'fab_purchase_list',
-        backgroundColor: AppColors.primary,
-        onPressed: _openAddPurchase,
-        icon: const Icon(Icons.add_rounded, color: Colors.white),
-        label: const Text('Add Purchase', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-      ),
+        ),
+
+        // LIST OF PURCHASES
+        Expanded(
+          child: _isLoading
+              ? AppShimmer.listLoading()
+              : _purchases.isEmpty
+                  ? DateRangeEmptyState(
+                      icon: Icons.shopping_bag_outlined,
+                      entityName: 'Purchases',
+                      datePreset: _datePreset,
+                      dateFilterLabel: _dateFilterLabel,
+                      hasActiveSearchOrFilter: _searchController.text.isNotEmpty || _paymentStatusFilter != 'all',
+                      onResetFilters: () {
+                        setState(() {
+                          _searchController.clear();
+                          _paymentStatusFilter = 'all';
+                          _datePreset = 'all_time';
+                        });
+                        fetchPurchases();
+                      },
+                      onSelectDatePreset: (preset) {
+                        setState(() {
+                          _datePreset = preset;
+                          _customDateRange = null;
+                        });
+                        fetchPurchases();
+                      },
+                      createActionLabel: '+ Add Purchase',
+                      onCreateAction: _openAddPurchase,
+                    )
+                  : RefreshIndicator(
+                      onRefresh: fetchPurchases,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(12),
+                        itemCount: _purchases.length,
+                        itemBuilder: (context, index) {
+                          final p = _purchases[index];
+                          final formattedDate = DateHelper.formatDate(p.purchaseDate.toIso8601String());
+                          final itemsSummary = p.items.isNotEmpty
+                              ? p.items.map((i) => '${i.itemName} (x${i.quantity})').join(', ')
+                              : null;
+
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 1.5,
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              title: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    '#${p.purchaseNumber}',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.textPrimary),
+                                  ),
+                                  _buildStatusBadge(p.paymentStatus),
+                                ],
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 4),
+                                  Text(p.vendorName, style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary, fontSize: 13)),
+                                  const SizedBox(height: 2),
+                                  Text('Date: $formattedDate     ${p.items.length} item(s)', style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                                  if (itemsSummary != null) ...[
+                                    const SizedBox(height: 4),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.purple.shade50,
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: Colors.purple.shade100),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.inventory_2_outlined, size: 12, color: Colors.purple),
+                                          const SizedBox(width: 4),
+                                          Expanded(
+                                            child: Text(
+                                              'Items: $itemsSummary',
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.purple.shade900),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text('Total: \u20B9${p.grandTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textPrimary)),
+                                      Text('Paid: \u20B9${p.amountPaid.toStringAsFixed(2)}', style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.w600, fontSize: 12)),
+                                      Text('Due: \u20B9${p.outstandingAmount.toStringAsFixed(2)}', style: TextStyle(color: p.outstandingAmount > 0 ? AppColors.error : AppColors.success, fontWeight: FontWeight.bold, fontSize: 12)),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              onTap: () async {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => PurchaseDetailsScreen(purchase: p)),
+                                );
+                                fetchPurchases();
+                              },
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+        ),
+      ],
     );
   }
 }

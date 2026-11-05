@@ -285,7 +285,9 @@ class _SellUsedMobileModalState extends State<SellUsedMobileModal> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'IMEI 1: ${widget.mobile.imei1}',
+                        widget.mobile.imei1.isNotEmpty
+                            ? 'IMEI 1: ${widget.mobile.imei1}'
+                            : 'IMEI: Not recorded',
                         style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontFamily: 'monospace'),
                       ),
                       const Divider(height: 16),
