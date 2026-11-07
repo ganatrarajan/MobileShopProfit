@@ -16,6 +16,7 @@ class Technician extends Model
 
     protected $fillable = [
         'shop_id',
+        'user_id',
         'name',
         'mobile',
         'specialization',
@@ -39,6 +40,11 @@ class Technician extends Model
     public function shop(): BelongsTo
     {
         return $this->belongsTo(Shop::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 
     public function repairs(): HasMany

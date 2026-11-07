@@ -9,6 +9,8 @@ class SaleItemResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $isOwner = $request->user()?->role === 'owner';
+
         return [
             'id' => $this->id,
             'sale_id' => $this->sale_id,
@@ -24,7 +26,7 @@ class SaleItemResource extends JsonResource
             'unit_price' => (float) $this->unit_price,
             'discount' => (float) $this->discount,
             'tax_amount' => (float) $this->tax_amount,
-            'cost_price' => $this->cost_price !== null ? (float) $this->cost_price : (float) ($this->inventoryItem?->purchase_price ?? 0),
+            'cost_price' => $isOwner ? ($this->cost_price !== null ? (float) $this->cost_price : (float) ($this->inventoryItem?->purchase_price ?? 0)) : 0.0,
             'total' => (float) $this->total,
             'created_at' => $this->created_at?->toIso8601String(),
         ];

@@ -27,20 +27,22 @@ class AdminPlanController extends Controller
     public function store(Request $request): JsonResponse
     {
         $request->validate([
-            'name'           => 'required|string',
-            'price'          => 'required|numeric|min:0',
-            'billing_period' => 'required|string|in:monthly,3_months,6_months,annual',
-            'status'         => 'nullable|string|in:active,inactive',
-            'sort_order'     => 'nullable|integer|min:0',
+            'name'               => 'required|string',
+            'price'              => 'required|numeric|min:0',
+            'billing_period'     => 'required|string|in:monthly,3_months,6_months,annual',
+            'max_staff_accounts' => 'nullable|integer|min:0',
+            'status'             => 'nullable|string|in:active,inactive',
+            'sort_order'         => 'nullable|integer|min:0',
         ]);
 
         $plan = Plan::create([
-            'name'           => $request->name,
-            'slug'           => Str::slug($request->name . '-' . $request->billing_period . '-' . time()),
-            'price'          => $request->price,
-            'billing_period' => $request->billing_period,
-            'status'         => $request->status ?? 'active',
-            'sort_order'     => $request->sort_order ?? 0,
+            'name'               => $request->name,
+            'slug'               => Str::slug($request->name . '-' . $request->billing_period . '-' . time()),
+            'price'              => $request->price,
+            'billing_period'     => $request->billing_period,
+            'max_staff_accounts' => $request->max_staff_accounts ?? 0,
+            'status'             => $request->status ?? 'active',
+            'sort_order'         => $request->sort_order ?? 0,
         ]);
 
         Cache::forget('public_plans_list');
@@ -57,20 +59,22 @@ class AdminPlanController extends Controller
         }
 
         $request->validate([
-            'name'           => 'required|string',
-            'price'          => 'required|numeric|min:0',
-            'billing_period' => 'required|string|in:monthly,3_months,6_months,annual',
-            'status'         => 'required|string|in:active,inactive',
-            'sort_order'     => 'nullable|integer|min:0',
+            'name'               => 'required|string',
+            'price'              => 'required|numeric|min:0',
+            'billing_period'     => 'required|string|in:monthly,3_months,6_months,annual',
+            'max_staff_accounts' => 'nullable|integer|min:0',
+            'status'             => 'required|string|in:active,inactive',
+            'sort_order'         => 'nullable|integer|min:0',
         ]);
 
         $plan->update([
-            'name'           => $request->name,
-            'slug'           => Str::slug($request->name . '-' . $request->billing_period),
-            'price'          => $request->price,
-            'billing_period' => $request->billing_period,
-            'status'         => $request->status,
-            'sort_order'     => $request->sort_order ?? $plan->sort_order,
+            'name'               => $request->name,
+            'slug'               => Str::slug($request->name . '-' . $request->billing_period),
+            'price'              => $request->price,
+            'billing_period'     => $request->billing_period,
+            'max_staff_accounts' => $request->has('max_staff_accounts') ? (int) $request->max_staff_accounts : $plan->max_staff_accounts,
+            'status'             => $request->status,
+            'sort_order'         => $request->sort_order ?? $plan->sort_order,
         ]);
 
         Cache::forget('public_plans_list');
@@ -92,5 +96,27 @@ class AdminPlanController extends Controller
         Cache::forget('public_plans_list');
 
         return $this->successResponse($plan, 'Plan status updated to ' . $plan->status);
+    }
+
+    public function getStaffAddonRate(): JsonResponse
+    {
+        $rate = (float) \App\Models\SystemSetting::getByKey('staff_price_per_day', '2.00');
+        return $this->successResponse([
+            'staff_price_per_day' => $rate,
+        ], 'Staff add-on rate retrieved');
+    }
+
+    public function updateStaffAddonRate(Request $request): JsonResponse
+    {
+        $request->validate([
+            'staff_price_per_day' => 'required|numeric|min:0',
+        ]);
+
+        $rate = number_format((float) $request->staff_price_per_day, 2, '.', '');
+        \App\Models\SystemSetting::setKey('staff_price_per_day', $rate);
+
+        return $this->successResponse([
+            'staff_price_per_day' => (float) $rate,
+        ], 'Staff add-on daily price updated successfully');
     }
 }

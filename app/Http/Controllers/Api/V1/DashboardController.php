@@ -29,6 +29,13 @@ class DashboardController extends Controller
             return response()->json(['message' => 'No active shop associated with user.'], 400);
         }
 
+        if ($user->role !== 'owner') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only shop owners can access the financial summary dashboard.',
+            ], 403);
+        }
+
         $period = $request->input('period', 'this_month');
         $now = Carbon::now();
 
@@ -370,6 +377,17 @@ class DashboardController extends Controller
         $netProfit = $totalRevenue - $totalPurchases - $totalExpensesSum;
         $netCashRemaining = ($totalCollected + $effectiveRepairEarnings) - $totalPurchasePaid - $totalExpensesSum - $totalRepairPartsCost - $totalRepairTechCost;
 
+        $discountBanner = null;
+        if ($shopObj && $shopObj->hasActiveCustomDiscount()) {
+            $discountBanner = [
+                'has_discount' => true,
+                'percent'      => $shopObj->custom_discount_percent ? (int) $shopObj->custom_discount_percent : null,
+                'is_one_time'  => (bool) $shopObj->custom_discount_is_one_time,
+                'note'         => $shopObj->custom_discount_note ?: ($shopObj->custom_discount_percent ? "{$shopObj->custom_discount_percent}% OFF Special Offer" : "Special Pricing Offer"),
+                'valid_until'  => $shopObj->custom_discount_valid_until ? Carbon::parse($shopObj->custom_discount_valid_until)->format('d M Y') : null,
+            ];
+        }
+
         return response()->json([
             'success' => true,
             'period' => $period,
@@ -382,11 +400,13 @@ class DashboardController extends Controller
             'owner_name' => $ownerNameVal,
             'days_remaining' => $daysRemainingVal,
             'is_expiring_soon' => ($daysRemainingVal <= 10),
+            'discount_banner' => $discountBanner,
             'data' => [
                 'shop_name' => $shopNameVal,
                 'owner_name' => $ownerNameVal,
                 'days_remaining' => $daysRemainingVal,
                 'is_expiring_soon' => ($daysRemainingVal <= 10),
+                'discount_banner' => $discountBanner,
                 'financial_overview' => [
                     'total_sales' => round($totalSales, 2),
                     'sales_cost' => round($totalSalesCost, 2),

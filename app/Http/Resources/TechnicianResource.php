@@ -16,6 +16,17 @@ class TechnicianResource extends JsonResource
             'mobile' => $this->mobile,
             'specialization' => $this->specialization,
             'is_active' => (bool) $this->is_active,
+            'has_login' => $this->user_id !== null,
+            'user_id' => $this->user_id,
+            'login_password' => ($request->user() && ($request->user()->role === 'owner' || empty($request->user()->role)))
+                ? $this->user?->plain_password
+                : null,
+            'permissions' => $this->user?->permissions ?? [
+                'repairs' => true,
+                'sales' => false,
+                'purchases' => false,
+                'used_mobiles' => false,
+            ],
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
             'workload' => [

@@ -27,6 +27,13 @@ class SaleController extends Controller
             ], 403);
         }
 
+        if ($user->role !== 'owner' && !$user->hasPermission('sales')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You do not have permission to access the Sales module.',
+            ], 403);
+        }
+
         $query = Sale::forShop($user->shop_id)
             ->with(['customer', 'device', 'items.inventoryItem', 'payments', 'warranty']);
 
@@ -372,6 +379,13 @@ class SaleController extends Controller
     public function destroy(Request $request, mixed $sale): JsonResponse
     {
         $user = $request->user();
+        if ($user->role !== 'owner') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only the shop owner can delete sales invoices.',
+            ], 403);
+        }
+
         $id = $this->resolveSaleId($sale);
         $saleRecord = Sale::forShop($user->shop_id)->with('items')->find($id);
 
