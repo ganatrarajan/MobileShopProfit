@@ -248,41 +248,80 @@
             width: 100%;
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 transparent;
+        }
+
+        .table-responsive::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .table-responsive::-webkit-scrollbar-track {
+            background: #f8fafc;
+        }
+
+        .table-responsive::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 6px;
+        }
+
+        .table-responsive::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
         }
 
         .sub-nav-bar {
             display: flex;
-            gap: 6px;
+            gap: 4px;
             margin-bottom: 20px;
-            background: #ffffff;
-            padding: 8px 12px;
+            background: #f1f5f9;
+            padding: 4px;
             border-radius: 10px;
-            border: 1px solid var(--border-color);
+            border: 1px solid #e2e8f0;
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        .sub-nav-bar::-webkit-scrollbar {
+            display: none;
         }
 
         .sub-nav-btn {
-            padding: 8px 16px;
+            padding: 7px 14px;
             font-size: 13px;
-            font-weight: 600;
-            border-radius: 6px;
+            font-weight: 500;
+            border-radius: 7px;
             border: none;
             background: transparent;
             color: #64748b;
             cursor: pointer;
             white-space: nowrap;
-            transition: all 0.2s;
+            transition: all 0.15s ease-in-out;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
         }
 
         .sub-nav-btn:hover {
-            background: #f1f5f9;
+            background: rgba(255, 255, 255, 0.7);
             color: #0f172a;
         }
 
         .sub-nav-btn.active {
-            background: var(--primary);
-            color: white;
+            background: #ffffff;
+            color: #0f172a;
+            font-weight: 600;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+        }
+
+        @media (max-width: 1024px) {
+            .table-toolbar {
+                gap: 10px;
+            }
+            .search-box {
+                min-width: 220px;
+            }
         }
 
         @media (max-width: 768px) {
@@ -300,9 +339,9 @@
                 left: 0;
                 bottom: 0;
                 transform: translateX(-100%);
-                transition: transform 0.3s ease;
-                width: 260px;
-                box-shadow: 4px 0 25px rgba(0,0,0,0.3);
+                transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                width: 270px;
+                box-shadow: 4px 0 25px rgba(0,0,0,0.4);
             }
 
             .sidebar.mobile-open {
@@ -315,6 +354,7 @@
 
             .topbar {
                 padding: 0 16px;
+                height: 56px;
             }
 
             .content-area {
@@ -322,7 +362,7 @@
             }
 
             .grid-4 {
-                grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+                grid-template-columns: repeat(2, 1fr);
                 gap: 10px;
             }
 
@@ -335,13 +375,13 @@
             }
 
             .modal-content {
-                max-width: 94%;
+                max-width: 95%;
                 margin: 10px;
             }
 
             .table-toolbar {
                 padding: 12px;
-                gap: 8px;
+                gap: 10px;
                 flex-direction: column;
                 align-items: stretch;
             }
@@ -349,22 +389,33 @@
             .search-box {
                 min-width: 100%;
             }
+
+            .filter-select {
+                flex: 1;
+                min-width: 140px;
+            }
         }
 
         .topbar {
-            height: 64px;
-            background: white;
+            height: 60px;
+            background: #ffffff;
             border-bottom: 1px solid var(--border-color);
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 0 28px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
 
         .topbar h1 {
             font-size: 18px;
             font-weight: 700;
             color: #0f172a;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .content-area {
@@ -411,15 +462,15 @@
 
         .card-table {
             background: white;
-            border-radius: 12px;
+            border-radius: 14px;
             border: 1px solid var(--border-color);
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
             overflow: hidden;
         }
 
         .table-toolbar {
-            padding: 16px 20px;
-            border-bottom: 1px solid var(--border-color);
+            padding: 14px 20px;
+            border-bottom: 1px solid #f1f5f9;
             display: flex;
             gap: 12px;
             flex-wrap: wrap;
@@ -430,20 +481,23 @@
 
         .search-box {
             position: relative;
-            min-width: 260px;
+            min-width: 280px;
         }
 
         .search-box input {
             width: 100%;
-            padding: 9px 14px 9px 36px;
+            padding: 9px 14px 9px 38px;
             border: 1px solid #cbd5e1;
             border-radius: 8px;
             font-size: 13px;
             outline: none;
+            background: #f8fafc;
+            color: #0f172a;
             transition: all 0.2s;
         }
 
         .search-box input:focus {
+            background: #ffffff;
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
         }
@@ -456,44 +510,55 @@
             transform: translateY(-50%);
             font-size: 13px;
             opacity: 0.5;
+            pointer-events: none;
         }
 
         .filter-select {
-            padding: 9px 12px;
+            padding: 8px 32px 8px 12px;
             border: 1px solid #cbd5e1;
             border-radius: 8px;
             font-size: 13px;
             outline: none;
-            background: white;
+            background: #f8fafc url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center;
+            -webkit-appearance: none;
+            appearance: none;
             color: #334155;
             cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
         }
 
         .filter-select:focus {
+            background-color: #ffffff;
             border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
         }
 
         table {
             width: 100%;
+            min-width: 1050px;
             border-collapse: collapse;
             text-align: left;
-            font-size: 14px;
+            font-size: 13.5px;
         }
 
         th {
             background: #f8fafc;
-            padding: 12px 20px;
+            padding: 12px 18px;
             font-size: 11px;
             font-weight: 700;
+            letter-spacing: 0.05em;
             text-transform: uppercase;
-            color: #475569;
+            color: #64748b;
             border-bottom: 1px solid var(--border-color);
+            white-space: nowrap;
         }
 
         td {
-            padding: 14px 20px;
-            border-bottom: 1px solid var(--border-color);
+            padding: 13px 18px;
+            border-bottom: 1px solid #f1f5f9;
             color: #334155;
+            vertical-align: middle;
         }
 
         tr:last-child td {
@@ -505,19 +570,109 @@
         }
 
         .badge {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            border-radius: 6px;
             font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            white-space: nowrap;
         }
 
-        .badge-active { background: #dcfce7; color: #15803d; }
-        .badge-inactive { background: #fee2e2; color: #b91c1c; }
-        .badge-trial { background: #fef3c7; color: #b45309; }
-        .badge-resolved { background: #e0e7ff; color: #4338ca; }
-        .badge-blue { background: #dbeafe; color: #1d4ed8; }
+        .badge-active { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+        .badge-inactive { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+        .badge-trial { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+        .badge-resolved { background: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe; }
+        .badge-blue { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+        .badge-purple { background: #f5f3ff; color: #6d28d9; border: 1px solid #ddd6fe; }
+        .badge-emerald { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+
+        .action-btn-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+            flex-wrap: nowrap;
+        }
+
+        .action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 7px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.15s ease-in-out;
+            white-space: nowrap;
+            line-height: 1.2;
+            text-decoration: none;
+        }
+
+        .action-btn svg {
+            width: 13px;
+            height: 13px;
+            flex-shrink: 0;
+        }
+
+        .action-btn-default {
+            background: #ffffff;
+            border-color: #cbd5e1;
+            color: #334155;
+        }
+        .action-btn-default:hover {
+            background: #f1f5f9;
+            border-color: #94a3b8;
+            color: #0f172a;
+        }
+
+        .action-btn-emerald {
+            background: #ecfdf5;
+            border-color: #a7f3d0;
+            color: #047857;
+        }
+        .action-btn-emerald:hover {
+            background: #d1fae5;
+            border-color: #6ee7b7;
+            color: #065f46;
+        }
+
+        .action-btn-indigo {
+            background: #eef2ff;
+            border-color: #c7d2fe;
+            color: #4338ca;
+        }
+        .action-btn-indigo:hover {
+            background: #e0e7ff;
+            border-color: #a5b4fc;
+            color: #3730a3;
+        }
+
+        .action-btn-danger {
+            background: #fef2f2;
+            border-color: #fecaca;
+            color: #b91c1c;
+        }
+        .action-btn-danger:hover {
+            background: #fee2e2;
+            border-color: #fca5a5;
+            color: #991b1b;
+        }
+
+        .action-btn-success {
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+            color: #15803d;
+        }
+        .action-btn-success:hover {
+            background: #dcfce7;
+            border-color: #86efac;
+            color: #166534;
+        }
 
         .btn-sm {
             padding: 6px 12px;
@@ -677,12 +832,19 @@
 
         <main class="main-content">
             <header class="topbar">
-                <div style="display:flex; align-items:center; gap:12px;">
+                <div style="display:flex; align-items:center; gap:14px;">
                     <button class="hamburger-btn" onclick="toggleMobileSidebar()">☰</button>
                     <h1 id="page-title">Dashboard Overview</h1>
                 </div>
-                <div>
-                    <a href="/" target="_blank" style="font-size:12px; color:#2563eb; font-weight:600; text-decoration:none; background:#eff6ff; padding:6px 12px; border-radius:6px; display:inline-flex; align-items:center; gap:4px;">🌐 View Live Site</a>
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span class="badge badge-active" style="font-size:11px; padding:4px 10px;">
+                        <span style="width:6px; height:6px; border-radius:50%; background:#16a34a; display:inline-block; margin-right:3px;"></span>
+                        Platform Online
+                    </span>
+                    <a href="/" target="_blank" style="font-size:12px; color:#2563eb; font-weight:600; text-decoration:none; background:#eff6ff; border:1px solid #bfdbfe; padding:6px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; transition:all 0.2s;">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                        View Live Site
+                    </a>
                 </div>
             </header>
             <div id="content-area" class="content-area">
@@ -724,8 +886,16 @@
         function showAppLayout() {
             document.getElementById('auth-screen').style.display = 'none';
             document.getElementById('app-layout').style.display = 'flex';
-            loadDashboardView();
+            const initialRoute = (window.location.hash || '').replace('#', '') || 'dashboard';
+            switchNav(initialRoute);
         }
+
+        window.addEventListener('hashchange', () => {
+            if (authToken) {
+                const route = (window.location.hash || '').replace('#', '') || 'dashboard';
+                switchNav(route);
+            }
+        });
 
         async function checkAuth() {
             const data = await apiFetch('/auth/me');
@@ -802,6 +972,8 @@
             document.getElementById('sidebar-overlay').classList.remove('mobile-open');
         }
 
+        let currentMainSection = '';
+
         function getContentContainer() {
             return document.getElementById('sub-content-area') || document.getElementById('content-area');
         }
@@ -827,7 +999,7 @@
             }
 
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-            const activeNav = document.querySelector(`.nav-item[href="#${mainSection}"]`);
+            const activeNav = document.querySelector(`.nav-item[href="#${route}"]`) || document.querySelector(`.nav-item[href="#${mainSection}"]`);
             if (activeNav) activeNav.classList.add('active');
 
             const titleMap = {
@@ -837,9 +1009,18 @@
                 'used-mobiles': '📱 Used Mobiles Feature & Adoption Hub',
                 'billing': 'Subscriptions & Revenue Billing',
                 'reports': 'Platform Business & Financial Reports',
-                'settings': 'System & Platform Settings'
+                'settings': 'System & Platform Settings',
+                'notifications': 'Broadcast Push Notifications'
             };
-            document.getElementById('page-title').innerText = titleMap[mainSection] || 'Admin Panel';
+            document.getElementById('page-title').innerText = titleMap[route] || titleMap[mainSection] || 'Admin Panel';
+
+            // CRITICAL FIX: Clear content-area when switching between major sections or
+            // navigating to a section without sub-tabs (dashboard, shops, reports) so old sub-nav bars never linger!
+            const contentArea = document.getElementById('content-area');
+            if (['dashboard', 'shops', 'reports'].includes(mainSection) || currentMainSection !== mainSection) {
+                contentArea.innerHTML = '';
+            }
+            currentMainSection = mainSection;
 
             if (mainSection === 'dashboard') {
                 loadDashboardView();
@@ -1111,12 +1292,19 @@
             content.innerHTML = `
                 <div class="card-table">
                     <div class="table-toolbar">
-                        <div style="display:flex; gap:10px; flex:1; min-width:280px;">
+                        <div style="display:flex; gap:12px; flex:1; min-width:260px; align-items:center;">
                             <div class="search-box" style="flex:1;">
                                 <input type="text" id="shops-search-input" placeholder="Search shop name, owner, phone, email..." value="${search}" oninput="debounceSearch(() => loadShopsView(1, document.getElementById('shops-search-input').value, '${status}', '${subStatus}'))">
                             </div>
+                            <span style="font-size:12px; color:#64748b; font-weight:600; background:#f1f5f9; padding:6px 12px; border-radius:20px; white-space:nowrap; border:1px solid #e2e8f0;">
+                                Total: ${pageData.total !== undefined ? pageData.total : shops.length} Shops
+                            </span>
                         </div>
                         <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                            <button class="action-btn action-btn-indigo" onclick="openBulkDiscountModal()" style="padding:7px 13px; font-size:12px; box-shadow:0 1px 2px rgba(0,0,0,0.05);" title="Apply Discount Across ALL Shops">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 14.14 14.14"/></svg>
+                                🏷️ Discount All Shops
+                            </button>
                             <select class="filter-select" onchange="loadShopsView(1, '${search}', this.value, '${subStatus}')">
                                 <option value="">Account: All Statuses</option>
                                 <option value="active" ${status === 'active' ? 'selected' : ''}>Active Account</option>
@@ -1128,40 +1316,101 @@
                                 <option value="trial" ${subStatus === 'trial' ? 'selected' : ''}>Trial</option>
                                 <option value="expired" ${subStatus === 'expired' ? 'selected' : ''}>Expired</option>
                             </select>
-                            ${(search || status || subStatus) ? `<button class="btn-sm" style="background:#e2e8f0; color:#334155;" onclick="loadShopsView(1, '', '', '')">Clear Filters</button>` : ''}
+                            ${(search || status || subStatus) ? `<button class="btn-sm" style="background:#f1f5f9; color:#475569; border-color:#cbd5e1;" onclick="loadShopsView(1, '', '', '')">✕ Clear Filters</button>` : ''}
                         </div>
                     </div>
                     <div class="table-responsive">
                     <table>
                         <thead>
                             <tr>
-                                <th>Shop Name</th>
+                                <th>Shop & ID</th>
                                 <th>Owner Name</th>
                                 <th>Contact Number</th>
                                 <th>Registration Date</th>
                                 <th>Subscription</th>
+                                <th>Staff & Technicians</th>
                                 <th>Account Status</th>
-                                <th>Actions</th>
+                                <th style="text-align:right;">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${shops.length === 0 ? `<tr><td colspan="7" style="text-align:center; padding:30px; color:#94a3b8;">No shops found matching filter criteria.</td></tr>` : ''}
+                            ${shops.length === 0 ? `<tr><td colspan="8" style="text-align:center; padding:36px; color:#94a3b8; font-weight:500;">No shops found matching filter criteria.</td></tr>` : ''}
                             ${shops.map(s => {
                                 const mob = s.phone || s.mobile || (s.user ? (s.user.mobile || s.user.phone) : 'N/A');
                                 const sub = s.latest_subscription ? s.latest_subscription.status : 'trial';
+                                const initial = (s.name || 'S').trim().charAt(0).toUpperCase();
                                 return `
                                 <tr>
-                                    <td><strong>${s.name}</strong></td>
-                                    <td>${s.owner_name}</td>
-                                    <td>${mob}</td>
-                                    <td>${new Date(s.created_at).toLocaleDateString()}</td>
-                                    <td><span class="badge ${sub === 'active' ? 'badge-active' : (sub === 'expired' ? 'badge-inactive' : 'badge-trial')}">${sub.toUpperCase()}</span></td>
-                                    <td><span class="badge ${s.status === 'active' ? 'badge-active' : 'badge-inactive'}">${s.status}</span></td>
                                     <td>
-                                        <button class="btn-sm" onclick="openShopDetails(${s.id})">Details</button>
-                                        <button class="btn-sm ${s.status === 'active' ? 'btn-danger-sm' : 'btn-success-sm'}" onclick="toggleShopStatus(${s.id}, '${s.status === 'active' ? 'deactivated' : 'active'}')">
-                                            ${s.status === 'active' ? 'Deactivate' : 'Activate'}
-                                        </button>
+                                        <div style="display:flex; align-items:center; gap:10px;">
+                                            <div style="width:36px; height:36px; border-radius:9px; background:#eff6ff; border:1px solid #bfdbfe; color:#2563eb; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; flex-shrink:0;">
+                                                ${initial}
+                                            </div>
+                                            <div>
+                                                <div style="font-weight:700; color:#0f172a; font-size:13.5px;">${s.name}</div>
+                                                <div style="font-size:11px; color:#64748b; font-family:monospace;">ID: #${s.id}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight:600; color:#334155;">${s.owner_name}</div>
+                                    </td>
+                                    <td>
+                                        <div style="font-family:monospace; font-size:13px; color:#475569;">${mob}</div>
+                                    </td>
+                                    <td>
+                                        <div style="font-size:12.5px; color:#64748b;">${new Date(s.created_at).toLocaleDateString()}</div>
+                                    </td>
+                                    <td>
+                                        <span class="badge ${sub === 'active' ? 'badge-active' : (sub === 'expired' ? 'badge-inactive' : 'badge-trial')}">
+                                            ${sub.toUpperCase()}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div style="display:flex; flex-direction:column; gap:4px;">
+                                            <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+                                                <span class="badge ${s.staff_logins_count > 0 ? 'badge-blue' : 'badge-trial'}">
+                                                    👥 ${s.staff_logins_count || 0} / ${s.effective_max_staff || 0} Logins
+                                                </span>
+                                                <span style="font-size:11px; color:#64748b; font-weight:500;">
+                                                    🧰 ${s.technicians_count || 0} Techs
+                                                </span>
+                                            </div>
+                                            ${s.custom_staff_valid_until ? (new Date(s.custom_staff_valid_until) < new Date() ? '<span class="badge badge-inactive" style="font-size:10px; padding:2px 6px;">🔴 Staff Expired</span>' : `<span class="badge badge-purple" style="font-size:10px; padding:2px 6px;">⏱️ Till ${new Date(s.custom_staff_valid_until).toLocaleDateString()}</span>`) : ''}
+                                            ${(s.custom_discount_percent > 0 || (s.custom_plan_prices && Object.keys(s.custom_plan_prices).length > 0))
+                                                ? `<span class="badge badge-emerald" style="font-size:10px; padding:2px 6px;">
+                                                       🏷️ ${s.custom_discount_percent ? s.custom_discount_percent + '% OFF' : 'Custom Pricing'}
+                                                       ${s.custom_discount_is_one_time ? '<span style="opacity:0.85; margin-left:2px; font-weight:700;">(1-Time)</span>' : ''}
+                                                   </span>`
+                                                : (s.custom_discount_note && s.custom_discount_note.includes('consumed')
+                                                    ? `<span class="badge" style="background:#f1f5f9; color:#64748b; font-size:9.5px; padding:2px 6px; border:1px solid #cbd5e1;">✅ 1-Time Used</span>`
+                                                    : '')
+                                            }
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge ${s.status === 'active' ? 'badge-active' : 'badge-inactive'}">
+                                            ${s.status.toUpperCase()}
+                                        </span>
+                                    </td>
+                                    <td style="text-align:right;">
+                                        <div class="action-btn-group" style="justify-content:flex-end;">
+                                            <button class="action-btn action-btn-default" onclick="openShopDetails(${s.id})" title="View Details">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                                                Details
+                                            </button>
+                                            <button class="action-btn action-btn-emerald" onclick="openCustomPricingModal(${s.id}, '${s.name.replace(/'/g, "\\'")}')" title="Custom Pricing & Discounts">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 6v12"/></svg>
+                                                Pricing
+                                            </button>
+                                            <button class="action-btn action-btn-indigo" onclick="openCustomStaffModal(${s.id}, '${s.name.replace(/'/g, "\\'")}', ${s.custom_max_staff !== null && s.custom_max_staff !== undefined ? s.custom_max_staff : "''"}, '${s.custom_staff_valid_until || ''}', '${(s.custom_staff_note || '').replace(/'/g, "\\'")}')" title="Staff Logins Limit">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                                Staff
+                                            </button>
+                                            <button class="action-btn ${s.status === 'active' ? 'action-btn-danger' : 'action-btn-success'}" onclick="toggleShopStatus(${s.id}, '${s.status === 'active' ? 'deactivated' : 'active'}')" title="${s.status === 'active' ? 'Deactivate Shop' : 'Activate Shop'}">
+                                                ${s.status === 'active' ? 'Deactivate' : 'Activate'}
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                                 `;
@@ -1204,6 +1453,7 @@
                 <div style="font-size:13px; line-height:1.5;">
                     <div style="display:flex; gap:8px; border-bottom:1px solid #e2e8f0; margin-bottom:16px; padding-bottom:10px; overflow-x:auto;">
                         <button id="shop-tab-btn-overview" class="btn-sm" style="background:#2563eb; color:white; border-color:#2563eb;" onclick="switchShopTab('overview')">📋 Overview</button>
+                        <button id="shop-tab-btn-technicians" class="btn-sm" onclick="switchShopTab('technicians')">🧰 Technicians & Staff (${(s.technicians || []).length})</button>
                         <button id="shop-tab-btn-sales" class="btn-sm" onclick="switchShopTab('sales')">🛒 Sales (${s.sales_count})</button>
                         <button id="shop-tab-btn-repairs" class="btn-sm" onclick="switchShopTab('repairs')">🔧 Repairs (${s.repairs_count})</button>
                         <button id="shop-tab-btn-customers" class="btn-sm" onclick="switchShopTab('customers')">👥 Customers (${s.customers_count})</button>
@@ -1216,6 +1466,42 @@
                         <p><strong>Contact Mobile:</strong> ${mob} | <strong>Email:</strong> ${email}</p>
                         <p><strong>Registration Date:</strong> ${new Date(s.created_at).toLocaleString()}</p>
                         <p><strong>Account Status:</strong> <span class="badge ${s.status === 'active' ? 'badge-active' : 'badge-inactive'}">${s.status}</span></p>
+                        <div style="background:#f1f5f9; padding:12px 14px; border-radius:8px; margin:12px 0; border:1px solid #cbd5e1;">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
+                                <div style="flex:1; min-width:240px;">
+                                    <h4 style="margin:0 0 4px 0; font-size:13px; color:#1e293b; display:flex; align-items:center; gap:6px;">
+                                        <span>👥</span> Technician & Staff Access
+                                    </h4>
+                                    <div style="font-size:12px; color:#475569; line-height:1.6;">
+                                        <div><strong>Effective Allowed:</strong> <span class="badge badge-active">${s.effective_max_staff || 0} Staff Logins</span></div>
+                                        <div><strong>Base Plan Limit:</strong> ${s.latest_subscription && s.latest_subscription.plan ? s.latest_subscription.plan.max_staff_accounts : 0} Staff</div>
+                                        <div><strong>Shop Custom Override:</strong> ${s.custom_max_staff !== null && s.custom_max_staff !== undefined ? `<strong style="color:#2563eb;">${s.custom_max_staff} Staff</strong> (Valid until: ${s.custom_staff_valid_until || 'Indefinite'}${s.custom_staff_note ? ' — Note: ' + s.custom_staff_note : ''})` : '<span style="color:#64748b;">None (Follows subscription plan)</span>'}</div>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn-sm" style="background:#4f46e5; color:white; border-color:#4f46e5; padding:6px 14px; font-weight:600;" onclick="openCustomStaffModal(${s.id}, '${s.name.replace(/'/g, "\\'")}', ${s.custom_max_staff !== null && s.custom_max_staff !== undefined ? s.custom_max_staff : "''"}, '${s.custom_staff_valid_until || ''}', '${(s.custom_staff_note || '').replace(/'/g, "\\'")}')">
+                                    ⚙️ Set Custom Staff Count
+                                </button>
+                            </div>
+                        </div>
+
+                        <div style="background:#ecfdf5; padding:12px 14px; border-radius:8px; margin:12px 0; border:1px solid #a7f3d0;">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
+                                <div style="flex:1; min-width:240px;">
+                                    <h4 style="margin:0 0 4px 0; font-size:13px; color:#065f46; display:flex; align-items:center; gap:6px;">
+                                        <span>💰</span> Custom Shop Pricing & Discounts
+                                    </h4>
+                                    <div style="font-size:12px; color:#047857; line-height:1.6;">
+                                        <div><strong>General Discount:</strong> ${s.custom_discount_percent ? `<span class="badge badge-active" style="background:#059669;">${s.custom_discount_percent}% OFF</span>` : '<span style="color:#64748b;">No general discount</span>'}</div>
+                                        <div><strong>Custom Plan Prices:</strong> ${s.custom_plan_prices && Object.keys(s.custom_plan_prices).length > 0 ? `<strong style="color:#047857;">${Object.keys(s.custom_plan_prices).length} plans overridden</strong>` : '<span style="color:#64748b;">Standard plan prices</span>'}</div>
+                                        <div><strong>Staff Add-on Rate:</strong> ${s.custom_staff_price_per_day !== null && s.custom_staff_price_per_day !== undefined ? `<strong>₹${parseFloat(s.custom_staff_price_per_day).toFixed(2)} / day</strong>` : 'Default (₹2.00 / day)'}</div>
+                                        <div><strong>Valid Until:</strong> ${s.custom_discount_valid_until || 'Indefinite'}${s.custom_discount_note ? ' — Note: ' + s.custom_discount_note : ''}</div>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn-sm" style="background:#059669; color:white; border-color:#059669; padding:6px 14px; font-weight:600;" onclick="openCustomPricingModal(${s.id}, '${s.name.replace(/'/g, "\\'")}')">
+                                    ⚙️ Manage Shop Pricing
+                                </button>
+                            </div>
+                        </div>
                         <hr style="margin:12px 0; border:0; border-top:1px solid #e2e8f0;">
                         <h4 style="font-size:12px; text-transform:uppercase; color:#64748b; margin-bottom:8px;">Platform Usage Totals</h4>
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
@@ -1225,6 +1511,100 @@
                             <div style="background:#f8fafc; padding:8px; border-radius:6px;"><strong>Devices Logged:</strong> ${s.devices_count}</div>
                             <div style="background:#f8fafc; padding:8px; border-radius:6px; grid-column:span 2;"><strong>Stock Items:</strong> ${s.inventory_items_count}</div>
                         </div>
+                    </div>
+
+                    <div id="shop-tab-technicians" style="display:none;">
+                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 16px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                            <div>
+                                <div style="font-weight:700; color:#0f172a; font-size:13.5px; display:flex; align-items:center; gap:6px;">
+                                    <span>🧰</span> Staff & Technician App Login Summary
+                                </div>
+                                <div style="font-size:12px; color:#64748b; margin-top:3px; display:flex; flex-wrap:wrap; align-items:center; gap:6px;">
+                                    <span>Effective Allowed: <strong style="color:#0f172a;">${s.effective_max_staff || 0} Logins</strong></span> &bull; 
+                                    <span>Active Staff Logins: <strong style="color:#2563eb;">${s.technicians_with_login_count || 0}</strong></span> &bull; 
+                                    <span>Total Technicians: <strong style="color:#0f172a;">${(s.technicians || []).length}</strong></span>
+                                    ${(s.technicians_with_login_count || 0) >= (s.effective_max_staff || 0) && (s.effective_max_staff || 0) > 0 ? '<span class="badge badge-inactive">Quota Full</span>' : ''}
+                                    ${s.custom_staff_valid_until ? (new Date(s.custom_staff_valid_until) < new Date() ? '<span class="badge" style="background:#fee2e2; color:#b91c1c; font-weight:700;">🔴 Staff Expired</span>' : `<span class="badge" style="background:#e0e7ff; color:#3730a3; font-weight:700;">⏱️ Valid until ${new Date(s.custom_staff_valid_until).toLocaleDateString()}</span>`) : ''}
+                                </div>
+                            </div>
+                            <button type="button" class="btn-sm" style="background:#4f46e5; color:white; border-color:#4f46e5; padding:6px 14px; font-weight:600;" onclick="openCustomStaffModal(${s.id}, '${s.name ? s.name.replace(/'/g, "\\'") : ''}', ${s.custom_max_staff !== null && s.custom_max_staff !== undefined ? s.custom_max_staff : "''"}, '${s.custom_staff_valid_until || ''}', '${s.custom_staff_note ? s.custom_staff_note.replace(/'/g, "\\'") : ''}')">
+                                ⚙️ Adjust Staff Limit
+                            </button>
+                        </div>
+
+                        ${(s.technicians || []).length === 0 ? `
+                            <div style="text-align:center; padding:32px 16px; color:#94a3b8; border:1px dashed #cbd5e1; border-radius:8px; background:#fafafa;">
+                                <div style="font-size:32px; margin-bottom:6px;">🧰</div>
+                                <div style="font-weight:600; color:#475569; font-size:14px;">No Technicians Added</div>
+                                <div style="font-size:12px; color:#94a3b8; margin-top:2px;">This shop owner has not added any technicians yet.</div>
+                            </div>
+                        ` : `
+                            <div style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:8px;">
+                                <table style="width:100%; border-collapse:collapse; font-size:12px; text-align:left;">
+                                    <thead>
+                                        <tr style="background:#f8fafc; border-bottom:1px solid #e2e8f0; color:#475569; font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">
+                                            <th style="padding:10px 12px; white-space:nowrap;">Technician</th>
+                                            <th style="padding:10px 12px; white-space:nowrap;">Contact Phone</th>
+                                            <th style="padding:10px 12px; text-align:center; white-space:nowrap;">App Login Status</th>
+                                            <th style="padding:10px 12px; white-space:nowrap;">Staff Login ID & Password</th>
+                                            <th style="padding:10px 12px; min-width:140px;">Module Permissions</th>
+                                            <th style="padding:10px 12px; text-align:right; white-space:nowrap;">Repairs / Profit</th>
+                                            <th style="padding:10px 12px; text-align:center; white-space:nowrap;">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${(s.technicians || []).map((t, idx) => {
+                                            const p = t.permissions || {};
+                                            const permBadges = [];
+                                            if (p.repairs !== false) permBadges.push('<span style="display:inline-block; font-size:10.5px; padding:2px 6px; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; border-radius:4px; margin:1px;">🔧 Repairs</span>');
+                                            if (p.sales) permBadges.push('<span style="display:inline-block; font-size:10.5px; padding:2px 6px; background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; border-radius:4px; margin:1px;">🛒 Sales</span>');
+                                            if (p.purchases) permBadges.push('<span style="display:inline-block; font-size:10.5px; padding:2px 6px; background:#f0fdfa; color:#0f766e; border:1px solid #99f6e4; border-radius:4px; margin:1px;">📦 Stock</span>');
+                                            if (p.used_mobiles) permBadges.push('<span style="display:inline-block; font-size:10.5px; padding:2px 6px; background:#faf5ff; color:#6b21a8; border:1px solid #e9d5ff; border-radius:4px; margin:1px;">📱 Used</span>');
+                                            if (p.customers) permBadges.push('<span style="display:inline-block; font-size:10.5px; padding:2px 6px; background:#fff7ed; color:#c2410c; border:1px solid #fed7aa; border-radius:4px; margin:1px;">👥 Customers</span>');
+
+                                            return `
+                                            <tr style="border-bottom:1px solid #f1f5f9; transition:background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                                                <td style="padding:10px 12px; vertical-align:top;">
+                                                    <strong style="color:#0f172a; font-size:13px;">${t.name}</strong>
+                                                    ${t.specialization ? `<div style="color:#64748b; font-size:11px; margin-top:2px;">🔧 ${t.specialization}</div>` : ''}
+                                                    <div style="color:#94a3b8; font-size:10.5px; margin-top:3px;">Added: ${t.created_at ? new Date(t.created_at).toLocaleDateString() : 'N/A'}</div>
+                                                </td>
+                                                <td style="padding:10px 12px; vertical-align:top; white-space:nowrap;">
+                                                    <a href="tel:${t.mobile}" style="color:#2563eb; text-decoration:none; font-weight:600;">📞 ${t.mobile || '—'}</a>
+                                                </td>
+                                                <td style="padding:10px 12px; vertical-align:top; text-align:center; white-space:nowrap;">
+                                                    ${t.has_login 
+                                                        ? (s.effective_max_staff <= 0
+                                                            ? '<span class="badge" style="background:#fee2e2; color:#b91c1c; font-size:11px; padding:3px 8px; font-weight:700;">🔴 Staff Expired</span>' 
+                                                            : '<span class="badge badge-active" style="background:#10b981; color:white; font-size:11px; padding:3px 8px;">🟢 Login Active</span>')
+                                                        : '<span class="badge" style="background:#f1f5f9; color:#64748b; font-size:11px; padding:3px 8px;">⚪ No App Login</span>'}
+                                                </td>
+                                                <td style="padding:10px 12px; vertical-align:top;">
+                                                    ${t.has_login ? `
+                                                        <div style="font-weight:600; color:#0f172a;">📱 ID: <span style="font-family:monospace;">${t.login_mobile || t.mobile}</span></div>
+                                                        <div style="margin-top:4px; display:flex; align-items:center; gap:6px;">
+                                                            <span style="font-size:11px; color:#64748b;">PW:</span>
+                                                            <span style="font-family:monospace; background:#e0e7ff; color:#3730a3; padding:2px 7px; border:1px solid #c7d2fe; border-radius:4px; font-weight:700; font-size:11.5px; letter-spacing:0.5px;">${t.plain_password || '••••••••'}</span>
+                                                        </div>
+                                                    ` : '<span style="color:#94a3b8; font-size:12px;">—</span>'}
+                                                </td>
+                                                <td style="padding:10px 12px; vertical-align:top;">
+                                                    ${t.has_login ? (permBadges.length > 0 ? permBadges.join(' ') : '<span style="color:#94a3b8; font-size:11px;">Default</span>') : '<span style="color:#94a3b8;">—</span>'}
+                                                </td>
+                                                <td style="padding:10px 12px; vertical-align:top; text-align:right; white-space:nowrap;">
+                                                    <div style="font-weight:600; color:#0f172a;">${t.repairs_count || 0} jobs</div>
+                                                    <div style="color:#10b981; font-weight:700; font-size:11.5px; margin-top:2px;">₹${parseFloat(t.total_earnings || 0).toFixed(2)} profit</div>
+                                                </td>
+                                                <td style="padding:10px 12px; vertical-align:top; text-align:center; white-space:nowrap;">
+                                                    <span class="badge ${t.is_active ? 'badge-active' : 'badge-inactive'}">${t.is_active ? 'Active' : 'Inactive'}</span>
+                                                </td>
+                                            </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `}
                     </div>
 
                     <div id="shop-tab-sales" style="display:none;">
@@ -1365,7 +1745,7 @@
         }
 
         function switchShopTab(tab) {
-            const tabs = ['overview', 'sales', 'repairs', 'customers', 'inventory'];
+            const tabs = ['overview', 'technicians', 'sales', 'repairs', 'customers', 'inventory'];
             tabs.forEach(t => {
                 const el = document.getElementById(`shop-tab-${t}`);
                 if (el) el.style.display = t === tab ? 'block' : 'none';
@@ -1390,6 +1770,348 @@
             if (data.success) {
                 alert(`Shop has been ${newStatus}.`);
                 loadShopsView();
+            }
+        }
+
+        function openCustomStaffModal(shopId, shopName, currentMax, currentValidUntil, currentNote) {
+            openModal(`Custom Staff Limit — ${shopName}`, `
+                <form onsubmit="saveShopCustomStaff(event, ${shopId})">
+                    <p style="font-size:13px; color:#475569; margin-bottom:14px;">
+                        Configure custom staff/technician login allowance for <strong>${shopName}</strong>. This overrides their plan limit (e.g. grant 1 technician for a specific trial time or promotion).
+                    </p>
+                    <div class="form-group">
+                        <label>Custom Max Staff / Technician Logins</label>
+                        <input type="number" id="shop-custom-staff-max" class="form-control" value="${currentMax !== '' ? currentMax : ''}" placeholder="e.g. 1 or 2 (leave blank to clear override and use plan limit)" min="0" max="100">
+                        <small style="color:#64748b; font-size:11px;">Enter number of staff logins allowed. Leave empty to use plan default.</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Valid Until Date (Particular Time / Expiry)</label>
+                        <input type="date" id="shop-custom-staff-date" class="form-control" value="${currentValidUntil || ''}">
+                        <small style="color:#64748b; font-size:11px;">Optional. Leave blank for indefinite. Once this date passes, it automatically falls back to their plan limit!</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Admin Note / Reason</label>
+                        <input type="text" id="shop-custom-staff-note" class="form-control" value="${currentNote || ''}" placeholder="e.g. Festival offer, 1 technician trial for 1 month">
+                    </div>
+                    <div style="margin-top:20px; display:flex; gap:10px;">
+                        <button type="submit" class="btn-primary" style="flex:1;">Save Staff Limit</button>
+                        <button type="button" class="btn-sm" style="background:#fee2e2; color:#b91c1c; border-color:#fca5a5;" onclick="clearShopCustomStaff(${shopId})">Clear Override (Use Plan)</button>
+                        <button type="button" class="btn-sm" onclick="closeModal()">Cancel</button>
+                    </div>
+                </form>
+            `);
+        }
+
+        async function saveShopCustomStaff(e, shopId) {
+            e.preventDefault();
+            const maxVal = document.getElementById('shop-custom-staff-max').value.trim();
+            const dateVal = document.getElementById('shop-custom-staff-date').value.trim();
+            const noteVal = document.getElementById('shop-custom-staff-note').value.trim();
+
+            const body = {
+                custom_max_staff: maxVal !== '' ? parseInt(maxVal) : null,
+                custom_staff_valid_until: dateVal !== '' ? dateVal : null,
+                custom_staff_note: noteVal !== '' ? noteVal : null,
+            };
+
+            const res = await apiFetch(`/shops/${shopId}/staff-limit`, 'POST', body);
+            if (res && res.success) {
+                alert('Shop staff limit updated successfully!');
+                closeModal();
+                loadShopsView();
+            } else {
+                alert(res.message || 'Failed to update shop staff limit');
+            }
+        }
+
+        async function clearShopCustomStaff(shopId) {
+            if (!confirm('Clear custom staff override and revert this shop to their subscription plan limit?')) return;
+            const res = await apiFetch(`/shops/${shopId}/staff-limit`, 'POST', {
+                custom_max_staff: null,
+                custom_staff_valid_until: null,
+                custom_staff_note: null,
+            });
+            if (res && res.success) {
+                alert('Custom override cleared. Shop will now follow their subscription plan limit.');
+                closeModal();
+                loadShopsView();
+            } else {
+                alert(res.message || 'Failed to clear override');
+            }
+        }
+
+        async function openCustomPricingModal(shopId, shopName) {
+            openModal(`Custom Pricing & Discounts — ${shopName}`, '<div style="padding:24px; text-align:center; color:#64748b;">Loading shop details & plans...</div>');
+
+            const [shopRes, plansRes] = await Promise.all([
+                apiFetch(`/shops/${shopId}`),
+                apiFetch('/plans')
+            ]);
+
+            if (!shopRes || !shopRes.success) {
+                openModal(`Custom Pricing — ${shopName}`, '<div style="color:red; padding:16px;">Failed to load shop details.</div>');
+                return;
+            }
+
+            const shop = shopRes.data;
+            const plans = (plansRes && plansRes.data) ? (plansRes.data.data || plansRes.data) : [];
+            const activePlans = Array.isArray(plans) ? plans.filter(p => p.status === 'active') : [];
+            const planPrices = (shop.custom_plan_prices && typeof shop.custom_plan_prices === 'object') ? shop.custom_plan_prices : {};
+
+            const plansHtml = activePlans.map(p => {
+                const currentVal = planPrices[p.id] !== undefined ? planPrices[p.id] : '';
+                return `
+                    <tr style="border-bottom:1px solid #e2e8f0;">
+                        <td style="padding:8px 10px; font-weight:600; color:#0f172a;">${p.name} <span style="font-size:11px; color:#64748b;">(${p.billing_period})</span></td>
+                        <td style="padding:8px 10px; color:#64748b; font-weight:600;">₹${parseFloat(p.price).toFixed(2)}</td>
+                        <td style="padding:8px 10px;">
+                            <div style="display:flex; align-items:center; gap:4px;">
+                                <span style="font-weight:bold; color:#0f172a;">₹</span>
+                                <input type="number" step="1" min="1" max="50000" class="form-control plan-custom-price-input" data-plan-id="${p.id}" value="${currentVal}" placeholder="Standard (₹${parseFloat(p.price).toFixed(0)})" style="padding:5px 8px; font-size:12px; width:140px; border-radius:6px;">
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            openModal(`Custom Pricing & Discounts — ${shopName}`, `
+                <form onsubmit="saveShopCustomPricing(event, ${shopId})">
+                    <p style="font-size:13px; color:#475569; margin-bottom:14px; line-height:1.5;">
+                        Configure special/discounted pricing for <strong>${shopName}</strong>. This shop will see these custom prices in their mobile app when purchasing or renewing subscriptions.
+                    </p>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label style="font-weight:600; font-size:12px;">Shop-Wide Discount (% OFF)</label>
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <input type="number" id="shop-custom-discount-percent" class="form-control" value="${shop.custom_discount_percent !== null && shop.custom_discount_percent !== undefined ? shop.custom_discount_percent : ''}" placeholder="e.g. 20 (for 20% off all plans)" min="0" max="99" step="1">
+                                <span style="font-weight:bold; color:#475569;">%</span>
+                            </div>
+                            <small style="color:#64748b; font-size:11px;">Optional. Applies to plans without specific custom price.</small>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label style="font-weight:600; font-size:12px;">Staff Add-on Price (₹ / Day)</label>
+                            <div style="display:flex; align-items:center; gap:4px;">
+                                <span style="font-weight:bold; color:#475569;">₹</span>
+                                <input type="number" id="shop-custom-staff-rate" class="form-control" value="${shop.custom_staff_price_per_day !== null && shop.custom_staff_price_per_day !== undefined ? shop.custom_staff_price_per_day : ''}" placeholder="Default (₹2.00)" min="0" max="1000" step="0.5">
+                            </div>
+                            <small style="color:#64748b; font-size:11px;">Leave empty to use global default (₹2.00/day).</small>
+                        </div>
+                    </div>
+
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; margin-bottom:14px; display:flex; align-items:flex-start; gap:10px;">
+                        <input type="checkbox" id="shop-custom-discount-one-time" ${shop.custom_discount_is_one_time ? 'checked' : ''} style="width:18px; height:18px; accent-color:#059669; margin-top:2px; cursor:pointer;">
+                        <div>
+                            <label for="shop-custom-discount-one-time" style="font-weight:700; font-size:12.5px; color:#0f172a; cursor:pointer; margin-bottom:2px; display:block;">
+                                One-Time Use Only (Expires immediately after next purchase)
+                            </label>
+                            <div style="font-size:11px; color:#64748b; line-height:1.4;">
+                                When checked, discount applies only to this shop's <strong>next purchase</strong>. Once completed, standard pricing automatically restores for this shop.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom:14px;">
+                        <label style="font-weight:700; font-size:12.5px; color:#0f172a; margin-bottom:6px; display:block;">
+                            Specific Plan Custom Prices (Override per plan)
+                        </label>
+                        <div style="max-height:220px; overflow-y:auto; border:1px solid #cbd5e1; border-radius:6px;">
+                            <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                                <thead>
+                                    <tr style="background:#f1f5f9; border-bottom:1px solid #cbd5e1; text-align:left;">
+                                        <th style="padding:8px 10px;">Plan Name</th>
+                                        <th style="padding:8px 10px;">Standard Price</th>
+                                        <th style="padding:8px 10px;">Custom Price (₹)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${plansHtml}
+                                </tbody>
+                            </table>
+                        </div>
+                        <small style="color:#64748b; font-size:11px; margin-top:4px; display:block;">Leave a plan price blank to use standard price or % discount.</small>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label style="font-weight:600; font-size:12px;">Discount Valid Until Date</label>
+                            <input type="date" id="shop-custom-discount-date" class="form-control" value="${shop.custom_discount_valid_until || ''}">
+                            <small style="color:#64748b; font-size:11px;">Leave empty for permanent / lifetime discount.</small>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label style="font-weight:600; font-size:12px;">Admin Note / Offer Reason</label>
+                            <input type="text" id="shop-custom-discount-note" class="form-control" value="${shop.custom_discount_note || ''}" placeholder="e.g. Diwali Special, Early Partner">
+                            <small style="color:#64748b; font-size:11px;">Internal reference note.</small>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:20px; display:flex; gap:10px;">
+                        <button type="submit" class="btn-primary" style="flex:1; background:#059669; border-color:#059669;">💾 Save Custom Pricing</button>
+                        <button type="button" class="btn-sm" style="background:#fee2e2; color:#b91c1c; border-color:#fca5a5;" onclick="clearShopCustomPricing(${shopId})">Clear All Discounts</button>
+                        <button type="button" class="btn-sm" onclick="closeModal()">Cancel</button>
+                    </div>
+                </form>
+            `, '700px');
+        }
+
+        async function saveShopCustomPricing(e, shopId) {
+            e.preventDefault();
+            const percentVal = document.getElementById('shop-custom-discount-percent').value.trim();
+            const staffRateVal = document.getElementById('shop-custom-staff-rate').value.trim();
+            const dateVal = document.getElementById('shop-custom-discount-date').value.trim();
+            const noteVal = document.getElementById('shop-custom-discount-note').value.trim();
+
+            const customPrices = {};
+            document.querySelectorAll('.plan-custom-price-input').forEach(input => {
+                const planId = input.getAttribute('data-plan-id');
+                const val = input.value.trim();
+                if (val !== '' && !isNaN(val)) {
+                    customPrices[planId] = parseFloat(val);
+                }
+            });
+
+            const body = {
+                custom_discount_percent: percentVal !== '' ? parseFloat(percentVal) : null,
+                custom_plan_prices: Object.keys(customPrices).length > 0 ? customPrices : null,
+                custom_staff_price_per_day: staffRateVal !== '' ? parseFloat(staffRateVal) : null,
+                custom_discount_valid_until: dateVal !== '' ? dateVal : null,
+                custom_discount_note: noteVal !== '' ? noteVal : null,
+                custom_discount_is_one_time: document.getElementById('shop-custom-discount-one-time') ? document.getElementById('shop-custom-discount-one-time').checked : false,
+            };
+
+            const res = await apiFetch(`/shops/${shopId}/custom-pricing`, 'POST', body);
+            if (res && res.success) {
+                alert('Shop custom pricing and discounts saved successfully!');
+                closeModal();
+                loadShopsView();
+            } else {
+                alert(res.message || 'Failed to update custom pricing');
+            }
+        }
+
+        async function clearShopCustomPricing(shopId) {
+            if (!confirm('Are you sure you want to remove all custom discounts for this shop and revert to standard prices?')) return;
+            const res = await apiFetch(`/shops/${shopId}/custom-pricing`, 'POST', {
+                custom_discount_percent: null,
+                custom_plan_prices: null,
+                custom_staff_price_per_day: null,
+                custom_discount_valid_until: null,
+                custom_discount_note: null,
+                custom_discount_is_one_time: false,
+            });
+            if (res && res.success) {
+                alert('Custom pricing cleared. Standard prices restored for this shop.');
+                closeModal();
+                loadShopsView();
+            } else {
+                alert(res.message || 'Failed to clear custom pricing');
+            }
+        }
+
+        // PLATFORM-WIDE BULK DISCOUNT MODAL & ACTIONS
+        function openBulkDiscountModal() {
+            openModal(`🏷️ Apply Discount Across ALL Shops`, `
+                <form onsubmit="saveBulkDiscount(event)">
+                    <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:12px 14px; margin-bottom:16px;">
+                        <div style="display:flex; align-items:flex-start; gap:8px;">
+                            <span style="font-size:18px;">💡</span>
+                            <div style="font-size:12px; color:#1e40af; line-height:1.5;">
+                                <strong>Platform-wide Discount Campaign:</strong> This will apply the specified discount percentage to <strong>every shop</strong> on the platform.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom:14px;">
+                        <label style="font-weight:700; font-size:12.5px; color:#0f172a; margin-bottom:6px; display:block;">
+                            Discount Percentage (% OFF for All Shops) *
+                        </label>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <input type="number" id="bulk-discount-percent" class="form-control" placeholder="e.g. 20" min="1" max="99" step="1" required style="font-size:16px; font-weight:700; max-width:180px;">
+                            <span style="font-size:18px; font-weight:800; color:#475569;">% OFF</span>
+                        </div>
+                        <small style="color:#64748b; font-size:11px;">Applies to all subscription plans across all shops.</small>
+                    </div>
+
+                    <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:10px; padding:14px; margin-bottom:14px;">
+                        <div style="display:flex; align-items:flex-start; gap:10px;">
+                            <input type="checkbox" id="bulk-discount-one-time" checked style="width:20px; height:20px; accent-color:#4f46e5; margin-top:2px; cursor:pointer;">
+                            <div>
+                                <label for="bulk-discount-one-time" style="font-weight:700; font-size:13px; color:#0f172a; cursor:pointer; margin-bottom:2px; display:block;">
+                                    One-Time Purchase Only per shop (Recommended)
+                                </label>
+                                <div style="font-size:11.5px; color:#64748b; line-height:1.4;">
+                                    Every shop gets this discount for their next purchase. Once a shop completes payment, the discount is <strong>automatically removed for that specific shop</strong>, while remaining active for all other shops until they also purchase!
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label style="font-weight:600; font-size:12px;">Valid Until Expiry Date</label>
+                            <input type="date" id="bulk-discount-date" class="form-control">
+                            <small style="color:#64748b; font-size:11px;">Optional. Automatically expires after this date.</small>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label style="font-weight:600; font-size:12px;">Campaign Name / Note</label>
+                            <input type="text" id="bulk-discount-note" class="form-control" placeholder="e.g. Festival Special Offer 20% OFF">
+                            <small style="color:#64748b; font-size:11px;">Visible to shops on app discount banner.</small>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:20px; display:flex; gap:10px;">
+                        <button type="submit" class="btn-primary" style="flex:1; background:#4f46e5; border-color:#4f46e5;">🚀 Apply to All Shops</button>
+                        <button type="button" class="btn-sm" style="background:#fee2e2; color:#b91c1c; border-color:#fca5a5;" onclick="clearBulkDiscount()">Clear All Shops Discount</button>
+                        <button type="button" class="btn-sm" onclick="closeModal()">Cancel</button>
+                    </div>
+                </form>
+            `, '620px');
+        }
+
+        async function saveBulkDiscount(e) {
+            e.preventDefault();
+            const percent = document.getElementById('bulk-discount-percent').value.trim();
+            const isOneTime = document.getElementById('bulk-discount-one-time').checked;
+            const validUntil = document.getElementById('bulk-discount-date').value.trim();
+            const note = document.getElementById('bulk-discount-note').value.trim();
+
+            if (!percent || isNaN(percent) || parseFloat(percent) <= 0) {
+                alert('Please enter a valid discount percentage (e.g. 20).');
+                return;
+            }
+
+            const confirmMsg = `Are you sure you want to apply a ${percent}% discount across ALL shops?` +
+                (isOneTime ? `\n\nNote: Each shop will consume this discount on their next purchase, and it will automatically be removed for that shop upon payment.` : '');
+            if (!confirm(confirmMsg)) return;
+
+            const res = await apiFetch('/shops/bulk-custom-pricing', 'POST', {
+                discount_percent: parseFloat(percent),
+                is_one_time: isOneTime,
+                valid_until: validUntil || null,
+                note: note || null,
+            });
+
+            if (res && res.success) {
+                alert(res.message || 'Bulk discount applied successfully across all shops!');
+                closeModal();
+                loadShopsView();
+            } else {
+                alert(res?.message || 'Failed to apply bulk discount.');
+            }
+        }
+
+        async function clearBulkDiscount() {
+            if (!confirm('Are you sure you want to remove all custom discounts from ALL shops?')) return;
+            const res = await apiFetch('/shops/bulk-clear-pricing', 'POST');
+            if (res && res.success) {
+                alert(res.message || 'Bulk discounts cleared.');
+                closeModal();
+                loadShopsView();
+            } else {
+                alert(res?.message || 'Failed to clear bulk discounts.');
             }
         }
 
@@ -1646,9 +2368,16 @@
         // 6. PLANS VIEW
         async function loadPlansView(search = '', status = '') {
             const content = getContentContainer();
-            const data = await apiFetch('/plans');
-            if (!data || !data.success) return;
-            let plans = data.data || [];
+            const [plansRes, rateRes] = await Promise.all([
+                apiFetch('/plans'),
+                apiFetch('/settings/staff-addon-rate')
+            ]);
+
+            if (!plansRes || !plansRes.success) return;
+            let plans = plansRes.data || [];
+            const currentDailyRate = (rateRes && rateRes.data && rateRes.data.staff_price_per_day !== undefined)
+                ? parseFloat(rateRes.data.staff_price_per_day).toFixed(2)
+                : '2.00';
 
             if (search) {
                 const sLower = search.toLowerCase();
@@ -1659,6 +2388,34 @@
             }
 
             content.innerHTML = `
+                <!-- Staff Addon Daily Price Config Card -->
+                <div class="card-table" style="margin-bottom: 20px; padding: 18px 20px; background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%); border: 1px solid #bfdbfe;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+                        <div style="flex:1; min-width:280px;">
+                            <h3 style="margin:0 0 6px 0; font-size:16px; color:#1e293b; display:flex; align-items:center; gap:8px;">
+                                <span>👥</span> Staff & Technician Add-on Daily Rate
+                            </h3>
+                            <p style="margin:0; font-size:13px; color:#64748b; line-height:1.4;">
+                                Rate charged to shop owners per technician per remaining day of their active subscription.
+                                <br><small style="color:#2563eb;">Formula: Remaining Plan Days × Daily Rate × Added Staff = Add-on Amount</small>
+                            </p>
+                        </div>
+                        <form onsubmit="saveStaffAddonDailyRate(event)" style="display:flex; align-items:center; gap:10px; background:white; padding:10px 14px; border-radius:10px; border:1px solid #cbd5e1; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+                            <div style="font-weight:700; color:#1e293b; font-size:14px;">₹</div>
+                            <input type="number" step="0.10" min="0" id="staff-addon-daily-rate" value="${currentDailyRate}" style="width:90px; padding:6px 10px; font-weight:700; font-size:15px; border:1px solid #cbd5e1; border-radius:6px; text-align:center;" required>
+                            <div style="font-size:12px; color:#64748b; font-weight:600;">/ Day / Staff</div>
+                            <button type="submit" class="btn-primary" style="padding:7px 16px; font-size:13px; font-weight:600;">Save Rate</button>
+                        </form>
+                    </div>
+                    <div style="display:flex; gap:14px; margin-top:12px; padding-top:12px; border-top:1px dashed #cbd5e1; font-size:12px; color:#475569; flex-wrap:wrap;">
+                        <div><strong>Reference (at ₹${currentDailyRate}/day):</strong></div>
+                        <div>30 Days (1 Month): <strong>₹${(parseFloat(currentDailyRate) * 30).toFixed(0)}</strong></div>
+                        <div>54 Days: <strong>₹${(parseFloat(currentDailyRate) * 54).toFixed(0)}</strong></div>
+                        <div>90 Days (3 Months): <strong>₹${(parseFloat(currentDailyRate) * 90).toFixed(0)}</strong></div>
+                        <div>180 Days (6 Months): <strong>₹${(parseFloat(currentDailyRate) * 180).toFixed(0)}</strong></div>
+                    </div>
+                </div>
+
                 <div class="card-table">
                     <div class="table-toolbar">
                         <div style="display:flex; gap:10px; flex:1; min-width:280px;">
@@ -1698,7 +2455,7 @@
                                     <td>${p.sort_order || 0}</td>
                                     <td><span class="badge ${p.status === 'active' ? 'badge-active' : 'badge-inactive'}">${p.status}</span></td>
                                     <td>
-                                        <button class="btn-sm" onclick="editPlanModal(${p.id}, '${p.name.replace(/'/g, "\'")}', ${p.price}, '${p.billing_period}', ${p.sort_order || 0}, '${p.status}')">Edit</button>
+                                        <button class="btn-sm" onclick="editPlanModal(${p.id}, '${p.name.replace(/'/g, "\'")}', ${p.price}, '${p.billing_period}', ${p.sort_order || 0}, '${p.status}', ${p.max_staff_accounts || 0})">Edit</button>
                                         <button class="btn-sm ${p.status === 'active' ? 'btn-danger-sm' : 'btn-success-sm'}" onclick="togglePlanStatus(${p.id})">
                                             ${p.status === 'active' ? 'Disable' : 'Enable'}
                                         </button>
@@ -1710,6 +2467,22 @@
                     </div>
                 </div>
             `;
+        }
+
+        async function saveStaffAddonDailyRate(e) {
+            e.preventDefault();
+            const val = parseFloat(document.getElementById('staff-addon-daily-rate').value);
+            if (isNaN(val) || val < 0) {
+                alert('Please enter a valid rate >= 0');
+                return;
+            }
+            const res = await apiFetch('/settings/staff-addon-rate', 'POST', { staff_price_per_day: val });
+            if (res && res.success) {
+                alert('Staff add-on daily rate updated successfully to ₹' + val.toFixed(2) + ' / day / staff!');
+                loadPlansView();
+            } else {
+                alert(res.message || 'Failed to update daily rate');
+            }
         }
 
         // PURCHASES VIEW (Admin Data Hub)
@@ -1841,11 +2614,11 @@
                 <form onsubmit="saveNewPlan(event)">
                     <div class="form-group">
                         <label>Plan Name</label>
-                        <input type="text" id="new-plan-name" class="form-control" placeholder="e.g. Annual Pro Plan" required>
+                        <input type="text" id="new-plan-name" class="form-control" placeholder="e.g. 1 Staff Monthly Plan" required>
                     </div>
                     <div class="form-group">
                         <label>Price (INR)</label>
-                        <input type="number" step="0.01" id="new-plan-price" class="form-control" placeholder="99.00" required>
+                        <input type="number" step="0.01" id="new-plan-price" class="form-control" placeholder="149.00" required>
                     </div>
                     <div class="form-group">
                         <label>Billing Period</label>
@@ -1855,6 +2628,11 @@
                             <option value="6_months">6 Months</option>
                             <option value="annual">Annual (12 Months)</option>
                         </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Max Staff / Technician Logins Included</label>
+                        <input type="number" id="new-plan-max-staff" class="form-control" value="0" min="0">
+                        <small style="color:#64748b; font-size:11px;">0 = Solo Owner only, 1 = 1 Staff login, 2 = 2 Staff logins, 5 = Up to 5 staff</small>
                     </div>
                     <div class="form-group">
                         <label>Sort Order</label>
@@ -1874,7 +2652,8 @@
                 name: document.getElementById('new-plan-name').value,
                 price: parseFloat(document.getElementById('new-plan-price').value),
                 billing_period: document.getElementById('new-plan-period').value,
-                sort_order: parseInt(document.getElementById('new-plan-sort').value),
+                max_staff_accounts: parseInt(document.getElementById('new-plan-max-staff').value) || 0,
+                sort_order: parseInt(document.getElementById('new-plan-sort').value) || 0,
                 status: 'active',
             };
             const res = await apiFetch('/plans', 'POST', body);
@@ -1887,7 +2666,7 @@
             }
         }
 
-        function editPlanModal(id, name, price, period, sort, status) {
+        function editPlanModal(id, name, price, period, sort, status, maxStaff = 0) {
             openModal('Edit Subscription Plan', `
                 <form onsubmit="savePlanUpdate(event, ${id})">
                     <div class="form-group">
@@ -1906,6 +2685,11 @@
                             <option value="6_months" ${period === '6_months' ? 'selected' : ''}>6 Months</option>
                             <option value="annual" ${period === 'annual' ? 'selected' : ''}>Annual (12 Months)</option>
                         </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Max Staff / Technician Logins Included</label>
+                        <input type="number" id="edit-plan-max-staff" class="form-control" value="${maxStaff}" min="0">
+                        <small style="color:#64748b; font-size:11px;">0 = Solo Owner only, 1 = 1 Staff login, 2 = 2 Staff logins, 5 = Up to 5 staff</small>
                     </div>
                     <div class="form-group">
                         <label>Sort Order</label>
@@ -1932,7 +2716,8 @@
                 name: document.getElementById('edit-plan-name').value,
                 price: parseFloat(document.getElementById('edit-plan-price').value),
                 billing_period: document.getElementById('edit-plan-period').value,
-                sort_order: parseInt(document.getElementById('edit-plan-sort').value),
+                max_staff_accounts: parseInt(document.getElementById('edit-plan-max-staff').value) || 0,
+                sort_order: parseInt(document.getElementById('edit-plan-sort').value) || 0,
                 status: document.getElementById('edit-plan-status').value,
             };
             const res = await apiFetch(`/plans/${id}`, 'PUT', body);

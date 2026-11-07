@@ -250,6 +250,22 @@ class AuthController extends Controller
             }
         }
 
+        // Check if technician / staff account is active and staff validity is not expired
+        if ($user->role === 'technician') {
+            $tech = $user->technician;
+            if ($tech && !$tech->is_active) {
+                return $this->errorResponse('Your staff account is currently deactivated by the shop owner.', 403);
+            }
+
+            $shop = $user->shop;
+            if (!$shop || $shop->effective_max_staff < 1) {
+                $expiryNote = ($shop && $shop->custom_staff_valid_until)
+                    ? ' expired on ' . \Carbon\Carbon::parse($shop->custom_staff_valid_until)->format('d M Y')
+                    : ' has expired or is not included in current plan';
+                return $this->errorResponse("Staff login access{$expiryNote}. Please ask your shop owner to renew staff plan.", 403);
+            }
+        }
+
         // Revoke all previous tokens for this user to enforce single active device session
         $user->tokens()->delete();
 
@@ -271,6 +287,22 @@ class AuthController extends Controller
         if ($user) {
             $user->update(['last_app_opened_at' => now()]);
             $user->load('shop');
+
+            // Enforce staff expiry on active session
+            if ($user->role === 'technician') {
+                $shop = $user->shop;
+                if (!$shop || $shop->effective_max_staff < 1) {
+                    $expiryNote = ($shop && $shop->custom_staff_valid_until)
+                        ? ' expired on ' . \Carbon\Carbon::parse($shop->custom_staff_valid_until)->format('d M Y')
+                        : ' has expired';
+                    return response()->json([
+                        'success' => false,
+                        'status'  => 'error',
+                        'code'    => 'STAFF_EXPIRED',
+                        'message' => "Staff login access{$expiryNote}. Please ask your shop owner to renew staff plan.",
+                    ], 403);
+                }
+            }
         }
 
         return $this->successResponse([
@@ -284,6 +316,19 @@ class AuthController extends Controller
         $user = $request->user();
         if ($user) {
             $user->update(['last_app_opened_at' => now()]);
+
+            if ($user->role === 'technician') {
+                $shop = $user->shop;
+                if (!$shop || $shop->effective_max_staff < 1) {
+                    return response()->json([
+                        'success' => false,
+                        'status'  => 'error',
+                        'code'    => 'STAFF_EXPIRED',
+                        'message' => 'Staff login access has expired. Please contact shop owner.',
+                    ], 403);
+                }
+            }
+
             return $this->successResponse([
                 'last_app_opened_at' => $user->last_app_opened_at->toDateTimeString(),
             ], 'App open ping recorded');

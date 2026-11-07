@@ -9,6 +9,8 @@ class SaleResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $isOwner = $request->user()?->role === 'owner';
+
         return [
             'id' => $this->id,
             'shop_id' => $this->shop_id,
@@ -26,10 +28,10 @@ class SaleResource extends JsonResource
             'grand_total' => (float) $this->grand_total,
             'amount_paid' => (float) $this->amount_paid,
             'amount_due' => (float) $this->amount_due,
-            'total_cost' => round((float) $this->total_cost, 2),
-            'net_profit' => round((float) $this->net_profit, 2),
-            'expected_net_profit' => round((float) $this->expected_net_profit, 2),
-            'profit_margin_percent' => (float) $this->profit_margin_percent,
+            'total_cost' => $isOwner ? round((float) $this->total_cost, 2) : 0.0,
+            'net_profit' => $isOwner ? round((float) $this->net_profit, 2) : 0.0,
+            'expected_net_profit' => $isOwner ? round((float) $this->expected_net_profit, 2) : 0.0,
+            'profit_margin_percent' => $isOwner ? (float) $this->profit_margin_percent : 0.0,
             'payment_status' => $this->payment_status,
             'notes' => $this->notes,
             'created_by' => $this->created_by,

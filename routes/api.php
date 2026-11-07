@@ -99,6 +99,10 @@ Route::prefix('v1')->group(function () {
         Route::get('/shops', [AdminShopController::class, 'index']);
         Route::get('/shops/{id}', [AdminShopController::class, 'show']);
         Route::post('/shops/{id}/toggle-status', [AdminShopController::class, 'toggleStatus']);
+        Route::post('/shops/{id}/staff-limit', [AdminShopController::class, 'updateStaffLimit']);
+        Route::post('/shops/{id}/custom-pricing', [AdminShopController::class, 'updateCustomPricing']);
+        Route::post('/shops/bulk-custom-pricing', [AdminShopController::class, 'applyBulkDiscount']);
+        Route::post('/shops/bulk-clear-pricing', [AdminShopController::class, 'clearBulkDiscount']);
 
         // Admin User Management
         Route::get('/users', [AdminUserController::class, 'index']);
@@ -112,6 +116,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/plans', [AdminPlanController::class, 'store']);
         Route::put('/plans/{id}', [AdminPlanController::class, 'update']);
         Route::post('/plans/{id}/toggle-status', [AdminPlanController::class, 'toggleStatus']);
+        Route::get('/settings/staff-addon-rate', [AdminPlanController::class, 'getStaffAddonRate']);
+        Route::post('/settings/staff-addon-rate', [AdminPlanController::class, 'updateStaffAddonRate']);
 
         // Admin Payment Gateway Settings & Connection Test
         Route::get('/settings/payment-gateway', [AdminPaymentGatewayController::class, 'getSettings']);
@@ -202,7 +208,9 @@ Route::prefix('v1')->group(function () {
         // Subscription & Payments (Shop Owner - Rate Limited)
         Route::get('/subscription/status', [SubscriptionController::class, 'status']);
         Route::post('/subscription/create-order', [SubscriptionController::class, 'createOrder'])->middleware('throttle:15,1');
+        Route::post('/subscription/create-staff-addon-order', [SubscriptionController::class, 'createStaffAddonOrder'])->middleware('throttle:15,1');
         Route::post('/subscription/verify-payment', [SubscriptionController::class, 'verifyPayment'])->middleware('throttle:15,1');
+        Route::post('/subscription/purchase-staff-addon', [SubscriptionController::class, 'purchaseStaffAddon'])->middleware('throttle:15,1');
         Route::get('/subscription/history', [SubscriptionController::class, 'history']);
         Route::get('/plans', [AdminPlanController::class, 'index']);
 
@@ -282,6 +290,7 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('expenses', ExpenseController::class);
 
         // Technicians Module
+        Route::get('/technician/my-work-summary', [TechnicianController::class, 'getMyWorkSummary']);
         Route::apiResource('technicians', TechnicianController::class);
         Route::get('/technicians/{technician}/payments', [TechnicianPaymentController::class, 'index']);
         Route::post('/technicians/{technician}/payments', [TechnicianPaymentController::class, 'store']);

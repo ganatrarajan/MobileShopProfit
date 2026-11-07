@@ -27,6 +27,13 @@ class PurchaseController extends Controller
             return response()->json(['message' => 'No active shop associated with user.'], 400);
         }
 
+        if ($user->role !== 'owner' && !$user->hasPermission('purchases')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You do not have permission to access the Purchases module.',
+            ], 403);
+        }
+
         $query = Purchase::forShop($shopId)->with(['vendor', 'items.inventoryItem', 'payments']);
 
         // Search by purchase_number or vendor name
@@ -97,6 +104,13 @@ class PurchaseController extends Controller
 
         if (!$shopId) {
             return response()->json(['message' => 'No active shop associated with user.'], 400);
+        }
+
+        if ($user->role !== 'owner' && !$user->hasPermission('purchases')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You do not have permission to access the Purchases module.',
+            ], 403);
         }
 
         $validated = $request->validated();

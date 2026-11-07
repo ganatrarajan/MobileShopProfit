@@ -30,6 +30,13 @@ class RepairController extends Controller
             ], 403);
         }
 
+        if ($user->role !== 'owner' && !$user->hasPermission('repairs')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You do not have permission to access the Repairs module.',
+            ], 403);
+        }
+
         $query = Repair::forShop($user->shop_id)
             ->with(['customer', 'device', 'technician', 'parts', 'payments', 'creator', 'warranty']);
 
@@ -367,6 +374,13 @@ class RepairController extends Controller
     public function destroy(Request $request, mixed $repair): JsonResponse
     {
         $user = $request->user();
+        if ($user->role !== 'owner') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only the shop owner can delete repair jobs.',
+            ], 403);
+        }
+
         $id = $this->resolveRepairId($repair);
         $repairRecord = Repair::forShop($user->shop_id)->find($id);
 

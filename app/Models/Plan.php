@@ -14,6 +14,7 @@ class Plan extends Model
         'name',
         'slug',
         'price',
+        'max_staff_accounts',
         'billing_period',
         'status',
     ];

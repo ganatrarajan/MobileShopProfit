@@ -24,6 +24,13 @@ class UsedMobileController extends Controller
             ], 403);
         }
 
+        if ($user->role !== 'owner' && !$user->hasPermission('used_mobiles')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You do not have permission to access the Used Mobiles module.',
+            ], 403);
+        }
+
         $query = UsedMobile::forShop($user->shop_id)->with(['creator', 'seller']);
 
         // Status Filter

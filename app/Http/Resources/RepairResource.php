@@ -9,6 +9,8 @@ class RepairResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $isOwner = $request->user()?->role === 'owner';
+
         return [
             'id' => $this->id,
             'shop_id' => $this->shop_id,
@@ -19,10 +21,10 @@ class RepairResource extends JsonResource
             'technician_earning' => (float) $this->technician_earning,
             'technician_paid_amount' => (float) $this->technician_paid_amount,
             'technician_payable' => (float) $this->technician_payable,
-            'shop_share' => (float) $this->shop_share,
-            'effective_cost' => (float) $this->effective_cost,
-            'net_profit' => (float) $this->net_profit,
-            'expected_net_profit' => (float) $this->expected_net_profit,
+            'shop_share' => $isOwner ? (float) $this->shop_share : 0.0,
+            'effective_cost' => $isOwner ? (float) $this->effective_cost : 0.0,
+            'net_profit' => $isOwner ? (float) $this->net_profit : 0.0,
+            'expected_net_profit' => $isOwner ? (float) $this->expected_net_profit : 0.0,
             'technician_payment_status' => $this->technician_payment_status,
             'job_number' => $this->job_number,
             'date_received' => $this->date_received?->format('Y-m-d'),

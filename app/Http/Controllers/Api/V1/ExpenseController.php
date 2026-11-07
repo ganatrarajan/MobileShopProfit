@@ -22,6 +22,13 @@ class ExpenseController extends Controller
             return response()->json(['message' => 'No active shop associated with user.'], 400);
         }
 
+        if ($user->role !== 'owner' && !$user->hasPermission('expenses')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You do not have permission to access the Expenses module.',
+            ], 403);
+        }
+
         $query = Expense::forShop($shopId)->with(['category', 'creator']);
 
         // Search by title, notes, or reference_number
@@ -78,6 +85,13 @@ class ExpenseController extends Controller
 
         if (!$shopId) {
             return response()->json(['message' => 'No active shop associated with user.'], 400);
+        }
+
+        if ($user->role !== 'owner' && !$user->hasPermission('expenses')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You do not have permission to access the Expenses module.',
+            ], 403);
         }
 
         $validated = $request->validated();
