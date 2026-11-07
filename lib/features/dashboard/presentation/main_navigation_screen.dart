@@ -1,11 +1,30 @@
 import 'package:flutter/material.dart';
+import '../../../core/storage/auth_storage.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../purchase/presentation/purchase_list_screen.dart';
 import '../../repair/presentation/repair_list_screen.dart';
 import '../../sales/presentation/sales_list_screen.dart';
+import '../../subscription/utils/subscription_guard.dart';
+import '../../technician/presentation/technician_my_work_screen.dart';
 import '../../used_mobile/presentation/used_mobile_list_screen.dart';
 import 'dashboard_screen.dart';
-import '../../subscription/utils/subscription_guard.dart';
+import 'staff_account_screen.dart';
+
+class _NavTabItem {
+  final String id;
+  final String label;
+  final Widget icon;
+  final Widget? activeIcon;
+  final Widget page;
+
+  _NavTabItem({
+    required this.id,
+    required this.label,
+    required this.icon,
+    this.activeIcon,
+    required this.page,
+  });
+}
 
 class MainNavigationScreen extends StatefulWidget {
   final int initialIndex;
@@ -17,8 +36,8 @@ class MainNavigationScreen extends StatefulWidget {
 }
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
-  late int _currentIndex;
-  late final Set<int> _visitedTabs;
+  int _currentIndex = 0;
+  final Set<int> _visitedTabs = {0};
 
   final GlobalKey<DashboardScreenState> _dashboardKey = GlobalKey<DashboardScreenState>();
   final GlobalKey<SalesListScreenState> _salesListKey = GlobalKey<SalesListScreenState>();
@@ -26,25 +45,162 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final GlobalKey<RepairListScreenState> _repairListKey = GlobalKey<RepairListScreenState>();
   final GlobalKey<PurchaseListScreenState> _purchaseListKey = GlobalKey<PurchaseListScreenState>();
 
-  late final List<Widget> _pages;
+  List<_NavTabItem> _tabs = [];
+  bool _isStaff = false;
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
-    _visitedTabs = {_currentIndex};
+    _visitedTabs.add(_currentIndex);
+    _buildOwnerTabs();
+    _checkRoleAndConfigureTabs();
+  }
 
-    _pages = [
-      DashboardScreen(key: _dashboardKey, onTabSelected: _onTabTapped),
-      RepairListScreen(key: _repairListKey),
-      UsedMobileListScreen(key: _usedMobileKey),
-      SalesListScreen(key: _salesListKey),
-      PurchaseListScreen(key: _purchaseListKey),
+  void _buildOwnerTabs() {
+    _tabs = [
+      _NavTabItem(
+        id: 'dashboard',
+        label: 'Dashboard',
+        icon: const Icon(Icons.grid_view_rounded),
+        activeIcon: const Icon(Icons.grid_view_rounded),
+        page: DashboardScreen(key: _dashboardKey, onTabSelected: _onTabTapped),
+      ),
+      _NavTabItem(
+        id: 'repairs',
+        label: 'Repairs',
+        icon: const Icon(Icons.build_circle_outlined),
+        activeIcon: const Icon(Icons.build_circle_rounded),
+        page: RepairListScreen(key: _repairListKey),
+      ),
+      _NavTabItem(
+        id: 'used_mobiles',
+        label: 'Used Mobiles',
+        icon: Container(
+          padding: const EdgeInsets.all(7),
+          decoration: const BoxDecoration(
+            gradient: AppColors.brandGradient,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Color(0x404F46E5),
+                blurRadius: 8,
+                offset: Offset(0, 3),
+              ),
+            ],
+          ),
+          child: const Icon(Icons.phone_android_rounded, color: Colors.white, size: 20),
+        ),
+        page: UsedMobileListScreen(key: _usedMobileKey),
+      ),
+      _NavTabItem(
+        id: 'sales',
+        label: 'Sales',
+        icon: const Icon(Icons.receipt_long_rounded),
+        activeIcon: const Icon(Icons.receipt_long_rounded),
+        page: SalesListScreen(key: _salesListKey),
+      ),
+      _NavTabItem(
+        id: 'purchases',
+        label: 'Stock & Purchases',
+        icon: const Icon(Icons.inventory_2_outlined),
+        activeIcon: const Icon(Icons.inventory_2_rounded),
+        page: PurchaseListScreen(key: _purchaseListKey),
+      ),
     ];
   }
 
+  Future<void> _checkRoleAndConfigureTabs() async {
+    final user = await AuthStorage().getUser();
+    final bool isOwner = AuthStorage.isOwnerUser(user);
+
+    if (!isOwner) {
+      _isStaff = true;
+      final permsRaw = user?['permissions'];
+      final perms = permsRaw is Map ? permsRaw : {};
+
+      final hasRepairs = perms['repairs'] == true || perms['repairs'] == 1 || perms['repairs'].toString() == 'true';
+      final hasSales = perms['sales'] == true || perms['sales'] == 1 || perms['sales'].toString() == 'true';
+      final hasPurchases = perms['purchases'] == true || perms['purchases'] == 1 || perms['purchases'].toString() == 'true';
+      final hasUsed = perms['used_mobiles'] == true || perms['used_mobiles'] == 1 || perms['used_mobiles'].toString() == 'true';
+
+      final List<_NavTabItem> staffTabs = [];
+
+      if (hasRepairs) {
+        staffTabs.add(_NavTabItem(
+          id: 'repairs',
+          label: 'Repairs',
+          icon: const Icon(Icons.build_circle_outlined),
+          activeIcon: const Icon(Icons.build_circle_rounded),
+          page: RepairListScreen(key: _repairListKey),
+        ));
+
+        staffTabs.add(_NavTabItem(
+          id: 'my_work',
+          label: 'My Profit',
+          icon: const Icon(Icons.monetization_on_outlined),
+          activeIcon: const Icon(Icons.monetization_on_rounded),
+          page: const TechnicianMyWorkScreen(),
+        ));
+      }
+
+      if (hasUsed) {
+        staffTabs.add(_NavTabItem(
+          id: 'used_mobiles',
+          label: 'Used Mobiles',
+          icon: const Icon(Icons.phone_android_rounded),
+          activeIcon: const Icon(Icons.phone_android_rounded),
+          page: UsedMobileListScreen(key: _usedMobileKey),
+        ));
+      }
+
+      if (hasSales) {
+        staffTabs.add(_NavTabItem(
+          id: 'sales',
+          label: 'Sales',
+          icon: const Icon(Icons.receipt_long_rounded),
+          activeIcon: const Icon(Icons.receipt_long_rounded),
+          page: SalesListScreen(key: _salesListKey),
+        ));
+      }
+
+      if (hasPurchases) {
+        staffTabs.add(_NavTabItem(
+          id: 'purchases',
+          label: 'Stock & Purchases',
+          icon: const Icon(Icons.inventory_2_outlined),
+          activeIcon: const Icon(Icons.inventory_2_rounded),
+          page: PurchaseListScreen(key: _purchaseListKey),
+        ));
+      }
+
+      // Staff Account / Profile Tab
+      staffTabs.add(_NavTabItem(
+        id: 'staff_account',
+        label: 'My Account',
+        icon: const Icon(Icons.person_outline_rounded),
+        activeIcon: const Icon(Icons.person_rounded),
+        page: const StaffAccountScreen(),
+      ));
+
+      if (mounted) {
+        setState(() {
+          _tabs = staffTabs;
+          if (_currentIndex >= _tabs.length) {
+            _currentIndex = 0;
+          }
+          _visitedTabs.clear();
+          _visitedTabs.add(_currentIndex);
+        });
+      }
+    }
+  }
+
   Future<void> _onTabTapped(int index) async {
-    if (index == 2) {
+    if (index >= _tabs.length) return;
+    final tab = _tabs[index];
+
+    if (tab.id == 'used_mobiles' && !_isStaff) {
       final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'access used mobiles');
       if (!ok) return;
     }
@@ -59,13 +215,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (index == 1) {
+      if (tab.id == 'repairs') {
         _repairListKey.currentState?.applyDateFilter(period, customRange);
-      } else if (index == 2) {
+      } else if (tab.id == 'used_mobiles') {
         _usedMobileKey.currentState?.applyDateFilter(period, customRange);
-      } else if (index == 3) {
+      } else if (tab.id == 'sales') {
         _salesListKey.currentState?.applyDateFilter(period, customRange);
-      } else if (index == 4) {
+      } else if (tab.id == 'purchases') {
         _purchaseListKey.currentState?.applyDateFilter(period, customRange);
       }
     });
@@ -86,9 +242,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       child: Scaffold(
         body: IndexedStack(
           index: _currentIndex,
-          children: List.generate(_pages.length, (index) {
+          children: List.generate(_tabs.length, (index) {
             if (_visitedTabs.contains(index)) {
-              return _pages[index];
+              return _tabs[index].page;
             }
             return const SizedBox.shrink();
           }),
@@ -122,46 +278,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0.2),
             unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500),
             elevation: 0,
-            items: [
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.grid_view_rounded),
-                activeIcon: Icon(Icons.grid_view_rounded),
-                label: 'Dashboard',
-              ),
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.build_circle_outlined),
-                activeIcon: Icon(Icons.build_circle_rounded),
-                label: 'Repairs',
-              ),
-              BottomNavigationBarItem(
-                icon: Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: const BoxDecoration(
-                    gradient: AppColors.brandGradient,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Color(0x404F46E5),
-                        blurRadius: 8,
-                        offset: Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(Icons.phone_android_rounded, color: Colors.white, size: 20),
-                ),
-                label: 'Used Mobiles',
-              ),
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.receipt_long_rounded),
-                activeIcon: Icon(Icons.receipt_long_rounded),
-                label: 'Sales',
-              ),
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.inventory_2_outlined),
-                activeIcon: Icon(Icons.inventory_2_rounded),
-                label: 'Stock & Purchases',
-              ),
-            ],
+            items: _tabs.map((t) {
+              return BottomNavigationBarItem(
+                icon: t.icon,
+                activeIcon: t.activeIcon ?? t.icon,
+                label: t.label,
+              );
+            }).toList(),
           ),
         ),
       ),

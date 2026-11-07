@@ -292,6 +292,7 @@ class DashboardData {
   final ExpenseSummary expenses;
   final List<AttentionItem> attention;
   final List<RecentActivityItem> recentActivity;
+  final Map<String, dynamic>? discountBanner;
 
   DashboardData({
     required this.period,
@@ -311,6 +312,7 @@ class DashboardData {
     required this.expenses,
     required this.attention,
     required this.recentActivity,
+    this.discountBanner,
   });
 
   factory DashboardData.fromJson(Map<String, dynamic> json) {
@@ -404,6 +406,10 @@ class DashboardData {
             finOverview.repairEarnings == 0 &&
             finOverview.netProfit == 0);
 
+    final Map<String, dynamic>? dBanner = (dataMap['discount_banner'] is Map)
+        ? Map<String, dynamic>.from(dataMap['discount_banner'])
+        : ((json['discount_banner'] is Map) ? Map<String, dynamic>.from(json['discount_banner']) : null);
+
     return DashboardData(
       period: json['period']?.toString() ?? 'this_month',
       startDate: dateRange['start_date']?.toString() ?? '',
@@ -422,6 +428,7 @@ class DashboardData {
       expenses: expensesObj,
       attention: attList.map((a) => AttentionItem.fromJson(Map<String, dynamic>.from(a))).toList(),
       recentActivity: actList.map((a) => RecentActivityItem.fromJson(Map<String, dynamic>.from(a))).toList(),
+      discountBanner: dBanner,
     );
   }
 }

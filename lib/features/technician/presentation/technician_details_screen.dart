@@ -1,6 +1,9 @@
 import '../../../core/utils/date_helper.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/routes/app_routes.dart';
+import '../../../core/storage/auth_storage.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_searchable_bottom_sheet.dart';
 import '../../../core/widgets/custom_card.dart';
@@ -27,6 +30,7 @@ class _TechnicianDetailsScreenState extends State<TechnicianDetailsScreen> {
   bool _isLoadingPayments = false;
   String _jobFilter = 'all'; // all, pending, in_progress, completed
   List<TechnicianPayment> _paymentHistory = [];
+  bool _showPassword = false;
 
   @override
   void initState() {
@@ -74,6 +78,173 @@ class _TechnicianDetailsScreenState extends State<TechnicianDetailsScreen> {
     }
   }
 
+  Future<void> _shareStaffCredentialsOnWhatsApp() async {
+    final mobile = _tech.mobile ?? '';
+    final password = _tech.loginPassword ?? '';
+    final name = _tech.name;
+
+    final shop = await AuthStorage().getShop();
+    final shopName = shop?['name']?.toString() ?? 'Our Mobile Shop';
+
+    final activeModules = <String>[];
+    if (_tech.permissions['repairs'] == true) activeModules.add('🔧 Repairs');
+    if (_tech.permissions['sales'] == true) activeModules.add('🛒 Sales & Billing');
+    if (_tech.permissions['purchases'] == true) activeModules.add('📦 Stock & Purchases');
+    if (_tech.permissions['used_mobiles'] == true) activeModules.add('📱 Used Mobiles');
+
+    final msg = StringBuffer();
+    msg.writeln('👋 Hello *$name*,');
+    msg.writeln('Your staff login account for *$shopName* is active on the *Mobile Shop Profit* app!\n');
+    msg.writeln('🔑 *Your Login Credentials:*');
+    msg.writeln('📱 *Mobile / Login ID:* $mobile');
+    if (password.isNotEmpty) {
+      msg.writeln('🔒 *Password:* $password');
+    }
+    if (activeModules.isNotEmpty) {
+      msg.writeln('🛡️ *Permitted Access:* ${activeModules.join(', ')}');
+    }
+    msg.writeln('\nPlease login using your mobile and password to start managing your daily assigned work.');
+
+    final shareText = msg.toString();
+
+    final cleanPhone = mobile.replaceAll(RegExp(r'[^0-9]'), '');
+    if (cleanPhone.isNotEmpty) {
+      final formattedPhone = cleanPhone.length == 10 ? '91$cleanPhone' : cleanPhone;
+      final url = Uri.parse('https://wa.me/$formattedPhone?text=${Uri.encodeComponent(shareText)}');
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+        return;
+      }
+    }
+
+    await Clipboard.setData(ClipboardData(text: shareText));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Staff login credentials copied to clipboard!')),
+      );
+    }
+  }
+
+  Future<void> _showResetPasswordDialog() async {
+    final passwordController = TextEditingController();
+    bool obscure = true;
+    bool isSaving = false;
+    String? error;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogCtx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.lock_reset_rounded, color: AppColors.primary, size: 20),
+              ),
+              const SizedBox(width: 8),
+              const Text('Reset Staff Password', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Set a new login password for ${_tech.name}.',
+                  style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 14),
+                if (error != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.shade200),
+                    ),
+                    child: Text(error!, style: TextStyle(color: Colors.red.shade800, fontSize: 12)),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                TextField(
+                  controller: passwordController,
+                  obscureText: obscure,
+                  decoration: InputDecoration(
+                    labelText: 'New Password *',
+                    hintText: 'Minimum 6 characters',
+                    prefixIcon: const Icon(Icons.lock_outline_rounded),
+                    suffixIcon: IconButton(
+                      icon: Icon(obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                      onPressed: () => setDialogState(() => obscure = !obscure),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      final newPass = passwordController.text.trim();
+                      if (newPass.length < 6) {
+                        setDialogState(() => error = 'Password must be at least 6 characters.');
+                        return;
+                      }
+                      setDialogState(() {
+                        isSaving = true;
+                        error = null;
+                      });
+                      try {
+                        final res = await _repository.updateTechnician(
+                          id: _tech.id,
+                          password: newPass,
+                        );
+                        if (res.success) {
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Staff password updated successfully!')),
+                          );
+                          _fetchDetails();
+                        } else {
+                          setDialogState(() {
+                            isSaving = false;
+                            error = res.message;
+                          });
+                        }
+                      } catch (e) {
+                        setDialogState(() {
+                          isSaving = false;
+                          error = e.toString();
+                        });
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
+              child: isSaving
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Save Password'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _showPayTechnicianDialog() async {
     final amountController = TextEditingController();
     final noteController = TextEditingController();
@@ -83,7 +254,7 @@ class _TechnicianDetailsScreenState extends State<TechnicianDetailsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+        builder: (dialogCtx, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
@@ -190,6 +361,7 @@ class _TechnicianDetailsScreenState extends State<TechnicianDetailsScreen> {
     );
 
     if (confirm == true) {
+      if (!mounted) return;
       final amt = double.tryParse(amountController.text) ?? 0.0;
       final maxPayable = _tech.workload.totalPayable;
 
@@ -243,10 +415,7 @@ class _TechnicianDetailsScreenState extends State<TechnicianDetailsScreen> {
   }
 
   Future<void> _editTechnician() async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AddEditTechnicianDialog(technician: _tech),
-    );
+    final result = await AddEditTechnicianDialog.show(context, technician: _tech);
 
     if (result == true) {
       _fetchDetails();
@@ -461,11 +630,76 @@ class _TechnicianDetailsScreenState extends State<TechnicianDetailsScreen> {
                                     : 'General Technician',
                                 style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                               ),
+                              if (_tech.mobile != null && _tech.mobile!.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  '📞 ${_tech.mobile!}',
+                                  style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                                ),
+                              ],
+                              if (_tech.hasLogin) ...[
+                                const SizedBox(height: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withOpacity(0.08),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.key_rounded, size: 12, color: AppColors.primary),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'App Login Active',
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
                       ],
                     ),
+                    if (_tech.hasLogin && _tech.permissions.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Staff App Permissions:',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                            ),
+                            const SizedBox(height: 4),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
+                                if (_tech.permissions['repairs'] == true)
+                                  _buildPermissionChip('🔧 Repairs & Job Cards', Colors.blue),
+                                if (_tech.permissions['sales'] == true)
+                                  _buildPermissionChip('🛒 Sales & Billing', Colors.green),
+                                if (_tech.permissions['purchases'] == true)
+                                  _buildPermissionChip('📦 Stock Purchases', Colors.teal),
+                                if (_tech.permissions['used_mobiles'] == true)
+                                  _buildPermissionChip('📱 Used Mobiles', Colors.purple),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
@@ -485,6 +719,194 @@ class _TechnicianDetailsScreenState extends State<TechnicianDetailsScreen> {
                 ),
               ),
               const SizedBox(height: 16),
+
+              if (_tech.hasLogin) ...[
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(Icons.vpn_key_rounded, size: 16, color: AppColors.primary),
+                                ),
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: Text(
+                                    'Staff Credentials',
+                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          InkWell(
+                            onTap: _shareStaffCredentialsOnWhatsApp,
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF25D366).withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0xFF25D366).withOpacity(0.35)),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.chat_bubble_rounded, size: 13, color: Color(0xFF25D366)),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'WhatsApp',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E7E34)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      // Login Mobile Row
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.phone_android_rounded, size: 16, color: AppColors.textSecondary),
+                            const SizedBox(width: 8),
+                            const Text('Login Mobile:', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                _tech.mobile ?? 'No mobile number',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                              ),
+                            ),
+                            if (_tech.mobile != null && _tech.mobile!.isNotEmpty)
+                              IconButton(
+                                icon: const Icon(Icons.copy_rounded, size: 15, color: AppColors.primary),
+                                constraints: const BoxConstraints(),
+                                padding: const EdgeInsets.all(4),
+                                tooltip: 'Copy Mobile',
+                                onPressed: () {
+                                  Clipboard.setData(ClipboardData(text: _tech.mobile!));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Login mobile copied to clipboard')),
+                                  );
+                                },
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Password Row
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.lock_rounded, size: 16, color: AppColors.textSecondary),
+                            const SizedBox(width: 8),
+                            const Text('Password:', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                (_tech.loginPassword != null && _tech.loginPassword!.isNotEmpty)
+                                    ? (_showPassword ? _tech.loginPassword! : '••••••••')
+                                    : '••••••••',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                            if (_tech.loginPassword != null && _tech.loginPassword!.isNotEmpty) ...[
+                              IconButton(
+                                icon: Icon(
+                                  _showPassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                                  size: 17,
+                                  color: AppColors.textSecondary,
+                                ),
+                                constraints: const BoxConstraints(),
+                                padding: const EdgeInsets.all(4),
+                                tooltip: _showPassword ? 'Hide Password' : 'Show Password',
+                                onPressed: () => setState(() => _showPassword = !_showPassword),
+                              ),
+                              const SizedBox(width: 4),
+                              IconButton(
+                                icon: const Icon(Icons.copy_rounded, size: 15, color: AppColors.primary),
+                                constraints: const BoxConstraints(),
+                                padding: const EdgeInsets.all(4),
+                                tooltip: 'Copy Password',
+                                onPressed: () {
+                                  Clipboard.setData(ClipboardData(text: _tech.loginPassword!));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Password copied to clipboard')),
+                                  );
+                                },
+                              ),
+                            ],
+                            const SizedBox(width: 6),
+                            InkWell(
+                              onTap: _showResetPasswordDialog,
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade50,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: Colors.blue.shade200),
+                                ),
+                                child: Text(
+                                  'Change',
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue.shade800),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
 
               // 2. Financial Summary Cards (Money)
               const Text(
@@ -597,8 +1019,8 @@ class _TechnicianDetailsScreenState extends State<TechnicianDetailsScreen> {
               if (_isLoadingPayments)
                 const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
               else if (_paymentHistory.isEmpty)
-                CustomCard(
-                  child: const Padding(
+                const CustomCard(
+                  child: Padding(
                     padding: EdgeInsets.all(16),
                     child: Center(
                       child: Text(
@@ -772,6 +1194,21 @@ class _TechnicianDetailsScreenState extends State<TechnicianDetailsScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildPermissionChip(String label, MaterialColor color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.shade50,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.shade200, width: 0.8),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color.shade900),
       ),
     );
   }

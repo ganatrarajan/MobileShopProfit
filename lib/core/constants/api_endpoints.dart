@@ -27,10 +27,13 @@ class ApiEndpoints {
   static const String expenseCategories = '/expense-categories';
   static const String expenses = '/expenses';
   static const String technicians = '/technicians';
+  static const String technicianMyWork = '/technician/my-work-summary';
   static const String dashboard = '/dashboard';
   static const String subscriptionStatus = '/subscription/status';
   static const String subscriptionCreateOrder = '/subscription/create-order';
+  static const String subscriptionCreateStaffAddonOrder = '/subscription/create-staff-addon-order';
   static const String subscriptionVerifyPayment = '/subscription/verify-payment';
+  static const String subscriptionPurchaseStaffAddon = '/subscription/purchase-staff-addon';
   static const String subscriptionHistory = '/subscription/history';
   static const String supportContactInfo = '/support/contact-info';
   static const String deviceBrands = '/device-brands';

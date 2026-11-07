@@ -1,3 +1,4 @@
+import '../../../core/storage/auth_storage.dart';
 import '../../../core/widgets/app_shimmer.dart';
 import 'repair_invoice_pdf_screen.dart';
 import '../../warranty/models/warranty.dart';
@@ -34,6 +35,7 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
   final WarrantyRepository _warrantyRepository = WarrantyRepository();
   late Repair _repair;
   bool _isLoading = false;
+  bool _isOwner = true;
 
   static const Map<String, Color> _statusColors = {
     'received': Colors.blue,
@@ -61,6 +63,9 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
   void initState() {
     super.initState();
     _repair = widget.repair;
+    AuthStorage().isOwner().then((val) {
+      if (mounted) setState(() => _isOwner = val);
+    });
     _refreshDetails();
   }
 
@@ -563,7 +568,7 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
             onPressed: _refreshDetails,
             tooltip: 'Refresh',
           ),
-          if (!isDelivered)
+          if (!isDelivered && _isOwner)
             IconButton(
               icon: const Icon(Icons.delete_outline_rounded, color: Colors.white),
               onPressed: _confirmDeleteRepair,
@@ -1194,13 +1199,14 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
                                 _buildRow('Technician Fee', '\u20B9 ${techFee.toStringAsFixed(2)}'),
                               const Divider(height: 16),
                               _buildRow('TOTAL NET AMOUNT', '\u20B9 ${_repair.netCost.toStringAsFixed(2)}', isBold: true, fontSize: 16),
-                              _buildRow(
-                                'NET PROFIT',
-                                '\u20B9 ${netProfit.toStringAsFixed(2)}',
-                                color: netProfit >= 0 ? Colors.green.shade700 : Colors.red.shade700,
-                                isBold: true,
-                                fontSize: 16,
-                              ),
+                              if (_isOwner)
+                                _buildRow(
+                                  'NET PROFIT',
+                                  '\u20B9 ${netProfit.toStringAsFixed(2)}',
+                                  color: netProfit >= 0 ? Colors.green.shade700 : Colors.red.shade700,
+                                  isBold: true,
+                                  fontSize: 16,
+                                ),
                               const SizedBox(height: 6),
                               _buildRow('Total Paid / Advance', '\u20B9 ${_repair.amountPaid.toStringAsFixed(2)}', color: Colors.green.shade700, isBold: true),
                               _buildRow(

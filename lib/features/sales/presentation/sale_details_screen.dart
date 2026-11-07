@@ -1,3 +1,4 @@
+import '../../../core/storage/auth_storage.dart';
 import '../../../core/widgets/app_shimmer.dart';
 import '../../../core/utils/date_helper.dart';
 import '../../warranty/models/warranty.dart';
@@ -30,11 +31,15 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
   final WarrantyRepository _warrantyRepository = WarrantyRepository();
   late Sale _sale;
   bool _isLoading = false;
+  bool _isOwner = true;
 
   @override
   void initState() {
     super.initState();
     _sale = widget.sale;
+    AuthStorage().isOwner().then((val) {
+      if (mounted) setState(() => _isOwner = val);
+    });
     _refreshDetails();
   }
 
@@ -514,7 +519,7 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                                         Text('${item.brand ?? ''} ${item.model ?? ''}'.trim(), style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
                                       if (item.imei1 != null)
                                         Text('IMEI: ${item.imei1}', style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
-                                      if (item.costPrice != null && item.costPrice! > 0) ...[
+                                      if (_isOwner && item.costPrice != null && item.costPrice! > 0) ...[
                                         const SizedBox(height: 2),
                                         Text(
                                           'Cost: \u20B9${(item.costPrice! * item.quantity).toStringAsFixed(0)} \u2022 Profit: +\u20B9${(item.total - (item.costPrice! * item.quantity)).toStringAsFixed(0)}',
@@ -563,10 +568,11 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                         _buildRow('Amount Paid', '₹ ${_sale.amountPaid.toStringAsFixed(2)}', color: Colors.green.shade700, isBold: true),
                         const SizedBox(height: 6),
                         _buildRow('AMOUNT DUE', '\u20B9 ${_sale.amountDue.toStringAsFixed(2)}', color: _sale.amountDue > 0 ? Colors.red.shade700 : Colors.green.shade700, isBold: true, fontSize: 18),
-                        const Divider(height: 20),
-                        _buildRow('Item Purchase Cost', '\u20B9 ${_sale.totalCost.toStringAsFixed(2)}', color: AppColors.textSecondary),
-                        const SizedBox(height: 10),
-                        // Net Profit Box
+                        if (_isOwner) ...[
+                          const Divider(height: 20),
+                          _buildRow('Item Purchase Cost', '\u20B9 ${_sale.totalCost.toStringAsFixed(2)}', color: AppColors.textSecondary),
+                          const SizedBox(height: 10),
+                          // Net Profit Box
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                           decoration: BoxDecoration(
@@ -645,6 +651,7 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                             ],
                           ),
                         ),
+                        ],
                       ],
                     ),
                   ),

@@ -3,6 +3,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/custom_text_field.dart';
+import '../../../subscription/utils/subscription_guard.dart';
 import '../../data/technician_repository.dart';
 import '../../models/technician.dart';
 
@@ -62,13 +63,24 @@ class _QuickAddTechnicianModalState extends State<QuickAddTechnicianModal> {
           );
           Navigator.pop(context, createdTech);
         } else {
-          AppFeedback.showError(context, error: response.message);
+          final isLimit = response.rawJson?['code'] == 'STAFF_LIMIT_REACHED' ||
+              response.rawJson?['error_code'] == 'STAFF_LIMIT_REACHED';
+          if (isLimit) {
+            SubscriptionGuard.showStaffLimitDialog(context, message: response.message);
+          } else {
+            AppFeedback.showError(context, error: response.message);
+          }
         }
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);
-        AppFeedback.showError(context, error: e);
+        final errStr = e.toString();
+        if (errStr.contains('STAFF_LIMIT_REACHED')) {
+          SubscriptionGuard.showStaffLimitDialog(context);
+        } else {
+          AppFeedback.showError(context, error: e);
+        }
       }
     }
   }

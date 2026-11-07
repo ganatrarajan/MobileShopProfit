@@ -126,4 +126,76 @@ class SubscriptionGuard {
       ),
     );
   }
+
+  /// Displays the staff limit reached renewal / upgrade popup in center
+  static void showStaffLimitDialog(
+    BuildContext context, {
+    String? message,
+    String? planName,
+  }) {
+    final displayMessage = (message != null && !message.contains('₹'))
+        ? message
+        : (planName != null && planName.isNotEmpty
+            ? 'Staff login is not included in your current plan ($planName). You can add staff logins for your remaining days directly in the subscription screen.'
+            : 'You have reached your staff account limit. You can add more staff logins for your remaining plan days directly in the subscription screen.');
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(22.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.workspace_premium_rounded, size: 44, color: Colors.amber.shade800),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                '👑 Staff Limit Reached',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                displayMessage,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.45),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    AppRoutes.navigatorKey.currentState?.pushNamed(AppRoutes.subscription);
+                  },
+                  icon: const Icon(Icons.people_alt_rounded, size: 20),
+                  label: const Text('Add Staff Logins Now', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

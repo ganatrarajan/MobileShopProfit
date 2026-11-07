@@ -68,6 +68,10 @@ class Technician {
   final String? mobile;
   final String? specialization;
   final bool isActive;
+  final bool hasLogin;
+  final int? userId;
+  final String? loginPassword;
+  final Map<String, bool> permissions;
   final String? createdAt;
   final TechnicianWorkload workload;
   final List<Repair> recentJobs;
@@ -79,10 +83,19 @@ class Technician {
     this.mobile,
     this.specialization,
     required this.isActive,
+    this.hasLogin = false,
+    this.userId,
+    this.loginPassword,
+    this.permissions = const {},
     this.createdAt,
     required this.workload,
     this.recentJobs = const [],
   });
+
+  bool canAccess(String module) {
+    if (!hasLogin) return false;
+    return permissions[module] == true;
+  }
 
   factory Technician.fromJson(Map<String, dynamic> json) {
     List<Repair> jobs = [];
@@ -92,6 +105,22 @@ class Technician {
           .toList();
     }
 
+    final Map<String, bool> parsedPermissions = {};
+    if (json['permissions'] is Map) {
+      (json['permissions'] as Map).forEach((k, v) {
+        parsedPermissions[k.toString()] = v == true || v == 1 || v.toString() == 'true';
+      });
+    }
+
+    final rawUserId = json['user_id'];
+    final int? parsedUserId = rawUserId is int
+        ? rawUserId
+        : (rawUserId != null ? int.tryParse(rawUserId.toString()) : null);
+
+    final bool parsedHasLogin = json['has_login'] == true ||
+        json['has_login'] == 1 ||
+        parsedUserId != null;
+
     return Technician(
       id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
       shopId: json['shop_id'] is int ? json['shop_id'] : int.tryParse(json['shop_id'].toString()) ?? 0,
@@ -99,6 +128,10 @@ class Technician {
       mobile: json['mobile']?.toString(),
       specialization: json['specialization']?.toString(),
       isActive: json['is_active'] == true || json['is_active'] == 1,
+      hasLogin: parsedHasLogin,
+      userId: parsedUserId,
+      loginPassword: json['login_password']?.toString() ?? json['user']?['plain_password']?.toString(),
+      permissions: parsedPermissions,
       createdAt: json['created_at']?.toString(),
       workload: json['workload'] is Map
           ? TechnicianWorkload.fromJson(Map<String, dynamic>.from(json['workload']))
@@ -128,6 +161,10 @@ class Technician {
       'mobile': mobile,
       'specialization': specialization,
       'is_active': isActive,
+      'has_login': hasLogin,
+      'user_id': userId,
+      'login_password': loginPassword,
+      'permissions': permissions,
       'created_at': createdAt,
       'workload': workload.toJson(),
     };

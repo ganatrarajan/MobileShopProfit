@@ -49,6 +49,8 @@ class DashboardScreenState extends State<DashboardScreen> {
   DashboardData? _dashboardData;
   ProfitIntelligenceData? _profitAiData;
   bool _hasShownExpiryDialog = false;
+  bool _hasShownDiscountDialog = false;
+  bool _isStaffSpotlightDismissed = false;
 
   String _storedShopName = '';
   String _storedOwnerName = '';
@@ -145,6 +147,14 @@ class DashboardScreenState extends State<DashboardScreen> {
         if (cachedDashboard != null) {
           _dashboardData = cachedDashboard;
           _isLoading = false;
+          if (_dashboardData!.discountBanner != null &&
+              _dashboardData!.discountBanner!['has_discount'] == true &&
+              !_hasShownDiscountDialog) {
+            _hasShownDiscountDialog = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _showDiscountPromotionalDialog(_dashboardData!.discountBanner!);
+            });
+          }
         } else {
           _isLoading = true;
         }
@@ -317,19 +327,28 @@ class DashboardScreenState extends State<DashboardScreen> {
               expenses: dashData.expenses,
               attention: dashData.attention,
               recentActivity: dashData.recentActivity,
+              discountBanner: dashData.discountBanner,
             );
 
             _dashboardData = dashData;
             _isLoading = false;
             _errorMessage = null;
 
-            if (_dashboardData != null &&
-                (_dashboardData!.daysRemaining <= 10 || _dashboardData!.isExpiringSoon) &&
-                !_hasShownExpiryDialog) {
-              _hasShownExpiryDialog = true;
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) _showSubscriptionExpiryDialog(_dashboardData!.daysRemaining);
-              });
+            if (_dashboardData != null) {
+              if (_dashboardData!.discountBanner != null &&
+                  _dashboardData!.discountBanner!['has_discount'] == true &&
+                  !_hasShownDiscountDialog) {
+                _hasShownDiscountDialog = true;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _showDiscountPromotionalDialog(_dashboardData!.discountBanner!);
+                });
+              } else if ((_dashboardData!.daysRemaining <= 10 || _dashboardData!.isExpiringSoon) &&
+                  !_hasShownExpiryDialog) {
+                _hasShownExpiryDialog = true;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _showSubscriptionExpiryDialog(_dashboardData!.daysRemaining);
+                });
+              }
             }
           } else {
             if (_dashboardData == null) {
@@ -460,6 +479,12 @@ class DashboardScreenState extends State<DashboardScreen> {
                   ),
                 )
               else if (_dashboardData != null) ...[
+                if (_dashboardData!.discountBanner != null &&
+                    _dashboardData!.discountBanner!['has_discount'] == true)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                    child: _buildDiscountBanner(_dashboardData!.discountBanner!),
+                  ),
                 if (_dashboardData!.isEmptyShop && _selectedPeriod == 'all_time')
                   _buildEmptyShopOnboarding()
                 else ...[
@@ -468,6 +493,12 @@ class DashboardScreenState extends State<DashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Feature Spotlight: Multi-Staff & Technician Logins (Prominently at the TOP)
+                        if (!_isStaffSpotlightDismissed) ...[
+                          _buildStaffFeatureSpotlightCard(),
+                          const SizedBox(height: 16),
+                        ],
+
                         // Subscription Expiry Highlight Card
                         if (_dashboardData!.daysRemaining <= 10 || _dashboardData!.isExpiringSoon)
                           _buildSubscriptionHighlightCard(_dashboardData!.daysRemaining),
@@ -549,6 +580,158 @@ class DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildStaffFeatureSpotlightCard() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1B4B).withOpacity(0.4) : const Color(0xFFEEF2FF),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? const Color(0xFF4338CA).withOpacity(0.5) : const Color(0xFFC7D2FE),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6366F1).withOpacity(0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF6366F1).withOpacity(0.3),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.badge_rounded, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            'Multi-Staff & Tech Logins',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
+                              color: isDark ? Colors.white : const Color(0xFF1E1B4B),
+                              letterSpacing: -0.2,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF4F46E5),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'NEW',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Give technicians their own app logins with custom access permissions (Repairs, Sales, Stock) & track commissions automatically.',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        height: 1.35,
+                        color: isDark ? const Color(0xFFC7D2FE) : const Color(0xFF475569),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    _isStaffSpotlightDismissed = true;
+                  });
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Padding(
+                  padding: const EdgeInsets.all(4.0),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 18,
+                    color: isDark ? Colors.white60 : Colors.grey.shade500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: InkWell(
+              onTap: () => NavUtils.pushNamed(context, AppRoutes.technicians),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4F46E5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Setup Staff Logins',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(width: 4),
+                    Icon(Icons.arrow_forward_rounded, size: 14, color: Colors.white),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1724,6 +1907,10 @@ class DashboardScreenState extends State<DashboardScreen> {
             final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'manage expenses');
             if (ok && mounted) NavUtils.pushNamed(context, AppRoutes.addExpense);
           }),
+          const SizedBox(width: 8),
+          _buildActionTile('Staff & Techs', Icons.badge_rounded, const Color(0xFF6366F1), () {
+            NavUtils.pushNamed(context, AppRoutes.technicians);
+          }),
         ],
       ),
     );
@@ -1779,6 +1966,15 @@ class DashboardScreenState extends State<DashboardScreen> {
     return Column(
       children: [
         _buildModuleCard(
+          title: 'Staff & Technicians',
+          desc: 'Staff app logins, role permissions, repair assignments & commission',
+          icon: Icons.badge_rounded,
+          color: const Color(0xFF6366F1),
+          isNew: true,
+          onTap: () => NavUtils.pushNamed(context, AppRoutes.technicians),
+        ),
+        const SizedBox(height: 10),
+        _buildModuleCard(
           title: 'Inventory Purchase & Vendors',
           desc: 'Manage supplier purchases, vendor payments & stock orders',
           icon: Icons.shopping_bag_rounded,
@@ -1827,6 +2023,7 @@ class DashboardScreenState extends State<DashboardScreen> {
     required IconData icon,
     required Color color,
     required VoidCallback onTap,
+    bool isNew = false,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -1845,7 +2042,41 @@ class DashboardScreenState extends State<DashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary)),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13.5,
+                          color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (isNew) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF6366F1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'NEW',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
                 const SizedBox(height: 2),
                 Text(desc, style: TextStyle(fontSize: 11, color: isDark ? AppColors.darkTextSecondary : AppColors.textMuted)),
               ],
@@ -2007,6 +2238,281 @@ class DashboardScreenState extends State<DashboardScreen> {
                   },
                   icon: const Icon(Icons.star_rounded, size: 18),
                   label: const Text('Renew Plan Now', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDiscountBanner(Map<String, dynamic> banner) {
+    final rawPercent = banner['percent'];
+    final num percentNum = (rawPercent is num) ? rawPercent : (num.tryParse(rawPercent?.toString() ?? '0') ?? 0);
+    final String percentStr = percentNum % 1 == 0 ? percentNum.toInt().toString() : percentNum.toString();
+    final bool isOneTime = banner['is_one_time'] == true;
+    final String? note = banner['note'] as String?;
+
+    return InkWell(
+      onTap: () {
+        Navigator.of(context).pushNamed(AppRoutes.subscription);
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF0F766E), Color(0xFF0D9488), Color(0xFF14B8A6)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0D9488).withOpacity(0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.local_offer_rounded, color: Colors.white, size: 24),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          'Special $percentStr% OFF Offer!',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.2,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (isOneTime) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.shade300,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            '1-TIME',
+                            style: TextStyle(
+                              color: Colors.black87,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    (note != null && note.isNotEmpty) ? note : 'Exclusive subscription discount for your shop! Tap to claim.',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.88),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Claim',
+                    style: TextStyle(
+                      color: Color(0xFF0F766E),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                  SizedBox(width: 2),
+                  Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFF0F766E)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDiscountPromotionalDialog(Map<String, dynamic> banner) {
+    final rawPercent = banner['percent'];
+    final num percentNum = (rawPercent is num) ? rawPercent : (num.tryParse(rawPercent?.toString() ?? '0') ?? 0);
+    final String percentStr = percentNum % 1 == 0 ? percentNum.toInt().toString() : percentNum.toString();
+    final bool isOneTime = banner['is_one_time'] == true;
+    final String? note = banner['note'] as String?;
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        elevation: 8,
+        clipBehavior: Clip.antiAlias,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            color: Theme.of(ctx).cardColor,
+          ),
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 28, 22, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF059669), Color(0xFF10B981)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF10B981).withOpacity(0.35),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.celebration_rounded,
+                        color: Colors.white,
+                        size: 38,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Exclusive $percentStr% Discount!',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    if (isOneTime)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.amber.shade300),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.bolt_rounded, size: 14, color: Colors.amber.shade800),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                'One-Time Use Only',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.amber.shade900,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    Text(
+                      (note != null && note.isNotEmpty)
+                          ? note
+                          : 'A special $percentStr% discount has been applied to your shop subscription. Upgrade or renew your plan now to lock in this special price!',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        height: 1.4,
+                        color: Theme.of(ctx).textTheme.bodyMedium?.color?.withOpacity(0.8),
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF059669),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 2,
+                        ),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          Navigator.of(context).pushNamed(AppRoutes.subscription);
+                        },
+                        icon: const Icon(Icons.shopping_bag_outlined, size: 18),
+                        label: const Text(
+                          'Claim & View Discounted Plans',
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.grey.shade600,
+                      ),
+                      child: const Text('Remind Me Later', style: TextStyle(fontSize: 13)),
+                    ),
+                  ],
+                ),
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: IconButton(
+                  icon: const Icon(Icons.close_rounded, size: 22, color: Colors.grey),
+                  splashRadius: 20,
+                  tooltip: 'Close',
+                  onPressed: () => Navigator.pop(ctx),
                 ),
               ),
             ],
