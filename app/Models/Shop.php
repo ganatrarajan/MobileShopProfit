@@ -259,6 +259,14 @@ class Shop extends Model
     }
 
     /**
+     * Get all staff members associated with the shop.
+     */
+    public function staff(): HasMany
+    {
+        return $this->hasMany(Staff::class);
+    }
+
+    /**
      * Get all technicians associated with the shop.
      */
     public function technicians(): HasMany

@@ -250,10 +250,14 @@ class AuthController extends Controller
             }
         }
 
-        // Check if technician / staff account is active and staff validity is not expired
-        if ($user->role === 'technician') {
+        // Check if staff / technician account is active and staff validity is not expired
+        if (in_array($user->role, ['staff', 'technician'])) {
+            $staff = $user->staff;
             $tech = $user->technician;
-            if ($tech && !$tech->is_active) {
+            if ($staff && !$staff->is_active) {
+                return $this->errorResponse('Your staff account is currently deactivated by the shop owner.', 403);
+            }
+            if (!$staff && $tech && !$tech->is_active) {
                 return $this->errorResponse('Your staff account is currently deactivated by the shop owner.', 403);
             }
 
@@ -289,7 +293,7 @@ class AuthController extends Controller
             $user->load('shop');
 
             // Enforce staff expiry on active session
-            if ($user->role === 'technician') {
+            if (in_array($user->role, ['staff', 'technician'])) {
                 $shop = $user->shop;
                 if (!$shop || $shop->effective_max_staff < 1) {
                     $expiryNote = ($shop && $shop->custom_staff_valid_until)
@@ -317,7 +321,7 @@ class AuthController extends Controller
         if ($user) {
             $user->update(['last_app_opened_at' => now()]);
 
-            if ($user->role === 'technician') {
+            if (in_array($user->role, ['staff', 'technician'])) {
                 $shop = $user->shop;
                 if (!$shop || $shop->effective_max_staff < 1) {
                     return response()->json([

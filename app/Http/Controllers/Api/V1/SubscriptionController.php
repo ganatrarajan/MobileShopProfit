@@ -76,7 +76,7 @@ class SubscriptionController extends Controller
 
         $staffPricePerDay = $shop ? $shop->getEffectiveStaffPricePerDay() : (float) \App\Models\SystemSetting::getByKey('staff_price_per_day', '2.00');
         $effectiveMaxStaff = $shop ? $shop->effective_max_staff : 0;
-        $activeStaffCount = \App\Models\User::where('shop_id', $user->shop_id)->where('role', '!=', 'owner')->count();
+        $activeStaffCount = \App\Models\User::where('shop_id', $user->shop_id)->where('role', 'staff')->count();
 
         $staffDaysRemaining = 0;
         $staffValidUntil = null;

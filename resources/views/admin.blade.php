@@ -1328,13 +1328,14 @@
                                 <th>Contact Number</th>
                                 <th>Registration Date</th>
                                 <th>Subscription</th>
-                                <th>Staff & Technicians</th>
+                                <th>Staff Logins</th>
+                                <th>Technicians</th>
                                 <th>Account Status</th>
                                 <th style="text-align:right;">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${shops.length === 0 ? `<tr><td colspan="8" style="text-align:center; padding:36px; color:#94a3b8; font-weight:500;">No shops found matching filter criteria.</td></tr>` : ''}
+                            ${shops.length === 0 ? `<tr><td colspan="9" style="text-align:center; padding:36px; color:#94a3b8; font-weight:500;">No shops found matching filter criteria.</td></tr>` : ''}
                             ${shops.map(s => {
                                 const mob = s.phone || s.mobile || (s.user ? (s.user.mobile || s.user.phone) : 'N/A');
                                 const sub = s.latest_subscription ? s.latest_subscription.status : 'trial';
@@ -1362,21 +1363,10 @@
                                         <div style="font-size:12.5px; color:#64748b;">${new Date(s.created_at).toLocaleDateString()}</div>
                                     </td>
                                     <td>
-                                        <span class="badge ${sub === 'active' ? 'badge-active' : (sub === 'expired' ? 'badge-inactive' : 'badge-trial')}">
-                                            ${sub.toUpperCase()}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <div style="display:flex; flex-direction:column; gap:4px;">
-                                            <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
-                                                <span class="badge ${s.staff_logins_count > 0 ? 'badge-blue' : 'badge-trial'}">
-                                                    👥 ${s.staff_logins_count || 0} / ${s.effective_max_staff || 0} Logins
-                                                </span>
-                                                <span style="font-size:11px; color:#64748b; font-weight:500;">
-                                                    🧰 ${s.technicians_count || 0} Techs
-                                                </span>
-                                            </div>
-                                            ${s.custom_staff_valid_until ? (new Date(s.custom_staff_valid_until) < new Date() ? '<span class="badge badge-inactive" style="font-size:10px; padding:2px 6px;">🔴 Staff Expired</span>' : `<span class="badge badge-purple" style="font-size:10px; padding:2px 6px;">⏱️ Till ${new Date(s.custom_staff_valid_until).toLocaleDateString()}</span>`) : ''}
+                                        <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-start;">
+                                            <span class="badge ${sub === 'active' ? 'badge-active' : (sub === 'expired' ? 'badge-inactive' : 'badge-trial')}">
+                                                ${sub.toUpperCase()}
+                                            </span>
                                             ${(s.custom_discount_percent > 0 || (s.custom_plan_prices && Object.keys(s.custom_plan_prices).length > 0))
                                                 ? `<span class="badge badge-emerald" style="font-size:10px; padding:2px 6px;">
                                                        🏷️ ${s.custom_discount_percent ? s.custom_discount_percent + '% OFF' : 'Custom Pricing'}
@@ -1387,6 +1377,25 @@
                                                     : '')
                                             }
                                         </div>
+                                    </td>
+                                    <td>
+                                        <div style="display:flex; flex-direction:column; gap:4px;">
+                                            <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+                                                <button type="button" class="badge ${s.staff_logins_count > 0 ? 'badge-blue' : 'badge-trial'}" 
+                                                        style="cursor:pointer; border:1px dashed #6366f1; padding:4px 9px; display:inline-flex; align-items:center; gap:5px; font-weight:700;"
+                                                        onclick="openCustomStaffModal(${s.id}, '${s.name.replace(/'/g, "\\'")}', ${s.effective_max_staff || 0}, ${s.custom_max_staff !== null && s.custom_max_staff !== undefined ? s.custom_max_staff : "''"}, '${s.custom_staff_valid_until || ''}', '${(s.custom_staff_note || '').replace(/'/g, "\\'")}', '${s.latest_subscription ? (s.latest_subscription.expiry_date || '') : ''}', '${s.latest_subscription ? s.latest_subscription.status : 'trial'}')"
+                                                        title="Click to Increase or Change Staff Logins Limit">
+                                                    👥 ${s.staff_logins_count || 0} / ${s.effective_max_staff || 0} Logins
+                                                    <span style="font-size:10px; opacity:0.8;">✏️</span>
+                                                </button>
+                                            </div>
+                                            ${s.custom_staff_valid_until ? (new Date(s.custom_staff_valid_until) < new Date() ? '<span class="badge badge-inactive" style="font-size:10px; padding:2px 6px;">🔴 Expired</span>' : `<span class="badge badge-purple" style="font-size:10px; padding:2px 6px;">⏱️ Till ${new Date(s.custom_staff_valid_until).toLocaleDateString()}</span>`) : ''}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge" style="background:#f8fafc; color:#475569; font-weight:600; border:1px solid #cbd5e1; padding:4px 9px; display:inline-flex; align-items:center; gap:5px;" title="Repair technicians in shop directory (No Login)">
+                                            🧰 ${s.technicians_count || 0} Techs
+                                        </span>
                                     </td>
                                     <td>
                                         <span class="badge ${s.status === 'active' ? 'badge-active' : 'badge-inactive'}">
@@ -1403,9 +1412,9 @@
                                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 6v12"/></svg>
                                                 Pricing
                                             </button>
-                                            <button class="action-btn action-btn-indigo" onclick="openCustomStaffModal(${s.id}, '${s.name.replace(/'/g, "\\'")}', ${s.custom_max_staff !== null && s.custom_max_staff !== undefined ? s.custom_max_staff : "''"}, '${s.custom_staff_valid_until || ''}', '${(s.custom_staff_note || '').replace(/'/g, "\\'")}')" title="Staff Logins Limit">
+                                            <button class="action-btn action-btn-indigo" onclick="openCustomStaffModal(${s.id}, '${s.name.replace(/'/g, "\\'")}', ${s.effective_max_staff || 0}, ${s.custom_max_staff !== null && s.custom_max_staff !== undefined ? s.custom_max_staff : "''"}, '${s.custom_staff_valid_until || ''}', '${(s.custom_staff_note || '').replace(/'/g, "\\'")}', '${s.latest_subscription ? (s.latest_subscription.expiry_date || '') : ''}', '${s.latest_subscription ? s.latest_subscription.status : 'trial'}')" title="Increase or Set Staff Logins Limit">
                                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                                                Staff
+                                                Staff Limit
                                             </button>
                                             <button class="action-btn ${s.status === 'active' ? 'action-btn-danger' : 'action-btn-success'}" onclick="toggleShopStatus(${s.id}, '${s.status === 'active' ? 'deactivated' : 'active'}')" title="${s.status === 'active' ? 'Deactivate Shop' : 'Activate Shop'}">
                                                 ${s.status === 'active' ? 'Deactivate' : 'Activate'}
@@ -1453,7 +1462,8 @@
                 <div style="font-size:13px; line-height:1.5;">
                     <div style="display:flex; gap:8px; border-bottom:1px solid #e2e8f0; margin-bottom:16px; padding-bottom:10px; overflow-x:auto;">
                         <button id="shop-tab-btn-overview" class="btn-sm" style="background:#2563eb; color:white; border-color:#2563eb;" onclick="switchShopTab('overview')">📋 Overview</button>
-                        <button id="shop-tab-btn-technicians" class="btn-sm" onclick="switchShopTab('technicians')">🧰 Technicians & Staff (${(s.technicians || []).length})</button>
+                        <button id="shop-tab-btn-staff" class="btn-sm" onclick="switchShopTab('staff')">👥 Staff Members (${(s.staff || []).length})</button>
+                        <button id="shop-tab-btn-technicians" class="btn-sm" onclick="switchShopTab('technicians')">🧰 Technicians (${(s.technicians || []).length})</button>
                         <button id="shop-tab-btn-sales" class="btn-sm" onclick="switchShopTab('sales')">🛒 Sales (${s.sales_count})</button>
                         <button id="shop-tab-btn-repairs" class="btn-sm" onclick="switchShopTab('repairs')">🔧 Repairs (${s.repairs_count})</button>
                         <button id="shop-tab-btn-customers" class="btn-sm" onclick="switchShopTab('customers')">👥 Customers (${s.customers_count})</button>
@@ -1470,7 +1480,7 @@
                             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
                                 <div style="flex:1; min-width:240px;">
                                     <h4 style="margin:0 0 4px 0; font-size:13px; color:#1e293b; display:flex; align-items:center; gap:6px;">
-                                        <span>👥</span> Technician & Staff Access
+                                        <span>👥</span> Staff App Logins Limit
                                     </h4>
                                     <div style="font-size:12px; color:#475569; line-height:1.6;">
                                         <div><strong>Effective Allowed:</strong> <span class="badge badge-active">${s.effective_max_staff || 0} Staff Logins</span></div>
@@ -1478,8 +1488,8 @@
                                         <div><strong>Shop Custom Override:</strong> ${s.custom_max_staff !== null && s.custom_max_staff !== undefined ? `<strong style="color:#2563eb;">${s.custom_max_staff} Staff</strong> (Valid until: ${s.custom_staff_valid_until || 'Indefinite'}${s.custom_staff_note ? ' — Note: ' + s.custom_staff_note : ''})` : '<span style="color:#64748b;">None (Follows subscription plan)</span>'}</div>
                                     </div>
                                 </div>
-                                <button type="button" class="btn-sm" style="background:#4f46e5; color:white; border-color:#4f46e5; padding:6px 14px; font-weight:600;" onclick="openCustomStaffModal(${s.id}, '${s.name.replace(/'/g, "\\'")}', ${s.custom_max_staff !== null && s.custom_max_staff !== undefined ? s.custom_max_staff : "''"}, '${s.custom_staff_valid_until || ''}', '${(s.custom_staff_note || '').replace(/'/g, "\\'")}')">
-                                    ⚙️ Set Custom Staff Count
+                                <button type="button" class="btn-sm" style="background:#4f46e5; color:white; border-color:#4f46e5; padding:6px 14px; font-weight:600;" onclick="openCustomStaffModal(${s.id}, '${s.name.replace(/'/g, "\\'")}', ${s.effective_max_staff || 0}, ${s.custom_max_staff !== null && s.custom_max_staff !== undefined ? s.custom_max_staff : "''"}, '${s.custom_staff_valid_until || ''}', '${(s.custom_staff_note || '').replace(/'/g, "\\'")}', '${s.latest_subscription ? (s.latest_subscription.expiry_date || '') : ''}', '${s.latest_subscription ? s.latest_subscription.status : 'trial'}')">
+                                    ⚙️ Set Staff Limit
                                 </button>
                             </div>
                         </div>
@@ -1513,23 +1523,122 @@
                         </div>
                     </div>
 
+                    <div id="shop-tab-staff" style="display:none;">
+                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 16px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                            <div>
+                                <div style="font-weight:700; color:#0f172a; font-size:13.5px; display:flex; align-items:center; gap:6px;">
+                                    <span>👥</span> Staff App Logins & Permissions
+                                </div>
+                                <div style="font-size:12px; color:#64748b; margin-top:3px; display:flex; flex-wrap:wrap; align-items:center; gap:6px;">
+                                    <span>Allowed Quota: <strong style="color:#0f172a;">${s.effective_max_staff || 0} Logins</strong></span> &bull; 
+                                    <span>Active Staff Logins: <strong style="color:#2563eb;">${(s.staff || []).filter(x => x.is_active).length}</strong></span> &bull; 
+                                    <span>Total Staff: <strong style="color:#0f172a;">${(s.staff || []).length}</strong></span>
+                                    ${(s.staff || []).filter(x => x.is_active).length >= (s.effective_max_staff || 0) && (s.effective_max_staff || 0) > 0 ? '<span class="badge badge-inactive">Quota Full</span>' : ''}
+                                    ${s.custom_staff_valid_until ? (new Date(s.custom_staff_valid_until) < new Date() ? '<span class="badge" style="background:#fee2e2; color:#b91c1c; font-weight:700;">🔴 Staff Expired</span>' : `<span class="badge" style="background:#e0e7ff; color:#3730a3; font-weight:700;">⏱️ Valid until ${new Date(s.custom_staff_valid_until).toLocaleDateString()}</span>`) : ''}
+                                </div>
+                            </div>
+                            <div style="display:flex; gap:8px;">
+                                <button type="button" class="btn-sm" style="background:#10b981; color:white; border-color:#10b981; padding:6px 14px; font-weight:600;" onclick="openAdminAddStaffModal(${s.id}, '${s.name ? s.name.replace(/'/g, "\\'") : ''}')">
+                                    ➕ Add Staff Member
+                                </button>
+                                <button type="button" class="btn-sm" style="background:#4f46e5; color:white; border-color:#4f46e5; padding:6px 14px; font-weight:600;" onclick="openCustomStaffModal(${s.id}, '${s.name ? s.name.replace(/'/g, "\\'") : ''}', ${s.effective_max_staff || 0}, ${s.custom_max_staff !== null && s.custom_max_staff !== undefined ? s.custom_max_staff : "''"}, '${s.custom_staff_valid_until || ''}', '${s.custom_staff_note ? s.custom_staff_note.replace(/'/g, "\\'") : ''}', '${s.latest_subscription ? (s.latest_subscription.expiry_date || '') : ''}', '${s.latest_subscription ? s.latest_subscription.status : 'trial'}')">
+                                    ⚙️ Adjust Staff Limit
+                                </button>
+                            </div>
+                        </div>
+
+                        ${(s.staff || []).length === 0 ? `
+                            <div style="text-align:center; padding:32px 16px; color:#94a3b8; border:1px dashed #cbd5e1; border-radius:8px; background:#fafafa;">
+                                <div style="font-size:32px; margin-bottom:6px;">👥</div>
+                                <div style="font-weight:600; color:#475569; font-size:14px;">No Staff Accounts Added</div>
+                                <div style="font-size:12px; color:#94a3b8; margin-top:2px;">This shop owner has not created any staff logins yet.</div>
+                                <div style="margin-top:12px;">
+                                    <button type="button" class="btn-sm" style="background:#10b981; color:white; border-color:#10b981; padding:6px 14px; font-weight:600;" onclick="openAdminAddStaffModal(${s.id}, '${s.name ? s.name.replace(/'/g, "\\'") : ''}')">
+                                        ➕ Add First Staff Member
+                                    </button>
+                                </div>
+                            </div>
+                        ` : `
+                            <div style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:8px;">
+                                <table style="width:100%; border-collapse:collapse; font-size:12px; text-align:left;">
+                                    <thead>
+                                        <tr style="background:#f8fafc; border-bottom:1px solid #e2e8f0; color:#475569; font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">
+                                            <th style="padding:10px 12px; white-space:nowrap;">Staff Name & Role</th>
+                                            <th style="padding:10px 12px; white-space:nowrap;">Mobile (Login ID)</th>
+                                            <th style="padding:10px 12px; white-space:nowrap;">Plain Password</th>
+                                            <th style="padding:10px 12px; min-width:140px;">Module Permissions</th>
+                                            <th style="padding:10px 12px; white-space:nowrap;">Salary / Joining</th>
+                                            <th style="padding:10px 12px; text-align:center; white-space:nowrap;">Status</th>
+                                            <th style="padding:10px 12px; text-align:right; white-space:nowrap;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${(s.staff || []).map((st) => {
+                                            const p = st.permissions || {};
+                                            const permBadges = [];
+                                            if (p.sales) permBadges.push('<span class="badge" style="background:#dbeafe; color:#1e40af; font-size:10px; padding:2px 6px;">🛒 Sales</span>');
+                                            if (p.repairs) permBadges.push('<span class="badge" style="background:#fef3c7; color:#92400e; font-size:10px; padding:2px 6px;">🔧 Repairs</span>');
+                                            if (p.stock || p.purchases) permBadges.push('<span class="badge" style="background:#e0e7ff; color:#3730a3; font-size:10px; padding:2px 6px;">📦 Stock</span>');
+                                            if (p.expenses) permBadges.push('<span class="badge" style="background:#fce7f3; color:#9d174d; font-size:10px; padding:2px 6px;">💸 Expenses</span>');
+                                            if (p.used_mobiles) permBadges.push('<span class="badge" style="background:#dcfce7; color:#166534; font-size:10px; padding:2px 6px;">📱 Used</span>');
+                                            if (p.customers) permBadges.push('<span class="badge" style="background:#f3e8ff; color:#6b21a8; font-size:10px; padding:2px 6px;">👥 Customers</span>');
+
+                                            return `
+                                            <tr style="border-bottom:1px solid #f1f5f9; transition:background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                                                <td style="padding:10px 12px; vertical-align:top;">
+                                                    <strong style="color:#0f172a; font-size:13px;">${st.name}</strong>
+                                                    <div style="color:#64748b; font-size:11px; margin-top:2px;">💼 ${st.designation || 'Staff'}</div>
+                                                    <div style="color:#94a3b8; font-size:10.5px; margin-top:3px;">Added: ${st.created_at ? new Date(st.created_at).toLocaleDateString() : 'N/A'}</div>
+                                                </td>
+                                                <td style="padding:10px 12px; vertical-align:top; white-space:nowrap;">
+                                                    <a href="tel:${st.mobile}" style="color:#2563eb; text-decoration:none; font-weight:600;">📱 ${st.mobile || '—'}</a>
+                                                    ${st.email ? `<div style="font-size:11px; color:#64748b; margin-top:2px;">✉️ ${st.email}</div>` : ''}
+                                                </td>
+                                                <td style="padding:10px 12px; vertical-align:top; white-space:nowrap;">
+                                                    ${st.plain_password ? `
+                                                        <span style="font-family:monospace; background:#e0e7ff; color:#3730a3; padding:3px 8px; border:1px solid #c7d2fe; border-radius:4px; font-weight:700; font-size:12px; letter-spacing:0.5px;">${st.plain_password}</span>
+                                                    ` : '<span style="color:#94a3b8; font-size:12px;">••••••••</span>'}
+                                                </td>
+                                                <td style="padding:10px 12px; vertical-align:top;">
+                                                    ${permBadges.length > 0 ? permBadges.join(' ') : '<span style="color:#94a3b8; font-size:11px;">Default</span>'}
+                                                </td>
+                                                <td style="padding:10px 12px; vertical-align:top; white-space:nowrap;">
+                                                    ${st.salary ? `<div><strong>₹${parseFloat(st.salary).toFixed(2)}</strong> <span style="font-size:10.5px; color:#64748b;">/${st.salary_type || 'mo'}</span></div>` : '<div style="color:#94a3b8;">No salary set</div>'}
+                                                    ${st.joining_date ? `<div style="font-size:11px; color:#64748b; margin-top:2px;">Joined: ${st.joining_date}</div>` : ''}
+                                                </td>
+                                                <td style="padding:10px 12px; vertical-align:top; text-align:center; white-space:nowrap;">
+                                                    <button type="button" class="badge ${st.is_active ? 'badge-active' : 'badge-inactive'}" style="cursor:pointer; border:none; padding:3px 8px;" onclick="adminToggleStaffStatus(${s.id}, ${st.id})" title="Click to ${st.is_active ? 'Block Login' : 'Activate Login'}">
+                                                        ${st.is_active ? '🟢 Active' : '🔴 Inactive'}
+                                                    </button>
+                                                </td>
+                                                <td style="padding:10px 12px; vertical-align:top; text-align:right; white-space:nowrap;">
+                                                    <button type="button" class="btn-sm" style="padding:3px 8px; font-size:11px; margin-right:4px;" onclick='openAdminEditStaffModal(${s.id}, ${JSON.stringify(st).replace(/'/g, "&#39;")})' title="Edit Staff Details">
+                                                        ✏️ Edit
+                                                    </button>
+                                                    <button type="button" class="btn-sm" style="background:#fee2e2; color:#b91c1c; border-color:#fca5a5; padding:3px 8px; font-size:11px;" onclick="adminDeleteStaff(${s.id}, ${st.id}, '${st.name ? st.name.replace(/'/g, "\\'") : 'Staff'}')" title="Delete Staff Member">
+                                                        🗑️
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `}
+                    </div>
+
                     <div id="shop-tab-technicians" style="display:none;">
                         <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 16px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
                             <div>
                                 <div style="font-weight:700; color:#0f172a; font-size:13.5px; display:flex; align-items:center; gap:6px;">
-                                    <span>🧰</span> Staff & Technician App Login Summary
+                                    <span>🧰</span> Repair Technicians (Shop Floor Specialists)
                                 </div>
-                                <div style="font-size:12px; color:#64748b; margin-top:3px; display:flex; flex-wrap:wrap; align-items:center; gap:6px;">
-                                    <span>Effective Allowed: <strong style="color:#0f172a;">${s.effective_max_staff || 0} Logins</strong></span> &bull; 
-                                    <span>Active Staff Logins: <strong style="color:#2563eb;">${s.technicians_with_login_count || 0}</strong></span> &bull; 
-                                    <span>Total Technicians: <strong style="color:#0f172a;">${(s.technicians || []).length}</strong></span>
-                                    ${(s.technicians_with_login_count || 0) >= (s.effective_max_staff || 0) && (s.effective_max_staff || 0) > 0 ? '<span class="badge badge-inactive">Quota Full</span>' : ''}
-                                    ${s.custom_staff_valid_until ? (new Date(s.custom_staff_valid_until) < new Date() ? '<span class="badge" style="background:#fee2e2; color:#b91c1c; font-weight:700;">🔴 Staff Expired</span>' : `<span class="badge" style="background:#e0e7ff; color:#3730a3; font-weight:700;">⏱️ Valid until ${new Date(s.custom_staff_valid_until).toLocaleDateString()}</span>`) : ''}
+                                <div style="font-size:12px; color:#64748b; margin-top:3px;">
+                                    <span>Total Technicians: <strong style="color:#0f172a;">${(s.technicians || []).length}</strong></span> &bull; 
+                                    <span style="color:#059669; font-weight:600;">Unlimited & Free (For assigning repair tickets, earnings & payouts)</span>
                                 </div>
                             </div>
-                            <button type="button" class="btn-sm" style="background:#4f46e5; color:white; border-color:#4f46e5; padding:6px 14px; font-weight:600;" onclick="openCustomStaffModal(${s.id}, '${s.name ? s.name.replace(/'/g, "\\'") : ''}', ${s.custom_max_staff !== null && s.custom_max_staff !== undefined ? s.custom_max_staff : "''"}, '${s.custom_staff_valid_until || ''}', '${s.custom_staff_note ? s.custom_staff_note.replace(/'/g, "\\'") : ''}')">
-                                ⚙️ Adjust Staff Limit
-                            </button>
                         </div>
 
                         ${(s.technicians || []).length === 0 ? `
@@ -1543,64 +1652,42 @@
                                 <table style="width:100%; border-collapse:collapse; font-size:12px; text-align:left;">
                                     <thead>
                                         <tr style="background:#f8fafc; border-bottom:1px solid #e2e8f0; color:#475569; font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">
-                                            <th style="padding:10px 12px; white-space:nowrap;">Technician</th>
+                                            <th style="padding:10px 12px; white-space:nowrap;">Technician Name</th>
                                             <th style="padding:10px 12px; white-space:nowrap;">Contact Phone</th>
-                                            <th style="padding:10px 12px; text-align:center; white-space:nowrap;">App Login Status</th>
-                                            <th style="padding:10px 12px; white-space:nowrap;">Staff Login ID & Password</th>
-                                            <th style="padding:10px 12px; min-width:140px;">Module Permissions</th>
-                                            <th style="padding:10px 12px; text-align:right; white-space:nowrap;">Repairs / Profit</th>
+                                            <th style="padding:10px 12px; white-space:nowrap;">Specialization</th>
+                                            <th style="padding:10px 12px; text-align:right; white-space:nowrap;">Repairs Count</th>
+                                            <th style="padding:10px 12px; text-align:right; white-space:nowrap;">Total Earnings</th>
+                                            <th style="padding:10px 12px; text-align:right; white-space:nowrap;">Total Paid</th>
                                             <th style="padding:10px 12px; text-align:center; white-space:nowrap;">Status</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        ${(s.technicians || []).map((t, idx) => {
-                                            const p = t.permissions || {};
-                                            const permBadges = [];
-                                            if (p.repairs !== false) permBadges.push('<span style="display:inline-block; font-size:10.5px; padding:2px 6px; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; border-radius:4px; margin:1px;">🔧 Repairs</span>');
-                                            if (p.sales) permBadges.push('<span style="display:inline-block; font-size:10.5px; padding:2px 6px; background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; border-radius:4px; margin:1px;">🛒 Sales</span>');
-                                            if (p.purchases) permBadges.push('<span style="display:inline-block; font-size:10.5px; padding:2px 6px; background:#f0fdfa; color:#0f766e; border:1px solid #99f6e4; border-radius:4px; margin:1px;">📦 Stock</span>');
-                                            if (p.used_mobiles) permBadges.push('<span style="display:inline-block; font-size:10.5px; padding:2px 6px; background:#faf5ff; color:#6b21a8; border:1px solid #e9d5ff; border-radius:4px; margin:1px;">📱 Used</span>');
-                                            if (p.customers) permBadges.push('<span style="display:inline-block; font-size:10.5px; padding:2px 6px; background:#fff7ed; color:#c2410c; border:1px solid #fed7aa; border-radius:4px; margin:1px;">👥 Customers</span>');
-
-                                            return `
+                                        ${(s.technicians || []).map((t) => `
                                             <tr style="border-bottom:1px solid #f1f5f9; transition:background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
                                                 <td style="padding:10px 12px; vertical-align:top;">
                                                     <strong style="color:#0f172a; font-size:13px;">${t.name}</strong>
-                                                    ${t.specialization ? `<div style="color:#64748b; font-size:11px; margin-top:2px;">🔧 ${t.specialization}</div>` : ''}
                                                     <div style="color:#94a3b8; font-size:10.5px; margin-top:3px;">Added: ${t.created_at ? new Date(t.created_at).toLocaleDateString() : 'N/A'}</div>
                                                 </td>
                                                 <td style="padding:10px 12px; vertical-align:top; white-space:nowrap;">
                                                     <a href="tel:${t.mobile}" style="color:#2563eb; text-decoration:none; font-weight:600;">📞 ${t.mobile || '—'}</a>
                                                 </td>
-                                                <td style="padding:10px 12px; vertical-align:top; text-align:center; white-space:nowrap;">
-                                                    ${t.has_login 
-                                                        ? (s.effective_max_staff <= 0
-                                                            ? '<span class="badge" style="background:#fee2e2; color:#b91c1c; font-size:11px; padding:3px 8px; font-weight:700;">🔴 Staff Expired</span>' 
-                                                            : '<span class="badge badge-active" style="background:#10b981; color:white; font-size:11px; padding:3px 8px;">🟢 Login Active</span>')
-                                                        : '<span class="badge" style="background:#f1f5f9; color:#64748b; font-size:11px; padding:3px 8px;">⚪ No App Login</span>'}
-                                                </td>
-                                                <td style="padding:10px 12px; vertical-align:top;">
-                                                    ${t.has_login ? `
-                                                        <div style="font-weight:600; color:#0f172a;">📱 ID: <span style="font-family:monospace;">${t.login_mobile || t.mobile}</span></div>
-                                                        <div style="margin-top:4px; display:flex; align-items:center; gap:6px;">
-                                                            <span style="font-size:11px; color:#64748b;">PW:</span>
-                                                            <span style="font-family:monospace; background:#e0e7ff; color:#3730a3; padding:2px 7px; border:1px solid #c7d2fe; border-radius:4px; font-weight:700; font-size:11.5px; letter-spacing:0.5px;">${t.plain_password || '••••••••'}</span>
-                                                        </div>
-                                                    ` : '<span style="color:#94a3b8; font-size:12px;">—</span>'}
-                                                </td>
-                                                <td style="padding:10px 12px; vertical-align:top;">
-                                                    ${t.has_login ? (permBadges.length > 0 ? permBadges.join(' ') : '<span style="color:#94a3b8; font-size:11px;">Default</span>') : '<span style="color:#94a3b8;">—</span>'}
+                                                <td style="padding:10px 12px; vertical-align:top; white-space:nowrap;">
+                                                    <span class="badge badge-purple" style="font-size:11px; padding:3px 8px;">🔧 ${t.specialization || 'General Repair'}</span>
                                                 </td>
                                                 <td style="padding:10px 12px; vertical-align:top; text-align:right; white-space:nowrap;">
-                                                    <div style="font-weight:600; color:#0f172a;">${t.repairs_count || 0} jobs</div>
-                                                    <div style="color:#10b981; font-weight:700; font-size:11.5px; margin-top:2px;">₹${parseFloat(t.total_earnings || 0).toFixed(2)} profit</div>
+                                                    <strong>${t.repairs_count || 0} jobs</strong>
+                                                </td>
+                                                <td style="padding:10px 12px; vertical-align:top; text-align:right; white-space:nowrap; color:#059669; font-weight:700;">
+                                                    ₹${parseFloat(t.total_earnings || 0).toFixed(2)}
+                                                </td>
+                                                <td style="padding:10px 12px; vertical-align:top; text-align:right; white-space:nowrap; color:#2563eb; font-weight:600;">
+                                                    ₹${parseFloat(t.total_paid || 0).toFixed(2)}
                                                 </td>
                                                 <td style="padding:10px 12px; vertical-align:top; text-align:center; white-space:nowrap;">
                                                     <span class="badge ${t.is_active ? 'badge-active' : 'badge-inactive'}">${t.is_active ? 'Active' : 'Inactive'}</span>
                                                 </td>
                                             </tr>
-                                            `;
-                                        }).join('')}
+                                        `).join('')}
                                     </tbody>
                                 </table>
                             </div>
@@ -1745,7 +1832,7 @@
         }
 
         function switchShopTab(tab) {
-            const tabs = ['overview', 'technicians', 'sales', 'repairs', 'customers', 'inventory'];
+            const tabs = ['overview', 'staff', 'technicians', 'sales', 'repairs', 'customers', 'inventory'];
             tabs.forEach(t => {
                 const el = document.getElementById(`shop-tab-${t}`);
                 if (el) el.style.display = t === tab ? 'block' : 'none';
@@ -1773,33 +1860,104 @@
             }
         }
 
-        function openCustomStaffModal(shopId, shopName, currentMax, currentValidUntil, currentNote) {
-            openModal(`Custom Staff Limit — ${shopName}`, `
+        function openCustomStaffModal(shopId, shopName, effectiveMax = 0, currentCustomMax = '', currentValidUntil = '', currentNote = '', subExpiry = '', subStatus = 'trial') {
+            const hasCustom = (currentCustomMax !== '' && currentCustomMax !== null && currentCustomMax !== undefined);
+            const currentVal = hasCustom ? currentCustomMax : effectiveMax;
+            const expDateFormatted = subExpiry ? new Date(subExpiry).toISOString().split('T')[0] : '';
+
+            openModal(`⚙️ Set Staff Logins Limit — ${shopName}`, `
                 <form onsubmit="saveShopCustomStaff(event, ${shopId})">
-                    <p style="font-size:13px; color:#475569; margin-bottom:14px;">
-                        Configure custom staff/technician login allowance for <strong>${shopName}</strong>. This overrides their plan limit (e.g. grant 1 technician for a specific trial time or promotion).
-                    </p>
-                    <div class="form-group">
-                        <label>Custom Max Staff / Technician Logins</label>
-                        <input type="number" id="shop-custom-staff-max" class="form-control" value="${currentMax !== '' ? currentMax : ''}" placeholder="e.g. 1 or 2 (leave blank to clear override and use plan limit)" min="0" max="100">
-                        <small style="color:#64748b; font-size:11px;">Enter number of staff logins allowed. Leave empty to use plan default.</small>
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px; margin-bottom:14px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                            <div>
+                                <strong style="font-size:14px; color:#0f172a;">${shopName}</strong>
+                                <span style="font-size:11px; color:#64748b; margin-left:4px;">(Shop #${shopId})</span>
+                            </div>
+                            <span class="badge ${subStatus === 'active' ? 'badge-active' : 'badge-trial'}">
+                                ${subStatus.toUpperCase()}
+                            </span>
+                        </div>
+                        <div style="font-size:12px; color:#475569; margin-top:6px; display:flex; flex-wrap:wrap; gap:12px; align-items:center;">
+                            <div>Current Effective Limit: <strong style="color:#2563eb; font-size:13px;">${effectiveMax} Logins</strong></div>
+                            <div>Status: <strong>${hasCustom ? `<span style="color:#7c3aed;">Custom Override (${currentCustomMax})</span>` : '<span style="color:#64748b;">Plan Default</span>'}</strong></div>
+                            ${subExpiry ? `<div>Plan Expiry: <strong>${new Date(subExpiry).toLocaleDateString()}</strong></div>` : ''}
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label>Valid Until Date (Particular Time / Expiry)</label>
+
+                    <div class="form-group" style="margin-bottom:14px;">
+                        <label style="font-weight:700; color:#1e293b; display:flex; justify-content:space-between; align-items:center;">
+                            <span>Total Allowed Staff App Logins</span>
+                            <span style="font-size:11px; color:#64748b; font-weight:normal;">Technicians are unlimited & free</span>
+                        </label>
+                        
+                        <!-- Quick Increment Buttons -->
+                        <div style="display:flex; gap:6px; flex-wrap:wrap; margin:8px 0;">
+                            <span style="font-size:11px; color:#64748b; align-self:center; margin-right:2px;">Quick Adjust:</span>
+                            <button type="button" class="btn-sm" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-weight:700;" onclick="incrementStaffMax(1)">+1 Staff</button>
+                            <button type="button" class="btn-sm" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-weight:700;" onclick="incrementStaffMax(2)">+2 Staff</button>
+                            <button type="button" class="btn-sm" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-weight:700;" onclick="incrementStaffMax(5)">+5 Staff</button>
+                            <button type="button" class="btn-sm" style="background:#f1f5f9; color:#334155; border:1px solid #cbd5e1;" onclick="setStaffMaxVal(2)">Set 2</button>
+                            <button type="button" class="btn-sm" style="background:#f1f5f9; color:#334155; border:1px solid #cbd5e1;" onclick="setStaffMaxVal(5)">Set 5</button>
+                            <button type="button" class="btn-sm" style="background:#f1f5f9; color:#334155; border:1px solid #cbd5e1;" onclick="setStaffMaxVal(10)">Set 10</button>
+                        </div>
+
+                        <input type="number" id="shop-custom-staff-max" class="form-control" value="${currentVal}" placeholder="Enter staff logins limit (e.g. 2, 3, 5...)" min="0" max="100" style="font-size:15px; font-weight:700; padding:10px 12px;" required>
+                        <small style="color:#64748b; font-size:11.5px; margin-top:3px; display:block;">Enter the new total number of staff members this shop is allowed to create app logins for.</small>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:14px;">
+                        <label style="font-weight:700; color:#1e293b;">Valid Until Date (Override Expiry)</label>
+                        
+                        <!-- Quick Expiry Buttons -->
+                        <div style="display:flex; gap:6px; flex-wrap:wrap; margin:6px 0;">
+                            <span style="font-size:11px; color:#64748b; align-self:center; margin-right:2px;">Presets:</span>
+                            ${expDateFormatted ? `<button type="button" class="btn-sm" style="background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; font-weight:600;" onclick="setStaffDateVal('${expDateFormatted}')">Match Plan Expiry</button>` : ''}
+                            <button type="button" class="btn-sm" style="background:#f8fafc; color:#475569; border:1px solid #cbd5e1;" onclick="setStaffDateFromDays(30)">+30 Days</button>
+                            <button type="button" class="btn-sm" style="background:#f8fafc; color:#475569; border:1px solid #cbd5e1;" onclick="setStaffDateFromDays(90)">+90 Days</button>
+                            <button type="button" class="btn-sm" style="background:#f8fafc; color:#475569; border:1px solid #cbd5e1;" onclick="setStaffDateFromDays(365)">+1 Year</button>
+                            <button type="button" class="btn-sm" style="background:#f8fafc; color:#475569; border:1px solid #cbd5e1;" onclick="setStaffDateVal('')">Indefinite (No Expiry)</button>
+                        </div>
+
                         <input type="date" id="shop-custom-staff-date" class="form-control" value="${currentValidUntil || ''}">
-                        <small style="color:#64748b; font-size:11px;">Optional. Leave blank for indefinite. Once this date passes, it automatically falls back to their plan limit!</small>
+                        <small style="color:#64748b; font-size:11.5px; margin-top:3px; display:block;">Optional. Leave blank for indefinite. When this date passes, staff limit automatically reverts to their plan limit!</small>
                     </div>
-                    <div class="form-group">
-                        <label>Admin Note / Reason</label>
-                        <input type="text" id="shop-custom-staff-note" class="form-control" value="${currentNote || ''}" placeholder="e.g. Festival offer, 1 technician trial for 1 month">
+
+                    <div class="form-group" style="margin-bottom:18px;">
+                        <label style="font-weight:700; color:#1e293b;">Admin Note / Reason</label>
+                        <input type="text" id="shop-custom-staff-note" class="form-control" value="${currentNote || ''}" placeholder="e.g. Purchased 2 staff logins, Diwali promo, special request">
                     </div>
-                    <div style="margin-top:20px; display:flex; gap:10px;">
-                        <button type="submit" class="btn-primary" style="flex:1;">Save Staff Limit</button>
-                        <button type="button" class="btn-sm" style="background:#fee2e2; color:#b91c1c; border-color:#fca5a5;" onclick="clearShopCustomStaff(${shopId})">Clear Override (Use Plan)</button>
-                        <button type="button" class="btn-sm" onclick="closeModal()">Cancel</button>
+
+                    <div style="display:flex; gap:10px; flex-wrap:wrap; border-top:1px solid #e2e8f0; padding-top:14px;">
+                        <button type="submit" class="btn-primary" style="flex:2; padding:10px 18px; font-weight:700;">💾 Save Staff Limit</button>
+                        <button type="button" class="btn-sm" style="background:#fee2e2; color:#b91c1c; border-color:#fca5a5; padding:10px 14px;" onclick="clearShopCustomStaff(${shopId})" title="Revert to base subscription plan limit">🔄 Clear Override</button>
+                        <button type="button" class="btn-sm" style="padding:10px 14px;" onclick="closeModal()">Cancel</button>
                     </div>
                 </form>
             `);
+        }
+
+        function incrementStaffMax(delta) {
+            const el = document.getElementById('shop-custom-staff-max');
+            if (el) {
+                const current = parseInt(el.value) || 0;
+                el.value = Math.max(0, current + delta);
+            }
+        }
+
+        function setStaffMaxVal(val) {
+            const el = document.getElementById('shop-custom-staff-max');
+            if (el) el.value = val;
+        }
+
+        function setStaffDateVal(dateStr) {
+            const el = document.getElementById('shop-custom-staff-date');
+            if (el) el.value = dateStr;
+        }
+
+        function setStaffDateFromDays(days) {
+            const d = new Date();
+            d.setDate(d.getDate() + days);
+            setStaffDateVal(d.toISOString().split('T')[0]);
         }
 
         async function saveShopCustomStaff(e, shopId) {
@@ -1819,6 +1977,10 @@
                 alert('Shop staff limit updated successfully!');
                 closeModal();
                 loadShopsView();
+                // If shop details modal was also open, refresh it
+                if (document.getElementById('shop-tab-overview')) {
+                    openShopDetails(shopId);
+                }
             } else {
                 alert(res.message || 'Failed to update shop staff limit');
             }
@@ -1835,8 +1997,204 @@
                 alert('Custom override cleared. Shop will now follow their subscription plan limit.');
                 closeModal();
                 loadShopsView();
+                if (document.getElementById('shop-tab-overview')) {
+                    openShopDetails(shopId);
+                }
             } else {
                 alert(res.message || 'Failed to clear override');
+            }
+        }
+
+        function openAdminAddStaffModal(shopId, shopName) {
+            openModal(`➕ Add Staff Member — ${shopName}`, `
+                <form onsubmit="saveAdminStaff(event, ${shopId})">
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label style="font-weight:600;">Full Name *</label>
+                        <input type="text" id="admin-staff-name" class="form-control" required placeholder="e.g. Ramesh Kumar">
+                    </div>
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label style="font-weight:600;">Mobile Number (App Login ID) *</label>
+                        <input type="tel" id="admin-staff-mobile" class="form-control" required placeholder="10-digit mobile number" maxlength="10">
+                    </div>
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label style="font-weight:600;">Login Password *</label>
+                        <input type="text" id="admin-staff-password" class="form-control" required placeholder="At least 4 characters" minlength="4">
+                    </div>
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label style="font-weight:600;">Designation / Role Title</label>
+                        <input type="text" id="admin-staff-designation" class="form-control" placeholder="e.g. Sales Executive, Cashier, Manager" value="Sales Executive">
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
+                        <div class="form-group">
+                            <label style="font-weight:600;">Salary (₹/mo)</label>
+                            <input type="number" id="admin-staff-salary" class="form-control" placeholder="e.g. 15000">
+                        </div>
+                        <div class="form-group">
+                            <label style="font-weight:600;">Joining Date</label>
+                            <input type="date" id="admin-staff-joining" class="form-control">
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label style="font-weight:600;">Email (Optional)</label>
+                        <input type="email" id="admin-staff-email" class="form-control" placeholder="staff@example.com">
+                    </div>
+                    <div class="form-group" style="margin-bottom:14px;">
+                        <label style="font-weight:600;">Module Access Permissions</label>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:4px; font-size:12px; background:#f8fafc; padding:10px; border-radius:8px; border:1px solid #e2e8f0;">
+                            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" id="admin-perm-sales" checked> 🛒 Sales</label>
+                            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" id="admin-perm-repairs" checked> 🔧 Repairs</label>
+                            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" id="admin-perm-stock"> 📦 Stock</label>
+                            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" id="admin-perm-expenses"> 💸 Expenses</label>
+                            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" id="admin-perm-used"> 📱 Used Mobiles</label>
+                            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" id="admin-perm-customers" checked> 👥 Customers</label>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:10px; margin-top:16px;">
+                        <button type="submit" class="btn-primary" style="flex:1;">Create Staff Member</button>
+                        <button type="button" class="btn-sm" onclick="closeModal()">Cancel</button>
+                    </div>
+                </form>
+            `);
+        }
+
+        async function saveAdminStaff(e, shopId) {
+            e.preventDefault();
+            const body = {
+                name: document.getElementById('admin-staff-name').value.trim(),
+                mobile: document.getElementById('admin-staff-mobile').value.trim(),
+                password: document.getElementById('admin-staff-password').value.trim(),
+                designation: document.getElementById('admin-staff-designation').value.trim(),
+                salary: document.getElementById('admin-staff-salary').value ? parseFloat(document.getElementById('admin-staff-salary').value) : null,
+                joining_date: document.getElementById('admin-staff-joining').value || null,
+                email: document.getElementById('admin-staff-email').value.trim() || null,
+                is_active: true,
+                permissions: {
+                    sales: document.getElementById('admin-perm-sales').checked,
+                    repairs: document.getElementById('admin-perm-repairs').checked,
+                    purchases: document.getElementById('admin-perm-stock').checked,
+                    expenses: document.getElementById('admin-perm-expenses').checked,
+                    used_mobiles: document.getElementById('admin-perm-used').checked,
+                    customers: document.getElementById('admin-perm-customers').checked,
+                }
+            };
+
+            const res = await apiFetch(`/shops/${shopId}/staff`, 'POST', body);
+            if (res && res.success) {
+                alert('Staff member created successfully!');
+                closeModal();
+                openShopDetails(shopId);
+                loadShopsView();
+            } else {
+                alert(res.message || 'Failed to create staff member');
+            }
+        }
+
+        function openAdminEditStaffModal(shopId, staff) {
+            const p = staff.permissions || {};
+            openModal(`✏️ Edit Staff — ${staff.name}`, `
+                <form onsubmit="saveAdminEditStaff(event, ${shopId}, ${staff.id})">
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label style="font-weight:600;">Full Name *</label>
+                        <input type="text" id="edit-staff-name" class="form-control" required value="${staff.name || ''}">
+                    </div>
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label style="font-weight:600;">Mobile Number (App Login ID) *</label>
+                        <input type="tel" id="edit-staff-mobile" class="form-control" required value="${staff.mobile || ''}" maxlength="10">
+                    </div>
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label style="font-weight:600;">Change Password (Leave blank to keep)</label>
+                        <input type="text" id="edit-staff-password" class="form-control" placeholder="Leave empty to keep current password" minlength="4">
+                    </div>
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label style="font-weight:600;">Designation / Role Title</label>
+                        <input type="text" id="edit-staff-designation" class="form-control" value="${staff.designation || 'Staff'}">
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
+                        <div class="form-group">
+                            <label style="font-weight:600;">Salary (₹/mo)</label>
+                            <input type="number" id="edit-staff-salary" class="form-control" value="${staff.salary !== null && staff.salary !== undefined ? staff.salary : ''}">
+                        </div>
+                        <div class="form-group">
+                            <label style="font-weight:600;">Joining Date</label>
+                            <input type="date" id="edit-staff-joining" class="form-control" value="${staff.joining_date || ''}">
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label style="font-weight:600;">Email (Optional)</label>
+                        <input type="email" id="edit-staff-email" class="form-control" value="${staff.email || ''}">
+                    </div>
+                    <div class="form-group" style="margin-bottom:14px;">
+                        <label style="font-weight:600;">Module Access Permissions</label>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:4px; font-size:12px; background:#f8fafc; padding:10px; border-radius:8px; border:1px solid #e2e8f0;">
+                            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" id="edit-perm-sales" ${p.sales ? 'checked' : ''}> 🛒 Sales</label>
+                            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" id="edit-perm-repairs" ${p.repairs ? 'checked' : ''}> 🔧 Repairs</label>
+                            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" id="edit-perm-stock" ${p.stock || p.purchases ? 'checked' : ''}> 📦 Stock</label>
+                            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" id="edit-perm-expenses" ${p.expenses ? 'checked' : ''}> 💸 Expenses</label>
+                            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" id="edit-perm-used" ${p.used_mobiles ? 'checked' : ''}> 📱 Used Mobiles</label>
+                            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" id="edit-perm-customers" ${p.customers ? 'checked' : ''}> 👥 Customers</label>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:10px; margin-top:16px;">
+                        <button type="submit" class="btn-primary" style="flex:1;">Save Changes</button>
+                        <button type="button" class="btn-sm" onclick="closeModal()">Cancel</button>
+                    </div>
+                </form>
+            `);
+        }
+
+        async function saveAdminEditStaff(e, shopId, staffId) {
+            e.preventDefault();
+            const pwd = document.getElementById('edit-staff-password').value.trim();
+            const body = {
+                name: document.getElementById('edit-staff-name').value.trim(),
+                mobile: document.getElementById('edit-staff-mobile').value.trim(),
+                designation: document.getElementById('edit-staff-designation').value.trim(),
+                salary: document.getElementById('edit-staff-salary').value ? parseFloat(document.getElementById('edit-staff-salary').value) : null,
+                joining_date: document.getElementById('edit-staff-joining').value || null,
+                email: document.getElementById('edit-staff-email').value.trim() || null,
+                permissions: {
+                    sales: document.getElementById('edit-perm-sales').checked,
+                    repairs: document.getElementById('edit-perm-repairs').checked,
+                    purchases: document.getElementById('edit-perm-stock').checked,
+                    expenses: document.getElementById('edit-perm-expenses').checked,
+                    used_mobiles: document.getElementById('edit-perm-used').checked,
+                    customers: document.getElementById('edit-perm-customers').checked,
+                }
+            };
+            if (pwd.length > 0) {
+                body.password = pwd;
+            }
+
+            const res = await apiFetch(`/shops/${shopId}/staff/${staffId}`, 'PUT', body);
+            if (res && res.success) {
+                alert('Staff member updated successfully!');
+                closeModal();
+                openShopDetails(shopId);
+                loadShopsView();
+            } else {
+                alert(res.message || 'Failed to update staff member');
+            }
+        }
+
+        async function adminToggleStaffStatus(shopId, staffId) {
+            const res = await apiFetch(`/shops/${shopId}/staff/${staffId}/toggle-status`, 'POST');
+            if (res && res.success) {
+                openShopDetails(shopId);
+                loadShopsView();
+            } else {
+                alert(res.message || 'Failed to toggle staff status');
+            }
+        }
+
+        async function adminDeleteStaff(shopId, staffId, staffName) {
+            if (!confirm(`Are you sure you want to delete staff member "${staffName}"? This will permanently delete their account and revoke app login.`)) return;
+            const res = await apiFetch(`/shops/${shopId}/staff/${staffId}`, 'DELETE');
+            if (res && res.success) {
+                alert('Staff member deleted successfully.');
+                openShopDetails(shopId);
+                loadShopsView();
+            } else {
+                alert(res.message || 'Failed to delete staff member');
             }
         }
 
@@ -2393,11 +2751,11 @@
                     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
                         <div style="flex:1; min-width:280px;">
                             <h3 style="margin:0 0 6px 0; font-size:16px; color:#1e293b; display:flex; align-items:center; gap:8px;">
-                                <span>👥</span> Staff & Technician Add-on Daily Rate
+                                <span>👥</span> Staff Logins Add-on Daily Rate
                             </h3>
                             <p style="margin:0; font-size:13px; color:#64748b; line-height:1.4;">
-                                Rate charged to shop owners per technician per remaining day of their active subscription.
-                                <br><small style="color:#2563eb;">Formula: Remaining Plan Days × Daily Rate × Added Staff = Add-on Amount</small>
+                                Rate charged to shop owners per staff login account per remaining day of their active subscription. (Technicians are free).
+                                <br><small style="color:#2563eb;">Formula: Remaining Plan Days × Daily Rate × Added Staff Logins = Add-on Amount</small>
                             </p>
                         </div>
                         <form onsubmit="saveStaffAddonDailyRate(event)" style="display:flex; align-items:center; gap:10px; background:white; padding:10px 14px; border-radius:10px; border:1px solid #cbd5e1; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
@@ -2630,9 +2988,9 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Max Staff / Technician Logins Included</label>
+                        <label>Max Staff Logins Included (Technicians Free)</label>
                         <input type="number" id="new-plan-max-staff" class="form-control" value="0" min="0">
-                        <small style="color:#64748b; font-size:11px;">0 = Solo Owner only, 1 = 1 Staff login, 2 = 2 Staff logins, 5 = Up to 5 staff</small>
+                        <small style="color:#64748b; font-size:11px;">0 = Solo Owner only, 1 = 1 Staff login, 2 = 2 Staff logins. Technicians are unlimited & free.</small>
                     </div>
                     <div class="form-group">
                         <label>Sort Order</label>
@@ -2687,9 +3045,9 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Max Staff / Technician Logins Included</label>
+                        <label>Max Staff Logins Included (Technicians Free)</label>
                         <input type="number" id="edit-plan-max-staff" class="form-control" value="${maxStaff}" min="0">
-                        <small style="color:#64748b; font-size:11px;">0 = Solo Owner only, 1 = 1 Staff login, 2 = 2 Staff logins, 5 = Up to 5 staff</small>
+                        <small style="color:#64748b; font-size:11px;">0 = Solo Owner only, 1 = 1 Staff login, 2 = 2 Staff logins. Technicians are unlimited & free.</small>
                     </div>
                     <div class="form-group">
                         <label>Sort Order</label>

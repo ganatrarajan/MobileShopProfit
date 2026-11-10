@@ -11,6 +11,7 @@ use App\Models\PushNotification;
 use App\Models\Repair;
 use App\Models\Sale;
 use App\Models\Shop;
+use App\Models\Staff;
 use App\Models\Technician;
 use App\Models\TechnicianPayment;
 use App\Models\User;
@@ -19,6 +20,7 @@ use App\Traits\ApiResponse;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 
 class AdminShopController extends Controller
 {
@@ -33,7 +35,7 @@ class AdminShopController extends Controller
             ->withCount([
                 'technicians',
                 'users as staff_logins_count' => function ($q) {
-                    $q->where('role', '!=', 'owner');
+                    $q->where('role', 'staff');
                 }
             ]);
 
@@ -98,25 +100,18 @@ class AdminShopController extends Controller
         $shopData['devices_count'] = $devicesCount;
         $shopData['inventory_items_count'] = $inventoryCount;
 
-        // Fetch technicians and their app login details for this shop
+        // Fetch repair technicians for this shop (repair specialist metrics only, no logins)
         $technicians = Technician::withoutGlobalScope('shop')
             ->where('shop_id', $id)
-            ->with('user')
             ->orderByDesc('id')
             ->get()
             ->map(function ($tech) {
-                $user = $tech->user;
                 return [
                     'id' => $tech->id,
                     'name' => $tech->name,
                     'mobile' => $tech->mobile,
                     'specialization' => $tech->specialization,
                     'is_active' => (bool) $tech->is_active,
-                    'has_login' => (bool) ($tech->user_id && $user),
-                    'login_mobile' => $user ? ($user->mobile ?: $user->phone) : null,
-                    'plain_password' => $user ? $user->plain_password : null,
-                    'role' => $user ? $user->role : null,
-                    'permissions' => $user ? ($user->permissions ?: ['repairs' => true]) : null,
                     'created_at' => $tech->created_at ? $tech->created_at->toIso8601String() : null,
                     'repairs_count' => Repair::withoutGlobalScope('shop')->where('technician_id', $tech->id)->count(),
                     'total_earnings' => (float) Repair::withoutGlobalScope('shop')->where('technician_id', $tech->id)->sum('technician_earning'),
@@ -126,29 +121,65 @@ class AdminShopController extends Controller
 
         $shopData['technicians'] = $technicians;
         $shopData['technicians_count'] = $technicians->count();
-        $shopData['technicians_with_login_count'] = $technicians->where('has_login', true)->count();
 
-        // Also fetch any staff accounts in this shop (in case some staff aren't linked to technician record)
-        $allStaffUsers = User::where('shop_id', $id)
-            ->where('role', '!=', 'owner')
-            ->with('technician')
+        // Fetch staff members (app login accounts with role, credentials, and permissions)
+        $staffMembers = Staff::withoutGlobalScope('shop')
+            ->where('shop_id', $id)
+            ->with('user')
             ->orderByDesc('id')
             ->get()
-            ->map(function ($staff) {
+            ->map(function ($st) {
+                $user = $st->user;
                 return [
-                    'id' => $staff->id,
-                    'name' => $staff->name,
-                    'mobile' => $staff->mobile ?: $staff->phone,
-                    'role' => $staff->role,
-                    'plain_password' => $staff->plain_password,
-                    'permissions' => $staff->permissions,
-                    'is_technician' => (bool) $staff->technician,
-                    'technician_id' => $staff->technician ? $staff->technician->id : null,
-                    'created_at' => $staff->created_at ? $staff->created_at->toIso8601String() : null,
+                    'id' => $st->id,
+                    'user_id' => $st->user_id,
+                    'name' => $st->name,
+                    'mobile' => $st->mobile,
+                    'email' => $st->email,
+                    'designation' => $st->designation,
+                    'salary' => $st->salary !== null ? (float) $st->salary : null,
+                    'salary_type' => $st->salary_type ?: 'monthly',
+                    'address' => $st->address,
+                    'joining_date' => $st->joining_date ? Carbon::parse($st->joining_date)->format('Y-m-d') : null,
+                    'is_active' => (bool) $st->is_active,
+                    'login_mobile' => $user ? ($user->mobile ?: $user->phone) : $st->mobile,
+                    'plain_password' => $user ? $user->plain_password : null,
+                    'permissions' => $st->permissions ?: ($user ? $user->permissions : []),
+                    'created_at' => $st->created_at ? $st->created_at->toIso8601String() : null,
                 ];
             });
-        $shopData['all_staff_users'] = $allStaffUsers;
-        $shopData['staff_logins_count'] = $allStaffUsers->count();
+
+        // Also check if there are legacy staff Users in this shop without Staff row
+        $existingStaffUserIds = $staffMembers->pluck('user_id')->filter()->toArray();
+        $standaloneStaffUsers = User::where('shop_id', $id)
+            ->where('role', 'staff')
+            ->whereNotIn('id', $existingStaffUserIds)
+            ->get()
+            ->map(function ($u) {
+                return [
+                    'id' => null,
+                    'user_id' => $u->id,
+                    'name' => $u->name,
+                    'mobile' => $u->mobile ?: $u->phone,
+                    'email' => $u->email,
+                    'designation' => 'Staff',
+                    'salary' => null,
+                    'salary_type' => 'monthly',
+                    'address' => null,
+                    'joining_date' => null,
+                    'is_active' => true,
+                    'login_mobile' => $u->mobile ?: $u->phone,
+                    'plain_password' => $u->plain_password,
+                    'permissions' => $u->permissions ?: [],
+                    'created_at' => $u->created_at ? $u->created_at->toIso8601String() : null,
+                ];
+            });
+
+        $allStaff = $staffMembers->concat($standaloneStaffUsers)->values();
+        $shopData['staff'] = $allStaff;
+        $shopData['staff_count'] = $allStaff->count();
+        $shopData['staff_logins_count'] = User::where('shop_id', $id)->where('role', 'staff')->count();
+        $shopData['all_staff_users'] = $allStaff;
 
         // Fetch recent records for deep-dive tabs
         $shopData['recent_sales'] = Sale::withoutGlobalScope('shop')
@@ -240,10 +271,24 @@ class AdminShopController extends Controller
         }
 
         $oldLimit = $shop->custom_max_staff;
+
+        $customMaxStaff = $request->input('custom_max_staff');
+        if ($customMaxStaff !== null && $customMaxStaff !== '') {
+            $customMaxStaff = (int) $customMaxStaff;
+        } else {
+            $customMaxStaff = null;
+        }
+
+        $validUntil = $request->input('custom_staff_valid_until');
+        $validUntil = !empty($validUntil) ? Carbon::parse($validUntil)->format('Y-m-d') : null;
+
+        $note = $request->input('custom_staff_note');
+        $note = !empty($note) ? trim($note) : null;
+
         $shop->update([
-            'custom_max_staff'         => $request->filled('custom_max_staff') ? (int) $request->custom_max_staff : ($request->has('custom_max_staff') ? null : $shop->custom_max_staff),
-            'custom_staff_valid_until' => $request->custom_staff_valid_until ?: null,
-            'custom_staff_note'        => $request->custom_staff_note ?: null,
+            'custom_max_staff'         => $customMaxStaff,
+            'custom_staff_valid_until' => $validUntil,
+            'custom_staff_note'        => $note,
         ]);
 
         // Audit Log
@@ -252,11 +297,214 @@ class AdminShopController extends Controller
             'action'      => 'UPDATE_SHOP_STAFF_LIMIT',
             'target_type' => 'Shop',
             'target_id'   => $shop->id,
-            'details'     => "Updated shop #{$shop->id} ({$shop->name}) staff limit from " . ($oldLimit ?? 'plan') . " to " . ($shop->custom_max_staff ?? 'plan') . ". Valid until: " . ($shop->custom_staff_valid_until ?? 'Indefinite') . ". Note: " . ($shop->custom_staff_note ?? 'None'),
+            'details'     => "Updated shop #{$shop->id} ({$shop->name}) staff limit from " . ($oldLimit ?? 'plan') . " to " . ($customMaxStaff ?? 'plan') . ". Valid until: " . ($validUntil ?? 'Indefinite') . ". Note: " . ($note ?? 'None'),
             'ip_address'  => $request->ip(),
         ]);
 
         return $this->successResponse($shop->fresh(['user', 'latestSubscription.plan']), 'Shop staff limit updated successfully');
+    }
+
+    /**
+     * Create a staff member for a specific shop directly from Admin Panel.
+     */
+    public function addStaff(Request $request, $id): JsonResponse
+    {
+        $shop = Shop::find($id);
+        if (!$shop) {
+            return $this->errorResponse('Shop not found', 404);
+        }
+
+        $validated = $request->validate([
+            'name'         => 'required|string|max:100',
+            'mobile'       => 'required|string|max:20',
+            'password'     => 'required|string|min:4',
+            'designation'  => 'nullable|string|max:100',
+            'salary'       => 'nullable|numeric|min:0',
+            'email'        => 'nullable|email|max:150',
+            'address'      => 'nullable|string|max:255',
+            'joining_date' => 'nullable|date',
+            'is_active'    => 'nullable|boolean',
+            'permissions'  => 'nullable|array',
+        ]);
+
+        // Check if mobile already exists
+        if (User::where('mobile', $validated['mobile'])->orWhere('phone', $validated['mobile'])->exists()) {
+            return $this->errorResponse('A user account with this mobile number already exists.', 422);
+        }
+
+        $defaultPerms = [
+            'sales'        => true,
+            'repairs'      => true,
+            'purchases'    => false,
+            'expenses'     => false,
+            'used_mobiles' => false,
+            'customers'    => true,
+        ];
+
+        $perms = $validated['permissions'] ?? $defaultPerms;
+
+        $staffUser = User::create([
+            'name'           => $validated['name'],
+            'mobile'         => $validated['mobile'],
+            'phone'          => $validated['mobile'],
+            'email'          => $validated['email'] ?? null,
+            'password'       => Hash::make($validated['password']),
+            'plain_password' => $validated['password'],
+            'role'           => 'staff',
+            'permissions'    => $perms,
+            'shop_id'        => $shop->id,
+        ]);
+
+        $staff = Staff::create([
+            'shop_id'      => $shop->id,
+            'user_id'      => $staffUser->id,
+            'name'         => $validated['name'],
+            'mobile'       => $validated['mobile'],
+            'email'        => $validated['email'] ?? null,
+            'designation'  => $validated['designation'] ?? 'Staff',
+            'salary'       => $validated['salary'] ?? null,
+            'salary_type'  => 'monthly',
+            'address'      => $validated['address'] ?? null,
+            'joining_date' => $validated['joining_date'] ?? null,
+            'permissions'  => $perms,
+            'is_active'    => $validated['is_active'] ?? true,
+        ]);
+
+        AdminAuditLog::create([
+            'admin_id'    => $request->user()->id,
+            'action'      => 'ADMIN_CREATE_STAFF',
+            'target_type' => 'Staff',
+            'target_id'   => $staff->id,
+            'details'     => "Admin created staff #{$staff->id} ({$staff->name}, {$staff->mobile}) for shop #{$shop->id} ({$shop->name})",
+            'ip_address'  => $request->ip(),
+        ]);
+
+        return $this->successResponse($staff, 'Staff member created successfully');
+    }
+
+    /**
+     * Update a staff member for a specific shop from Admin Panel.
+     */
+    public function updateStaff(Request $request, $id, $staffId): JsonResponse
+    {
+        $shop = Shop::find($id);
+        if (!$shop) {
+            return $this->errorResponse('Shop not found', 404);
+        }
+
+        $staff = Staff::withoutGlobalScope('shop')->where('shop_id', $id)->find($staffId);
+        if (!$staff) {
+            return $this->errorResponse('Staff record not found', 404);
+        }
+
+        $validated = $request->validate([
+            'name'         => 'sometimes|required|string|max:100',
+            'mobile'       => 'sometimes|required|string|max:20',
+            'password'     => 'nullable|string|min:4',
+            'designation'  => 'nullable|string|max:100',
+            'salary'       => 'nullable|numeric|min:0',
+            'email'        => 'nullable|email|max:150',
+            'address'      => 'nullable|string|max:255',
+            'joining_date' => 'nullable|date',
+            'is_active'    => 'nullable|boolean',
+            'permissions'  => 'nullable|array',
+        ]);
+
+        $user = $staff->user ?: User::find($staff->user_id);
+
+        if (isset($validated['mobile']) && $validated['mobile'] !== $staff->mobile) {
+            $mobileExists = User::where(function ($q) use ($validated) {
+                $q->where('mobile', $validated['mobile'])->orWhere('phone', $validated['mobile']);
+            })->when($user, fn($q) => $q->where('id', '!=', $user->id))->exists();
+
+            if ($mobileExists) {
+                return $this->errorResponse('A user account with this mobile number already exists.', 422);
+            }
+        }
+
+        $staff->fill(array_filter([
+            'name'         => $validated['name'] ?? $staff->name,
+            'mobile'       => $validated['mobile'] ?? $staff->mobile,
+            'email'        => array_key_exists('email', $validated) ? $validated['email'] : $staff->email,
+            'designation'  => array_key_exists('designation', $validated) ? $validated['designation'] : $staff->designation,
+            'salary'       => array_key_exists('salary', $validated) ? $validated['salary'] : $staff->salary,
+            'address'      => array_key_exists('address', $validated) ? $validated['address'] : $staff->address,
+            'joining_date' => array_key_exists('joining_date', $validated) ? $validated['joining_date'] : $staff->joining_date,
+            'is_active'    => array_key_exists('is_active', $validated) ? $validated['is_active'] : $staff->is_active,
+            'permissions'  => $validated['permissions'] ?? $staff->permissions,
+        ], fn($v) => !is_null($v)));
+        $staff->save();
+
+        if ($user) {
+            $user->name = $staff->name;
+            $user->mobile = $staff->mobile;
+            $user->phone = $staff->mobile;
+            if (array_key_exists('email', $validated)) {
+                $user->email = $validated['email'];
+            }
+            if (!empty($validated['password'])) {
+                $user->password = Hash::make($validated['password']);
+                $user->plain_password = $validated['password'];
+            }
+            if (isset($validated['permissions'])) {
+                $user->permissions = $validated['permissions'];
+            }
+            $user->save();
+        }
+
+        return $this->successResponse($staff, 'Staff member updated successfully');
+    }
+
+    /**
+     * Delete a staff member from Admin Panel.
+     */
+    public function deleteStaff(Request $request, $id, $staffId): JsonResponse
+    {
+        $staff = Staff::withoutGlobalScope('shop')->where('shop_id', $id)->find($staffId);
+        if (!$staff) {
+            return $this->errorResponse('Staff record not found', 404);
+        }
+
+        $user = $staff->user ?: User::find($staff->user_id);
+        if ($user) {
+            $user->tokens()->delete();
+            $user->delete();
+        }
+
+        $staffName = $staff->name;
+        $staff->delete();
+
+        AdminAuditLog::create([
+            'admin_id'    => $request->user()->id,
+            'action'      => 'ADMIN_DELETE_STAFF',
+            'target_type' => 'Staff',
+            'target_id'   => $staffId,
+            'details'     => "Admin deleted staff {$staffName} (#{$staffId}) from shop #{$id}",
+            'ip_address'  => $request->ip(),
+        ]);
+
+        return $this->successResponse(null, 'Staff member deleted successfully');
+    }
+
+    /**
+     * Toggle staff status (active / inactive) from Admin Panel.
+     */
+    public function toggleStaffStatus(Request $request, $id, $staffId): JsonResponse
+    {
+        $staff = Staff::withoutGlobalScope('shop')->where('shop_id', $id)->find($staffId);
+        if (!$staff) {
+            return $this->errorResponse('Staff record not found', 404);
+        }
+
+        $staff->is_active = !$staff->is_active;
+        $staff->save();
+
+        $user = $staff->user ?: User::find($staff->user_id);
+        if ($user && !$staff->is_active) {
+            $user->tokens()->delete();
+        }
+
+        return $this->successResponse($staff, 'Staff status toggled successfully');
     }
 
     /**

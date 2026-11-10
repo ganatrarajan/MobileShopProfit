@@ -39,6 +39,7 @@ use App\Http\Controllers\Api\V1\SaleController;
 use App\Http\Controllers\Api\V1\SalePaymentController;
 use App\Http\Controllers\Api\V1\ShopController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
+use App\Http\Controllers\Api\V1\StaffController;
 use App\Http\Controllers\Api\V1\TechnicianController;
 use App\Http\Controllers\Api\V1\TechnicianPaymentController;
 use App\Http\Controllers\Api\V1\UsedMobileController;
@@ -100,6 +101,10 @@ Route::prefix('v1')->group(function () {
         Route::get('/shops/{id}', [AdminShopController::class, 'show']);
         Route::post('/shops/{id}/toggle-status', [AdminShopController::class, 'toggleStatus']);
         Route::post('/shops/{id}/staff-limit', [AdminShopController::class, 'updateStaffLimit']);
+        Route::post('/shops/{id}/staff', [AdminShopController::class, 'addStaff']);
+        Route::put('/shops/{id}/staff/{staffId}', [AdminShopController::class, 'updateStaff']);
+        Route::delete('/shops/{id}/staff/{staffId}', [AdminShopController::class, 'deleteStaff']);
+        Route::post('/shops/{id}/staff/{staffId}/toggle-status', [AdminShopController::class, 'toggleStaffStatus']);
         Route::post('/shops/{id}/custom-pricing', [AdminShopController::class, 'updateCustomPricing']);
         Route::post('/shops/bulk-custom-pricing', [AdminShopController::class, 'applyBulkDiscount']);
         Route::post('/shops/bulk-clear-pricing', [AdminShopController::class, 'clearBulkDiscount']);
@@ -297,6 +302,9 @@ Route::prefix('v1')->group(function () {
         Route::post('/technician-payments', [TechnicianPaymentController::class, 'store']);
         Route::delete('/technician-payments/{payment}', [TechnicianPaymentController::class, 'destroy']);
         Route::delete('/technicians/{technician}/payments/{payment}', [TechnicianPaymentController::class, 'destroy']);
+
+        // Staff Module
+        Route::apiResource('staff', StaffController::class);
 
         // Reports Module
         Route::get('/reports/sales', [ReportController::class, 'sales']);
