@@ -55,6 +55,9 @@ import '../../features/sales/presentation/sales_list_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/shop/presentation/shop_profile_screen.dart';
 import '../../features/shop/presentation/shop_setup_screen.dart';
+import '../../features/staff/models/staff.dart';
+import '../../features/staff/presentation/staff_details_screen.dart';
+import '../../features/staff/presentation/staff_list_screen.dart';
 import '../../features/subscription/presentation/subscription_screen.dart';
 import '../../features/technician/models/technician.dart';
 import '../../features/technician/presentation/technician_details_screen.dart';
@@ -64,7 +67,6 @@ import '../../features/warranty/presentation/create_warranty_screen.dart';
 import '../../features/warranty/presentation/warranty_claim_list_screen.dart';
 import '../../features/warranty/presentation/warranty_details_screen.dart';
 import '../../features/warranty/presentation/warranty_list_screen.dart';
-
 import '../../features/used_mobile/models/used_mobile.dart';
 import '../../features/used_mobile/presentation/buy_used_mobile_screen.dart';
 import '../../features/used_mobile/presentation/used_mobile_details_screen.dart';
@@ -85,6 +87,9 @@ class AppRoutes {
   static const String shopProfile = '/shop-profile';
   static const String settings = '/settings';
   static const String subscription = '/subscription';
+
+  static const String staff = '/staff';
+  static const String staffDetails = '/staff-details';
 
   static const String customers = '/customers';
   static const String addCustomer = '/add-customer';
@@ -178,6 +183,13 @@ class AppRoutes {
         return MaterialPageRoute(settings: settings, builder: (_) => const SettingsScreen());
       case subscription:
         return MaterialPageRoute(settings: settings, builder: (_) => const SubscriptionScreen());
+
+      case staff:
+        return MaterialPageRoute(settings: settings, builder: (_) => const StaffListScreen());
+      case staffDetails:
+        final staffMember = settings.arguments as Staff;
+        return MaterialPageRoute(settings: settings, builder: (_) => StaffDetailsScreen(staff: staffMember));
+
       case customers:
         return MaterialPageRoute(settings: settings, builder: (_) => const CustomerListScreen());
       case addCustomer:
@@ -237,7 +249,7 @@ class AppRoutes {
       case warrantyClaims:
         return MaterialPageRoute(settings: settings, builder: (_) => const WarrantyClaimListScreen());
 
-            case purchases:
+      case purchases:
         return MaterialPageRoute(settings: settings, builder: (_) => const PurchaseListScreen());
       case addPurchase:
         return MaterialPageRoute(settings: settings, builder: (_) => const AddPurchaseScreen());
@@ -318,10 +330,3 @@ class AppRoutes {
     }
   }
 }
-
-
-
-
-
-
-

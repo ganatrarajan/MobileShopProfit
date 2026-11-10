@@ -160,60 +160,6 @@ class _TechnicianListScreenState extends State<TechnicianListScreen> {
             ),
           ),
 
-          // Staff login quota indicator
-          if (_summary != null)
-            Container(
-              color: AppColors.primary,
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: () => Navigator.pushNamed(context, AppRoutes.subscription),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.key_rounded, size: 13, color: Colors.white),
-                          const SizedBox(width: 5),
-                          Text(
-                            'Staff Logins: ${_summary!.staffAccountsUsed}/${_summary!.maxStaffAllowed}',
-                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: _summary!.isStaffExpired
-                                  ? Colors.redAccent.withOpacity(0.45)
-                                  : (_summary!.maxStaffAllowed > _summary!.staffAccountsUsed
-                                      ? Colors.greenAccent.withOpacity(0.3)
-                                      : Colors.amberAccent.withOpacity(0.35)),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              _summary!.isStaffExpired
-                                  ? 'Staff Expired'
-                                  : (_summary!.staffDaysRemaining > 0
-                                      ? '${_summary!.staffDaysRemaining}d Left'
-                                      : (_summary!.maxStaffAllowed > _summary!.staffAccountsUsed ? 'Active' : 'Upgrade Plan')),
-                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
           // 2. Search Field
           Container(
             color: AppColors.primary,
@@ -382,32 +328,6 @@ class _TechnicianListScreenState extends State<TechnicianListScreen> {
                                                           ),
                                                         ),
                                                       ),
-                                                      if (tech.hasLogin) ...[
-                                                        const SizedBox(width: 6),
-                                                        Container(
-                                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                          decoration: BoxDecoration(
-                                                            color: AppColors.primary.withOpacity(0.1),
-                                                            borderRadius: BorderRadius.circular(12),
-                                                            border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-                                                          ),
-                                                          child: const Row(
-                                                            mainAxisSize: MainAxisSize.min,
-                                                            children: [
-                                                              Icon(Icons.key_rounded, size: 10, color: AppColors.primary),
-                                                              SizedBox(width: 3),
-                                                              Text(
-                                                                'Login',
-                                                                style: TextStyle(
-                                                                  fontSize: 10,
-                                                                  fontWeight: FontWeight.bold,
-                                                                  color: AppColors.primary,
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                      ],
                                                     ],
                                                   ),
                                                   const SizedBox(height: 2),
@@ -427,23 +347,6 @@ class _TechnicianListScreenState extends State<TechnicianListScreen> {
                                                           tech.mobile!,
                                                           style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
                                                         ),
-                                                      ],
-                                                    ),
-                                                  ],
-                                                  if (tech.hasLogin && tech.permissions.isNotEmpty) ...[
-                                                    const SizedBox(height: 4),
-                                                    Wrap(
-                                                      spacing: 4,
-                                                      runSpacing: 4,
-                                                      children: [
-                                                        if (tech.permissions['repairs'] == true)
-                                                          _buildPermTag('Repairs', Colors.blue),
-                                                        if (tech.permissions['sales'] == true)
-                                                          _buildPermTag('Sales', Colors.green),
-                                                        if (tech.permissions['purchases'] == true)
-                                                          _buildPermTag('Stock', Colors.teal),
-                                                        if (tech.permissions['used_mobiles'] == true)
-                                                          _buildPermTag('Used', Colors.purple),
                                                       ],
                                                     ),
                                                   ],
@@ -528,21 +431,6 @@ class _TechnicianListScreenState extends State<TechnicianListScreen> {
             maxLines: 1,
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildPermTag(String text, MaterialColor color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.shade50,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.shade200, width: 0.8),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: color.shade800),
       ),
     );
   }

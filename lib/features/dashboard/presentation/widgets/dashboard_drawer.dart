@@ -101,10 +101,19 @@ class DashboardDrawer extends StatelessWidget {
             onTap: () => _navigateToTab(context, 1, AppRoutes.repairs),
           ),
           ListTile(
+            leading: const Icon(Icons.engineering_rounded, color: Colors.deepOrange),
+            title: const Text('Technicians', style: textStyle),
+            subtitle: const Text('Repair jobs & technician payouts', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, AppRoutes.technicians);
+            },
+          ),
+          ListTile(
             leading: const Icon(Icons.badge_rounded, color: Color(0xFF6366F1)),
             title: Row(
               children: [
-                const Text('Staff & Technicians', style: textStyle),
+                const Text('Staff Members', style: textStyle),
                 const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -113,10 +122,10 @@ class DashboardDrawer extends StatelessWidget {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: const Text(
-                    'NEW',
+                    'LOGIN',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 9.5,
+                      fontSize: 9.0,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 0.5,
                     ),
@@ -124,10 +133,10 @@ class DashboardDrawer extends StatelessWidget {
                 ),
               ],
             ),
-            subtitle: const Text('App logins & permissions', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+            subtitle: const Text('App logins & module permissions', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
             onTap: () {
               Navigator.pop(context);
-              Navigator.pushNamed(context, AppRoutes.technicians);
+              Navigator.pushNamed(context, AppRoutes.staff);
             },
           ),
           ListTile(

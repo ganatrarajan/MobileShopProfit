@@ -50,7 +50,6 @@ class DashboardScreenState extends State<DashboardScreen> {
   ProfitIntelligenceData? _profitAiData;
   bool _hasShownExpiryDialog = false;
   bool _hasShownDiscountDialog = false;
-  bool _isStaffSpotlightDismissed = false;
 
   String _storedShopName = '';
   String _storedOwnerName = '';
@@ -493,12 +492,6 @@ class DashboardScreenState extends State<DashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Feature Spotlight: Multi-Staff & Technician Logins (Prominently at the TOP)
-                        if (!_isStaffSpotlightDismissed) ...[
-                          _buildStaffFeatureSpotlightCard(),
-                          const SizedBox(height: 16),
-                        ],
-
                         // Subscription Expiry Highlight Card
                         if (_dashboardData!.daysRemaining <= 10 || _dashboardData!.isExpiringSoon)
                           _buildSubscriptionHighlightCard(_dashboardData!.daysRemaining),
@@ -584,157 +577,7 @@ class DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildStaffFeatureSpotlightCard() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1B4B).withOpacity(0.4) : const Color(0xFFEEF2FF),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark ? const Color(0xFF4338CA).withOpacity(0.5) : const Color(0xFFC7D2FE),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF6366F1).withOpacity(0.08),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF6366F1).withOpacity(0.3),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: const Icon(Icons.badge_rounded, color: Colors.white, size: 20),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            'Multi-Staff & Tech Logins',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14,
-                              color: isDark ? Colors.white : const Color(0xFF1E1B4B),
-                              letterSpacing: -0.2,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF4F46E5),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Text(
-                            'NEW',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      'Give technicians their own app logins with custom access permissions (Repairs, Sales, Stock) & track commissions automatically.',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        height: 1.35,
-                        color: isDark ? const Color(0xFFC7D2FE) : const Color(0xFF475569),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 6),
-              InkWell(
-                onTap: () {
-                  setState(() {
-                    _isStaffSpotlightDismissed = true;
-                  });
-                },
-                borderRadius: BorderRadius.circular(16),
-                child: Padding(
-                  padding: const EdgeInsets.all(4.0),
-                  child: Icon(
-                    Icons.close_rounded,
-                    size: 18,
-                    color: isDark ? Colors.white60 : Colors.grey.shade500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: InkWell(
-              onTap: () => NavUtils.pushNamed(context, AppRoutes.technicians),
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF4F46E5),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Setup Staff Logins',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(width: 4),
-                    Icon(Icons.arrow_forward_rounded, size: 14, color: Colors.white),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   // TOP USP BANNER: Profit AI Business Assistant
   Widget _buildTopProfitAiBanner() {
@@ -1908,7 +1751,11 @@ class DashboardScreenState extends State<DashboardScreen> {
             if (ok && mounted) NavUtils.pushNamed(context, AppRoutes.addExpense);
           }),
           const SizedBox(width: 8),
-          _buildActionTile('Staff & Techs', Icons.badge_rounded, const Color(0xFF6366F1), () {
+          _buildActionTile('Staff Members', Icons.badge_rounded, const Color(0xFF6366F1), () {
+            NavUtils.pushNamed(context, AppRoutes.staff);
+          }),
+          const SizedBox(width: 8),
+          _buildActionTile('Technicians', Icons.build_circle_rounded, const Color(0xFF0EA5E9), () {
             NavUtils.pushNamed(context, AppRoutes.technicians);
           }),
         ],
@@ -1966,11 +1813,18 @@ class DashboardScreenState extends State<DashboardScreen> {
     return Column(
       children: [
         _buildModuleCard(
-          title: 'Staff & Technicians',
-          desc: 'Staff app logins, role permissions, repair assignments & commission',
+          title: 'Staff Members',
+          desc: 'Staff app logins & module permissions',
           icon: Icons.badge_rounded,
           color: const Color(0xFF6366F1),
-          isNew: true,
+          onTap: () => NavUtils.pushNamed(context, AppRoutes.staff),
+        ),
+        const SizedBox(height: 10),
+        _buildModuleCard(
+          title: 'Repair Technicians',
+          desc: 'Technician repair tickets, earnings & payouts',
+          icon: Icons.build_circle_rounded,
+          color: const Color(0xFF0EA5E9),
           onTap: () => NavUtils.pushNamed(context, AppRoutes.technicians),
         ),
         const SizedBox(height: 10),

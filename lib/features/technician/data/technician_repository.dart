@@ -10,11 +10,6 @@ class TechnicianSummary {
   final int inProgressJobs;
   final int pendingJobs;
   final int completedJobs;
-  final int staffAccountsUsed;
-  final int maxStaffAllowed;
-  final String? staffValidUntil;
-  final int staffDaysRemaining;
-  final bool isStaffExpired;
 
   TechnicianSummary({
     required this.totalTechnicians,
@@ -22,11 +17,6 @@ class TechnicianSummary {
     required this.inProgressJobs,
     required this.pendingJobs,
     required this.completedJobs,
-    this.staffAccountsUsed = 0,
-    this.maxStaffAllowed = 0,
-    this.staffValidUntil,
-    this.staffDaysRemaining = 0,
-    this.isStaffExpired = false,
   });
 
   factory TechnicianSummary.fromJson(Map<String, dynamic> json) {
@@ -43,11 +33,6 @@ class TechnicianSummary {
       inProgressJobs: parseInt(json['in_progress_jobs']),
       pendingJobs: parseInt(json['pending_jobs']),
       completedJobs: parseInt(json['completed_jobs']),
-      staffAccountsUsed: parseInt(json['staff_accounts_used']),
-      maxStaffAllowed: parseInt(json['max_staff_allowed']),
-      staffValidUntil: json['staff_valid_until']?.toString(),
-      staffDaysRemaining: parseInt(json['staff_days_remaining']),
-      isStaffExpired: json['is_staff_expired'] == true,
     );
   }
 }
@@ -122,18 +107,12 @@ class TechnicianRepository {
     String? mobile,
     String? specialization,
     bool isActive = true,
-    bool enableLogin = false,
-    String? password,
-    Map<String, bool>? permissions,
   }) async {
     final body = <String, dynamic>{
       'name': name,
       if (mobile != null && mobile.isNotEmpty) 'mobile': mobile,
       if (specialization != null && specialization.isNotEmpty) 'specialization': specialization,
       'is_active': isActive,
-      'enable_login': enableLogin,
-      if (password != null && password.isNotEmpty) 'password': password,
-      if (permissions != null) 'permissions': permissions,
     };
 
     final response = await _apiClient.post(ApiEndpoints.technicians, body: body);
@@ -193,18 +172,12 @@ class TechnicianRepository {
     String? mobile,
     String? specialization,
     bool? isActive,
-    bool? enableLogin,
-    String? password,
-    Map<String, bool>? permissions,
   }) async {
     final body = <String, dynamic>{
       if (name != null) 'name': name,
       if (mobile != null) 'mobile': mobile,
       if (specialization != null) 'specialization': specialization,
       if (isActive != null) 'is_active': isActive,
-      if (enableLogin != null) 'enable_login': enableLogin,
-      if (password != null && password.isNotEmpty) 'password': password,
-      if (permissions != null) 'permissions': permissions,
     };
 
     final response = await _apiClient.put('${ApiEndpoints.technicians}/$id', body: body);
@@ -296,10 +269,12 @@ class TechnicianRepository {
 
   /// Get logged-in technician's own work & profit summary
   Future<ApiResponse<TechnicianWorkSummaryData>> getMyWorkSummary({
+    int? technicianId,
     String? month,
     String? status,
   }) async {
     final queryParams = <String, String>{
+      if (technicianId != null) 'technician_id': technicianId.toString(),
       if (month != null && month.isNotEmpty) 'month': month,
       if (status != null && status.isNotEmpty && status != 'all') 'status': status,
     };

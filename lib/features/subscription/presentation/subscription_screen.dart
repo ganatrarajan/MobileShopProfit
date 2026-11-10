@@ -667,7 +667,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Add Staff / Technician Logins',
+                      'Add Staff Member Logins',
                       style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1033,28 +1033,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         return Map<String, dynamic>.from(item);
       }).toList();
 
-      final int staffPlansCount = parsedPlans.where((p) {
-        final staff = int.tryParse(p['max_staff_accounts']?.toString() ?? '0') ?? 0;
-        return staff > 0;
-      }).length;
-
-      final int soloPlansCount = parsedPlans.where((p) {
+      // Base plans: Solo Owner plans (staff logins are added via ₹2/day add-on)
+      final List<Map<String, dynamic>> filteredPlans = parsedPlans.where((p) {
         final staff = int.tryParse(p['max_staff_accounts']?.toString() ?? '0') ?? 0;
         return staff == 0;
-      }).length;
-
-      List<Map<String, dynamic>> filteredPlans = parsedPlans;
-      if (_planFilter == 'staff') {
-        filteredPlans = parsedPlans.where((p) {
-          final staff = int.tryParse(p['max_staff_accounts']?.toString() ?? '0') ?? 0;
-          return staff > 0;
-        }).toList();
-      } else if (_planFilter == 'solo') {
-        filteredPlans = parsedPlans.where((p) {
-          final staff = int.tryParse(p['max_staff_accounts']?.toString() ?? '0') ?? 0;
-          return staff == 0;
-        }).toList();
-      }
+      }).toList();
 
       final bool hasCustomDiscount = _statusData?['has_custom_discount'] == true;
       final bool isOneTimeDiscount = _statusData?['custom_discount_is_one_time'] == true;
@@ -1131,29 +1114,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               ),
             ),
 
-          // Filter Chips
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildPlanFilterChip(
-                  label: 'All Plans (${parsedPlans.length})',
-                  key: 'all',
-                ),
-                const SizedBox(width: 8),
-                _buildPlanFilterChip(
-                  label: '👥 With Staff Logins ($staffPlansCount)',
-                  key: 'staff',
-                ),
-                const SizedBox(width: 8),
-                _buildPlanFilterChip(
-                  label: '👤 Solo Owner ($soloPlansCount)',
-                  key: 'solo',
-                ),
-              ],
-            ),
+          const Text(
+            'Choose Subscription Plan',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
 
           ...filteredPlans.map((p) {
             final dynamic rawId = p['id'];

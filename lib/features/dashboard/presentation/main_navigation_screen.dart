@@ -135,13 +135,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           page: RepairListScreen(key: _repairListKey),
         ));
 
-        staffTabs.add(_NavTabItem(
-          id: 'my_work',
-          label: 'My Profit',
-          icon: const Icon(Icons.monetization_on_outlined),
-          activeIcon: const Icon(Icons.monetization_on_rounded),
-          page: const TechnicianMyWorkScreen(),
-        ));
+        if (user?['role'] == 'technician') {
+          staffTabs.add(_NavTabItem(
+            id: 'my_work',
+            label: 'My Profit',
+            icon: const Icon(Icons.monetization_on_outlined),
+            activeIcon: const Icon(Icons.monetization_on_rounded),
+            page: const TechnicianMyWorkScreen(),
+          ));
+        }
       }
 
       if (hasUsed) {

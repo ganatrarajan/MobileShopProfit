@@ -45,6 +45,7 @@ class _TechnicianMyWorkScreenState extends State<TechnicianMyWorkScreen> {
 
     try {
       final res = await _repository.getMyWorkSummary(
+        technicianId: widget.technicianId,
         month: _selectedMonth,
         status: _selectedStatus,
       );
