@@ -14,6 +14,9 @@ class PurchaseItem extends Model
         'purchase_id',
         'inventory_item_id',
         'quantity',
+        'imei1',
+        'imei2',
+        'serial_number',
         'purchase_rate',
         'total_amount',
     ];

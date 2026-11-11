@@ -35,7 +35,11 @@ class AdminShopController extends Controller
             ->withCount([
                 'technicians',
                 'users as staff_logins_count' => function ($q) {
-                    $q->where('role', 'staff');
+                    $q->where('role', 'staff')
+                      ->where(function ($sq) {
+                          $sq->whereDoesntHave('staff')
+                             ->orWhereHas('staff', fn($st) => $st->where('is_active', true));
+                      });
                 }
             ]);
 
@@ -178,7 +182,7 @@ class AdminShopController extends Controller
         $allStaff = $staffMembers->concat($standaloneStaffUsers)->values();
         $shopData['staff'] = $allStaff;
         $shopData['staff_count'] = $allStaff->count();
-        $shopData['staff_logins_count'] = User::where('shop_id', $id)->where('role', 'staff')->count();
+        $shopData['staff_logins_count'] = Staff::forShop($id)->where('is_active', true)->whereNotNull('user_id')->count();
         $shopData['all_staff_users'] = $allStaff;
 
         // Fetch recent records for deep-dive tabs

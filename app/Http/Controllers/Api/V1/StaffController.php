@@ -17,7 +17,7 @@ class StaffController extends Controller
     /**
      * Check how many staff accounts are allowed on this shop's subscription.
      */
-    protected function checkStaffLimit(int $shopId, ?int $ignoreUserId = null): array
+    protected function checkStaffLimit(int $shopId, ?int $ignoreStaffId = null): array
     {
         $shop = Shop::with('latestSubscription.plan')->find($shopId);
         $maxStaff = $shop ? $shop->effective_max_staff : 0;
@@ -35,11 +35,12 @@ class StaffController extends Controller
             }
         }
 
-        $query = User::where('shop_id', $shopId)
-            ->where('role', 'staff');
+        $query = Staff::forShop($shopId)
+            ->where('is_active', true)
+            ->whereNotNull('user_id');
 
-        if ($ignoreUserId) {
-            $query->where('id', '!=', $ignoreUserId);
+        if ($ignoreStaffId) {
+            $query->where('id', '!=', $ignoreStaffId);
         }
 
         $currentStaffCount = $query->count();
@@ -47,7 +48,7 @@ class StaffController extends Controller
         if ($currentStaffCount >= $maxStaff) {
             $msg = $maxStaff === 0
                 ? "Staff app login is not active for your shop. Please add staff logins (@ ₹2/day) to enable staff accounts."
-                : "Staff login limit reached ({$currentStaffCount}/{$maxStaff}). Your shop currently allows maximum {$maxStaff} staff account(s). Please add more staff logins (@ ₹2/day) to continue.";
+                : "Staff login limit reached ({$currentStaffCount}/{$maxStaff} active). Your shop currently allows maximum {$maxStaff} active staff login(s). Please deactivate another staff member's login or add more staff logins (@ ₹2/day) to activate login for this staff.";
 
             return [
                 'allowed'       => false,
@@ -104,7 +105,7 @@ class StaffController extends Controller
 
         $shop = Shop::with('latestSubscription.plan')->find($shopId);
         $maxStaff = $shop ? $shop->effective_max_staff : 0;
-        $staffLoginCount = User::where('shop_id', $shopId)->where('role', 'staff')->count();
+        $staffLoginCount = Staff::forShop($shopId)->where('is_active', true)->whereNotNull('user_id')->count();
 
         $staffDaysRemaining = 0;
         $staffValidUntil = null;
@@ -153,7 +154,6 @@ class StaffController extends Controller
                     'purchases'    => false,
                     'expenses'     => false,
                     'used_mobiles' => false,
-                    'customers'    => true,
                 ],
                 'created_at'     => $s->created_at?->toIso8601String(),
                 'updated_at'     => $s->updated_at?->toIso8601String(),
@@ -188,19 +188,24 @@ class StaffController extends Controller
             return response()->json(['success' => false, 'message' => 'No active shop associated with user.'], 400);
         }
 
-        // 1. Check shop staff subscription limit
-        $limitCheck = $this->checkStaffLimit($shopId);
-        if (!$limitCheck['allowed']) {
-            return response()->json([
-                'success' => false,
-                'message' => $limitCheck['message'],
-                'data'    => [
-                    'limit_reached'       => true,
-                    'current_staff_count' => $limitCheck['current_count'],
-                    'max_staff_allowed'   => $limitCheck['max_allowed'],
-                    'plan_name'           => $limitCheck['plan_name'],
-                ],
-            ], 422);
+        $isActive = filter_var($request->input('is_active', true), FILTER_VALIDATE_BOOLEAN);
+
+        // 1. Check shop staff subscription limit ONLY if creating an ACTIVE login
+        if ($isActive) {
+            $limitCheck = $this->checkStaffLimit($shopId);
+            if (!$limitCheck['allowed']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $limitCheck['message'],
+                    'code'    => 'STAFF_LIMIT_REACHED',
+                    'data'    => [
+                        'limit_reached'       => true,
+                        'current_staff_count' => $limitCheck['current_count'],
+                        'max_staff_allowed'   => $limitCheck['max_allowed'],
+                        'plan_name'           => $limitCheck['plan_name'],
+                    ],
+                ], 422);
+            }
         }
 
         // 2. Validate request
@@ -208,7 +213,7 @@ class StaffController extends Controller
             'name'         => 'required|string|max:100',
             'mobile'       => 'required|string|max:20',
             'email'        => 'nullable|email|max:100',
-            'password'     => 'required|string|min:4|max:50',
+            'password'     => $isActive ? 'required|string|min:4|max:50' : 'nullable|string|min:4|max:50',
             'designation'  => 'nullable|string|max:100',
             'salary'       => 'nullable|numeric|min:0',
             'joining_date' => 'nullable|date',
@@ -236,7 +241,7 @@ class StaffController extends Controller
             ], 422);
         }
 
-        $plainPassword = $validated['password'];
+        $plainPassword = !empty($validated['password']) ? $validated['password'] : '123456';
 
         $defaultPermissions = [
             'sales'        => true,
@@ -244,7 +249,6 @@ class StaffController extends Controller
             'purchases'    => false,
             'expenses'     => false,
             'used_mobiles' => false,
-            'customers'    => true,
         ];
         $permissions = isset($validated['permissions']) && is_array($validated['permissions'])
             ? array_merge($defaultPermissions, $validated['permissions'])
@@ -394,6 +398,26 @@ class StaffController extends Controller
             ], 422);
         }
 
+        $wantsActive = isset($validated['is_active']) ? (bool) $validated['is_active'] : (bool) $staff->is_active;
+
+        // If toggling from inactive to active, check quota!
+        if ($wantsActive && !$staff->is_active) {
+            $limitCheck = $this->checkStaffLimit($shopId, $staff->id);
+            if (!$limitCheck['allowed']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $limitCheck['message'],
+                    'code'    => 'STAFF_LIMIT_REACHED',
+                    'data'    => [
+                        'limit_reached'       => true,
+                        'current_staff_count' => $limitCheck['current_count'],
+                        'max_staff_allowed'   => $limitCheck['max_allowed'],
+                        'plan_name'           => $limitCheck['plan_name'],
+                    ],
+                ], 422);
+            }
+        }
+
         DB::transaction(function () use ($staff, $validated, $mobile) {
             $staff->name = $validated['name'];
             $staff->mobile = $mobile;
@@ -497,6 +521,63 @@ class StaffController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Staff member and associated login deleted successfully.',
+        ]);
+    }
+
+    /**
+     * Toggle the active status of a staff member directly from the list.
+     */
+    public function toggleStatus(Request $request, int $id): JsonResponse
+    {
+        $owner = $request->user();
+        $shopId = $owner->shop_id ?? $owner->shop?->id;
+
+        $staff = Staff::forShop($shopId)->with('user')->find($id);
+        if (!$staff) {
+            return response()->json(['success' => false, 'message' => 'Staff member not found.'], 404);
+        }
+
+        $wantsActive = !$staff->is_active;
+
+        if ($wantsActive) {
+            $limitCheck = $this->checkStaffLimit($shopId, $staff->id);
+            if (!$limitCheck['allowed']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $limitCheck['message'],
+                    'code'    => 'STAFF_LIMIT_REACHED',
+                    'data'    => [
+                        'limit_reached'       => true,
+                        'current_staff_count' => $limitCheck['current_count'],
+                        'max_staff_allowed'   => $limitCheck['max_allowed'],
+                        'plan_name'           => $limitCheck['plan_name'],
+                    ],
+                ], 422);
+            }
+        }
+
+        DB::transaction(function () use ($staff, $wantsActive) {
+            $staff->is_active = $wantsActive;
+            $staff->save();
+
+            if ($staff->user) {
+                // If deactivated, revoke all active sessions immediately
+                if (!$wantsActive) {
+                    $staff->user->tokens()->delete();
+                }
+            }
+        });
+
+        $statusText = $wantsActive ? 'activated' : 'deactivated';
+
+        return response()->json([
+            'success' => true,
+            'message' => "Staff login for {$staff->name} {$statusText} successfully.",
+            'data'    => [
+                'id'        => $staff->id,
+                'name'      => $staff->name,
+                'is_active' => (bool) $staff->is_active,
+            ],
         ]);
     }
 }

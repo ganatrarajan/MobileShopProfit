@@ -255,7 +255,7 @@ class AuthController extends Controller
             $staff = $user->staff;
             $tech = $user->technician;
             if ($staff && !$staff->is_active) {
-                return $this->errorResponse('Your staff account is currently deactivated by the shop owner.', 403);
+                return $this->errorResponse('Your staff app login is currently disabled by the shop owner because the active staff login limit has been reached. Please ask the shop owner to activate your login or upgrade the shop plan.', 403);
             }
             if (!$staff && $tech && !$tech->is_active) {
                 return $this->errorResponse('Your staff account is currently deactivated by the shop owner.', 403);

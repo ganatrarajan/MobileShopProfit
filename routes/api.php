@@ -304,6 +304,7 @@ Route::prefix('v1')->group(function () {
         Route::delete('/technicians/{technician}/payments/{payment}', [TechnicianPaymentController::class, 'destroy']);
 
         // Staff Module
+        Route::post('/staff/{id}/toggle-status', [StaffController::class, 'toggleStatus']);
         Route::apiResource('staff', StaffController::class);
 
         // Reports Module

@@ -207,7 +207,29 @@ class InventoryItemController extends Controller
             return response()->json(['message' => 'Inventory item not found.'], 404);
         }
 
-        $item->update($request->validated());
+        $validated = $request->validated();
+        $item->update($validated);
+
+        if (array_key_exists('imei1', $validated) || array_key_exists('imei2', $validated) || array_key_exists('serial_number', $validated)) {
+            $serial = $item->serials()->first();
+            if ($serial) {
+                $serialUpdates = [];
+                if (array_key_exists('imei1', $validated)) $serialUpdates['imei1'] = $validated['imei1'];
+                if (array_key_exists('imei2', $validated)) $serialUpdates['imei2'] = $validated['imei2'];
+                if (array_key_exists('serial_number', $validated)) $serialUpdates['serial_number'] = $validated['serial_number'];
+                $serial->update($serialUpdates);
+            } else if (!empty($validated['imei1']) || !empty($validated['serial_number'])) {
+                InventorySerial::create([
+                    'shop_id' => $shopId,
+                    'inventory_item_id' => $item->id,
+                    'imei1' => $validated['imei1'] ?? null,
+                    'imei2' => $validated['imei2'] ?? null,
+                    'serial_number' => $validated['serial_number'] ?? null,
+                    'status' => 'available',
+                ]);
+            }
+        }
+
         $item->load(['serials', 'stockMovements']);
 
         return response()->json([

@@ -147,6 +147,9 @@ class PurchaseController extends Controller
                     'inventory_item' => $invItem,
                     'inventory_item_id' => $invItem->id,
                     'quantity' => $qty,
+                    'imei1' => !empty($itemInput['imei1']) ? trim($itemInput['imei1']) : null,
+                    'imei2' => !empty($itemInput['imei2']) ? trim($itemInput['imei2']) : null,
+                    'serial_number' => !empty($itemInput['serial_number']) ? trim($itemInput['serial_number']) : null,
                     'purchase_rate' => $rate,
                     'total_amount' => $lineTotal,
                 ];
@@ -197,6 +200,9 @@ class PurchaseController extends Controller
                     'purchase_id' => $purchase->id,
                     'inventory_item_id' => $item['inventory_item_id'],
                     'quantity' => $item['quantity'],
+                    'imei1' => $item['imei1'],
+                    'imei2' => $item['imei2'],
+                    'serial_number' => $item['serial_number'],
                     'purchase_rate' => $item['purchase_rate'],
                     'total_amount' => $item['total_amount'],
                 ]);
@@ -234,6 +240,18 @@ class PurchaseController extends Controller
                         'reference_id' => $purchase->id,
                         'notes' => "Stock added from Purchase #{$purchase->purchase_number}",
                     ]);
+
+                    // Record serial / IMEI if provided
+                    if (!empty($item['imei1']) || !empty($item['imei2']) || !empty($item['serial_number'])) {
+                        \App\Models\InventorySerial::create([
+                            'shop_id' => $shopId,
+                            'inventory_item_id' => $invItem->id,
+                            'imei1' => $item['imei1'],
+                            'imei2' => $item['imei2'],
+                            'serial_number' => $item['serial_number'],
+                            'status' => 'available',
+                        ]);
+                    }
 
                     $invItem->recalculateStock();
                 }
@@ -386,7 +404,19 @@ class PurchaseController extends Controller
                             'reference_id' => $purchase->id,
                             'notes' => "Stock added from Purchase #{$purchase->purchase_number}",
                         ]);
-                        $invItem->recalculateStock();
+                        // Record serial / IMEI if provided
+                    if (!empty($item['imei1']) || !empty($item['imei2']) || !empty($item['serial_number'])) {
+                        \App\Models\InventorySerial::create([
+                            'shop_id' => $shopId,
+                            'inventory_item_id' => $invItem->id,
+                            'imei1' => $item['imei1'],
+                            'imei2' => $item['imei2'],
+                            'serial_number' => $item['serial_number'],
+                            'status' => 'available',
+                        ]);
+                    }
+
+                    $invItem->recalculateStock();
                     }
                 }
             }
@@ -516,6 +546,18 @@ class PurchaseController extends Controller
                         'reference_id' => $purchase->id,
                         'notes' => "Stock added from Purchase #{$purchase->purchase_number}",
                     ]);
+                    // Record serial / IMEI if provided
+                    if (!empty($item['imei1']) || !empty($item['imei2']) || !empty($item['serial_number'])) {
+                        \App\Models\InventorySerial::create([
+                            'shop_id' => $shopId,
+                            'inventory_item_id' => $invItem->id,
+                            'imei1' => $item['imei1'],
+                            'imei2' => $item['imei2'],
+                            'serial_number' => $item['serial_number'],
+                            'status' => 'available',
+                        ]);
+                    }
+
                     $invItem->recalculateStock();
                     $addedCount += $pItem->quantity;
                 }

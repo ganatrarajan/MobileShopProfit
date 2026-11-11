@@ -22,16 +22,10 @@ class StoreSaleRequest extends FormRequest
             'customer_id' => [
                 Rule::requiredIf(function () {
                     $saleType = $this->input('sale_type', 'regular');
-                    if ($saleType === 'regular') {
-                        return true;
+                    if ($saleType === 'quick') {
+                        return false;
                     }
-                    $items = $this->input('items', []);
-                    foreach ($items as $item) {
-                        if (($item['item_type'] ?? '') === 'mobile') {
-                            return true;
-                        }
-                    }
-                    return false;
+                    return true;
                 }),
                 'nullable',
                 'integer',

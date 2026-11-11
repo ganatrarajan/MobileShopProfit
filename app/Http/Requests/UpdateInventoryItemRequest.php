@@ -26,6 +26,9 @@ class UpdateInventoryItemRequest extends FormRequest
             'minimum_stock' => ['sometimes', 'integer', 'min:0'],
             'unit' => ['nullable', 'string', 'max:20'],
             'description' => ['nullable', 'string', 'max:1000'],
+            'imei1' => ['nullable', 'string', 'max:50'],
+            'imei2' => ['nullable', 'string', 'max:50'],
+            'serial_number' => ['nullable', 'string', 'max:50'],
             'is_active' => ['sometimes', 'boolean'],
         ];
     }

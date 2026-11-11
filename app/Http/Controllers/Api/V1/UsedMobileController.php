@@ -46,6 +46,7 @@ class UsedMobileController extends Controller
                   ->orWhere('model', 'like', "%{$search}%")
                   ->orWhere('imei1', 'like', "%{$search}%")
                   ->orWhere('imei2', 'like', "%{$search}%")
+                  ->orWhere('serial_number', 'like', "%{$search}%")
                   ->orWhere('seller_name', 'like', "%{$search}%")
                   ->orWhere('seller_phone', 'like', "%{$search}%")
                   ->orWhere('buyer_name', 'like', "%{$search}%")
