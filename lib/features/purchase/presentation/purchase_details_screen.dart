@@ -306,7 +306,25 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
                                 ..._purchase.items.map((item) {
                                   return TableRow(
                                     children: [
-                                      Padding(padding: const EdgeInsets.all(6), child: Text(item.itemName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))),
+                                      Padding(
+                                        padding: const EdgeInsets.all(6),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(item.itemName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                                            if (item.imei1 != null && item.imei1!.isNotEmpty)
+                                              Text(
+                                                'IMEI: ${item.imei1}${item.imei2 != null && item.imei2!.isNotEmpty ? ' / ${item.imei2}' : ''}',
+                                                style: const TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.w600),
+                                              ),
+                                            if (item.serialNumber != null && item.serialNumber!.isNotEmpty)
+                                              Text(
+                                                'S/N: ${item.serialNumber}',
+                                                style: const TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.w600),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
                                       Padding(padding: const EdgeInsets.all(6), child: Text('${item.quantity}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 12))),
                                       Padding(padding: const EdgeInsets.all(6), child: Text('\u20B9${item.purchaseRate.toStringAsFixed(2)}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 12))),
                                       Padding(padding: const EdgeInsets.all(6), child: Text('\u20B9${item.totalAmount.toStringAsFixed(2)}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),

@@ -55,7 +55,6 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
     if (_staff.permissions['purchases'] == true) activeModules.add('📦 Stock & Purchases');
     if (_staff.permissions['expenses'] == true) activeModules.add('💰 Expenses');
     if (_staff.permissions['used_mobiles'] == true) activeModules.add('📱 Used Mobiles');
-    if (_staff.permissions['customers'] == true) activeModules.add('👥 Customers');
 
     final msg = StringBuffer();
     msg.writeln('👋 Hello *${_staff.name}*,');
@@ -103,12 +102,16 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
         if (res.success) {
           AppFeedback.showSuccess(
             context,
-            title: 'Staff Deleted',
+            title: '🗑️ Staff Deleted',
             message: '${_staff.name} has been deleted successfully.',
           );
           Navigator.pop(context, true);
         } else {
-          AppFeedback.showError(context, error: res.message.isNotEmpty ? res.message : 'Failed to delete staff');
+          AppFeedback.showError(
+            context,
+            title: '❌ Delete Failed',
+            error: res.message.isNotEmpty ? res.message : 'Failed to delete staff',
+          );
         }
       }
     }
@@ -116,8 +119,137 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
 
   Future<void> _handleEdit() async {
     final updated = await AddEditStaffBottomSheet.show(context, staff: _staff);
-    if (updated == true) {
+    if (updated == true && mounted) {
+      AppFeedback.showSuccess(
+        context,
+        title: '⚡ Staff Updated',
+        message: '${_staff.name} updated successfully.',
+      );
       _refreshDetails();
+    }
+  }
+
+  Future<void> _handleToggleStatus() async {
+    final willActivate = !_staff.isActive;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: willActivate
+                    ? const Color(0xFFECFDF5)
+                    : const Color(0xFFFEF2F2),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                willActivate ? Icons.check_circle_outline_rounded : Icons.pause_circle_outline_rounded,
+                color: willActivate ? const Color(0xFF059669) : const Color(0xFFDC2626),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                willActivate ? 'Activate Staff Login?' : 'Deactivate Staff Login?',
+                style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              willActivate
+                  ? 'Are you sure you want to activate app login for ${_staff.name}?'
+                  : 'Are you sure you want to deactivate app login for ${_staff.name}?',
+              style: const TextStyle(fontSize: 13.5, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: willActivate ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: willActivate ? const Color(0xFFBBF7D0) : const Color(0xFFFECACA),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    willActivate ? Icons.info_outline_rounded : Icons.warning_amber_rounded,
+                    size: 16,
+                    color: willActivate ? const Color(0xFF166534) : const Color(0xFF991B1B),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      willActivate
+                          ? 'Staff will be able to sign in. Uses 1 active login slot.'
+                          : 'Staff cannot sign in. Frees up 1 active login slot.',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: willActivate ? const Color(0xFF166534) : const Color(0xFF991B1B),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: willActivate ? const Color(0xFF059669) : const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(willActivate ? 'Yes, Activate' : 'Yes, Deactivate'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final res = await _staffRepo.toggleStaffStatus(_staff.id);
+    if (!mounted) return;
+
+    if (res.success) {
+      AppFeedback.showSuccess(
+        context,
+        title: willActivate ? '⚡ Login Activated' : '⏸️ Login Deactivated',
+        message: res.message.isNotEmpty
+            ? res.message
+            : '${_staff.name}\'s login has been ${willActivate ? 'activated' : 'deactivated'}.',
+      );
+      _refreshDetails();
+    } else {
+      if (res.message.toLowerCase().contains('quota') ||
+          res.message.toLowerCase().contains('limit') ||
+          res.message.toLowerCase().contains('maximum')) {
+        StaffQuotaBottomSheet.show(context, message: res.message);
+      } else {
+        AppFeedback.showError(
+          context,
+          title: '❌ Status Change Failed',
+          error: res.message,
+        );
+      }
     }
   }
 
@@ -127,6 +259,14 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
       appBar: AppBar(
         title: Text(_staff.name),
         actions: [
+          IconButton(
+            icon: Icon(
+              _staff.isActive ? Icons.pause_circle_outline_rounded : Icons.play_circle_outline_rounded,
+              color: _staff.isActive ? Colors.amber.shade300 : Colors.greenAccent,
+            ),
+            tooltip: _staff.isActive ? 'Deactivate Login' : 'Activate Login',
+            onPressed: _handleToggleStatus,
+          ),
           IconButton(
             icon: const Icon(Icons.edit_outlined),
             tooltip: 'Edit Staff',
@@ -173,15 +313,26 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
                                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                                     ),
                                   ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: _staff.isActive ? const Color(0xFF10B981) : Colors.red.shade400,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      _staff.isActive ? 'Active' : 'Inactive',
-                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                                  InkWell(
+                                    onTap: _handleToggleStatus,
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: _staff.isActive ? const Color(0xFF10B981) : Colors.red.shade400,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            _staff.isActive ? 'Active' : 'Inactive',
+                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                                          ),
+                                          const SizedBox(width: 3),
+                                          const Icon(Icons.sync_rounded, size: 12, color: Colors.white),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -355,7 +506,6 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
                             _buildPermBadge('Purchases & Stock', _staff.canAccess('purchases'), Icons.inventory_2_outlined),
                             _buildPermBadge('Daily Expenses', _staff.canAccess('expenses'), Icons.receipt_long_outlined),
                             _buildPermBadge('Used Mobiles', _staff.canAccess('used_mobiles'), Icons.phone_android_outlined),
-                            _buildPermBadge('Customers', _staff.canAccess('customers'), Icons.people_outline),
                           ],
                         ),
                       ],

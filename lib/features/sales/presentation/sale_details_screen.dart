@@ -585,10 +585,14 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                           ),
                           child: Column(
                             children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              Wrap(
+                                alignment: WrapAlignment.spaceBetween,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 8,
+                                runSpacing: 6,
                                 children: [
                                   Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(
                                         Icons.monetization_on_rounded,
@@ -602,7 +606,10 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                                       ),
                                     ],
                                   ),
-                                  Row(
+                                  Wrap(
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    spacing: 6,
+                                    runSpacing: 4,
                                     children: [
                                       Text(
                                         _sale.amountPaid > 0 ? '+\u20B9 ${_sale.netProfit.toStringAsFixed(2)}' : '\u20B9 0.00',
@@ -612,8 +619,7 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                                           color: _sale.amountPaid > 0 ? const Color(0xFF059669) : AppColors.textMuted,
                                         ),
                                       ),
-                                      if (_sale.amountPaid > 0 && _sale.profitMarginPercent > 0) ...[
-                                        const SizedBox(width: 6),
+                                      if (_sale.amountPaid > 0 && _sale.profitMarginPercent > 0)
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                           decoration: BoxDecoration(
@@ -625,7 +631,6 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                                             style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
                                           ),
                                         ),
-                                      ],
                                     ],
                                   ),
                                 ],
@@ -637,10 +642,14 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    const Text(
-                                      'Expected Profit (Full Payment)',
-                                      style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                                    const Expanded(
+                                      child: Text(
+                                        'Expected Profit (Full Payment)',
+                                        style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
+                                    const SizedBox(width: 8),
                                     Text(
                                       '\u20B9 ${_sale.expectedNetProfit.toStringAsFixed(2)}',
                                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
@@ -774,8 +783,26 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(fontSize: fontSize, fontWeight: isBold ? FontWeight.bold : FontWeight.normal, color: color ?? AppColors.textPrimary)),
-          Text(value, style: TextStyle(fontSize: fontSize, fontWeight: isBold ? FontWeight.bold : FontWeight.normal, color: color ?? AppColors.textPrimary)),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: fontSize,
+                fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+                color: color ?? AppColors.textPrimary,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: fontSize,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+              color: color ?? AppColors.textPrimary,
+            ),
+          ),
         ],
       ),
     );

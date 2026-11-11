@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/utils/date_helper.dart';
 import '../../../../core/widgets/app_searchable_bottom_sheet.dart';
+import '../../../../core/widgets/barcode_scanner_screen.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/custom_text_field.dart';
 import '../../device/data/device_repository.dart';
@@ -71,6 +72,41 @@ class _BuyUsedMobileScreenState extends State<BuyUsedMobileScreen> {
   late final TextEditingController _purchaseNotesController;
 
   bool _isLoading = false;
+  bool _isScanning = false;
+
+  Future<void> _scanBoxTogether() async {
+    if (_isScanning) return;
+    _isScanning = true;
+    try {
+      final result = await BarcodeScannerScreen.scanBox(
+        context,
+        title: 'Auto-Scan Box / Phone',
+        instruction: 'Point at box sticker or *#06# screen to capture both IMEIs',
+      );
+      if (result != null && mounted) {
+        setState(() {
+          if (result.imei1 != null && ScannedBoxResult.isValidImei(result.imei1)) {
+            _imei1Controller.text = result.imei1!;
+          }
+          if (result.imei2 != null && ScannedBoxResult.isValidImei(result.imei2)) {
+            _imei2Controller.text = result.imei2!;
+          }
+          if (result.serialNumber != null && result.serialNumber!.isNotEmpty) {
+            _serialController.text = result.serialNumber!;
+          }
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✓ Both IMEIs and Serial populated from 1 scan!'),
+            duration: Duration(seconds: 2),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } finally {
+      _isScanning = false;
+    }
+  }
 
   final List<String> _idProofTypes = [
     'Aadhaar Card',
@@ -852,40 +888,88 @@ class _BuyUsedMobileScreenState extends State<BuyUsedMobileScreen> {
 
                     const SizedBox(height: 12),
 
+                    // Auto-scan box / phone shortcut
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Device IMEI Identifiers',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        InkWell(
+                          onTap: _scanBoxTogether,
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF10B981).withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFF10B981)),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.qr_code_scanner_rounded, size: 13, color: Color(0xFF10B981)),
+                                SizedBox(width: 4),
+                                Text(
+                                  '⚡ Auto-Scan Box',
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+
                     // Primary IMEI 1 (Optional)
                     CustomTextField(
                       controller: _imei1Controller,
                       label: 'Primary IMEI 1 (Optional)',
-                      hint: 'Dial *#06# on phone (Optional)',
+                      hint: 'Dial *#06# on phone or tap scanner',
                       prefixIcon: Icons.qr_code_2_rounded,
                       keyboardType: TextInputType.text,
                       isRequired: false,
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary),
+                        tooltip: 'Scan Box / Phone with camera',
+                        onPressed: _scanBoxTogether,
+                      ),
                     ),
                     const SizedBox(height: 12),
 
-                    // IMEI 2 & Serial Number
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: CustomTextField(
-                            controller: _imei2Controller,
-                            label: 'IMEI 2 (Optional)',
-                            hint: 'Secondary IMEI',
-                            prefixIcon: Icons.qr_code_rounded,
-                            keyboardType: TextInputType.number,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: CustomTextField(
-                            controller: _serialController,
-                            label: 'Serial No. (Optional)',
-                            hint: 'e.g. F2L...',
-                            prefixIcon: Icons.tag_rounded,
-                          ),
-                        ),
-                      ],
+                    // Secondary IMEI 2 (Full Width)
+                    CustomTextField(
+                      controller: _imei2Controller,
+                      label: 'Secondary IMEI 2 (Optional)',
+                      hint: 'Secondary 15-digit IMEI',
+                      prefixIcon: Icons.qr_code_rounded,
+                      keyboardType: TextInputType.number,
+                      isRequired: false,
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary),
+                        tooltip: 'Scan Box / Phone with camera',
+                        onPressed: _scanBoxTogether,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Serial Number (Full Width)
+                    CustomTextField(
+                      controller: _serialController,
+                      label: 'Serial No. (Optional)',
+                      hint: 'Manufacturer Serial #',
+                      prefixIcon: Icons.tag_rounded,
+                      isRequired: false,
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary),
+                        tooltip: 'Scan Serial # with camera',
+                        onPressed: _scanBoxTogether,
+                      ),
                     ),
                     const SizedBox(height: 12),
 

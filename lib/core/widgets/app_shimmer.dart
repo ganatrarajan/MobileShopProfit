@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
 
 /// High-performance animated Shimmer Loading Widget for skeleton loaders.
 class AppShimmer extends StatefulWidget {

@@ -1,6 +1,7 @@
-﻿import '../../../core/utils/date_helper.dart';
+import '../../../core/utils/date_helper.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/barcode_scanner_screen.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../inventory/data/inventory_repository.dart';
@@ -47,6 +48,10 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   InventoryItem? _selectedItemForAdd;
   final TextEditingController _itemQtyController = TextEditingController(text: '1');
   final TextEditingController _itemRateController = TextEditingController(text: '0');
+  final TextEditingController _itemImei1Controller = TextEditingController();
+  final TextEditingController _itemImei2Controller = TextEditingController();
+  final TextEditingController _itemSerialController = TextEditingController();
+  bool _showManualImei = false;
 
   @override
   void initState() {
@@ -63,6 +68,9 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     _notesController.dispose();
     _itemQtyController.dispose();
     _itemRateController.dispose();
+    _itemImei1Controller.dispose();
+    _itemImei2Controller.dispose();
+    _itemSerialController.dispose();
     super.dispose();
   }
 
@@ -297,19 +305,60 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  TextField(
-                    autofocus: false,
-                    decoration: InputDecoration(
-                      hintText: 'Search product by name, SKU or category...',
-                      prefixIcon: const Icon(Icons.search),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    ),
-                    onChanged: (val) {
-                      setModalState(() {
-                        filterQuery = val;
-                      });
-                    },
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          autofocus: false,
+                          controller: TextEditingController(text: filterQuery)..selection = TextSelection.collapsed(offset: filterQuery.length),
+                          decoration: InputDecoration(
+                            hintText: 'Search product by name, SKU or category...',
+                            prefixIcon: const Icon(Icons.search),
+                            suffixIcon: filterQuery.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear, size: 18),
+                                    onPressed: () {
+                                      setModalState(() {
+                                        filterQuery = '';
+                                      });
+                                    },
+                                  )
+                                : null,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          ),
+                          onChanged: (val) {
+                            setModalState(() {
+                              filterQuery = val;
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      InkWell(
+                        onTap: () async {
+                          final scanned = await BarcodeScannerScreen.scan(
+                            context,
+                            title: 'Scan Item Barcode / SKU',
+                          );
+                          if (scanned != null && scanned.trim().isNotEmpty) {
+                            setModalState(() {
+                              filterQuery = scanned.trim();
+                            });
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.all(11),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                          ),
+                          child: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary, size: 22),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   Expanded(
@@ -357,6 +406,77 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     );
   }
 
+  bool _isScanning = false;
+
+  Future<void> _scanBoxTogether({bool isSecondary = false}) async {
+    if (_isScanning) return;
+    _isScanning = true;
+    try {
+      final result = await BarcodeScannerScreen.scanBox(
+        context,
+        title: 'Auto-Scan Phone Box',
+        instruction: 'Point at box sticker with both IMEIs and P/N',
+      );
+      if (result != null && mounted) {
+        setState(() {
+          // If both IMEIs were captured from the box, populate both in one shot!
+          if (result.hasBothImeis) {
+            _itemImei1Controller.text = result.imei1!;
+            _itemImei2Controller.text = result.imei2!;
+          } else if (result.imei1 != null && result.imei1!.isNotEmpty) {
+            if (isSecondary && _itemImei1Controller.text.isNotEmpty) {
+              _itemImei2Controller.text = result.imei1!;
+            } else if (_itemImei1Controller.text.isEmpty) {
+              _itemImei1Controller.text = result.imei1!;
+            } else {
+              _itemImei2Controller.text = result.imei1!;
+            }
+          } else if (result.imei2 != null && result.imei2!.isNotEmpty) {
+            _itemImei2Controller.text = result.imei2!;
+          }
+        });
+
+        final count = [_itemImei1Controller.text, _itemImei2Controller.text]
+            .where((x) => x.isNotEmpty)
+            .length;
+        final msg = count >= 2
+            ? '✓ Both IMEI 1 & IMEI 2 populated from 1 scan!'
+            : '✓ Scanned IMEI: ${_itemImei1Controller.text.isNotEmpty ? _itemImei1Controller.text : _itemImei2Controller.text}';
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(msg),
+            duration: const Duration(seconds: 2),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } finally {
+      _isScanning = false;
+    }
+  }
+
+  Future<void> _scanSingleBarcodeOrSerial() async {
+    final scanned = await BarcodeScannerScreen.scan(
+      context,
+      title: 'Scan Product Serial / Barcode',
+      instruction: 'Point camera at serial number (S/N) or box barcode',
+    );
+    if (scanned != null && scanned.trim().isNotEmpty && mounted) {
+      final clean = scanned.replaceFirst(RegExp(r'^(s/n|sn|serial|imei1|imei2|imei|p/n|pn)[:\s-]+', caseSensitive: false), '').trim();
+      setState(() {
+        _itemSerialController.text = clean.isNotEmpty ? clean : scanned.trim();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✓ Scanned: ${_itemSerialController.text}'),
+          duration: const Duration(seconds: 2),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    }
+  }
+
   void _addItemToPurchase() {
     final itemToAdd = _selectedItemForAdd;
     if (itemToAdd == null) {
@@ -377,6 +497,9 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     }
 
     final lineTotal = qty * rate;
+    final imei1 = _itemImei1Controller.text.trim();
+    final imei2 = _itemImei2Controller.text.trim();
+    final serial = _itemSerialController.text.trim();
 
     setState(() {
       _purchaseItems.add({
@@ -384,6 +507,9 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
         'inventory_item_id': itemToAdd.id,
         'item_name': itemToAdd.name,
         'quantity': qty,
+        'imei1': imei1.isNotEmpty ? imei1 : null,
+        'imei2': imei2.isNotEmpty ? imei2 : null,
+        'serial_number': serial.isNotEmpty ? serial : null,
         'purchase_rate': rate,
         'total_amount': lineTotal,
       });
@@ -391,6 +517,10 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       _selectedItemForAdd = null;
       _itemQtyController.text = '1';
       _itemRateController.text = '0';
+      _itemImei1Controller.clear();
+      _itemImei2Controller.clear();
+      _itemSerialController.clear();
+      _showManualImei = false;
       _errorMessage = null;
     });
 
@@ -459,6 +589,9 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       return {
         'inventory_item_id': pi['inventory_item_id'],
         'quantity': pi['quantity'],
+        if (pi['imei1'] != null && (pi['imei1'] as String).isNotEmpty) 'imei1': pi['imei1'],
+        if (pi['imei2'] != null && (pi['imei2'] as String).isNotEmpty) 'imei2': pi['imei2'],
+        if (pi['serial_number'] != null && (pi['serial_number'] as String).isNotEmpty) 'serial_number': pi['serial_number'],
         'purchase_rate': pi['purchase_rate'],
       };
     }).toList();
@@ -681,6 +814,33 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                           ),
                         ),
                       ),
+                      if (_selectedItemForAdd != null &&
+                          (_selectedItemForAdd!.brand != null ||
+                              _selectedItemForAdd!.model != null ||
+                              _selectedItemForAdd!.itemType == 'mobile')) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.smartphone_rounded, size: 14, color: AppColors.primary),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  '${_selectedItemForAdd!.brand ?? ''} ${_selectedItemForAdd!.model ?? ''}${_selectedItemForAdd!.description != null && _selectedItemForAdd!.description!.isNotEmpty ? " • ${_selectedItemForAdd!.description!}" : ""}',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       Row(
                         children: [
@@ -701,6 +861,170 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                           ),
                         ],
                       ),
+                      if (_selectedItemForAdd != null &&
+                          (_selectedItemForAdd!.itemType == 'mobile' ||
+                              _selectedItemForAdd!.category.toLowerCase().contains('mobile') ||
+                              _selectedItemForAdd!.category.toLowerCase().contains('phone') ||
+                              _showManualImei)) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFCBD5E1)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.phone_android_rounded, size: 16, color: AppColors.primary),
+                                  const SizedBox(width: 6),
+                                  const Expanded(
+                                    child: Text(
+                                      'Device IMEI / Barcode',
+                                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.primary),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  InkWell(
+                                    onTap: _scanBoxTogether,
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF10B981).withOpacity(0.12),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: const Color(0xFF10B981)),
+                                      ),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.qr_code_scanner_rounded, size: 14, color: Color(0xFF10B981)),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            '⚡ Scan Both IMEIs',
+                                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              CustomTextField(
+                                controller: _itemImei1Controller,
+                                label: 'Primary IMEI 1',
+                                hint: 'Type 15-digit IMEI or tap scanner',
+                                keyboardType: TextInputType.number,
+                                suffixIcon: IconButton(
+                                  icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary),
+                                  tooltip: 'Scan Box Barcodes with Camera',
+                                  onPressed: () => _scanBoxTogether(isSecondary: false),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              CustomTextField(
+                                controller: _itemImei2Controller,
+                                label: 'Secondary IMEI 2 (Optional)',
+                                hint: 'Optional 2nd IMEI or tap scanner',
+                                keyboardType: TextInputType.number,
+                                suffixIcon: IconButton(
+                                  icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary),
+                                  tooltip: 'Scan Box Barcodes with Camera',
+                                  onPressed: () => _scanBoxTogether(isSecondary: true),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ] else if (_selectedItemForAdd != null) ...[
+                        const SizedBox(height: 6),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: const Color(0xFFCBD5E1)),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.qr_code_scanner_rounded, size: 16, color: AppColors.primary),
+                                        const SizedBox(width: 6),
+                                        const Expanded(
+                                          child: Text(
+                                            'Serial Number / Box Barcode (Optional)',
+                                            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.primary),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        InkWell(
+                                          onTap: _scanSingleBarcodeOrSerial,
+                                          borderRadius: BorderRadius.circular(6),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF10B981).withOpacity(0.12),
+                                              borderRadius: BorderRadius.circular(6),
+                                              border: Border.all(color: const Color(0xFF10B981)),
+                                            ),
+                                            child: const Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.qr_code_scanner_rounded, size: 14, color: Color(0xFF10B981)),
+                                                SizedBox(width: 4),
+                                                Text(
+                                                  '⚡ Scan S/N',
+                                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    CustomTextField(
+                                      controller: _itemSerialController,
+                                      label: 'Serial Number (S/N) or Barcode',
+                                      hint: 'Scan or type S/N for Earbuds, Watch, etc.',
+                                      suffixIcon: IconButton(
+                                        icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary),
+                                        tooltip: 'Scan Barcode or Serial Number',
+                                        onPressed: _scanSingleBarcodeOrSerial,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              TextButton.icon(
+                                onPressed: () => setState(() => _showManualImei = true),
+                                icon: const Icon(Icons.phone_android_rounded, size: 14),
+                                label: const Text('Switch to Dual Phone IMEI format', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: AppColors.primary,
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
@@ -737,9 +1061,45 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                               child: ListTile(
                                 visualDensity: VisualDensity.compact,
                                 title: Text(item['item_name'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                                subtitle: Text(
-                                  '${item['quantity']} x \u20B9${rate.toStringAsFixed(2)}',
-                                  style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${item['quantity']} x \u20B9${rate.toStringAsFixed(2)}',
+                                      style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                                    ),
+                                    if (item['imei1'] != null)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 2),
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.phone_android_rounded, size: 12, color: AppColors.primary),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              'IMEI: ${item['imei1']}${item['imei2'] != null ? ' / ${item['imei2']}' : ''}',
+                                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    if (item['serial_number'] != null)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 2),
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.tag_rounded, size: 12, color: AppColors.primary),
+                                            const SizedBox(width: 4),
+                                            Flexible(
+                                              child: Text(
+                                                'S/N: ${item['serial_number']}',
+                                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                  ],
                                 ),
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,

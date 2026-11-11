@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_feedback.dart';
+import '../../../core/widgets/barcode_scanner_screen.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../inventory/data/inventory_repository.dart';
 import '../../inventory/models/inventory_item.dart';
+import '../../used_mobile/data/used_mobile_repository.dart';
+import '../../used_mobile/models/used_mobile.dart';
 import '../data/sale_repository.dart';
 import '../../warranty/data/warranty_repository.dart';
 import '../../../core/utils/whatsapp_helper.dart';
@@ -99,6 +102,316 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
     return t < 0 ? 0.0 : t;
   }
 
+  bool _isProcessingScan = false;
+
+  Future<void> _scanToSell() async {
+    final scanned = await BarcodeScannerScreen.scan(
+      context,
+      title: 'Scan Barcode or IMEI to Sell',
+      instruction: 'Scan device barcode or IMEI on phone box sticker',
+    );
+    if (scanned == null || scanned.trim().isEmpty) return;
+    await _processScannedCodeToSell(scanned.trim());
+  }
+
+  Future<void> _processScannedCodeToSell(String code) async {
+    if (_isProcessingScan) return;
+    _isProcessingScan = true;
+
+    final cleanCode = code.replaceFirst(RegExp(r'^(s/n|sn|serial|imei1|imei2|imei|p/n|pn)[:\s-]+', caseSensitive: false), '').trim();
+    final cleanDigits = code.replaceAll(RegExp(r'\D'), '');
+    final codeLower = code.toLowerCase();
+    final cleanCodeLower = cleanCode.toLowerCase();
+
+    final alreadyAdded = _items.any(
+      (si) {
+        final s1 = si.imei1?.trim().toLowerCase();
+        final s2 = si.imei2?.trim().toLowerCase();
+        final sn = si.serialNumber?.trim().toLowerCase();
+        return s1 == codeLower || s1 == cleanCodeLower ||
+            s2 == codeLower || s2 == cleanCodeLower ||
+            sn == codeLower || sn == cleanCodeLower;
+      },
+    );
+    if (alreadyAdded) {
+      _isProcessingScan = false;
+      AppFeedback.showError(
+        context,
+        title: 'Already Added',
+        message: 'A device with identifier $code is already added in this quick sale.',
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+            const SizedBox(width: 12),
+            Expanded(child: Text('Looking up "$code" in inventory & showroom...')),
+          ],
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+
+    try {
+      final searchKey = cleanCode.isNotEmpty ? cleanCode : code;
+
+      // 1. Inventory check
+      final invRepo = InventoryRepository();
+      final invRes = await invRepo.getInventory(search: searchKey);
+
+      if (invRes.success && invRes.data != null && invRes.data!.items.isNotEmpty) {
+        InventoryItem? matchedItem;
+        String? matchedImei1;
+        String? matchedImei2;
+        String? matchedSerial;
+
+        for (final item in invRes.data!.items) {
+          for (final s in item.serials) {
+            final s1Digits = s.imei1?.replaceAll(RegExp(r'\D'), '') ?? '';
+            final s2Digits = s.imei2?.replaceAll(RegExp(r'\D'), '') ?? '';
+            final s1Lower = s.imei1?.trim().toLowerCase();
+            final s2Lower = s.imei2?.trim().toLowerCase();
+            final sSerialLower = s.serialNumber?.trim().toLowerCase();
+            final sSerialDigits = s.serialNumber?.replaceAll(RegExp(r'\D'), '') ?? '';
+
+            final isImeiMatch = (cleanDigits.length >= 8 && (s1Digits == cleanDigits || s2Digits == cleanDigits)) ||
+                s1Lower == codeLower || s1Lower == cleanCodeLower ||
+                s2Lower == codeLower || s2Lower == cleanCodeLower;
+
+            final isSerialMatch = (sSerialLower != null && (sSerialLower == codeLower || sSerialLower == cleanCodeLower)) ||
+                (sSerialDigits.isNotEmpty && cleanDigits.isNotEmpty && sSerialDigits == cleanDigits) ||
+                (sSerialLower != null && cleanCodeLower.length >= 5 && (sSerialLower.contains(cleanCodeLower) || cleanCodeLower.contains(sSerialLower)));
+
+            if (isImeiMatch || isSerialMatch) {
+              matchedItem = item;
+              matchedImei1 = s.imei1;
+              matchedImei2 = s.imei2;
+              matchedSerial = s.serialNumber;
+              break;
+            }
+          }
+          if (matchedItem != null) break;
+        }
+
+        matchedItem ??= invRes.data!.items.firstWhere(
+          (i) => i.sku?.toLowerCase() == codeLower || i.sku?.toLowerCase() == cleanCodeLower,
+          orElse: () => invRes.data!.items.first,
+        );
+
+        if (matchedItem.currentStock <= 0) {
+          if (mounted) {
+            AppFeedback.showError(
+              context,
+              title: 'Out of Stock',
+              message: '${matchedItem.name} has 0 units in stock. Cannot sell without available stock.',
+            );
+          }
+          return;
+        }
+
+        if (matchedImei1 == null && ScannedBoxResult.isValidImei(cleanCode.isNotEmpty ? cleanCode : code)) {
+          matchedImei1 = cleanCode.isNotEmpty ? cleanCode : code;
+        } else if (matchedSerial == null && !ScannedBoxResult.isValidImei(code)) {
+          matchedSerial = cleanCode.isNotEmpty ? cleanCode : code;
+        }
+
+        // Check if this item is already in invoice
+        final existingIndex = _items.indexWhere((si) {
+          if (si.inventoryItemId != null && si.inventoryItemId == matchedItem!.id) return true;
+          final s1 = si.imei1?.trim().toLowerCase();
+          final s2 = si.imei2?.trim().toLowerCase();
+          final sn = si.serialNumber?.trim().toLowerCase();
+          if (matchedImei1 != null && (s1 == matchedImei1.toLowerCase() || s2 == matchedImei1.toLowerCase())) return true;
+          if (matchedSerial != null && sn == matchedSerial.toLowerCase()) return true;
+          return false;
+        });
+
+        if (existingIndex != -1) {
+          final existingItem = _items[existingIndex];
+          final currentInCart = existingItem.quantity;
+          final availableStock = matchedItem.currentStock;
+
+          if (matchedItem.itemType == 'mobile' || currentInCart >= availableStock) {
+            if (mounted) {
+              final reason = matchedItem.itemType == 'mobile'
+                  ? 'Mobile phones are unique devices with separate IMEIs. Only $availableStock unit(s) in stock.'
+                  : 'Available stock is only $availableStock unit(s). Already added $currentInCart to sale.';
+              AppFeedback.showError(
+                context,
+                title: 'Stock Limit Reached',
+                message: '${matchedItem.name} cannot be added again. $reason',
+              );
+            }
+            return;
+          }
+
+          if (mounted) {
+            setState(() {
+              _items[existingIndex] = existingItem.copyWith(
+                quantity: currentInCart + 1,
+              );
+            });
+            AppFeedback.showSuccess(
+              context,
+              title: '✓ Quantity Updated',
+              message: '${matchedItem.name} quantity increased to ${currentInCart + 1} ($availableStock available).',
+            );
+          }
+          return;
+        }
+
+        final saleItem = SaleItem(
+          inventoryItemId: matchedItem.id,
+          productName: matchedItem.name,
+          itemType: matchedItem.itemType,
+          brand: matchedItem.brand,
+          model: matchedItem.model,
+          imei1: matchedImei1,
+          imei2: matchedImei2,
+          serialNumber: matchedSerial,
+          quantity: 1,
+          unitPrice: matchedItem.sellingPrice,
+          costPrice: matchedItem.purchasePrice > 0 ? matchedItem.purchasePrice : null,
+        );
+
+        if (mounted) {
+          setState(() {
+            _items.add(saleItem);
+          });
+          final idLabel = matchedImei1 != null ? " (IMEI: $matchedImei1)" : (matchedSerial != null ? " (S/N: $matchedSerial)" : "");
+          AppFeedback.showSuccess(
+            context,
+            title: '✓ Item Added to Sale',
+            message: '${matchedItem.name}$idLabel added to invoice.',
+          );
+        }
+        return;
+      }
+
+      // 2. Used mobile check
+      final usedRepo = UsedMobileRepository();
+      final usedRes = await usedRepo.getUsedMobiles(search: searchKey);
+
+      if (usedRes.mobiles.isNotEmpty) {
+        UsedMobile? matchedUsed;
+        for (final m in usedRes.mobiles) {
+          final m1 = m.imei1.replaceAll(RegExp(r'\D'), '');
+          final m2 = m.imei2?.replaceAll(RegExp(r'\D'), '') ?? '';
+          final m1Lower = m.imei1.trim().toLowerCase();
+          final m2Lower = m.imei2?.trim().toLowerCase();
+          final mSerialLower = m.serialNumber?.trim().toLowerCase();
+          final mSerialDigits = m.serialNumber?.replaceAll(RegExp(r'\D'), '') ?? '';
+
+          final isImeiMatch = (cleanDigits.length >= 8 && (m1 == cleanDigits || m2 == cleanDigits)) ||
+              m1Lower == codeLower || m1Lower == cleanCodeLower ||
+              m2Lower == codeLower || m2Lower == cleanCodeLower;
+
+          final isSerialMatch = (mSerialLower != null && (mSerialLower == codeLower || mSerialLower == cleanCodeLower)) ||
+              (mSerialDigits.isNotEmpty && cleanDigits.isNotEmpty && mSerialDigits == cleanDigits) ||
+              (mSerialLower != null && cleanCodeLower.length >= 5 && (mSerialLower.contains(cleanCodeLower) || cleanCodeLower.contains(mSerialLower)));
+
+          if (isImeiMatch || isSerialMatch) {
+            matchedUsed = m;
+            break;
+          }
+        }
+        matchedUsed ??= usedRes.mobiles.first;
+
+        // Check if this used mobile is already added
+        final alreadyAddedUsed = _items.any((si) {
+          final s1 = si.imei1?.trim().toLowerCase();
+          final s2 = si.imei2?.trim().toLowerCase();
+          final sn = si.serialNumber?.trim().toLowerCase();
+          final m1 = matchedUsed!.imei1.trim().toLowerCase();
+          final m2 = matchedUsed.imei2?.trim().toLowerCase();
+          final mSn = matchedUsed.serialNumber?.trim().toLowerCase();
+          return (m1.isNotEmpty && (s1 == m1 || s2 == m1)) ||
+              (m2 != null && m2.isNotEmpty && (s1 == m2 || s2 == m2)) ||
+              (mSn != null && mSn.isNotEmpty && sn == mSn) ||
+              si.productName == matchedUsed.deviceDisplayName;
+        });
+
+        if (alreadyAddedUsed) {
+          if (mounted) {
+            AppFeedback.showError(
+              context,
+              title: 'Mobile Already Added',
+              message: '${matchedUsed.deviceDisplayName} is already in the sale. Used phones only have 1 unit in stock.',
+            );
+          }
+          return;
+        }
+
+        if (matchedUsed.isSold) {
+          if (mounted) {
+            final idInfo = matchedUsed.serialNumber != null && matchedUsed.serialNumber!.isNotEmpty
+                ? 'S/N: ${matchedUsed.serialNumber}'
+                : 'IMEI: ${matchedUsed.imei1.isNotEmpty ? matchedUsed.imei1 : code}';
+            AppFeedback.showError(
+              context,
+              title: 'Mobile Already Sold',
+              message: '${matchedUsed.deviceDisplayName} ($idInfo) was already sold previously.',
+            );
+          }
+          return;
+        }
+
+        final unitPrice = (matchedUsed.sellingPrice != null && matchedUsed.sellingPrice! > 0)
+            ? matchedUsed.sellingPrice!
+            : matchedUsed.totalCost;
+
+        final isImei = ScannedBoxResult.isValidImei(code) || ScannedBoxResult.isValidImei(cleanCode);
+        final saleItem = SaleItem(
+          productName: matchedUsed.deviceDisplayName,
+          itemType: 'mobile',
+          brand: matchedUsed.brand,
+          model: matchedUsed.model,
+          imei1: matchedUsed.imei1.isNotEmpty ? matchedUsed.imei1 : (isImei ? (cleanCode.isNotEmpty ? cleanCode : code) : null),
+          imei2: matchedUsed.imei2,
+          serialNumber: (matchedUsed.serialNumber != null && matchedUsed.serialNumber!.isNotEmpty)
+              ? matchedUsed.serialNumber
+              : (!isImei ? (cleanCode.isNotEmpty ? cleanCode : code) : null),
+          quantity: 1,
+          unitPrice: unitPrice > 0 ? unitPrice : 0.0,
+          costPrice: matchedUsed.totalCost > 0 ? matchedUsed.totalCost : null,
+        );
+
+        if (mounted) {
+          setState(() {
+            _items.add(saleItem);
+          });
+          final idLabel = (matchedUsed.serialNumber != null && matchedUsed.serialNumber!.isNotEmpty)
+              ? 'S/N: ${matchedUsed.serialNumber}'
+              : 'IMEI: ${matchedUsed.imei1.isNotEmpty ? matchedUsed.imei1 : code}';
+          AppFeedback.showSuccess(
+            context,
+            title: '✓ Used Mobile Added to Sale',
+            message: '${matchedUsed.deviceDisplayName} ($idLabel) added to invoice.',
+          );
+        }
+        return;
+      }
+
+      if (mounted) {
+        AppFeedback.showError(
+          context,
+          title: 'No Matching Item',
+          message: 'No product or phone matched "$code". Tap "Add Item" to add manually or create a new inventory item.',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        AppFeedback.showError(context, error: 'Scan lookup failed: $e');
+      }
+    } finally {
+      _isProcessingScan = false;
+    }
+  }
+
   void _addItemDialog() {
     String saleMode = 'inventory'; // 'inventory' or 'quick'
 
@@ -113,6 +426,7 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
     InventoryItem? selectedInvItem;
     bool isLoadingInv = false;
     String? invError;
+    String? sheetError;
 
     Future<void> fetchInventory(StateSetter setSheetState, {String? query}) async {
       setSheetState(() {
@@ -160,6 +474,34 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
+            void showSheetError(String msg) {
+              setSheetState(() => sheetError = msg);
+              showDialog(
+                context: ctx,
+                builder: (dCtx) => AlertDialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  title: const Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Item Limit', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  content: Text(msg, style: const TextStyle(fontSize: 14)),
+                  actions: [
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: () => Navigator.pop(dCtx),
+                      child: const Text('OK', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              );
+            }
+
             if (saleMode == 'inventory' && !initialFetchDone) {
               initialFetchDone = true;
               WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -327,31 +669,67 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
                         ? Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Full-width Search Field
+                              // Full-width Search Field + Scanner
                               Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                                child: TextField(
-                                  controller: searchCtrl,
-                                  onChanged: (q) => fetchInventory(setSheetState, query: q.trim()),
-                                  style: const TextStyle(fontSize: 13),
-                                  decoration: InputDecoration(
-                                    hintText: 'Search stock by name, brand, model...',
-                                    hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
-                                    prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.primary),
-                                    suffixIcon: searchCtrl.text.isNotEmpty
-                                        ? IconButton(
-                                            icon: const Icon(Icons.clear_rounded, size: 18),
-                                            onPressed: () {
-                                              searchCtrl.clear();
-                                              fetchInventory(setSheetState);
-                                            },
-                                          )
-                                        : null,
-                                    filled: true,
-                                    fillColor: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                                  ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextField(
+                                        controller: searchCtrl,
+                                        onChanged: (q) => fetchInventory(setSheetState, query: q.trim()),
+                                        style: const TextStyle(fontSize: 13),
+                                        decoration: InputDecoration(
+                                          hintText: 'Search stock by name, brand, model...',
+                                          hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                                          prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.primary),
+                                          suffixIcon: searchCtrl.text.isNotEmpty
+                                              ? IconButton(
+                                                  icon: const Icon(Icons.clear_rounded, size: 18),
+                                                  onPressed: () {
+                                                    searchCtrl.clear();
+                                                    fetchInventory(setSheetState);
+                                                  },
+                                                )
+                                              : null,
+                                          filled: true,
+                                          fillColor: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    InkWell(
+                                      onTap: () async {
+                                        final scanned = await BarcodeScannerScreen.scan(
+                                          context,
+                                          title: 'Scan Item Barcode / IMEI',
+                                        );
+                                        if (scanned != null && scanned.trim().isNotEmpty) {
+                                          searchCtrl.text = scanned.trim();
+                                          fetchInventory(setSheetState, query: scanned.trim());
+                                        }
+                                      },
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF10B981).withOpacity(0.12),
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.qr_code_scanner_rounded, size: 18, color: Color(0xFF10B981)),
+                                            SizedBox(width: 2),
+                                            Text('Scan', style: TextStyle(color: Color(0xFF10B981), fontSize: 12, fontWeight: FontWeight.bold)),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
 
@@ -403,13 +781,14 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
                                                       borderRadius: BorderRadius.circular(12),
                                                       onTap: () {
                                                         if (isOutOfStock) {
-                                                          AppFeedback.showError(context, error: 'Item "${item.name}" is out of stock!');
+                                                          showSheetError('Item "${item.name}" is out of stock (0 units). Cannot add to sale.');
                                                           return;
                                                         }
                                                         setSheetState(() {
                                                           selectedInvItem = item;
                                                           priceCtrl.text = item.sellingPrice.toStringAsFixed(2);
                                                           qtyCtrl.text = '1';
+                                                          sheetError = null;
                                                         });
                                                       },
                                                       child: Padding(
@@ -570,6 +949,40 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        if (sheetError != null) ...[
+                          Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 10),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.red.shade400, width: 1.2),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.error_outline_rounded, color: Colors.red, size: 18),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    sheetError!,
+                                    style: const TextStyle(
+                                      color: Colors.red,
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                GestureDetector(
+                                  onTap: () => setSheetState(() => sheetError = null),
+                                  child: const Icon(Icons.close_rounded, color: Colors.red, size: 16),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         if (saleMode == 'inventory' && selectedInvItem != null) ...[
                           Row(
                             children: [
@@ -604,7 +1017,9 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
                                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                                     ),
-                                    onChanged: (_) => setSheetState(() {}),
+                                    onChanged: (_) => setSheetState(() {
+                                      sheetError = null;
+                                    }),
                                   ),
                                 ),
                               ),
@@ -618,7 +1033,10 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
                                     onPressed: () {
                                       final q = int.tryParse(qtyCtrl.text.trim()) ?? 1;
                                       if (q > 1) {
-                                        setSheetState(() => qtyCtrl.text = (q - 1).toString());
+                                        setSheetState(() {
+                                          qtyCtrl.text = (q - 1).toString();
+                                          sheetError = null;
+                                        });
                                       }
                                     },
                                   ),
@@ -636,9 +1054,12 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
                                     onPressed: () {
                                       final q = int.tryParse(qtyCtrl.text.trim()) ?? 1;
                                       if (q < selectedInvItem!.currentStock) {
-                                        setSheetState(() => qtyCtrl.text = (q + 1).toString());
+                                        setSheetState(() {
+                                          qtyCtrl.text = (q + 1).toString();
+                                          sheetError = null;
+                                        });
                                       } else {
-                                        AppFeedback.showError(context, error: 'Maximum available stock is ${selectedInvItem!.currentStock}');
+                                        showSheetError('Maximum available stock is ${selectedInvItem!.currentStock}');
                                       }
                                     },
                                   ),
@@ -662,7 +1083,7 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
                           ),
                           onPressed: () {
                             if (saleMode == 'inventory' && selectedInvItem == null) {
-                              AppFeedback.showError(context, error: 'Please tap an in-stock item from the list above first.');
+                              showSheetError('Please tap an in-stock item from the list above first.');
                               return;
                             }
 
@@ -670,13 +1091,43 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
                             final qty = int.tryParse(qtyCtrl.text.trim()) ?? 1;
 
                             if (qty <= 0) {
-                              AppFeedback.showError(context, error: 'Quantity must be at least 1');
+                              showSheetError('Quantity must be at least 1.');
                               return;
                             }
 
                             if (saleMode == 'inventory') {
-                              if (qty > selectedInvItem!.currentStock) {
-                                AppFeedback.showError(context, error: 'Only ${selectedInvItem!.currentStock} items in stock!');
+                              final existingIndex = _items.indexWhere((si) => si.inventoryItemId != null && si.inventoryItemId == selectedInvItem!.id);
+                              final currentInCart = existingIndex != -1 ? _items[existingIndex].quantity : 0;
+                              final availableStock = selectedInvItem!.currentStock;
+
+                              if (currentInCart + qty > availableStock) {
+                                final remaining = availableStock - currentInCart;
+                                if (remaining <= 0) {
+                                  showSheetError('${selectedInvItem!.name} is already in the sale ($currentInCart in sale). Maximum stock is $availableStock.');
+                                } else {
+                                  showSheetError('Cannot add $qty more. Only $remaining unit(s) remaining in stock ($currentInCart already in sale).');
+                                }
+                                return;
+                              }
+
+                              if (selectedInvItem!.itemType == 'mobile' && existingIndex != -1) {
+                                showSheetError('This mobile phone is already in the sale. Mobile devices have unique IMEIs and only 1 unit per item.');
+                                return;
+                              }
+
+                              if (existingIndex != -1) {
+                                setState(() {
+                                  _items[existingIndex] = _items[existingIndex].copyWith(
+                                    quantity: currentInCart + qty,
+                                    unitPrice: price,
+                                  );
+                                });
+                                Navigator.pop(ctx);
+                                AppFeedback.showSuccess(
+                                  context,
+                                  title: '✓ Quantity Updated',
+                                  message: '${selectedInvItem!.name} quantity updated to ${currentInCart + qty}.',
+                                );
                                 return;
                               }
 
@@ -698,11 +1149,11 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
                             } else {
                               final name = nameCtrl.text.trim();
                               if (name.isEmpty) {
-                                AppFeedback.showError(context, error: 'Please enter item name');
+                                showSheetError('Please enter item name.');
                                 return;
                               }
                               if (price < 0) {
-                                AppFeedback.showError(context, error: 'Please enter valid price');
+                                showSheetError('Please enter a valid price.');
                                 return;
                               }
 
@@ -871,10 +1322,14 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           const Icon(Icons.shopping_bag_rounded, color: AppColors.primary, size: 20),
                           const SizedBox(width: 8),
@@ -884,71 +1339,100 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
                           ),
                         ],
                       ),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        icon: const Icon(Icons.add_rounded, size: 18),
-                        label: const Text('+ Add Item', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                        onPressed: _addItemDialog,
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF10B981),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.qr_code_scanner_rounded, size: 15),
+                            label: const Text('⚡ Scan to Sell', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
+                            onPressed: _scanToSell,
+                          ),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.add_rounded, size: 16),
+                            label: const Text('+ Add Item', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
+                            onPressed: _addItemDialog,
+                          ),
+                        ],
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
                   if (_items.isEmpty)
-                    InkWell(
-                      onTap: _addItemDialog,
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.04),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.primary.withOpacity(0.25), width: 1.2),
-                        ),
-                        child: Column(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withOpacity(0.1),
-                                shape: BoxShape.circle,
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.04),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.primary.withOpacity(0.25), width: 1.2),
+                      ),
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.add_shopping_cart_rounded, size: 32, color: AppColors.primary),
+                          ),
+                          const SizedBox(height: 10),
+                          const Text(
+                            'No items added to Quick Sale yet',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textPrimary),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Scan barcode/IMEI or choose product from inventory',
+                            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 14),
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF10B981),
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                icon: const Icon(Icons.qr_code_scanner_rounded, size: 16),
+                                label: const Text('⚡ Scan to Sell', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                onPressed: _scanToSell,
                               ),
-                              child: const Icon(Icons.add_shopping_cart_rounded, size: 32, color: AppColors.primary),
-                            ),
-                            const SizedBox(height: 10),
-                            const Text(
-                              'No items added to Quick Sale yet',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textPrimary),
-                            ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              'Tap anywhere here or "+ Add Item" above to choose products',
-                              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 12),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary,
-                                borderRadius: BorderRadius.circular(20),
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.primary,
+                                  side: const BorderSide(color: AppColors.primary),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                icon: const Icon(Icons.add_rounded, size: 16),
+                                label: const Text('Choose Item', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                onPressed: _addItemDialog,
                               ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.add_rounded, size: 16, color: Colors.white),
-                                  SizedBox(width: 4),
-                                  Text('Select Items Now', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                            ],
+                          ),
+                        ],
                       ),
                     )
                   else

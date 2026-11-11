@@ -62,6 +62,44 @@ class SaleItem {
     double? total,
   }) : total = total ?? ((quantity * unitPrice) - discount + taxAmount);
 
+  SaleItem copyWith({
+    int? id,
+    int? saleId,
+    int? inventoryItemId,
+    String? productName,
+    String? itemType,
+    String? brand,
+    String? model,
+    String? imei1,
+    String? imei2,
+    String? serialNumber,
+    int? quantity,
+    double? unitPrice,
+    double? discount,
+    double? taxAmount,
+    double? costPrice,
+    double? total,
+  }) {
+    return SaleItem(
+      id: id ?? this.id,
+      saleId: saleId ?? this.saleId,
+      inventoryItemId: inventoryItemId ?? this.inventoryItemId,
+      productName: productName ?? this.productName,
+      itemType: itemType ?? this.itemType,
+      brand: brand ?? this.brand,
+      model: model ?? this.model,
+      imei1: imei1 ?? this.imei1,
+      imei2: imei2 ?? this.imei2,
+      serialNumber: serialNumber ?? this.serialNumber,
+      quantity: quantity ?? this.quantity,
+      unitPrice: unitPrice ?? this.unitPrice,
+      discount: discount ?? this.discount,
+      taxAmount: taxAmount ?? this.taxAmount,
+      costPrice: costPrice ?? this.costPrice,
+      total: total,
+    );
+  }
+
   factory SaleItem.fromJson(Map<String, dynamic> json) {
     return SaleItem(
       id: _parseNullableInt(json['id']),

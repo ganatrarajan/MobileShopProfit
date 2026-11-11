@@ -125,6 +125,7 @@ class _StaffAccountScreenState extends State<StaffAccountScreen> {
     final hasSales = perms['sales'] == true || perms['sales'] == 1 || perms['sales'].toString() == 'true';
     final hasPurchases = perms['purchases'] == true || perms['purchases'] == 1 || perms['purchases'].toString() == 'true';
     final hasUsed = perms['used_mobiles'] == true || perms['used_mobiles'] == 1 || perms['used_mobiles'].toString() == 'true';
+    final isTechnician = _user?['role']?.toString().toLowerCase() == 'technician';
 
     return Scaffold(
       appBar: AppBar(
@@ -183,65 +184,67 @@ class _StaffAccountScreenState extends State<StaffAccountScreen> {
             ),
             const SizedBox(height: 16),
 
-            // 2. My Work & Profit Banner Card
-            InkWell(
-              borderRadius: BorderRadius.circular(14),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const TechnicianMyWorkScreen()),
-                );
-              },
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  gradient: AppColors.brandGradient,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x254F46E5),
-                      blurRadius: 8,
-                      offset: Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        shape: BoxShape.circle,
+            // 2. My Work & Profit Banner Card (Technicians only, hidden in staff login)
+            if (isTechnician) ...[
+              InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const TechnicianMyWorkScreen()),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    gradient: AppColors.brandGradient,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x254F46E5),
+                        blurRadius: 8,
+                        offset: Offset(0, 3),
                       ),
-                      child: const Icon(Icons.monetization_on_rounded, color: Colors.white, size: 24),
-                    ),
-                    const SizedBox(width: 14),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'My Work & Profit Report',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.monetization_on_rounded, color: Colors.white, size: 24),
+                      ),
+                      const SizedBox(width: 14),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'My Work & Profit Report',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
                             ),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'View monthly earnings, repair jobs & payout balance',
-                            style: TextStyle(color: Colors.white70, fontSize: 12),
-                          ),
-                        ],
+                            SizedBox(height: 2),
+                            Text(
+                              'View monthly earnings, repair jobs & payout balance',
+                              style: TextStyle(color: Colors.white70, fontSize: 12),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 16),
-                  ],
+                      const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 16),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
+            ],
 
             // 3. Active Permissions Card
             const Text(

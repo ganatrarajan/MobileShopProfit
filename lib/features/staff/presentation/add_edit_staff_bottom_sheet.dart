@@ -10,17 +10,18 @@ import '../models/staff.dart';
 
 class AddEditStaffBottomSheet extends StatefulWidget {
   final Staff? staff;
+  final bool isLimitReached;
 
-  const AddEditStaffBottomSheet({super.key, this.staff});
+  const AddEditStaffBottomSheet({super.key, this.staff, this.isLimitReached = false});
 
   /// Static helper method to display this sheet easily from anywhere
-  static Future<bool?> show(BuildContext context, {Staff? staff}) {
+  static Future<bool?> show(BuildContext context, {Staff? staff, bool isLimitReached = false}) {
     return showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       enableDrag: true,
-      builder: (_) => AddEditStaffBottomSheet(staff: staff),
+      builder: (_) => AddEditStaffBottomSheet(staff: staff, isLimitReached: isLimitReached),
     );
   }
 
@@ -40,6 +41,7 @@ class _AddEditStaffBottomSheetState extends State<AddEditStaffBottomSheet> {
   late TextEditingController _salaryController;
   late TextEditingController _addressController;
 
+  final _scrollController = ScrollController();
   DateTime? _joiningDate;
   bool _isActive = true;
   bool _obscurePassword = true;
@@ -51,22 +53,22 @@ class _AddEditStaffBottomSheetState extends State<AddEditStaffBottomSheet> {
     {
       'title': 'Manager',
       'icon': Icons.admin_panel_settings_outlined,
-      'perms': {'sales': true, 'repairs': true, 'purchases': true, 'expenses': true, 'used_mobiles': true, 'customers': true},
+      'perms': {'sales': true, 'repairs': true, 'purchases': true, 'expenses': true, 'used_mobiles': true},
     },
     {
       'title': 'Sales & Billing',
       'icon': Icons.point_of_sale_rounded,
-      'perms': {'sales': true, 'repairs': false, 'purchases': false, 'expenses': false, 'used_mobiles': true, 'customers': true},
+      'perms': {'sales': true, 'repairs': false, 'purchases': false, 'expenses': false, 'used_mobiles': true},
     },
     {
       'title': 'Cashier',
       'icon': Icons.payments_outlined,
-      'perms': {'sales': true, 'repairs': false, 'purchases': false, 'expenses': true, 'used_mobiles': false, 'customers': true},
+      'perms': {'sales': true, 'repairs': false, 'purchases': false, 'expenses': true, 'used_mobiles': false},
     },
     {
       'title': 'Service Advisor',
       'icon': Icons.support_agent_rounded,
-      'perms': {'sales': true, 'repairs': true, 'purchases': false, 'expenses': false, 'used_mobiles': false, 'customers': true},
+      'perms': {'sales': true, 'repairs': true, 'purchases': false, 'expenses': false, 'used_mobiles': false},
     },
     {
       'title': 'Custom / Other',
@@ -81,7 +83,6 @@ class _AddEditStaffBottomSheetState extends State<AddEditStaffBottomSheet> {
     'purchases': false,
     'expenses': false,
     'used_mobiles': false,
-    'customers': true,
   };
 
   @override
@@ -109,7 +110,11 @@ class _AddEditStaffBottomSheetState extends State<AddEditStaffBottomSheet> {
       } catch (_) {}
     }
 
-    _isActive = s?.isActive ?? true;
+    if (s != null) {
+      _isActive = s.isActive;
+    } else {
+      _isActive = !widget.isLimitReached;
+    }
 
     if (s != null && s.permissions.isNotEmpty) {
       _permissions = Map<String, bool>.from(s.permissions);
@@ -118,6 +123,7 @@ class _AddEditStaffBottomSheetState extends State<AddEditStaffBottomSheet> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _nameController.dispose();
     _mobileController.dispose();
     _emailController.dispose();
@@ -160,20 +166,43 @@ class _AddEditStaffBottomSheetState extends State<AddEditStaffBottomSheet> {
     }
   }
 
+  void _showFormError(String errorMsg) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _isLoading = false;
+      _errorMessage = errorMsg;
+    });
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
   Future<void> _handleSave() async {
+    FocusManager.instance.primaryFocus?.unfocus();
     if (!_formKey.currentState!.validate()) return;
 
     final isEdit = widget.staff != null;
-    if (!isEdit && _passwordController.text.trim().isEmpty) {
-      setState(() => _errorMessage = 'Password is required to create a staff app login.');
-      AppFeedback.showError(context, error: _errorMessage!);
+    if (!isEdit && _isActive && _passwordController.text.trim().isEmpty) {
+      _showFormError('Password is required to create an active staff app login.');
+      return;
+    }
+
+    if (_isActive && widget.isLimitReached && (!isEdit || !widget.staff!.isActive)) {
+      _showFormError('Your active staff login limit has been reached. Please disable another active staff login or save with Login Disabled.');
+      StaffQuotaBottomSheet.show(
+        context,
+        message: 'Your active staff login limit has been reached. Please disable another active staff login or create this staff member with Login Disabled.',
+      );
       return;
     }
 
     final hasAtLeastOnePerm = _permissions.values.any((p) => p == true);
     if (!hasAtLeastOnePerm) {
-      setState(() => _errorMessage = 'Please enable at least one permission module for this staff.');
-      AppFeedback.showError(context, error: _errorMessage!);
+      _showFormError('Please enable at least one permission module for this staff.');
       return;
     }
 
@@ -184,7 +213,9 @@ class _AddEditStaffBottomSheetState extends State<AddEditStaffBottomSheet> {
 
     final name = _nameController.text.trim();
     final mobile = _mobileController.text.trim();
-    final password = _passwordController.text.trim();
+    final password = _passwordController.text.trim().isNotEmpty
+        ? _passwordController.text.trim()
+        : (_isActive ? '' : '123456');
     final designation = _designationController.text.trim();
     final email = _emailController.text.trim();
     final salary = _salaryController.text.trim().isNotEmpty
@@ -211,18 +242,17 @@ class _AddEditStaffBottomSheetState extends State<AddEditStaffBottomSheet> {
       );
 
       if (mounted) {
-        setState(() => _isLoading = false);
         if (res.success) {
-          AppFeedback.showSuccess(
-            context,
-            title: 'Staff Updated',
-            message: '$name has been updated successfully.',
-          );
+          setState(() => _isLoading = false);
           Navigator.pop(context, true);
         } else {
           final err = res.message.isNotEmpty ? res.message : 'Failed to update staff';
-          setState(() => _errorMessage = err);
-          AppFeedback.showError(context, error: err);
+          _showFormError(err);
+          if (res.message.toLowerCase().contains('quota') ||
+              res.message.toLowerCase().contains('limit') ||
+              res.message.toLowerCase().contains('maximum')) {
+            StaffQuotaBottomSheet.show(context, message: res.message);
+          }
         }
       }
     } else {
@@ -240,32 +270,16 @@ class _AddEditStaffBottomSheetState extends State<AddEditStaffBottomSheet> {
       );
 
       if (mounted) {
-        setState(() => _isLoading = false);
         if (res.success && res.data != null) {
-          AppFeedback.showSuccess(
-            context,
-            title: 'Staff Added',
-            message: '$name has been created successfully.',
-          );
+          setState(() => _isLoading = false);
           Navigator.pop(context, true);
-          // Show credentials bottom sheet to easily copy & share on WhatsApp
-          StaffCredentialsBottomSheet.show(
-            context,
-            name: name,
-            mobile: mobile,
-            password: password,
-            designation: designation,
-            permissions: _permissions,
-          );
         } else {
+          final err = res.message.isNotEmpty ? res.message : 'Failed to create staff';
+          _showFormError(err);
           if (res.message.toLowerCase().contains('quota') ||
               res.message.toLowerCase().contains('limit') ||
               res.message.toLowerCase().contains('maximum')) {
             StaffQuotaBottomSheet.show(context, message: res.message);
-          } else {
-            final err = res.message.isNotEmpty ? res.message : 'Failed to create staff';
-            setState(() => _errorMessage = err);
-            AppFeedback.showError(context, error: err);
           }
         }
       }
@@ -379,6 +393,7 @@ class _AddEditStaffBottomSheetState extends State<AddEditStaffBottomSheet> {
             // Scrollable Form Body
             Flexible(
               child: SingleChildScrollView(
+                controller: _scrollController,
                 physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
                 child: Form(
@@ -386,31 +401,36 @@ class _AddEditStaffBottomSheetState extends State<AddEditStaffBottomSheet> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Error Banner
-                      if (_errorMessage != null && _errorMessage!.isNotEmpty) ...[
+                      // Inline Error Banner matching screenshot & other modules
+                      if (_errorMessage != null) ...[
                         Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12),
                           margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.red.shade50,
+                            color: const Color(0xFFFEF2F2),
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: Colors.red.shade300),
+                            border: Border.all(color: const Color(0xFFFCA5A5)),
                           ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.error_outline_rounded, color: Colors.red.shade800, size: 20),
+                              const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 20),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
                                   _errorMessage!,
-                                  style: TextStyle(
-                                    color: Colors.red.shade900,
+                                  style: const TextStyle(
                                     fontSize: 13,
-                                    fontWeight: FontWeight.bold,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF991B1B),
+                                    height: 1.35,
                                   ),
                                 ),
+                              ),
+                              const SizedBox(width: 6),
+                              InkWell(
+                                onTap: () => setState(() => _errorMessage = null),
+                                child: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF991B1B)),
                               ),
                             ],
                           ),
@@ -482,8 +502,12 @@ class _AddEditStaffBottomSheetState extends State<AddEditStaffBottomSheet> {
                               obscureText: _obscurePassword,
                               decoration: _inputDecoration(
                                 isDark: isDark,
-                                label: isEdit ? 'New Password (Optional)' : 'Login Password *',
-                                hint: isEdit ? 'Leave blank to keep existing password' : 'Min 4 characters',
+                                label: isEdit
+                                    ? 'New Password (Optional)'
+                                    : (_isActive ? 'Login Password *' : 'Login Password (Optional)'),
+                                hint: isEdit
+                                    ? 'Leave blank to keep existing password'
+                                    : (_isActive ? 'Min 4 characters' : 'Defaults to 123456 if empty'),
                                 icon: Icons.lock_outline_rounded,
                                 suffixIcon: IconButton(
                                   icon: Icon(
@@ -495,7 +519,7 @@ class _AddEditStaffBottomSheetState extends State<AddEditStaffBottomSheet> {
                                 ),
                               ),
                               validator: (v) {
-                                if (!isEdit && (v == null || v.trim().length < 4)) {
+                                if (!isEdit && _isActive && (v == null || v.trim().length < 4)) {
                                   return 'Password must be at least 4 characters';
                                 }
                                 return null;
@@ -759,15 +783,6 @@ class _AddEditStaffBottomSheetState extends State<AddEditStaffBottomSheet> {
                               icon: Icons.phone_android_rounded,
                               color: const Color(0xFF14B8A6),
                             ),
-                            const SizedBox(height: 8),
-                            _buildModernPermTile(
-                              isDark: isDark,
-                              keyName: 'customers',
-                              title: 'Customer Directory',
-                              subtitle: 'View customer directory, contacts & service history',
-                              icon: Icons.people_alt_rounded,
-                              color: const Color(0xFFEC4899),
-                            ),
                           ],
                         ),
                       ),
@@ -779,35 +794,72 @@ class _AddEditStaffBottomSheetState extends State<AddEditStaffBottomSheet> {
                         icon: Icons.toggle_on_rounded,
                         iconColor: _isActive ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
                         title: 'Account Status',
-                        child: Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _isActive ? 'Login Enabled (Active)' : 'Login Disabled (Inactive)',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 13.5,
-                                      color: _isActive ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _isActive ? 'Login Enabled (Active)' : 'Login Disabled (Inactive)',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13.5,
+                                          color: _isActive ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        _isActive
+                                            ? 'Staff can sign into the app & use active login slot'
+                                            : 'Staff login is disabled. Free (does not use login quota)',
+                                        style: TextStyle(fontSize: 11.5, color: isDark ? Colors.white60 : const Color(0xFF64748B)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Switch.adaptive(
+                                  value: _isActive,
+                                  activeColor: const Color(0xFF16A34A),
+                                  onChanged: (v) {
+                                    if (v && widget.isLimitReached && (widget.staff == null || !widget.staff!.isActive)) {
+                                      StaffQuotaBottomSheet.show(
+                                        context,
+                                        message: 'Active staff login limit reached for your plan. Upgrade your plan or disable another active staff login to enable this login.',
+                                      );
+                                      return;
+                                    }
+                                    setState(() => _isActive = v);
+                                  },
+                                ),
+                              ],
+                            ),
+                            if (widget.isLimitReached && (widget.staff == null || !widget.staff!.isActive) && !_isActive) ...[
+                              const SizedBox(height: 10),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.amber.shade300),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.info_outline, size: 16, color: Colors.amber.shade900),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Active login quota is full. Staff will be created with Login Disabled without consuming a login slot.',
+                                        style: TextStyle(fontSize: 11, color: Colors.amber.shade900, fontWeight: FontWeight.w500),
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    _isActive
-                                        ? 'Staff can sign in and access permitted modules'
-                                        : 'Staff login is blocked. Cannot sign into app',
-                                    style: TextStyle(fontSize: 11.5, color: isDark ? Colors.white60 : const Color(0xFF64748B)),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                            Switch.adaptive(
-                              value: _isActive,
-                              activeColor: const Color(0xFF16A34A),
-                              onChanged: (v) => setState(() => _isActive = v),
-                            ),
+                            ],
                           ],
                         ),
                       ),
@@ -1150,7 +1202,6 @@ class StaffCredentialsBottomSheet extends StatelessWidget {
     if (permissions['purchases'] == true) activeModules.add('📦 Stock');
     if (permissions['expenses'] == true) activeModules.add('💸 Expenses');
     if (permissions['used_mobiles'] == true) activeModules.add('📱 Used Mobiles');
-    if (permissions['customers'] == true) activeModules.add('👥 Customers');
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),

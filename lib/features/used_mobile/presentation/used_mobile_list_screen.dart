@@ -6,6 +6,7 @@ import '../../../../core/utils/date_helper.dart';
 import '../../../../core/utils/used_mobile_export_helper.dart';
 import '../../../../core/utils/whatsapp_helper.dart';
 import '../../../../core/widgets/app_empty_state.dart';
+import '../../../../core/widgets/barcode_scanner_screen.dart';
 import '../../../../core/widgets/whatsapp_icon.dart';
 import '../../subscription/utils/subscription_guard.dart';
 import '../data/used_mobile_repository.dart';
@@ -237,6 +238,126 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
     });
   }
 
+  Future<void> _scanToFindOrSell() async {
+    final scanned = await BarcodeScannerScreen.scan(
+      context,
+      title: 'Scan Old Phone (IMEI / Serial)',
+      instruction: 'Point camera at device IMEI barcode, Serial Number, or dial *#06#',
+    );
+    if (scanned == null || scanned.trim().isEmpty) return;
+
+    final code = scanned.trim();
+    final cleanCode = code.replaceFirst(RegExp(r'^(s/n|sn|serial|imei1|imei2|imei|p/n|pn)[:\s-]+', caseSensitive: false), '').trim();
+    final cleanDigits = code.replaceAll(RegExp(r'\D'), '');
+    final codeLower = code.toLowerCase();
+    final cleanCodeLower = cleanCode.toLowerCase();
+
+    bool matchesMobile(UsedMobile m) {
+      final mImei1Digits = m.imei1.replaceAll(RegExp(r'\D'), '');
+      final mImei2Digits = m.imei2?.replaceAll(RegExp(r'\D'), '') ?? '';
+      final mSerial = m.serialNumber?.trim().toLowerCase();
+      final mSerialDigits = m.serialNumber?.replaceAll(RegExp(r'\D'), '') ?? '';
+      final mRef = m.purchaseRefNumber.trim().toLowerCase();
+      final mImei1Lower = m.imei1.trim().toLowerCase();
+      final mImei2Lower = m.imei2?.trim().toLowerCase();
+
+      // Check IMEI digits
+      if (cleanDigits.isNotEmpty && cleanDigits.length >= 8) {
+        if (mImei1Digits == cleanDigits || mImei2Digits == cleanDigits) return true;
+        if (mSerialDigits.isNotEmpty && mSerialDigits == cleanDigits) return true;
+      }
+
+      // Exact or normalized match on IMEI1, IMEI2, or Purchase Ref
+      if (mImei1Lower == codeLower || mImei1Lower == cleanCodeLower) return true;
+      if (mImei2Lower != null && (mImei2Lower == codeLower || mImei2Lower == cleanCodeLower)) return true;
+      if (mRef == codeLower || mRef == cleanCodeLower) return true;
+
+      // Match on Serial Number (exact, normalized, or substring)
+      if (mSerial != null && mSerial.isNotEmpty) {
+        if (mSerial == codeLower || mSerial == cleanCodeLower) return true;
+        if (cleanCodeLower.length >= 5 && (mSerial.contains(cleanCodeLower) || cleanCodeLower.contains(mSerial))) {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    // 1. Direct comparison against loaded showroom list (instant, zero delay, no backend wait)
+    UsedMobile? matched;
+    for (final m in _mobiles) {
+      if (matchesMobile(m)) {
+        matched = m;
+        break;
+      }
+    }
+
+    // 2. If not in current page list, check server with cleanCode or raw code
+    if (matched == null) {
+      final searchKey = cleanCode.isNotEmpty ? cleanCode : code;
+      final res = await _repo.getUsedMobiles(search: searchKey);
+      if (res.mobiles.isNotEmpty) {
+        for (final m in res.mobiles) {
+          if (matchesMobile(m)) {
+            matched = m;
+            break;
+          }
+        }
+        matched ??= res.mobiles.first;
+      }
+    }
+
+    if (matched != null) {
+      if (matched.isSold) {
+        if (mounted) {
+          final saleDateStr = matched.saleDate != null ? ' on ${DateHelper.formatDate(matched.saleDate!.toIso8601String())}' : '';
+          final buyerStr = matched.buyerName != null ? ' to ${matched.buyerName}' : '';
+          final idInfo = matched.serialNumber != null && matched.serialNumber!.isNotEmpty
+              ? 'S/N: ${matched.serialNumber}'
+              : 'IMEI: ${matched.imei1.isNotEmpty ? matched.imei1 : code}';
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.info_outline, color: AppColors.primary),
+                  SizedBox(width: 8),
+                  Text('Mobile Already Sold'),
+                ],
+              ),
+              content: Text(
+                '${matched!.deviceDisplayName} ($idInfo) was already sold$saleDateStr$buyerStr.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          await SellUsedMobileModal.show(context, matched, onSaleComplete: fetchMobiles);
+        }
+      }
+    } else {
+      final searchKey = cleanCode.isNotEmpty ? cleanCode : code;
+      setState(() {
+        _searchController.text = searchKey;
+      });
+      fetchMobiles();
+      if (mounted) {
+        AppFeedback.showError(
+          context,
+          title: 'Not Found in Showroom',
+          message: 'No used mobile found matching IMEI or Serial "$code". Filter set to search.',
+        );
+      }
+    }
+  }
+
   Future<void> fetchMobiles({int page = 1}) async {
     setState(() => _isLoading = true);
 
@@ -313,15 +434,24 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
                               hintText: 'Search Brand, Model, IMEI, Ref #...',
                               hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
                               prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
-                              suffixIcon: _searchController.text.isNotEmpty
-                                  ? IconButton(
+                              suffixIcon: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (_searchController.text.isNotEmpty)
+                                    IconButton(
                                       icon: const Icon(Icons.clear_rounded, color: AppColors.textMuted),
                                       onPressed: () {
                                         _searchController.clear();
                                         fetchMobiles();
                                       },
-                                    )
-                                  : null,
+                                    ),
+                                  IconButton(
+                                    icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary),
+                                    tooltip: 'Scan IMEI or Serial to Search / Sell',
+                                    onPressed: _scanToFindOrSell,
+                                  ),
+                                ],
+                              ),
                               filled: true,
                               fillColor: isDark ? AppColors.darkSurface : Colors.white,
                               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -361,6 +491,38 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 8),
+                    InkWell(
+                      onTap: _scanToFindOrSell,
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFF10B981)),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.qr_code_scanner_rounded, size: 18, color: Color(0xFF10B981)),
+                            SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                '⚡ Scan Phone / IMEI to Sell Instantly',
+                                style: TextStyle(
+                                  color: Color(0xFF10B981),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 10),
                     _buildFilterTabs(isDark),

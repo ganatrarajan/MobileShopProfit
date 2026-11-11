@@ -48,6 +48,7 @@ dependencies:
   firebase_messaging: ^16.2.0
   package_info_plus: 8.1.0
   open_filex: ^5.0.0
+  mobile_scanner: 5.2.3
 
 dev_dependencies:
   flutter_test:

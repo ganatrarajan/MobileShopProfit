@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/barcode_scanner_screen.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../data/inventory_repository.dart';
 import '../models/inventory_item.dart';
@@ -22,7 +23,40 @@ class _AddStockDialogState extends State<AddStockDialog> {
   final _serialController = TextEditingController();
 
   bool _isSubmitting = false;
+  bool _isScanning = false;
   String? _errorMessage;
+
+  Future<void> _scanBoxTogether({bool isSecondary = false}) async {
+    if (_isScanning) return;
+    _isScanning = true;
+    try {
+      final result = await BarcodeScannerScreen.scanBox(
+        context,
+        title: 'Auto-Scan Phone Box',
+        instruction: 'Point at box sticker to capture both IMEIs',
+      );
+      if (result != null && mounted) {
+        setState(() {
+          if (result.hasBothImeis) {
+            _imei1Controller.text = result.imei1!;
+            _imei2Controller.text = result.imei2!;
+          } else if (result.imei1 != null && result.imei1!.isNotEmpty) {
+            if (isSecondary && _imei1Controller.text.isNotEmpty) {
+              _imei2Controller.text = result.imei1!;
+            } else if (_imei1Controller.text.isEmpty) {
+              _imei1Controller.text = result.imei1!;
+            } else {
+              _imei2Controller.text = result.imei1!;
+            }
+          } else if (result.imei2 != null && result.imei2!.isNotEmpty) {
+            _imei2Controller.text = result.imei2!;
+          }
+        });
+      }
+    } finally {
+      _isScanning = false;
+    }
+  }
 
   @override
   void initState() {
@@ -155,13 +189,52 @@ class _AddStockDialogState extends State<AddStockDialog> {
             ),
             if (widget.item.itemType == 'mobile') ...[
               const SizedBox(height: 12),
-              const Text('Device Identifiers (Optional)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Device Identifiers (Optional)',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  InkWell(
+                    onTap: _scanBoxTogether,
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFF10B981)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.qr_code_scanner_rounded, size: 12, color: Color(0xFF10B981)),
+                          SizedBox(width: 3),
+                          Text(
+                            '⚡ Scan Box',
+                            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 6),
               CustomTextField(
                 label: 'IMEI 1',
                 hint: '15-digit IMEI',
                 controller: _imei1Controller,
                 keyboardType: TextInputType.number,
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary),
+                  tooltip: 'Scan Box with camera',
+                  onPressed: () => _scanBoxTogether(isSecondary: false),
+                ),
               ),
               const SizedBox(height: 8),
               CustomTextField(
@@ -169,6 +242,11 @@ class _AddStockDialogState extends State<AddStockDialog> {
                 hint: '15-digit IMEI',
                 controller: _imei2Controller,
                 keyboardType: TextInputType.number,
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary),
+                  tooltip: 'Scan Box with camera',
+                  onPressed: () => _scanBoxTogether(isSecondary: true),
+                ),
               ),
             ],
           ],

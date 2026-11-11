@@ -28,7 +28,7 @@ class CustomCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cardBgColor = backgroundColor ?? AppColors.surface;
-    final borderColor = AppColors.border;
+    const borderColor = AppColors.border;
 
     Widget content = Container(
       width: width ?? double.infinity,

@@ -246,7 +246,10 @@ class DashboardScreenState extends State<DashboardScreen> {
             double repairTechCost = dashData.repairs.technicianCost;
             double repairProfit = dashData.repairs.netProfit;
 
-            if (repairPartsCost == 0 && repairTechCost == 0 && repairList.isNotEmpty) {
+            // Only fallback to aggregating from repairList if backend returned zero earnings and zero profit
+            if (repairProfit == 0 && dashData.repairs.totalEarnings == 0 && repairList.isNotEmpty) {
+              repairPartsCost = 0.0;
+              repairTechCost = 0.0;
               for (final r in repairList) {
                 repairPartsCost += r.partsCostTotal;
                 repairTechCost += r.technicianCost;

@@ -1,4 +1,4 @@
-﻿import '../../../core/constants/api_endpoints.dart';
+import '../../../core/constants/api_endpoints.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_response.dart';
 import '../models/inventory_item.dart';
@@ -192,6 +192,9 @@ class InventoryRepository {
     int? minimumStock,
     String? unit,
     String? description,
+    String? imei1,
+    String? imei2,
+    String? serialNumber,
     bool? isActive,
   }) async {
     final body = <String, dynamic>{
@@ -206,6 +209,9 @@ class InventoryRepository {
       if (minimumStock != null) 'minimum_stock': minimumStock,
       if (unit != null) 'unit': unit,
       if (description != null) 'description': description,
+      if (imei1 != null) 'imei1': imei1,
+      if (imei2 != null) 'imei2': imei2,
+      if (serialNumber != null) 'serial_number': serialNumber,
       if (isActive != null) 'is_active': isActive,
     };
 

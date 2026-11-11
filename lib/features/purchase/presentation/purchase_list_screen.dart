@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/date_helper.dart';
-import '../../../core/widgets/app_empty_state.dart';
 import '../../../core/widgets/date_range_empty_state.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../inventory/presentation/inventory_list_screen.dart';

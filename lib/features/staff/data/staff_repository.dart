@@ -135,11 +135,17 @@ class StaffRepository {
 
     if (response.success && response.data != null) {
       final rawData = response.data;
+      Map<String, dynamic>? itemMap;
       if (rawData is Map && rawData['data'] is Map) {
+        itemMap = Map<String, dynamic>.from(rawData['data']);
+      } else if (rawData is Map) {
+        itemMap = Map<String, dynamic>.from(rawData);
+      }
+      if (itemMap != null) {
         return ApiResponse<Staff>(
           success: true,
           message: response.message,
-          data: Staff.fromJson(Map<String, dynamic>.from(rawData['data'])),
+          data: Staff.fromJson(itemMap),
           rawJson: response.rawJson,
         );
       }
@@ -203,11 +209,17 @@ class StaffRepository {
 
     if (response.success && response.data != null) {
       final rawData = response.data;
+      Map<String, dynamic>? itemMap;
       if (rawData is Map && rawData['data'] is Map) {
+        itemMap = Map<String, dynamic>.from(rawData['data']);
+      } else if (rawData is Map) {
+        itemMap = Map<String, dynamic>.from(rawData);
+      }
+      if (itemMap != null) {
         return ApiResponse<Staff>(
           success: true,
           message: response.message,
-          data: Staff.fromJson(Map<String, dynamic>.from(rawData['data'])),
+          data: Staff.fromJson(itemMap),
           rawJson: response.rawJson,
         );
       }
@@ -276,11 +288,50 @@ class StaffRepository {
 
     if (response.success && response.data != null) {
       final rawData = response.data;
+      Map<String, dynamic>? itemMap;
       if (rawData is Map && rawData['data'] is Map) {
+        itemMap = Map<String, dynamic>.from(rawData['data']);
+      } else if (rawData is Map) {
+        itemMap = Map<String, dynamic>.from(rawData);
+      }
+      if (itemMap != null) {
         return ApiResponse<Staff>(
           success: true,
           message: response.message,
-          data: Staff.fromJson(Map<String, dynamic>.from(rawData['data'])),
+          data: Staff.fromJson(itemMap),
+          rawJson: response.rawJson,
+        );
+      }
+    }
+
+    return ApiResponse<Staff>(
+      success: false,
+      message: response.message,
+      rawJson: response.rawJson,
+      errors: response.errors,
+    );
+  }
+
+  /// Toggle active status for staff login
+  Future<ApiResponse<Staff>> toggleStaffStatus(int id) async {
+    final response = await _apiClient.post(
+      '${ApiEndpoints.staff}/$id/toggle-status',
+      body: {},
+    );
+
+    if (response.success && response.data != null) {
+      final rawData = response.data;
+      Map<String, dynamic>? itemMap;
+      if (rawData is Map && rawData['data'] is Map) {
+        itemMap = Map<String, dynamic>.from(rawData['data']);
+      } else if (rawData is Map) {
+        itemMap = Map<String, dynamic>.from(rawData);
+      }
+      if (itemMap != null) {
+        return ApiResponse<Staff>(
+          success: true,
+          message: response.message,
+          data: Staff.fromJson(itemMap),
           rawJson: response.rawJson,
         );
       }

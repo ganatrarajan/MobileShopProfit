@@ -8,6 +8,7 @@ class CustomTextField extends StatefulWidget {
   final TextInputType keyboardType;
   final bool isPassword;
   final IconData? prefixIcon;
+  final Widget? suffixIcon;
   final String? Function(String?)? validator;
   final bool readOnly;
   final void Function(String)? onChanged;
@@ -22,6 +23,7 @@ class CustomTextField extends StatefulWidget {
     this.keyboardType = TextInputType.text,
     this.isPassword = false,
     this.prefixIcon,
+    this.suffixIcon,
     this.validator,
     this.readOnly = false,
     this.onChanged,
@@ -109,7 +111,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
                       });
                     },
                   )
-                : null,
+                : widget.suffixIcon,
           ),
         ),
       ],
