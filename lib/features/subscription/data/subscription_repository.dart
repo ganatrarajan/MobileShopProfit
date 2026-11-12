@@ -9,13 +9,20 @@ class SubscriptionRepository {
     return await _apiClient.get(ApiEndpoints.subscriptionStatus);
   }
 
-  Future<ApiResponse<dynamic>> createOrder({int? planId, bool? isUpgrade}) async {
+  Future<ApiResponse<dynamic>> createOrder({
+    int? planId,
+    bool? isUpgrade,
+    bool usePoints = false,
+  }) async {
     final Map<String, dynamic> body = {};
     if (planId != null) {
       body['plan_id'] = planId;
     }
     if (isUpgrade != null) {
       body['is_upgrade'] = isUpgrade;
+    }
+    if (usePoints) {
+      body['use_points'] = true;
     }
     return await _apiClient.post(
       ApiEndpoints.subscriptionCreateOrder,

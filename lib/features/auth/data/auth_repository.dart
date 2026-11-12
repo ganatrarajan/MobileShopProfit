@@ -1,4 +1,4 @@
-﻿import '../../../core/constants/api_endpoints.dart';
+import '../../../core/constants/api_endpoints.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_response.dart';
 import '../../../core/storage/auth_storage.dart';
@@ -11,8 +11,9 @@ class AuthRepository {
     required String password,
     required String passwordConfirmation,
     String? email,
+    String? referralCode,
   }) async {
-    return await _apiClient.post(
+    final response = await _apiClient.post(
       ApiEndpoints.sendRegisterOtp,
       body: {
         'name': name,
@@ -21,7 +22,43 @@ class AuthRepository {
         'shop_name': shopName,
         'password': password,
         'password_confirmation': passwordConfirmation,
+        if (referralCode != null && referralCode.trim().isNotEmpty)
+          'referral_code': referralCode.trim(),
       },
+    );
+
+    if (response.success && response.data != null) {
+      final dynamic rawData = response.data;
+      Map<String, dynamic>? dataMap;
+      if (rawData is Map<String, dynamic>) {
+        dataMap = rawData.containsKey('data') && rawData['data'] is Map<String, dynamic>
+            ? rawData['data']
+            : rawData;
+      }
+      if (dataMap != null && dataMap['otp_skipped'] == true) {
+        final token = dataMap['token'];
+        final user = dataMap['user'];
+        final dynamic shopRaw = dataMap['shop'] ?? (user is Map ? user['shop'] : null);
+        final Map<String, dynamic> shop = (shopRaw is Map)
+            ? Map<String, dynamic>.from(shopRaw)
+            : {};
+        if (token != null && user != null) {
+          await _authStorage.saveSession(
+            token: token.toString(),
+            user: Map<String, dynamic>.from(user),
+            shop: shop,
+          );
+        }
+      }
+    }
+
+    return response;
+  }
+
+  Future<ApiResponse<dynamic>> validateReferralCode(String referralCode) async {
+    return await _apiClient.post(
+      ApiEndpoints.referralValidate,
+      body: {'referral_code': referralCode.trim()},
     );
   }
 
@@ -89,6 +126,7 @@ class AuthRepository {
     required String password,
     required String passwordConfirmation,
     String? email,
+    String? referralCode,
   }) async {
     final response = await _apiClient.post(
       ApiEndpoints.register,
@@ -99,6 +137,8 @@ class AuthRepository {
         'shop_name': shopName,
         'password': password,
         'password_confirmation': passwordConfirmation,
+        if (referralCode != null && referralCode.trim().isNotEmpty)
+          'referral_code': referralCode.trim(),
       },
     );
 

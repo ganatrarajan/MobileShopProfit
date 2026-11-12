@@ -1,4 +1,4 @@
-﻿import '../../../core/utils/app_feedback.dart';
+import '../../../core/utils/app_feedback.dart';
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
@@ -22,10 +22,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _shopNameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _referralCodeController = TextEditingController();
 
   final _authRepository = AuthRepository();
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
+  bool _isValidatingReferral = false;
+  bool? _isReferralValid;
+  String? _referralValidationMsg;
   String? _errorMessage;
 
     void _showErrorAndScrollToTop(String title, String errorMessage) {
@@ -49,6 +53,44 @@ class _RegisterScreenState extends State<RegisterScreen> {
         title: title,
         error: errorMessage,
       );
+    }
+  }
+
+  Future<void> _validateReferralCode() async {
+    final code = _referralCodeController.text.trim();
+    if (code.isEmpty) {
+      setState(() {
+        _isReferralValid = null;
+        _referralValidationMsg = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _isValidatingReferral = true;
+      _isReferralValid = null;
+      _referralValidationMsg = null;
+    });
+
+    try {
+      final res = await _authRepository.validateReferralCode(code);
+      if (mounted) {
+        setState(() {
+          _isValidatingReferral = false;
+          _isReferralValid = res.success;
+          _referralValidationMsg = res.message.isNotEmpty
+              ? res.message
+              : (res.success ? 'Valid referral code!' : 'Invalid referral code.');
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isValidatingReferral = false;
+          _isReferralValid = false;
+          _referralValidationMsg = 'Could not verify referral code.';
+        });
+      }
     }
   }
 
@@ -79,6 +121,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         shopName: _shopNameController.text.trim(),
         password: _passwordController.text,
         passwordConfirmation: _confirmPasswordController.text,
+        referralCode: _referralCodeController.text.trim().isEmpty ? null : _referralCodeController.text.trim(),
       );
 
       if (mounted) {
@@ -87,6 +130,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
           final Map<String, dynamic> data = (rawData is Map && rawData.containsKey('data') && rawData['data'] is Map)
               ? Map<String, dynamic>.from(rawData['data'])
               : (rawData is Map ? Map<String, dynamic>.from(rawData) : {});
+
+          if (data['otp_skipped'] == true) {
+            Navigator.pushNamedAndRemoveUntil(context, AppRoutes.dashboard, (route) => false);
+            return;
+          }
 
           Navigator.pushNamed(
             context,
@@ -130,6 +178,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _shopNameController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _referralCodeController.dispose();
     super.dispose();
   }
 
@@ -230,6 +279,57 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     return null;
                   },
                 ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  label: 'Referral Code (Optional)',
+                  hint: 'e.g. RAJA4X9B',
+                  controller: _referralCodeController,
+                  prefixIcon: Icons.card_giftcard_rounded,
+                  onChanged: (_) {
+                    if (_isReferralValid != null || _referralValidationMsg != null) {
+                      setState(() {
+                        _isReferralValid = null;
+                        _referralValidationMsg = null;
+                      });
+                    }
+                  },
+                  suffixIcon: TextButton(
+                    onPressed: _isValidatingReferral ? null : _validateReferralCode,
+                    child: _isValidatingReferral
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text(
+                            'Apply',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                  ),
+                ),
+                if (_referralValidationMsg != null) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Icon(
+                        _isReferralValid == true ? Icons.check_circle_rounded : Icons.error_outline_rounded,
+                        size: 16,
+                        color: _isReferralValid == true ? AppColors.success : AppColors.error,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          _referralValidationMsg!,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: _isReferralValid == true ? AppColors.success : AppColors.error,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 28),
                 CustomButton(
                   text: 'Create Shop & Register Owner',

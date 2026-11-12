@@ -1,4 +1,4 @@
-﻿import '../../../core/utils/app_feedback.dart';
+import '../../../core/utils/app_feedback.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/custom_button.dart';
@@ -78,6 +78,18 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           final verificationId = data['verification_id']?.toString() ?? '';
 
           if (verificationId.isNotEmpty) {
+            if (data['otp_skipped'] == true) {
+              await Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ResetPasswordScreen(
+                    verificationId: verificationId,
+                  ),
+                ),
+              );
+              return;
+            }
+
             final dynamic verifiedId = await Navigator.push(
               context,
               MaterialPageRoute(

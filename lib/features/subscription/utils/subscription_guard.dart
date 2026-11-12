@@ -54,10 +54,11 @@ class SubscriptionGuard {
             ? data['days_remaining']
             : int.tryParse(data['days_remaining']?.toString() ?? '99') ?? 99;
         final bool isExpired = (data['is_expired'] == true || status == 'expired' || daysRemaining <= 0);
+        final double refPoints = double.tryParse((data['referral_points_balance'] ?? 0).toString()) ?? 0.0;
 
         if (isExpired) {
           if (context.mounted) {
-            showSubscriptionExpiredDialog(context, actionName: actionName);
+            showSubscriptionExpiredDialog(context, actionName: actionName, referralPoints: refPoints);
           }
           return false;
         }
@@ -66,7 +67,12 @@ class SubscriptionGuard {
     return true;
   }
 
-  static void showSubscriptionExpiredDialog(BuildContext context, {String actionName = 'create new records'}) {
+  static void showSubscriptionExpiredDialog(
+    BuildContext context, {
+    String actionName = 'create new records',
+    double referralPoints = 0.0,
+  }) {
+    final hasPoints = referralPoints > 0;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -97,6 +103,31 @@ class SubscriptionGuard {
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
               ),
+              if (hasPoints) ...[
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 22),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'You have ${referralPoints.toStringAsFixed(2)} pts (₹${referralPoints.toStringAsFixed(2)}) — Use your points & save on renewal!',
+                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
@@ -112,7 +143,10 @@ class SubscriptionGuard {
                     AppRoutes.navigatorKey.currentState?.pushNamed(AppRoutes.subscription);
                   },
                   icon: const Icon(Icons.rocket_launch_rounded, size: 20),
-                  label: const Text('Renew Plan Now', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  label: Text(
+                    hasPoints ? 'Use Points & Renew Plan' : 'Renew Plan Now',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
                 ),
               ),
               const SizedBox(height: 8),

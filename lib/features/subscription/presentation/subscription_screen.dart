@@ -177,18 +177,175 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     }
   }
 
+  Future<void> _handlePlanPurchaseTap({
+    int? planId,
+    required String planName,
+    required double planPrice,
+  }) async {
+    final double walletBalance = (_statusData?['referral_points_balance'] is num)
+        ? (_statusData!['referral_points_balance'] as num).toDouble()
+        : (double.tryParse(_statusData?['referral_points_balance']?.toString() ?? '0') ?? 0.0);
+
+    final refConfig = _statusData?['referral_config'];
+    final double maxRedeemPercent = (refConfig is Map && refConfig['max_redeem_percent'] is num)
+        ? (refConfig['max_redeem_percent'] as num).toDouble()
+        : (double.tryParse(refConfig is Map ? (refConfig['max_redeem_percent']?.toString() ?? '0') : '0') ?? 0.0);
+
+    if (walletBalance <= 0 || maxRedeemPercent <= 0 || planPrice <= 0) {
+      await _startRazorpayPayment(
+        planId: planId,
+        planName: planName,
+        planPrice: planPrice,
+        isUpgrade: false,
+        usePoints: false,
+      );
+      return;
+    }
+
+    final double maxByPercent = (planPrice * maxRedeemPercent) / 100.0;
+    final double usablePoints = [walletBalance, maxByPercent, planPrice].reduce((a, b) => a < b ? a : b);
+    if (usablePoints <= 0) {
+      await _startRazorpayPayment(
+        planId: planId,
+        planName: planName,
+        planPrice: planPrice,
+        isUpgrade: false,
+        usePoints: false,
+      );
+      return;
+    }
+
+    bool usePoints = true;
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final double discount = usePoints ? usablePoints : 0.0;
+            final double netPayable = (planPrice - discount).clamp(0.0, planPrice);
+
+            return Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Checkout: $planName',
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0FDF4),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFF86EFAC)),
+                    ),
+                    child: SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      activeColor: const Color(0xFF16A34A),
+                      value: usePoints,
+                      onChanged: (val) => setModalState(() => usePoints = val),
+                      title: Text(
+                        'Use Referral Points (${walletBalance.toStringAsFixed(0)} pts available)',
+                        style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text(
+                        'Save ₹${usablePoints.toStringAsFixed(0)} (up to ${maxRedeemPercent.toStringAsFixed(0)}% of plan)',
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF15803D)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Plan Price:', style: TextStyle(color: AppColors.textMuted)),
+                      Text('₹${planPrice.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                  if (usePoints) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Points Discount:', style: TextStyle(color: Color(0xFF16A34A))),
+                        Text('- ₹${discount.toStringAsFixed(2)}', style: const TextStyle(color: Color(0xFF16A34A), fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ],
+                  const Divider(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Net Payable:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text(
+                        '₹${netPayable.toStringAsFixed(2)}',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primary),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: Text(
+                        netPayable <= 0
+                            ? 'Activate Free with Points'
+                            : 'Proceed to Pay ₹${netPayable.toStringAsFixed(0)}',
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed == true && mounted) {
+      await _startRazorpayPayment(
+        planId: planId,
+        planName: planName,
+        planPrice: planPrice,
+        isUpgrade: false,
+        usePoints: usePoints,
+      );
+    }
+  }
+
   Future<void> _startRazorpayPayment({
     int? planId,
     String? planName,
     double? planPrice,
     bool isUpgrade = false,
+    bool usePoints = false,
   }) async {
     setState(() {
       _isProcessing = true;
     });
 
     try {
-      final orderRes = await _repository.createOrder(planId: planId, isUpgrade: isUpgrade);
+      final orderRes = await _repository.createOrder(
+        planId: planId,
+        isUpgrade: isUpgrade,
+        usePoints: usePoints,
+      );
       if (!orderRes.success || orderRes.data == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -210,6 +367,21 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           : (rawOrder is Map ? Map<String, dynamic>.from(rawOrder) : {});
 
       final String orderId = orderData['order_id'] ?? '';
+      if (orderData['free_via_points'] == true) {
+        if (mounted) {
+          setState(() => _isProcessing = false);
+          AppFeedback.showSuccess(
+            context,
+            title: 'Plan Activated!',
+            message: orderRes.message.isNotEmpty
+                ? orderRes.message
+                : 'Subscription activated using Referral Points.',
+          );
+          _loadSubscriptionData();
+        }
+        return;
+      }
+
       final double amount = (orderData['amount'] != null)
           ? (orderData['amount'] as num).toDouble()
           : (planPrice ?? 200.0);
@@ -964,6 +1136,21 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           : (rawOrder is Map ? Map<String, dynamic>.from(rawOrder) : {});
 
       final String orderId = orderData['order_id'] ?? '';
+      if (orderData['free_via_points'] == true) {
+        if (mounted) {
+          setState(() => _isProcessing = false);
+          AppFeedback.showSuccess(
+            context,
+            title: 'Plan Activated!',
+            message: orderRes.message.isNotEmpty
+                ? orderRes.message
+                : 'Subscription activated using Referral Points.',
+          );
+          _loadSubscriptionData();
+        }
+        return;
+      }
+
       final double amount = (orderData['amount'] != null)
           ? (orderData['amount'] as num).toDouble()
           : totalAmount;
@@ -1432,11 +1619,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   onPressed: _isProcessing
                       ? null
                       : () {
-                          _startRazorpayPayment(
+                          _handlePlanPurchaseTap(
                             planId: planId,
                             planName: name,
                             planPrice: price,
-                            isUpgrade: false,
                           );
                         },
                   child: _isProcessing

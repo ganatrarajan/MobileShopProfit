@@ -3,6 +3,7 @@ import '../../../core/widgets/app_shimmer.dart';
 import '../../../core/utils/date_helper.dart';
 import '../../../core/utils/nav_utils.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/storage/auth_storage.dart';
 import '../../../core/theme/app_colors.dart';
@@ -15,6 +16,8 @@ import '../models/dashboard_data.dart';
 import '../../subscription/utils/subscription_guard.dart';
 import '../../notifications/data/notification_repository.dart';
 import '../../notifications/presentation/notifications_screen.dart';
+import '../../referral/data/referral_repository.dart';
+import '../../referral/presentation/refer_and_earn_screen.dart';
 import '../../repair/data/repair_repository.dart';
 import '../../repair/models/repair.dart';
 import '../../purchase/data/purchase_repository.dart';
@@ -56,13 +59,82 @@ class DashboardScreenState extends State<DashboardScreen> {
   String? _storedShopLogoUrl;
   int _unreadNotifCount = 0;
 
+  final ReferralRepository _referralRepo = ReferralRepository();
+  bool _isReferralEnabled = false;
+  double _referralPoints = 0.0;
+  double _referralRechargePercent = 0.0;
+  double _referralSignupPoints = 0.0;
+  double _referralWelcomePoints = 0.0;
+  double _referralMaxRedeemPercent = 50.0;
+  String _referralRewardMode = 'signup_and_recharge';
+  bool _hasCheckedFirstOpenReferral = false;
+
   @override
   void initState() {
     super.initState();
     _loadStoredShopInfo();
     fetchDashboard();
+    _loadReferralStatus();
     NotificationRepository().pingAppOpen();
     FcmService().initialize(context);
+  }
+
+  Future<void> _loadReferralStatus() async {
+    try {
+      final res = await _referralRepo.getReferralSummary();
+      if (!mounted || !res.success || res.data == null) return;
+      final data = res.data!;
+      final cfg = data['config'];
+      bool enabled = false;
+      double rechargePct = 0.0;
+      double signupPts = 0.0;
+      double welcomePts = 0.0;
+      double maxRedeemPct = 50.0;
+      String mode = 'signup_and_recharge';
+      if (cfg is Map) {
+        enabled = cfg['enabled'] == true;
+        rechargePct = double.tryParse((cfg['recharge_percent'] ?? 0).toString()) ?? 0.0;
+        signupPts = double.tryParse((cfg['signup_points'] ?? 0).toString()) ?? 0.0;
+        welcomePts = double.tryParse((cfg['welcome_points'] ?? 0).toString()) ?? 0.0;
+        maxRedeemPct = double.tryParse((cfg['max_redeem_percent'] ?? 50).toString()) ?? 50.0;
+        mode = (cfg['reward_mode'] ?? 'signup_and_recharge').toString();
+      }
+      final pts = double.tryParse((data['points_balance'] ?? 0).toString()) ?? 0.0;
+
+      if (mounted) {
+        setState(() {
+          _isReferralEnabled = enabled;
+          _referralPoints = pts;
+          _referralRechargePercent = rechargePct;
+          _referralSignupPoints = signupPts;
+          _referralWelcomePoints = welcomePts;
+          _referralMaxRedeemPercent = maxRedeemPct;
+          _referralRewardMode = mode;
+        });
+      }
+
+      if (enabled && !_hasCheckedFirstOpenReferral) {
+        _hasCheckedFirstOpenReferral = true;
+        final prefs = await SharedPreferences.getInstance();
+        final now = DateTime.now();
+        final todayStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+        final lastShownDate = prefs.getString('referral_popup_last_shown_date');
+        if (lastShownDate != todayStr) {
+          await prefs.setString('referral_popup_last_shown_date', todayStr);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _showFirstOpenReferralDialog();
+          });
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _openReferAndEarn() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ReferAndEarnScreen()),
+    );
+    _loadReferralStatus();
   }
 
   Future<void> _fetchUnreadNotificationCount() async {
@@ -454,6 +526,9 @@ class DashboardScreenState extends State<DashboardScreen> {
         ownerName: ownerName,
         logoUrl: _dashboardData?.logoUrl ?? _storedShopLogoUrl,
         onTabSelected: widget.onTabSelected,
+        isReferralEnabled: _isReferralEnabled,
+        referralPoints: _referralPoints,
+        onReferralReturned: _loadReferralStatus,
       ),
       body: RefreshIndicator(
         onRefresh: fetchDashboard,
@@ -771,8 +846,207 @@ class DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  void _showFirstOpenReferralDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Gradient Top Header with Close (X) Icon
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(20, 14, 14, 22),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Column(
+                children: [
+                  Align(
+                    alignment: Alignment.topRight,
+                    child: InkWell(
+                      onTap: () => Navigator.pop(ctx),
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.18),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 42),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Refer & Earn Rewards!',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 21,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Invite other mobile shops & save on your plan recharges',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Highlighted Details Body
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_referralRewardMode != 'recharge_only' && _referralSignupPoints > 0) ...[
+                    _buildPopupHighlightRow(
+                      icon: Icons.person_add_alt_1_rounded,
+                      iconColor: const Color(0xFF059669),
+                      title: 'Instant Signup Reward',
+                      subtitle:
+                          'Earn ${_referralSignupPoints.toStringAsFixed(0)} Points (₹${_referralSignupPoints.toStringAsFixed(0)}) when a shop registers with your code.',
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (_referralRechargePercent > 0) ...[
+                    _buildPopupHighlightRow(
+                      icon: Icons.autorenew_rounded,
+                      iconColor: const Color(0xFF4F46E5),
+                      title: '${_referralRechargePercent.toStringAsFixed(0)}% Recharge Commission',
+                      subtitle:
+                          'Earn ${_referralRechargePercent.toStringAsFixed(0)}% of every paid plan recharge made by your referred shops.',
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  _buildPopupHighlightRow(
+                    icon: Icons.account_balance_wallet_rounded,
+                    iconColor: const Color(0xFFD97706),
+                    title: 'Redeem Up to ${_referralMaxRedeemPercent.toStringAsFixed(0)}% on Plans',
+                    subtitle: '1 Point = ₹1 discount on your own subscription plan recharge.',
+                  ),
+                  if (_referralWelcomePoints > 0) ...[
+                    const SizedBox(height: 12),
+                    _buildPopupHighlightRow(
+                      icon: Icons.celebration_rounded,
+                      iconColor: const Color(0xFF7C3AED),
+                      title: 'Friend Welcome Bonus',
+                      subtitle:
+                          'Your referred shop also gets ${_referralWelcomePoints.toStringAsFixed(0)} bonus points on signup!',
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _openReferAndEarn();
+                      },
+                      icon: const Icon(Icons.share_rounded, size: 19),
+                      label: const Text(
+                        'Open Refer & Earn Now',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF4F46E5),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        elevation: 2,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPopupHighlightRow({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: iconColor.withOpacity(0.07),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: iconColor.withOpacity(0.18)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.14),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                    color: iconColor,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade800,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSubscriptionHighlightCard(int daysRemaining) {
     final isExpired = daysRemaining <= 0;
+    final hasPoints = _referralPoints > 0;
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 16),
@@ -782,43 +1056,81 @@ class DashboardScreenState extends State<DashboardScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: isExpired ? Colors.red.shade200 : Colors.amber.shade300),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            isExpired ? Icons.warning_rounded : Icons.timer_outlined,
-            color: isExpired ? AppColors.error : AppColors.warning,
-            size: 24,
+          Row(
+            children: [
+              Icon(
+                isExpired ? Icons.warning_rounded : Icons.timer_outlined,
+                color: isExpired ? AppColors.error : AppColors.warning,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isExpired ? 'Subscription Expired' : 'Plan Expiring Soon ($daysRemaining Days Left)',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: isExpired ? AppColors.error : Colors.amber.shade900,
+                      ),
+                    ),
+                    Text(
+                      isExpired ? 'Renew now to maintain full access' : 'Renew plan now to prevent feature restriction',
+                      style: TextStyle(fontSize: 11, color: isExpired ? Colors.red.shade800 : Colors.amber.shade800),
+                    ),
+                  ],
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isExpired ? AppColors.error : AppColors.warning,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  elevation: 0,
+                ),
+                onPressed: () => NavUtils.pushNamed(context, AppRoutes.subscription),
+                child: Text(
+                  hasPoints ? 'Use Pts & Renew' : 'Renew',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isExpired ? 'Subscription Expired' : 'Plan Expiring Soon ($daysRemaining Days Left)',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    color: isExpired ? AppColors.error : Colors.amber.shade900,
+          if (hasPoints) ...[
+            const SizedBox(height: 10),
+            InkWell(
+              onTap: () => NavUtils.pushNamed(context, AppRoutes.subscription),
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
                   ),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                Text(
-                  isExpired ? 'Renew now to maintain full access' : 'Renew plan now to prevent feature restriction',
-                  style: TextStyle(fontSize: 11, color: isExpired ? Colors.red.shade800 : Colors.amber.shade800),
+                child: Row(
+                  children: [
+                    const Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'You have ${_referralPoints.toStringAsFixed(2)} pts (₹${_referralPoints.toStringAsFixed(2)}) — Use points & save on renewal!',
+                        style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 12),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isExpired ? AppColors.error : AppColors.warning,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              elevation: 0,
-            ),
-            onPressed: () => NavUtils.pushNamed(context, AppRoutes.subscription),
-            child: const Text('Renew', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-          ),
+          ],
         ],
       ),
     );
@@ -2040,6 +2352,7 @@ class DashboardScreenState extends State<DashboardScreen> {
 
   void _showSubscriptionExpiryDialog(int daysRemaining) {
     final isExpired = daysRemaining <= 0;
+    final hasPoints = _referralPoints > 0;
     showDialog(
       context: context,
       barrierDismissible: !isExpired,
@@ -2079,6 +2392,41 @@ class DashboardScreenState extends State<DashboardScreen> {
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
               ),
+              if (hasPoints) ...[
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 22),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${_referralPoints.toStringAsFixed(2)} Points Available (₹${_referralPoints.toStringAsFixed(2)})',
+                              style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w800),
+                            ),
+                            const SizedBox(height: 2),
+                            const Text(
+                              'Use your reward points at checkout to save on renewal!',
+                              style: TextStyle(color: Colors.white70, fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
@@ -2094,7 +2442,10 @@ class DashboardScreenState extends State<DashboardScreen> {
                     NavUtils.pushNamed(context, AppRoutes.subscription);
                   },
                   icon: const Icon(Icons.star_rounded, size: 18),
-                  label: const Text('Renew Plan Now', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  label: Text(
+                    hasPoints ? 'Use Points & Renew Plan' : 'Renew Plan Now',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
                 ),
               ),
             ],

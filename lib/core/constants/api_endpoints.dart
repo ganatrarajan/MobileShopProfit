@@ -46,4 +46,6 @@ class ApiEndpoints {
   static const String appVersion = '/public/app-version';
   static const String notifications = '/notifications';
   static const String fcmToken = '/fcm-token';
+  static const String referralValidate = '/referrals/validate';
+  static const String referralSummary = '/referrals/summary';
 }
