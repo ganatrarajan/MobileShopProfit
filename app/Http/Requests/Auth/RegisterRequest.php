@@ -17,8 +17,9 @@ class RegisterRequest extends FormRequest
             'name'      => 'required|string|max:255',
             'mobile'    => 'required|string|max:20|unique:users,mobile',
             'email'     => 'nullable|string|email|max:255|unique:users,email',
-            'shop_name' => 'required|string|max:255',
-            'password'  => 'required|string|min:8|confirmed',
+            'shop_name'     => 'required|string|max:255',
+            'password'      => 'required|string|min:8|confirmed',
+            'referral_code' => 'nullable|string|max:32',
         ];
     }
 

@@ -41,7 +41,6 @@ class AdminUsedMobileController extends Controller
                 $q->where('name', 'like', "%{$search}%")
                   ->orWhere('owner_name', 'like', "%{$search}%")
                   ->orWhere('phone', 'like', "%{$search}%")
-                  ->orWhere('mobile', 'like', "%{$search}%")
                   ->orWhere('email', 'like', "%{$search}%")
                   ->orWhere('city', 'like', "%{$search}%")
                   ->orWhereHas('user', function ($uq) use ($search) {

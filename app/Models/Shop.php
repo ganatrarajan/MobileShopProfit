@@ -8,10 +8,25 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class Shop extends Model
 {
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        static::creating(function (Shop $shop) {
+            if (empty($shop->referral_code)) {
+                $prefix = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) $shop->name));
+                $prefix = substr($prefix, 0, 4) ?: 'SHOP';
+                do {
+                    $code = $prefix . strtoupper(Str::random(4));
+                } while (static::where('referral_code', $code)->exists());
+                $shop->referral_code = $code;
+            }
+        });
+    }
 
     protected $fillable = [
         'user_id',
@@ -28,6 +43,14 @@ class Shop extends Model
         'logo',
         'currency',
         'status',
+        'referral_code',
+        'referred_by_shop_id',
+        'referral_points_balance',
+        'referral_enabled_override',
+        'referral_reward_mode_override',
+        'custom_referral_signup_points',
+        'custom_referral_recharge_percent',
+        'custom_referral_max_redeem_percent',
         'custom_max_staff',
         'custom_staff_valid_until',
         'custom_staff_note',
@@ -40,13 +63,18 @@ class Shop extends Model
     ];
 
     protected $casts = [
-        'custom_max_staff'            => 'integer',
-        'custom_staff_valid_until'    => 'date:Y-m-d',
-        'custom_discount_percent'     => 'float',
-        'custom_plan_prices'          => 'array',
-        'custom_staff_price_per_day'  => 'float',
-        'custom_discount_valid_until' => 'date:Y-m-d',
-        'custom_discount_is_one_time' => 'boolean',
+        'referral_points_balance'            => 'float',
+        'referral_enabled_override'          => 'boolean',
+        'custom_referral_signup_points'      => 'float',
+        'custom_referral_recharge_percent'   => 'float',
+        'custom_referral_max_redeem_percent' => 'float',
+        'custom_max_staff'                   => 'integer',
+        'custom_staff_valid_until'           => 'date:Y-m-d',
+        'custom_discount_percent'            => 'float',
+        'custom_plan_prices'                 => 'array',
+        'custom_staff_price_per_day'         => 'float',
+        'custom_discount_valid_until'        => 'date:Y-m-d',
+        'custom_discount_is_one_time'        => 'boolean',
     ];
 
     protected $appends = ['logo_url', 'effective_max_staff', 'staff_days_remaining', 'staff_valid_until_formatted'];
@@ -259,6 +287,14 @@ class Shop extends Model
     }
 
     /**
+     * Get all staff members associated with the shop.
+     */
+    public function staff(): HasMany
+    {
+        return $this->hasMany(Staff::class);
+    }
+
+    /**
      * Get all technicians associated with the shop.
      */
     public function technicians(): HasMany
@@ -304,5 +340,20 @@ class Shop extends Model
     public function inventoryItems(): HasMany
     {
         return $this->hasMany(InventoryItem::class);
+    }
+
+    public function referrer(): BelongsTo
+    {
+        return $this->belongsTo(Shop::class, 'referred_by_shop_id');
+    }
+
+    public function referredShops(): HasMany
+    {
+        return $this->hasMany(Shop::class, 'referred_by_shop_id');
+    }
+
+    public function referralTransactions(): HasMany
+    {
+        return $this->hasMany(ReferralPointTransaction::class)->latest();
     }
 }

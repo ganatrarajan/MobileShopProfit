@@ -64,16 +64,23 @@ class User extends Authenticatable
      */
     public function hasPermission(string $module): bool
     {
-        if ($this->role === 'owner') {
+        if ($this->role === 'owner' || empty($this->role)) {
             return true;
         }
 
         if (empty($this->permissions)) {
-            // Default: technicians have repairs permission by default
-            return $this->role === 'technician' && $module === 'repairs';
+            return in_array($module, ['repairs', 'sales']);
         }
 
         return (bool) ($this->permissions[$module] ?? false);
+    }
+
+    /**
+     * Get staff profile associated with user.
+     */
+    public function staff()
+    {
+        return $this->hasOne(Staff::class, 'user_id');
     }
 
     /**

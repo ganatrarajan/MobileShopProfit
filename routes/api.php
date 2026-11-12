@@ -39,6 +39,7 @@ use App\Http\Controllers\Api\V1\SaleController;
 use App\Http\Controllers\Api\V1\SalePaymentController;
 use App\Http\Controllers\Api\V1\ShopController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
+use App\Http\Controllers\Api\V1\StaffController;
 use App\Http\Controllers\Api\V1\TechnicianController;
 use App\Http\Controllers\Api\V1\TechnicianPaymentController;
 use App\Http\Controllers\Api\V1\UsedMobileController;
@@ -46,6 +47,8 @@ use App\Http\Controllers\Api\V1\WarrantyClaimController;
 use App\Http\Controllers\Api\V1\WarrantyController;
 use App\Http\Controllers\Api\V1\Admin\AdminVendorController;
 use App\Http\Controllers\Api\V1\Admin\AdminPurchaseController;
+use App\Http\Controllers\Api\V1\Admin\AdminReferralController;
+use App\Http\Controllers\Api\V1\ReferralController;
 use App\Http\Controllers\Api\V1\VendorController;
 use App\Http\Controllers\Api\V1\PurchaseController;
 use App\Http\Controllers\Api\V1\PurchasePaymentController;
@@ -100,6 +103,10 @@ Route::prefix('v1')->group(function () {
         Route::get('/shops/{id}', [AdminShopController::class, 'show']);
         Route::post('/shops/{id}/toggle-status', [AdminShopController::class, 'toggleStatus']);
         Route::post('/shops/{id}/staff-limit', [AdminShopController::class, 'updateStaffLimit']);
+        Route::post('/shops/{id}/staff', [AdminShopController::class, 'addStaff']);
+        Route::put('/shops/{id}/staff/{staffId}', [AdminShopController::class, 'updateStaff']);
+        Route::delete('/shops/{id}/staff/{staffId}', [AdminShopController::class, 'deleteStaff']);
+        Route::post('/shops/{id}/staff/{staffId}/toggle-status', [AdminShopController::class, 'toggleStaffStatus']);
         Route::post('/shops/{id}/custom-pricing', [AdminShopController::class, 'updateCustomPricing']);
         Route::post('/shops/bulk-custom-pricing', [AdminShopController::class, 'applyBulkDiscount']);
         Route::post('/shops/bulk-clear-pricing', [AdminShopController::class, 'clearBulkDiscount']);
@@ -144,6 +151,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/system-settings', [AdminPageController::class, 'saveSettings']);
         Route::get('/app-version', [AdminPageController::class, 'getAppVersion']);
         Route::post('/app-version', [AdminPageController::class, 'saveAppVersion']);
+        Route::get('/otp-settings', [AdminPageController::class, 'getOtpSettings']);
+        Route::post('/otp-settings', [AdminPageController::class, 'saveOtpSettings']);
 
         // Admin Audit Action Logs
         Route::get('/audit-logs', [AdminAuditLogController::class, 'index']);
@@ -177,7 +186,18 @@ Route::prefix('v1')->group(function () {
 
         // Admin Platform Business Intelligence Reports
         Route::get('/reports/summary', [AdminReportController::class, 'summary']);
+
+        // Admin Dynamic Referral System Management
+        Route::get('/referrals/overview', [AdminReferralController::class, 'overview']);
+        Route::get('/referrals/settings', [AdminReferralController::class, 'getSettings']);
+        Route::put('/referrals/settings', [AdminReferralController::class, 'updateSettings']);
+        Route::get('/shops/{id}/referral-settings', [AdminReferralController::class, 'getShopReferralSettings']);
+        Route::put('/shops/{id}/referral-settings', [AdminReferralController::class, 'updateShopReferralSettings']);
+        Route::post('/shops/{id}/referral-points', [AdminReferralController::class, 'adjustShopPoints']);
     });
+
+    // Public Referral Code Validation (for Register screen)
+    Route::post('/referrals/validate', [ReferralController::class, 'validateCode'])->middleware('throttle:20,1');
 
     // Authentication Routes (Public & Rate Limited)
     Route::post('/auth/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
@@ -213,6 +233,9 @@ Route::prefix('v1')->group(function () {
         Route::post('/subscription/purchase-staff-addon', [SubscriptionController::class, 'purchaseStaffAddon'])->middleware('throttle:15,1');
         Route::get('/subscription/history', [SubscriptionController::class, 'history']);
         Route::get('/plans', [AdminPlanController::class, 'index']);
+
+        // Refer & Earn (Dynamic per-shop config, wallet & passbook)
+        Route::get('/referrals/summary', [ReferralController::class, 'summary']);
 
         // Support Requests (App Submissions)
         Route::get('/support/contact-info', [AdminSupportController::class, 'getContactInfo']);
@@ -297,6 +320,10 @@ Route::prefix('v1')->group(function () {
         Route::post('/technician-payments', [TechnicianPaymentController::class, 'store']);
         Route::delete('/technician-payments/{payment}', [TechnicianPaymentController::class, 'destroy']);
         Route::delete('/technicians/{technician}/payments/{payment}', [TechnicianPaymentController::class, 'destroy']);
+
+        // Staff Module
+        Route::post('/staff/{id}/toggle-status', [StaffController::class, 'toggleStatus']);
+        Route::apiResource('staff', StaffController::class);
 
         // Reports Module
         Route::get('/reports/sales', [ReportController::class, 'sales']);
