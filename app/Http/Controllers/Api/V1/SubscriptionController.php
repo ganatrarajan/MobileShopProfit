@@ -9,6 +9,7 @@ use App\Models\Plan;
 use App\Models\Shop;
 use App\Models\Subscription;
 use App\Services\Payment\RazorpayDriver;
+use App\Services\ReferralService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -157,6 +158,8 @@ class SubscriptionController extends Controller
                 'custom_discount_percent'    => $shop ? $shop->custom_discount_percent : null,
                 'custom_discount_note'       => $shop ? $shop->custom_discount_note : null,
                 'custom_discount_is_one_time'=> (bool) ($shop ? $shop->custom_discount_is_one_time : false),
+                'referral_points_balance'    => $shop ? (float) ($shop->referral_points_balance ?? 0) : 0.0,
+                'referral_config'            => $shop ? (new ReferralService())->resolveConfig($shop) : null,
                 'plan'                  => $subscription->plan ? [
                     'id'                 => $subscription->plan->id,
                     'name'               => $subscription->plan->name,
@@ -219,8 +222,138 @@ class SubscriptionController extends Controller
         // Charge the effective shop price (applies shop discount or custom plan price if any)
         $shop = Shop::find($user->shop_id);
         $pricing = $shop ? $shop->calculatePlanPrice($plan) : ['price' => (float) $plan->price];
-        $chargeAmount = (float) $pricing['price'];
+        $originalAmount = (float) $pricing['price'];
         $orderType = 'standard';
+
+        $usePoints = filter_var($request->input('use_points', false), FILTER_VALIDATE_BOOLEAN);
+        $referralService = new ReferralService();
+        $redemption = $shop
+            ? $referralService->calculateRedemption($shop, $originalAmount, $usePoints)
+            : ['points_used' => 0.0, 'final_payable' => $originalAmount];
+
+        $pointsUsed = (float) $redemption['points_used'];
+        $chargeAmount = (float) $redemption['final_payable'];
+
+        // If 100% of the plan is covered by referral points, activate immediately without Razorpay
+        if ($chargeAmount <= 0 && $pointsUsed > 0 && $shop) {
+            DB::beginTransaction();
+            try {
+                $pointsOrderId = 'PTS-' . strtoupper(uniqid()) . '-' . time();
+                $transaction = PaymentTransaction::create([
+                    'shop_id'        => $user->shop_id,
+                    'user_id'        => $user->id,
+                    'plan_id'        => $plan->id,
+                    'order_id'       => $pointsOrderId,
+                    'payment_id'     => $pointsOrderId,
+                    'amount'         => 0.00,
+                    'currency'       => 'INR',
+                    'status'         => 'successful',
+                    'payment_method' => 'ReferralPoints',
+                    'gateway_name'   => 'ReferralWallet',
+                    'gateway_response' => [
+                        'type'                 => $orderType,
+                        'original_amount'      => $originalAmount,
+                        'points_used'          => $pointsUsed,
+                        'previous_plan_id'     => $currentPlan?->id,
+                        'days_remaining'       => $daysRemaining,
+                        'is_one_time_discount' => (bool) ($shop->custom_discount_is_one_time),
+                    ],
+                ]);
+
+                $addMonths = 1;
+                if ($plan->billing_period === '3_months') $addMonths = 3;
+                elseif ($plan->billing_period === '6_months') $addMonths = 6;
+                elseif ($plan->billing_period === 'annual') $addMonths = 12;
+
+                if ($subscription && $subscription->expiry_date && $now->lessThan(Carbon::parse($subscription->expiry_date))) {
+                    $newExpiry = Carbon::parse($subscription->expiry_date)->addMonths($addMonths);
+                } else {
+                    $newExpiry = $now->copy()->addMonths($addMonths);
+                }
+
+                if ($subscription) {
+                    $subscription->update([
+                        'plan_id'        => $plan->id,
+                        'status'         => 'active',
+                        'start_date'     => $now,
+                        'expiry_date'    => $newExpiry,
+                        'payment_status' => 'paid',
+                    ]);
+                } else {
+                    $subscription = Subscription::create([
+                        'shop_id'        => $user->shop_id,
+                        'plan_id'        => $plan->id,
+                        'status'         => 'active',
+                        'start_date'     => $now,
+                        'expiry_date'    => $newExpiry,
+                        'payment_status' => 'paid',
+                    ]);
+                }
+
+                $debited = $referralService->debitPoints(
+                    shop: $shop,
+                    points: $pointsUsed,
+                    source: 'plan_redeem',
+                    description: "Redeemed {$pointsUsed} pts for {$plan->name} (100% via Points)",
+                    subscriptionId: $subscription->id,
+                    paymentTransactionId: $transaction->id
+                );
+
+                if (!$debited) {
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'status'  => 'error',
+                        'message' => 'Insufficient referral points balance.',
+                    ], 400);
+                }
+
+                $planStaff = (int) ($plan->max_staff_accounts ?? 0);
+                if ($planStaff > 0) {
+                    $currentStaffExp = ($shop->custom_staff_valid_until && Carbon::parse($shop->custom_staff_valid_until)->isFuture())
+                        ? Carbon::parse($shop->custom_staff_valid_until)
+                        : $now;
+                    $staffValidUntilDate = $currentStaffExp->copy()->addMonths($addMonths);
+                    $shop->custom_max_staff = $planStaff;
+                    $shop->custom_staff_valid_until = $staffValidUntilDate->format('Y-m-d H:i:s');
+                    $shop->custom_staff_note = "Plan: {$plan->name} ({$planStaff} Staff) valid for {$addMonths} month(s) until " . $staffValidUntilDate->format('d M Y');
+                    $shop->save();
+                }
+
+                if ($shop->custom_discount_is_one_time) {
+                    $shop->custom_discount_percent = null;
+                    $shop->custom_plan_prices = null;
+                    $shop->custom_discount_valid_until = null;
+                    $shop->custom_discount_is_one_time = false;
+                    $shop->custom_discount_note = "One-time discount consumed on Order {$pointsOrderId}";
+                    $shop->save();
+                }
+
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'status'  => 'success',
+                    'message' => "Plan activated using {$pointsUsed} Referral Points!",
+                    'data'    => [
+                        'free_via_points' => true,
+                        'order_id'        => $pointsOrderId,
+                        'amount'          => 0.0,
+                        'original_amount' => $originalAmount,
+                        'points_used'     => $pointsUsed,
+                        'plan_name'       => $plan->name,
+                        'expiry_date'     => $newExpiry->format('d M Y'),
+                    ],
+                ]);
+            } catch (Exception $e) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'status'  => 'error',
+                    'message' => 'Failed to activate plan with points: ' . $e->getMessage(),
+                ], 400);
+            }
+        }
 
         $driver = new RazorpayDriver();
         $config = $driver->getConfig();
@@ -248,6 +381,8 @@ class SubscriptionController extends Controller
                 'gateway_name'   => 'Razorpay',
                 'gateway_response' => [
                     'type'                  => $orderType,
+                    'original_amount'       => $originalAmount,
+                    'points_used'           => $pointsUsed,
                     'previous_plan_id'      => $currentPlan?->id,
                     'days_remaining'        => $daysRemaining,
                     'is_one_time_discount'  => (bool) ($shop?->custom_discount_is_one_time),
@@ -260,6 +395,8 @@ class SubscriptionController extends Controller
                 $rzpResult['gateway_response'] ?? [],
                 [
                     'type'                 => $orderType,
+                    'original_amount'      => $originalAmount,
+                    'points_used'          => $pointsUsed,
                     'previous_plan_id'     => $currentPlan?->id,
                     'days_remaining'       => $daysRemaining,
                     'is_one_time_discount' => (bool) ($shop?->custom_discount_is_one_time),
@@ -273,14 +410,17 @@ class SubscriptionController extends Controller
                 'success' => true,
                 'status'  => 'success',
                 'data'    => [
-                    'order_id'       => $transaction->order_id,
-                    'amount'         => (float) $transaction->amount,
-                    'currency'       => $transaction->currency,
-                    'key_id'         => $config->key_id,
-                    'plan_name'      => ($orderType === 'upgrade' ? "Upgrade to {$plan->name}" : $plan->name),
-                    'is_upgrade'     => ($orderType === 'upgrade'),
-                    'days_remaining' => $daysRemaining,
-                    'shop_name'      => $user->shop ? $user->shop->name : 'Mobile Profits Shop',
+                    'free_via_points' => false,
+                    'order_id'        => $transaction->order_id,
+                    'amount'          => (float) $transaction->amount,
+                    'original_amount' => $originalAmount,
+                    'points_used'     => $pointsUsed,
+                    'currency'        => $transaction->currency,
+                    'key_id'          => $config->key_id,
+                    'plan_name'       => ($orderType === 'upgrade' ? "Upgrade to {$plan->name}" : $plan->name),
+                    'is_upgrade'      => ($orderType === 'upgrade'),
+                    'days_remaining'  => $daysRemaining,
+                    'shop_name'       => $user->shop ? $user->shop->name : 'Mobile Profits Shop',
                 ],
             ]);
         } catch (Exception $e) {
@@ -528,7 +668,7 @@ class SubscriptionController extends Controller
                     'payment_status' => 'paid',
                 ]);
             } else {
-                Subscription::create([
+                $subscription = Subscription::create([
                     'shop_id'        => $user->shop_id,
                     'plan_id'        => $plan ? $plan->id : null,
                     'status'         => 'active',
@@ -540,6 +680,31 @@ class SubscriptionController extends Controller
 
             // Manage staff validity separately according to the plan duration purchased
             $shop = Shop::find($user->shop_id);
+            $referralService = new ReferralService();
+
+            // Deduct redeemed referral points if used for this order
+            $pointsUsed = (float) ($gwResponse['points_used'] ?? 0);
+            if ($shop && $pointsUsed > 0) {
+                $planLabel = $plan ? $plan->name : 'Subscription Plan';
+                $referralService->debitPoints(
+                    shop: $shop,
+                    points: $pointsUsed,
+                    source: 'plan_redeem',
+                    description: "Redeemed {$pointsUsed} pts on {$planLabel}",
+                    subscriptionId: $subscription->id,
+                    paymentTransactionId: $transaction->id
+                );
+            }
+
+            // Award recurring recharge commission % to referrer (on actual cash paid only)
+            if ($shop && (float) $transaction->amount > 0) {
+                $referralService->handleRechargeCommission(
+                    payingShop: $shop,
+                    actualCashPaid: (float) $transaction->amount,
+                    subscriptionId: $subscription->id,
+                    paymentTransactionId: $transaction->id
+                );
+            }
             $staffValidUntilDate = null;
             if ($shop && $plan) {
                 $planStaff = (int) ($plan->max_staff_accounts ?? 0);

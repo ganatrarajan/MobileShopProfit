@@ -820,6 +820,7 @@
                 <li><a href="#operations" class="nav-item" onclick="switchNav('operations')">📑 Shop Operations</a></li>
                 <li><a href="#used-mobiles" class="nav-item" onclick="switchNav('used-mobiles')">📱 Used Mobiles</a></li>
                 <li><a href="#billing" class="nav-item" onclick="switchNav('billing')">💳 Subscriptions & Revenue</a></li>
+                <li><a href="#referrals" class="nav-item" onclick="switchNav('referrals')">🎁 Referral & Points</a></li>
                 <li><a href="#reports" class="nav-item" onclick="switchNav('reports')">📈 Business Reports</a></li>
                 <li><a href="#notifications" class="nav-item" onclick="switchNav('notifications')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-2px; margin-right:6px;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Push Notifications</a></li>
                 <li><a href="#settings" class="nav-item" onclick="switchNav('settings')">⚙️ System & Settings</a></li>
@@ -1008,6 +1009,7 @@
                 'operations': 'Shop Operations Data Hub',
                 'used-mobiles': '📱 Used Mobiles Feature & Adoption Hub',
                 'billing': 'Subscriptions & Revenue Billing',
+                'referrals': 'Referral & Points Management',
                 'reports': 'Platform Business & Financial Reports',
                 'settings': 'System & Platform Settings',
                 'notifications': 'Broadcast Push Notifications'
@@ -1017,7 +1019,7 @@
             // CRITICAL FIX: Clear content-area when switching between major sections or
             // navigating to a section without sub-tabs (dashboard, shops, reports) so old sub-nav bars never linger!
             const contentArea = document.getElementById('content-area');
-            if (['dashboard', 'shops', 'reports'].includes(mainSection) || currentMainSection !== mainSection) {
+            if (['dashboard', 'shops', 'reports', 'referrals'].includes(mainSection) || currentMainSection !== mainSection) {
                 contentArea.innerHTML = '';
             }
             currentMainSection = mainSection;
@@ -1026,6 +1028,8 @@
                 loadDashboardView();
             } else if (mainSection === 'shops') {
                 loadShopsView();
+            } else if (mainSection === 'referrals') {
+                loadReferralsView();
             } else if (mainSection === 'used-mobiles') {
                 renderSubNavBar('used-mobiles', subTab, [
                     { id: 'users', label: '👥 Shops Using Feature', fn: loadUsedMobileUsersView },
@@ -1059,6 +1063,7 @@
                     { id: 'version', label: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-2px; margin-right:4px;"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg> App Force Update', fn: loadAppVersionView },
                     { id: 'pages', label: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-2px; margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Legal Pages CMS', fn: loadPagesView },
                     { id: 'gateway', label: '⚙️ Gateway Settings', fn: loadGatewayView },
+                    { id: 'otp', label: '🔐 OTP Settings', fn: loadOtpSettingsView },
                     { id: 'support', label: '💬 Support Tickets', fn: loadSupportView },
                     { id: 'audit', label: '🛡️ Audit Logs', fn: loadAuditView },
                     { id: 'users', label: '👥 User Accounts', fn: loadUsersView },
@@ -1100,7 +1105,22 @@
         let _searchDebounceTimer = null;
         function debounceSearch(fn) {
             if (_searchDebounceTimer) clearTimeout(_searchDebounceTimer);
-            _searchDebounceTimer = setTimeout(fn, 350);
+            const activeEl = document.activeElement;
+            const activeId = activeEl && activeEl.id ? activeEl.id : null;
+            const selStart = activeEl && typeof activeEl.selectionStart === 'number' ? activeEl.selectionStart : null;
+            const selEnd = activeEl && typeof activeEl.selectionEnd === 'number' ? activeEl.selectionEnd : null;
+            _searchDebounceTimer = setTimeout(async () => {
+                await fn();
+                if (activeId) {
+                    const nextEl = document.getElementById(activeId);
+                    if (nextEl) {
+                        nextEl.focus();
+                        if (selStart !== null && typeof nextEl.setSelectionRange === 'function') {
+                            try { nextEl.setSelectionRange(selStart, selEnd ?? selStart); } catch (_) {}
+                        }
+                    }
+                }
+            }, 400);
         }
 
         function renderPagination(meta, fnName, ...extraArgs) {
@@ -1509,6 +1529,23 @@
                                 </div>
                                 <button type="button" class="btn-sm" style="background:#059669; color:white; border-color:#059669; padding:6px 14px; font-weight:600;" onclick="openCustomPricingModal(${s.id}, '${s.name.replace(/'/g, "\\'")}')">
                                     ⚙️ Manage Shop Pricing
+                                </button>
+                            </div>
+                        </div>
+
+                        <div style="background:#eef2ff; padding:12px 14px; border-radius:8px; margin:12px 0; border:1px solid #c7d2fe;">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
+                                <div style="flex:1; min-width:240px;">
+                                    <h4 style="margin:0 0 4px 0; font-size:13px; color:#3730a3; display:flex; align-items:center; gap:6px;">
+                                        <span>🎁</span> Referral & Points (Shop-Wise)
+                                    </h4>
+                                    <div style="font-size:12px; color:#3730a3; line-height:1.7;">
+                                        <div><strong>Referral Code:</strong> <code style="background:#e0e7ff; color:#312e81; padding:2px 6px; border-radius:4px; font-weight:700;">${s.referral_code || 'N/A'}</code> &bull; <strong>Points Balance:</strong> <span class="badge" style="background:#4f46e5; color:#ffffff; font-weight:700;">${parseFloat(s.referral_points_balance || 0).toFixed(2)} pts (₹${parseFloat(s.referral_points_balance || 0).toFixed(2)})</span></div>
+                                        <div><strong>Active Rules:</strong> ${s.referral_enabled_override === true || s.referral_enabled_override === 1 ? 'Force Enabled for this shop' : (s.referral_enabled_override === false || s.referral_enabled_override === 0 ? 'Force Disabled (Hidden in app)' : 'Following Common Settings')}${s.referral_reward_mode_override ? ` &bull; Mode: <strong>${s.referral_reward_mode_override === 'recharge_only' ? 'Paid Recharge % Only' : 'Signup Points + Recharge %'}</strong>` : ''}</div>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn-sm" style="background:#4f46e5; color:white; border-color:#4f46e5; padding:6px 14px; font-weight:600;" onclick="openShopReferralModal(${s.id}, '${s.name.replace(/'/g, "\\'")}')">
+                                    🎁 Manage Referral & Points
                                 </button>
                             </div>
                         </div>
@@ -2696,25 +2733,36 @@
                                 <th>Shop Name</th>
                                 <th>Order ID</th>
                                 <th>Payment ID</th>
-                                <th>Amount</th>
+                                <th>Plan Price</th>
+                                <th>Points Used</th>
+                                <th>Cash Paid</th>
                                 <th>Method</th>
                                 <th>Status</th>
                                 <th>Timestamp</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${payments.length === 0 ? `<tr><td colspan="7" style="text-align:center; padding:30px; color:#94a3b8;">No payment records found matching filter criteria.</td></tr>` : ''}
-                            ${payments.map(p => `
+                            ${payments.length === 0 ? `<tr><td colspan="9" style="text-align:center; padding:30px; color:#94a3b8;">No payment records found matching filter criteria.</td></tr>` : ''}
+                            ${payments.map(p => {
+                                const gw = (p.gateway_response && typeof p.gateway_response === 'object') ? p.gateway_response : {};
+                                const cashPaid = parseFloat(p.amount || 0);
+                                const ptsUsed = parseFloat(gw.points_used || 0);
+                                const origAmt = gw.original_amount !== undefined && gw.original_amount !== null
+                                    ? parseFloat(gw.original_amount)
+                                    : (cashPaid + ptsUsed);
+                                return `
                                 <tr>
                                     <td><strong>${p.shop ? p.shop.name : 'Shop #' + p.shop_id}</strong></td>
                                     <td><span style="font-family:monospace; font-size:12px;">${p.order_id}</span></td>
                                     <td><span style="font-family:monospace; font-size:12px;">${p.payment_id || '—'}</span></td>
-                                    <td><strong>₹${parseFloat(p.amount).toFixed(2)}</strong></td>
+                                    <td>₹${origAmt.toFixed(2)}</td>
+                                    <td>${ptsUsed > 0 ? `<span class="badge" style="background:#eef2ff; color:#4f46e5; font-weight:700;">-${ptsUsed.toFixed(2)} pts</span>` : '<span style="color:#94a3b8;">—</span>'}</td>
+                                    <td><strong style="color:#059669;">₹${cashPaid.toFixed(2)}</strong></td>
                                     <td>${p.payment_method || 'Razorpay'}</td>
                                     <td><span class="badge ${p.status === 'successful' ? 'badge-active' : (p.status === 'failed' ? 'badge-inactive' : 'badge-trial')}">${p.status.toUpperCase()}</span></td>
                                     <td>${new Date(p.created_at).toLocaleString()}</td>
                                 </tr>
-                            `).join('')}
+                            `;}).join('')}
                         </tbody>
                     </table>
                     </div>
@@ -5369,6 +5417,476 @@
             if (data && data.success) {
                 alert('Notification deleted.');
                 loadNotificationHistory();
+            }
+        }
+
+        // ==================== REFERRAL & POINTS MANAGEMENT ====================
+        async function loadReferralsView(search = '', type = '', source = '') {
+            const content = getContentContainer();
+            if (!search && !type && !source) {
+                content.innerHTML = '<div style="padding:20px; color:#64748b;">Loading referral & points settings...</div>';
+            }
+
+            const params = new URLSearchParams();
+            if (search) params.set('search', search);
+            if (type) params.set('type', type);
+            if (source) params.set('source', source);
+            const qs = params.toString() ? `?${params.toString()}` : '';
+
+            const res = await apiFetch(`/referrals/overview${qs}`);
+            if (!res || !res.success) {
+                content.innerHTML = `<div class="alert-error" style="margin:20px;">Failed to load referral overview: ${res?.message || 'Unknown error'}</div>`;
+                return;
+            }
+
+            const d = res.data || {};
+            const cfg = d.global_config || {};
+            const top = d.top_referrers || [];
+            const txns = d.recent_transactions || [];
+            const safeSearch = String(search).replace(/"/g, '&quot;');
+
+            content.innerHTML = `
+                <div class="grid-4">
+                    <div class="metric-card">
+                        <div class="metric-title">👥 Total Referred Shops</div>
+                        <div class="metric-value" style="color:#4f46e5;">${d.total_referred_shops || 0}</div>
+                        <div class="metric-sub" style="color:#64748b;">Shops joined via referral</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-title">🎁 Total Points Credited</div>
+                        <div class="metric-value" style="color:#059669;">${parseFloat(d.total_credited || 0).toFixed(2)} <span style="font-size:14px; font-weight:600;">pts</span></div>
+                        <div class="metric-sub">1 Point = ₹1 Plan Discount</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-title">💳 Total Points Redeemed</div>
+                        <div class="metric-value" style="color:#d97706;">${parseFloat(d.total_redeemed || 0).toFixed(2)} <span style="font-size:14px; font-weight:600;">pts</span></div>
+                        <div class="metric-sub" style="color:#64748b;">Used on plan recharges</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-title">⚙️ System Status</div>
+                        <div class="metric-value" style="font-size:20px; color:${cfg.enabled ? '#059669' : '#dc2626'};">
+                            ${cfg.enabled ? '✅ Enabled' : '⛔ Disabled'}
+                        </div>
+                        <div class="metric-sub" style="color:#64748b;">Mode: ${cfg.reward_mode === 'recharge_only' ? 'Recharge % Only' : 'Signup + Recharge %'}</div>
+                    </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(290px, 1fr)); gap:20px; align-items:start;">
+                    <div class="card-table" style="padding:24px;">
+                        <div style="margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid #f1f5f9;">
+                            <h3 style="font-size:17px; font-weight:700; color:#0f172a; margin:0 0 4px 0;">🎁 Common Referral & Points Settings</h3>
+                            <p style="font-size:12px; color:#64748b; margin:0;">Default rules applied to all shops unless overridden per shop in Shops Directory.</p>
+                        </div>
+
+                        <div id="ref-alert" class="alert-error" style="display:none;"></div>
+                        <div id="ref-success" style="display:none; background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; padding:12px; border-radius:8px; margin-bottom:14px; font-size:13px; font-weight:500;"></div>
+
+                        <form onsubmit="saveReferralGlobalSettings(event)">
+                            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px;">
+                                <div class="form-group">
+                                    <label style="font-weight:600;">Referral System</label>
+                                    <select id="ref-enabled" class="form-control">
+                                        <option value="1" ${cfg.enabled ? 'selected' : ''}>✅ Enabled (Show in App)</option>
+                                        <option value="0" ${!cfg.enabled ? 'selected' : ''}>⛔ Disabled (Hide from App)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label style="font-weight:600;">Reward Mode</label>
+                                    <select id="ref-mode" class="form-control">
+                                        <option value="signup_and_recharge" ${(cfg.reward_mode || 'signup_and_recharge') === 'signup_and_recharge' ? 'selected' : ''}>Signup Points + Recharge %</option>
+                                        <option value="recharge_only" ${cfg.reward_mode === 'recharge_only' ? 'selected' : ''}>Paid Recharge % Only</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px; margin-top:10px;">
+                                <div class="form-group">
+                                    <label style="font-weight:600;">Referrer Signup Points</label>
+                                    <input type="number" step="1" min="0" id="ref-signup-pts" class="form-control" value="${cfg.signup_points ?? 50}" required>
+                                    <small style="color:#64748b; font-size:11px;">Earned by Shop A when Shop B signs up.</small>
+                                </div>
+                                <div class="form-group">
+                                    <label style="font-weight:600;">New Shop Welcome Points</label>
+                                    <input type="number" step="1" min="0" id="ref-welcome-pts" class="form-control" value="${cfg.welcome_points ?? 0}" required>
+                                    <small style="color:#64748b; font-size:11px;">Bonus for Shop B on signup with code.</small>
+                                </div>
+                            </div>
+
+                            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px; margin-top:10px;">
+                                <div class="form-group">
+                                    <label style="font-weight:600;">Recharge Commission (%)</label>
+                                    <input type="number" step="0.5" min="0" max="100" id="ref-recharge-pct" class="form-control" value="${cfg.recharge_percent ?? 10}" required>
+                                    <small style="color:#64748b; font-size:11px;">% of cash paid by Shop B on every recharge.</small>
+                                </div>
+                                <div class="form-group">
+                                    <label style="font-weight:600;">Max Points Redeemable (%)</label>
+                                    <input type="number" step="1" min="0" max="100" id="ref-max-redeem" class="form-control" value="${cfg.max_redeem_percent ?? 50}" required>
+                                    <small style="color:#64748b; font-size:11px;">Max % of a plan payable using points.</small>
+                                </div>
+                            </div>
+
+                            <div class="form-group" style="margin-top:10px;">
+                                <label style="font-weight:600;">App Download / Share Link</label>
+                                <input type="text" id="ref-app-link" class="form-control" placeholder="https://play.google.com/store/apps/details?id=com.repairehub" value="${cfg.app_link || ''}">
+                                <small style="color:#64748b; font-size:11px;">Included when shop owners share their referral code.</small>
+                            </div>
+
+                            <div style="margin-top:18px;">
+                                <button type="submit" class="btn-primary" style="width:100%; padding:11px; font-weight:600;">Save Common Referral Settings</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="card-table">
+                        <div class="table-toolbar">
+                            <div>
+                                <h3 style="font-size:17px; font-weight:700; color:#0f172a; margin:0;">🏆 Top Referrer Shops</h3>
+                                <p style="font-size:12px; color:#64748b; margin:2px 0 0 0;">Shops with the most referred signups & points.</p>
+                            </div>
+                        </div>
+                        ${top.length === 0 ? '<div style="padding:36px 24px; text-align:center; color:#64748b; font-size:13px;">No referral activity yet. Once shops refer others, top performers appear here.</div>' : `
+                            <div class="table-responsive">
+                                <table style="width:100%; border-collapse:collapse;">
+                                    <thead>
+                                        <tr>
+                                            <th>Shop</th>
+                                            <th>Code</th>
+                                            <th>Referred</th>
+                                            <th>Balance</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${top.map(r => `
+                                            <tr>
+                                                <td>
+                                                    <div style="font-weight:600;">${r.name || 'Shop #' + r.id}</div>
+                                                    <div style="font-size:11px; color:#64748b;">${r.owner_name || ''}</div>
+                                                </td>
+                                                <td><code>${r.referral_code || '-'}</code></td>
+                                                <td><strong>${r.referred_shops_count ?? 0}</strong></td>
+                                                <td><span class="badge badge-active">${parseFloat(r.referral_points_balance || 0).toFixed(2)} pts</span></td>
+                                                <td>
+                                                    <button class="btn-sm" onclick="openShopReferralModal(${r.id}, '${(r.name || '').replace(/'/g, "\\'")}')">Manage</button>
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `}
+                    </div>
+                </div>
+
+                <div class="card-table" style="margin-top:20px;">
+                    <div class="table-toolbar">
+                        <div style="flex:1; min-width:240px;">
+                            <h3 style="font-size:17px; font-weight:700; color:#0f172a; margin:0 0 6px 0;">📜 Recent Points Transactions</h3>
+                            <div class="search-box">
+                                <input type="text" id="referrals-search-input" placeholder="Search shop name, code, description..." value="${safeSearch}" oninput="debounceSearch(() => loadReferralsView(document.getElementById('referrals-search-input').value, '${type}', '${source}'))">
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                            <select class="filter-select" onchange="loadReferralsView('${safeSearch}', this.value, '${source}')">
+                                <option value="">Type: All</option>
+                                <option value="credit" ${type === 'credit' ? 'selected' : ''}>+ Credit Only</option>
+                                <option value="debit" ${type === 'debit' ? 'selected' : ''}>- Debit Only</option>
+                            </select>
+                            <select class="filter-select" onchange="loadReferralsView('${safeSearch}', '${type}', this.value)">
+                                <option value="">Source: All</option>
+                                <option value="signup_bonus" ${source === 'signup_bonus' ? 'selected' : ''}>Signup Bonus</option>
+                                <option value="welcome_bonus" ${source === 'welcome_bonus' ? 'selected' : ''}>Welcome Bonus</option>
+                                <option value="recharge_commission" ${source === 'recharge_commission' ? 'selected' : ''}>Recharge Commission</option>
+                                <option value="plan_redeem" ${source === 'plan_redeem' ? 'selected' : ''}>Plan Redeem</option>
+                                <option value="admin_credit" ${source === 'admin_credit' ? 'selected' : ''}>Admin Credit</option>
+                                <option value="admin_debit" ${source === 'admin_debit' ? 'selected' : ''}>Admin Debit</option>
+                            </select>
+                            ${(search || type || source) ? `<button class="btn-sm" style="background:#e2e8f0; color:#334155;" onclick="loadReferralsView('', '', '')">Clear Filters</button>` : ''}
+                        </div>
+                    </div>
+                    ${txns.length === 0 ? '<div style="padding:36px 24px; text-align:center; color:#64748b; font-size:13px;">No points transactions found matching filter criteria.</div>' : `
+                        <div class="table-responsive">
+                            <table style="width:100%; border-collapse:collapse;">
+                                <thead>
+                                    <tr>
+                                        <th>Shop</th>
+                                        <th>Type</th>
+                                        <th>Source</th>
+                                        <th>Points</th>
+                                        <th>Balance After</th>
+                                        <th>Payment Breakdown</th>
+                                        <th>Description</th>
+                                        <th>Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${txns.map(tx => {
+                                        const pt = tx.payment_transaction;
+                                        const gw = (pt && pt.gateway_response && typeof pt.gateway_response === 'object') ? pt.gateway_response : {};
+                                        const cashPaid = pt ? parseFloat(pt.amount || 0) : (tx.meta && tx.meta.cash_paid !== undefined ? parseFloat(tx.meta.cash_paid) : null);
+                                        const ptsUsed = gw.points_used !== undefined ? parseFloat(gw.points_used || 0) : null;
+                                        const origAmt = gw.original_amount !== undefined ? parseFloat(gw.original_amount) : (cashPaid !== null && ptsUsed !== null ? cashPaid + ptsUsed : null);
+                                        let breakdown = '<span style="color:#94a3b8;">—</span>';
+                                        if (origAmt !== null && cashPaid !== null) {
+                                            breakdown = `<div style="font-size:11px; line-height:1.45;">
+                                                <div>Plan: <strong>₹${origAmt.toFixed(2)}</strong>${ptsUsed > 0 ? ` | Used: <strong style="color:#4f46e5;">${ptsUsed.toFixed(2)} pts</strong>` : ''}</div>
+                                                <div>Cash Paid: <strong style="color:#059669;">₹${cashPaid.toFixed(2)}</strong>${tx.meta && tx.meta.commission_percent ? ` (${tx.meta.commission_percent}%)` : ''}</div>
+                                            </div>`;
+                                        } else if (cashPaid !== null) {
+                                            breakdown = `<span style="font-size:11px;">Cash Paid: <strong>₹${cashPaid.toFixed(2)}</strong></span>`;
+                                        }
+                                        return `
+                                        <tr>
+                                            <td style="font-weight:600;">${tx.shop ? tx.shop.name : ('Shop #' + tx.shop_id)}</td>
+                                            <td>
+                                                <span class="badge ${tx.type === 'credit' ? 'badge-active' : 'badge-inactive'}">
+                                                    ${tx.type === 'credit' ? '+ CREDIT' : '- DEBIT'}
+                                                </span>
+                                            </td>
+                                            <td style="font-size:12px; text-transform:uppercase; color:#475569;">${tx.source || '-'}</td>
+                                            <td style="font-weight:700; color:${tx.type === 'credit' ? '#059669' : '#dc2626'};">
+                                                ${tx.type === 'credit' ? '+' : '-'}${parseFloat(tx.points || 0).toFixed(2)} pts
+                                            </td>
+                                            <td style="font-weight:600; color:#334155;">${parseFloat(tx.balance_after || 0).toFixed(2)} pts</td>
+                                            <td>${breakdown}</td>
+                                            <td style="font-size:12px; color:#475569;">${tx.description || '-'}</td>
+                                            <td style="font-size:12px; color:#64748b;">${new Date(tx.created_at).toLocaleString()}</td>
+                                        </tr>
+                                    `;}).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `}
+                </div>
+            `;
+        }
+
+        async function saveReferralGlobalSettings(e) {
+            e.preventDefault();
+            const alertErr = document.getElementById('ref-alert');
+            const alertSucc = document.getElementById('ref-success');
+            alertErr.style.display = 'none';
+            alertSucc.style.display = 'none';
+
+            const body = {
+                enabled: document.getElementById('ref-enabled').value === '1',
+                reward_mode: document.getElementById('ref-mode').value,
+                signup_points: parseFloat(document.getElementById('ref-signup-pts').value || 0),
+                welcome_points: parseFloat(document.getElementById('ref-welcome-pts').value || 0),
+                recharge_percent: parseFloat(document.getElementById('ref-recharge-pct').value || 0),
+                max_redeem_percent: parseFloat(document.getElementById('ref-max-redeem').value || 0),
+                app_link: document.getElementById('ref-app-link').value.trim(),
+            };
+
+            const res = await apiFetch('/referrals/settings', 'PUT', body);
+            if (res && res.success) {
+                alertSucc.textContent = 'Common referral & points settings saved successfully!';
+                alertSucc.style.display = 'block';
+                setTimeout(() => loadReferralsView(), 900);
+            } else {
+                alertErr.textContent = res?.message || 'Failed to save referral settings.';
+                alertErr.style.display = 'block';
+            }
+        }
+
+        async function openShopReferralModal(shopId, shopName) {
+            openModal(`🎁 Shop-Wise Referral & Points — ${shopName}`, `<div style="padding:20px; color:#64748b;">Loading shop referral settings...</div>`, '620px');
+
+            const res = await apiFetch(`/shops/${shopId}/referral-settings`);
+            if (!res || !res.success) {
+                openModal(`🎁 Shop-Wise Referral & Points — ${shopName}`, `<div class="alert-error">${res?.message || 'Failed to load shop referral settings.'}</div>`, '620px');
+                return;
+            }
+
+            const d = res.data || {};
+            const ov = d.overrides || {};
+            const eff = d.effective_config || {};
+            const glob = d.global_defaults || {};
+
+            const enabledVal = ov.referral_enabled_override === null || ov.referral_enabled_override === undefined
+                ? ''
+                : (ov.referral_enabled_override ? '1' : '0');
+
+            openModal(`🎁 Shop-Wise Referral & Points — ${d.shop_name || shopName}`, `
+                <div style="font-size:13px;">
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                        <div><strong>Code:</strong> <code style="background:#e2e8f0; color:#0f172a; padding:2px 6px; border-radius:4px; font-weight:700;">${d.referral_code || 'N/A'}</code></div>
+                        <div><strong>Current Wallet:</strong> <span class="badge" style="background:#4f46e5; color:#ffffff; font-weight:700;">${parseFloat(d.points_balance || 0).toFixed(2)} pts (₹${parseFloat(d.points_balance || 0).toFixed(2)})</span></div>
+                        <div><strong>Referred By:</strong> ${d.referred_by_shop ? d.referred_by_shop.name : '<span style="color:#64748b;">Direct (No Referrer)</span>'}</div>
+                    </div>
+
+                    <div id="sref-alert" class="alert-error" style="display:none;"></div>
+                    <div id="sref-success" style="display:none; background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; padding:10px; border-radius:8px; margin-bottom:12px; font-size:13px;"></div>
+
+                    <form onsubmit="saveShopReferralOverrides(event, ${shopId})">
+                        <h4 style="font-size:13px; font-weight:700; color:#0f172a; margin-bottom:8px;">Shop-Wise Rule Overrides (Leave blank to use Common Default)</h4>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                            <div class="form-group">
+                                <label style="font-weight:600;">Referral Access</label>
+                                <select id="sref-enabled" class="form-control">
+                                    <option value="" ${enabledVal === '' ? 'selected' : ''}>Inherit Common (${glob.enabled ? 'Enabled' : 'Disabled'})</option>
+                                    <option value="1" ${enabledVal === '1' ? 'selected' : ''}>✅ Force Enabled</option>
+                                    <option value="0" ${enabledVal === '0' ? 'selected' : ''}>⛔ Force Disabled (Hide)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label style="font-weight:600;">Reward Mode</label>
+                                <select id="sref-mode" class="form-control">
+                                    <option value="" ${!ov.referral_reward_mode_override ? 'selected' : ''}>Inherit Common (${glob.reward_mode || 'signup_and_recharge'})</option>
+                                    <option value="signup_and_recharge" ${ov.referral_reward_mode_override === 'signup_and_recharge' ? 'selected' : ''}>Signup Points + Recharge %</option>
+                                    <option value="recharge_only" ${ov.referral_reward_mode_override === 'recharge_only' ? 'selected' : ''}>Paid Recharge % Only</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:8px;">
+                            <div class="form-group">
+                                <label style="font-weight:600;">Signup Pts</label>
+                                <input type="number" step="1" min="0" id="sref-signup" class="form-control" placeholder="Default: ${glob.signup_points ?? 50}" value="${ov.custom_referral_signup_points ?? ''}">
+                            </div>
+                            <div class="form-group">
+                                <label style="font-weight:600;">Recharge %</label>
+                                <input type="number" step="0.5" min="0" max="100" id="sref-recharge" class="form-control" placeholder="Default: ${glob.recharge_percent ?? 10}%" value="${ov.custom_referral_recharge_percent ?? ''}">
+                            </div>
+                            <div class="form-group">
+                                <label style="font-weight:600;">Max Redeem %</label>
+                                <input type="number" step="1" min="0" max="100" id="sref-redeem" class="form-control" placeholder="Default: ${glob.max_redeem_percent ?? 50}%" value="${ov.custom_referral_max_redeem_percent ?? ''}">
+                            </div>
+                        </div>
+
+                        <div style="font-size:11px; color:#475569; background:#eef2ff; padding:8px 10px; border-radius:6px; margin-top:8px;">
+                            <strong>Effective Now:</strong> ${eff.enabled ? 'Enabled' : 'Disabled'} | Mode: ${eff.reward_mode} | Signup: ${eff.signup_points} pts | Recharge: ${eff.recharge_percent}% | Max Redeem: ${eff.max_redeem_percent}%
+                        </div>
+
+                        <button type="submit" class="btn-primary" style="width:100%; margin-top:12px; padding:9px; font-weight:600;">Save Shop-Wise Overrides</button>
+                    </form>
+
+                    <hr style="margin:18px 0; border:0; border-top:1px solid #e2e8f0;">
+
+                    <form onsubmit="submitShopPointAdjustment(event, ${shopId})">
+                        <h4 style="font-size:13px; font-weight:700; color:#0f172a; margin-bottom:8px;">Manual Wallet Adjustment (Credit / Debit Points)</h4>
+                        <div style="display:grid; grid-template-columns:130px 120px 1fr; gap:10px;">
+                            <select id="sref-adj-type" class="form-control">
+                                <option value="credit">+ Credit</option>
+                                <option value="debit">- Debit</option>
+                            </select>
+                            <input type="number" step="1" min="1" id="sref-adj-pts" class="form-control" placeholder="Points" required>
+                            <input type="text" id="sref-adj-reason" class="form-control" placeholder="Reason (e.g. Promo bonus)" required>
+                        </div>
+                        <button type="submit" class="btn-sm" style="width:100%; margin-top:10px; padding:8px; background:#0f172a; color:white; font-weight:600;">Apply Point Adjustment</button>
+                    </form>
+                </div>
+            `, '620px');
+        }
+
+        async function saveShopReferralOverrides(e, shopId) {
+            e.preventDefault();
+            const alertErr = document.getElementById('sref-alert');
+            const alertSucc = document.getElementById('sref-success');
+            alertErr.style.display = 'none';
+            alertSucc.style.display = 'none';
+
+            const enabledStr = document.getElementById('sref-enabled').value;
+            const modeStr = document.getElementById('sref-mode').value;
+            const signupStr = document.getElementById('sref-signup').value;
+            const rechargeStr = document.getElementById('sref-recharge').value;
+            const redeemStr = document.getElementById('sref-redeem').value;
+
+            const body = {
+                referral_enabled_override: enabledStr === '' ? null : (enabledStr === '1'),
+                referral_reward_mode_override: modeStr === '' ? null : modeStr,
+                custom_referral_signup_points: signupStr === '' ? null : parseFloat(signupStr),
+                custom_referral_recharge_percent: rechargeStr === '' ? null : parseFloat(rechargeStr),
+                custom_referral_max_redeem_percent: redeemStr === '' ? null : parseFloat(redeemStr),
+            };
+
+            const res = await apiFetch(`/shops/${shopId}/referral-settings`, 'PUT', body);
+            if (res && res.success) {
+                alertSucc.textContent = 'Shop-wise referral settings updated!';
+                alertSucc.style.display = 'block';
+                if (currentMainSection === 'referrals') loadReferralsView();
+            } else {
+                alertErr.textContent = res?.message || 'Failed to update shop-wise settings.';
+                alertErr.style.display = 'block';
+            }
+        }
+
+        async function submitShopPointAdjustment(e, shopId) {
+            e.preventDefault();
+            const alertErr = document.getElementById('sref-alert');
+            const alertSucc = document.getElementById('sref-success');
+            alertErr.style.display = 'none';
+            alertSucc.style.display = 'none';
+
+            const body = {
+                type: document.getElementById('sref-adj-type').value,
+                points: parseFloat(document.getElementById('sref-adj-pts').value || 0),
+                reason: document.getElementById('sref-adj-reason').value.trim(),
+            };
+
+            const res = await apiFetch(`/shops/${shopId}/referral-points`, 'POST', body);
+            if (res && res.success) {
+                alertSucc.textContent = `Points ${body.type}ed! New balance: ${res.data?.points_balance ?? ''} pts`;
+                alertSucc.style.display = 'block';
+                setTimeout(() => openShopReferralModal(shopId, ''), 800);
+                if (currentMainSection === 'referrals') loadReferralsView();
+            } else {
+                alertErr.textContent = res?.message || 'Failed to adjust points.';
+                alertErr.style.display = 'block';
+            }
+        }
+
+        // ==================== OTP VERIFICATION SETTINGS ====================
+        async function loadOtpSettingsView() {
+            const content = getContentContainer();
+            content.innerHTML = '<div style="padding:20px; color:#64748b;">Loading OTP settings...</div>';
+            const res = await apiFetch('/otp-settings');
+            if (!res || !res.success) return;
+            const enabled = res.data?.otp_verification_enabled !== false;
+
+            content.innerHTML = `
+                <div class="card-table" style="padding:24px; max-width:620px;">
+                    <h3 style="font-size:18px; font-weight:700; color:#0f172a; margin:0 0 4px 0;">🔐 OTP Verification (Signup & Forgot Password)</h3>
+                    <p style="font-size:13px; color:#64748b; margin:0 0 18px 0;">Turn SMS OTP verification ON for production or OFF to skip OTP during local testing.</p>
+
+                    <div id="otp-alert" class="alert-error" style="display:none;"></div>
+                    <div id="otp-success" style="display:none; background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; padding:12px; border-radius:8px; margin-bottom:16px; font-size:13px; font-weight:500;"></div>
+
+                    <form onsubmit="saveOtpSettings(event)">
+                        <div class="form-group">
+                            <label style="font-weight:600;">OTP Verification Mode</label>
+                            <select id="otp-enabled-select" class="form-control" style="font-weight:600;">
+                                <option value="1" ${enabled ? 'selected' : ''}>✅ ON — Require SMS OTP for Signup & Forgot Password (Production)</option>
+                                <option value="0" ${!enabled ? 'selected' : ''}>⏭️ OFF — Skip OTP (Direct Signup & Password Reset for Local Testing)</option>
+                            </select>
+                            <small style="color:#64748b; font-size:11px; display:block; margin-top:6px;">
+                                When OFF, new shops register immediately and Forgot Password goes straight to Reset Password without sending SMS.
+                            </small>
+                        </div>
+
+                        <div style="margin-top:20px;">
+                            <button type="submit" class="btn-primary" style="width:100%; padding:11px; font-weight:600;">Save OTP Settings</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+        }
+
+        async function saveOtpSettings(e) {
+            e.preventDefault();
+            const alertErr = document.getElementById('otp-alert');
+            const alertSucc = document.getElementById('otp-success');
+            alertErr.style.display = 'none';
+            alertSucc.style.display = 'none';
+
+            const enabled = document.getElementById('otp-enabled-select').value === '1';
+            const res = await apiFetch('/otp-settings', 'POST', { otp_verification_enabled: enabled });
+            if (res && res.success) {
+                alertSucc.textContent = res.message || 'OTP settings saved!';
+                alertSucc.style.display = 'block';
+            } else {
+                alertErr.textContent = res?.message || 'Failed to save OTP settings.';
+                alertErr.style.display = 'block';
             }
         }
 </script>

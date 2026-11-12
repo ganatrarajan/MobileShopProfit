@@ -210,5 +210,42 @@ class AdminPageController extends Controller
             ],
         ]);
     }
+
+    /**
+     * Get OTP Verification On/Off setting for Admin Panel
+     * GET /api/v1/admin/otp-settings
+     */
+    public function getOtpSettings()
+    {
+        $enabled = filter_var(SystemSetting::getByKey('otp_verification_enabled', '1'), FILTER_VALIDATE_BOOLEAN);
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'otp_verification_enabled' => $enabled,
+            ],
+        ]);
+    }
+
+    /**
+     * Save OTP Verification On/Off setting from Admin Panel
+     * POST /api/v1/admin/otp-settings
+     */
+    public function saveOtpSettings(Request $request)
+    {
+        $enabled = filter_var($request->input('otp_verification_enabled', true), FILTER_VALIDATE_BOOLEAN);
+        SystemSetting::setByKey('otp_verification_enabled', $enabled ? '1' : '0');
+        Cache::forget('system_settings_map');
+
+        return response()->json([
+            'success' => true,
+            'message' => $enabled
+                ? 'OTP Verification is now ENABLED for Signup & Forgot Password.'
+                : 'OTP Verification is now DISABLED (skipped for Signup & Forgot Password).',
+            'data'    => [
+                'otp_verification_enabled' => $enabled,
+            ],
+        ]);
+    }
 }
 

@@ -11,8 +11,10 @@ use App\Http\Requests\Auth\UpdateProfileRequest;
 use App\Http\Requests\Auth\VerifyOtpRequest;
 use App\Models\PendingRegistration;
 use App\Models\Shop;
+use App\Models\SystemSetting;
 use App\Models\User;
 use App\Services\Msg91Service;
+use App\Services\ReferralService;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -50,7 +52,13 @@ class AuthController extends Controller
                 'password' => Hash::make($request->password),
             ]);
 
-            // 3. Issue Sanctum Bearer Token
+            // 3. Apply Referral Link & Signup Points if valid referral_code provided
+            if ($request->filled('referral_code')) {
+                (new ReferralService())->handleSignupReferral($shop, $request->input('referral_code'));
+                $shop->refresh();
+            }
+
+            // 4. Issue Sanctum Bearer Token
             $token = $user->createToken('auth_token')->plainTextToken;
 
             return $this->successResponse([
@@ -64,8 +72,49 @@ class AuthController extends Controller
     /**
      * Initiate registration by storing payload and sending MSG91 OTP.
      */
+    private function isOtpEnabled(): bool
+    {
+        return filter_var(SystemSetting::getByKey('otp_verification_enabled', '1'), FILTER_VALIDATE_BOOLEAN);
+    }
+
     public function sendRegisterOtp(RegisterRequest $request, Msg91Service $msg91Service): JsonResponse
     {
+        if (! $this->isOtpEnabled()) {
+            return DB::transaction(function () use ($request) {
+                $shop = Shop::create([
+                    'name'       => $request->shop_name,
+                    'owner_name' => $request->name,
+                    'phone'      => $request->mobile,
+                    'currency'   => 'INR',
+                    'status'     => 'active',
+                ]);
+
+                $user = User::create([
+                    'shop_id'  => $shop->id,
+                    'name'     => $request->name,
+                    'mobile'   => $request->mobile,
+                    'email'    => $request->email,
+                    'phone'    => $request->mobile,
+                    'role'     => 'owner',
+                    'password' => Hash::make($request->password),
+                ]);
+
+                if ($request->filled('referral_code')) {
+                    (new ReferralService())->handleSignupReferral($shop, $request->input('referral_code'));
+                    $shop->refresh();
+                }
+
+                $token = $user->createToken('auth_token')->plainTextToken;
+
+                return $this->successResponse([
+                    'otp_skipped' => true,
+                    'token'       => $token,
+                    'user'        => $user->fresh(),
+                    'shop'        => $shop,
+                ], 'Shop and owner registered successfully (OTP skipped)', 201);
+            });
+        }
+
         // 1. Generate 4-digit random OTP
         $otp = (string) random_int(1000, 9999);
         $expirySeconds = (int) config('services.msg91.otp_expiry', 300);
@@ -81,8 +130,9 @@ class AuthController extends Controller
                 'name'      => $request->name,
                 'mobile'    => $request->mobile,
                 'email'     => $request->email,
-                'shop_name' => $request->shop_name,
-                'password'  => $request->password,
+                'shop_name'     => $request->shop_name,
+                'password'      => $request->password,
+                'referral_code' => $request->input('referral_code'),
             ],
             'otp_code'   => Hash::make($otp),
             'expires_at' => now()->addSeconds($expirySeconds),
@@ -163,7 +213,13 @@ class AuthController extends Controller
                 'password' => Hash::make($payload['password']),
             ]);
 
-            // 3. Issue Sanctum Bearer Token
+            // 3. Apply Referral Link & Signup Points if valid referral_code provided
+            if (!empty($payload['referral_code'])) {
+                (new ReferralService())->handleSignupReferral($shop, $payload['referral_code']);
+                $shop->refresh();
+            }
+
+            // 4. Issue Sanctum Bearer Token
             $token = $user->createToken('auth_token')->plainTextToken;
 
             // Delete pending registration after successful creation
@@ -504,8 +560,32 @@ class AuthController extends Controller
             return $this->errorResponse('No account found matching this mobile number.', 404);
         }
 
-        $otp = (string) random_int(1000, 9999);
         $expirySeconds = (int) config('services.msg91.otp_expiry', 300);
+
+        if (! $this->isOtpEnabled()) {
+            PendingRegistration::where('mobile', $user->mobile)->delete();
+
+            $pending = PendingRegistration::create([
+                'id'          => (string) Str::uuid(),
+                'mobile'      => $user->mobile,
+                'payload'     => [
+                    'type'    => 'forgot_password',
+                    'user_id' => $user->id,
+                ],
+                'otp_code'    => Hash::make('0000'),
+                'expires_at'  => now()->addSeconds($expirySeconds),
+                'verified_at' => now(),
+                'attempts'    => 0,
+            ]);
+
+            return $this->successResponse([
+                'otp_skipped'     => true,
+                'verification_id' => $pending->id,
+                'mobile'          => $user->mobile,
+            ], 'OTP verification skipped. You may now set your new password.');
+        }
+
+        $otp = (string) random_int(1000, 9999);
 
         $smsResult = $msg91Service->sendOtp($user->mobile, $otp);
 
