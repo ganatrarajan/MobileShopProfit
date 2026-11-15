@@ -47,6 +47,7 @@ import '../../features/reports/presentation/repair_report_screen.dart';
 import '../../features/reports/presentation/reports_hub_screen.dart';
 import '../../features/reports/presentation/sales_report_screen.dart';
 import '../../features/reports/presentation/warranty_report_screen.dart';
+import '../../features/reports/presentation/outstanding_report_screen.dart';
 import '../../features/sales/models/sale.dart';
 import '../../features/sales/presentation/create_sale_screen.dart';
 import '../../features/sales/presentation/quick_sale_screen.dart';
@@ -71,6 +72,7 @@ import '../../features/used_mobile/models/used_mobile.dart';
 import '../../features/used_mobile/presentation/buy_used_mobile_screen.dart';
 import '../../features/used_mobile/presentation/used_mobile_details_screen.dart';
 import '../../features/used_mobile/presentation/used_mobile_list_screen.dart';
+import '../../features/dashboard/presentation/profit_ledger_screen.dart';
 
 class AppRoutes {
   static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -141,12 +143,14 @@ class AppRoutes {
   static const String paymentReport = '/payment-report';
   static const String customerReport = '/customer-report';
   static const String warrantyReport = '/warranty-report';
+  static const String outstandingReport = '/outstanding-report';
 
   static const String profitIntelligence = '/profit-intelligence';
   static const String profitIntelligenceDetail = '/profit-intelligence-detail';
   static const String usedMobiles = '/used-mobiles';
   static const String buyUsedMobile = '/buy-used-mobile';
   static const String usedMobileDetails = '/used-mobile-details';
+  static const String profitLedger = '/profit-ledger';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -300,6 +304,9 @@ class AppRoutes {
         return MaterialPageRoute(settings: settings, builder: (_) => const CustomerReportScreen());
       case warrantyReport:
         return MaterialPageRoute(settings: settings, builder: (_) => const WarrantyReportScreen());
+      case outstandingReport:
+        final shop = settings.arguments is String ? settings.arguments as String : 'Mobile Repair & Retail Shop';
+        return MaterialPageRoute(settings: settings, builder: (_) => OutstandingReportScreen(shopName: shop));
 
       case profitIntelligence:
         return MaterialPageRoute(settings: settings, builder: (_) => const ProfitIntelligenceScreen());
@@ -320,6 +327,16 @@ class AppRoutes {
       case usedMobileDetails:
         final mobile = settings.arguments as UsedMobile;
         return MaterialPageRoute(settings: settings, builder: (_) => UsedMobileDetailsScreen(mobile: mobile));
+      case profitLedger:
+        final args = settings.arguments is Map<String, dynamic> ? settings.arguments as Map<String, dynamic> : {};
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => ProfitLedgerScreen(
+            initialPeriod: args['period']?.toString() ?? 'this_month',
+            initialDateRange: args['dateRange'] is DateTimeRange ? args['dateRange'] as DateTimeRange : null,
+            shopName: args['shopName']?.toString() ?? 'Mobile Repair Shop',
+          ),
+        );
 
       default:
         return MaterialPageRoute(

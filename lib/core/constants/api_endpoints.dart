@@ -24,6 +24,7 @@ class ApiEndpoints {
   static const String warranties = '/warranties';
   static const String warrantyClaims = '/warranty-claims';
   static const String inventory = '/inventory';
+  static const String inventoryCheckImei = '/inventory/check-imei';
   static const String expenseCategories = '/expense-categories';
   static const String expenses = '/expenses';
   static const String staff = '/staff';

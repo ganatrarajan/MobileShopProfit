@@ -87,6 +87,15 @@ class AppErrorMapper {
   static String _cleanTechnicalTerms(String input) {
     if (input.isEmpty) return 'An unexpected error occurred.';
     String result = input;
+
+    final lower = result.toLowerCase();
+    if (lower.contains('customer id field is required') ||
+        lower.contains('customer_id field is required') ||
+        lower.contains('customer id is required') ||
+        lower.contains('customer_id is required') ||
+        lower.contains('the customer field is required')) {
+      return 'Please select or add a customer for this invoice.';
+    }
     
     // Replace DB technical field names
     result = result.replaceAll('_id is required', ' selection is required');

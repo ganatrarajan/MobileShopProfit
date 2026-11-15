@@ -4,6 +4,7 @@ import '../../../core/utils/date_helper.dart';
 import '../../warranty/models/warranty.dart';
 import '../data/sale_repository.dart';
 import 'package:flutter/material.dart';
+import '../../../core/services/profit_visibility_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/status_badge.dart';
@@ -202,7 +203,7 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text('Invoice #${_sale.invoiceNumber}'),
+        title: Text('Invoice #${_sale.invoiceNumber}', overflow: TextOverflow.ellipsis),
         backgroundColor: AppColors.primary,
         elevation: 0,
         actions: [
@@ -216,15 +217,38 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
             onPressed: () => WhatsAppHelper.sendSaleWhatsAppMessage(context, _sale),
             tooltip: 'Send WhatsApp Bill',
           ),
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _refreshDetails,
-            tooltip: 'Refresh',
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline_rounded, color: Colors.white),
-            onPressed: _confirmDeleteSale,
-            tooltip: 'Delete Invoice',
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+            tooltip: 'More Options',
+            onSelected: (value) {
+              if (value == 'refresh') {
+                _refreshDetails();
+              } else if (value == 'delete') {
+                _confirmDeleteSale();
+              }
+            },
+            itemBuilder: (ctx) => [
+              const PopupMenuItem(
+                value: 'refresh',
+                child: Row(
+                  children: [
+                    Icon(Icons.refresh_rounded, size: 20, color: AppColors.textPrimary),
+                    SizedBox(width: 10),
+                    Text('Refresh Invoice'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_outline_rounded, size: 20, color: AppColors.error),
+                    SizedBox(width: 10),
+                    Text('Delete Invoice', style: TextStyle(color: AppColors.error)),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -521,9 +545,15 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                                         Text('IMEI: ${item.imei1}', style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
                                       if (_isOwner && item.costPrice != null && item.costPrice! > 0) ...[
                                         const SizedBox(height: 2),
-                                        Text(
-                                          'Cost: \u20B9${(item.costPrice! * item.quantity).toStringAsFixed(0)} \u2022 Profit: +\u20B9${(item.total - (item.costPrice! * item.quantity)).toStringAsFixed(0)}',
-                                          style: const TextStyle(fontSize: 10.5, color: Color(0xFF047857), fontWeight: FontWeight.w600),
+                                        ValueListenableBuilder<bool>(
+                                          valueListenable: ProfitVisibilityService().isHiddenNotifier,
+                                          builder: (context, _, __) {
+                                            final profitVal = item.total - (item.costPrice! * item.quantity);
+                                            return Text(
+                                              'Cost: \u20B9${(item.costPrice! * item.quantity).toStringAsFixed(0)} \u2022 Profit: ${ProfitVisibilityService().format(profitVal, showSign: true, decimals: 0)}',
+                                              style: const TextStyle(fontSize: 10.5, color: Color(0xFF047857), fontWeight: FontWeight.w600),
+                                            );
+                                          },
                                         ),
                                       ],
                                       if (item.discount > 0)
@@ -611,8 +641,11 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                                     spacing: 6,
                                     runSpacing: 4,
                                     children: [
-                                      Text(
-                                        _sale.amountPaid > 0 ? '+\u20B9 ${_sale.netProfit.toStringAsFixed(2)}' : '\u20B9 0.00',
+                                      ProfitText(
+                                        amount: _sale.amountPaid > 0 ? _sale.netProfit : 0.0,
+                                        prefix: '₹ ',
+                                        showSign: _sale.amountPaid > 0,
+                                        decimals: 2,
                                         style: TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w900,
@@ -650,8 +683,10 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                                       ),
                                     ),
                                     const SizedBox(width: 8),
-                                    Text(
-                                      '\u20B9 ${_sale.expectedNetProfit.toStringAsFixed(2)}',
+                                    ProfitText(
+                                      amount: _sale.expectedNetProfit,
+                                      prefix: '₹ ',
+                                      decimals: 2,
                                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                                     ),
                                   ],

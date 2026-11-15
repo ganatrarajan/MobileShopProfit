@@ -1,4 +1,8 @@
-﻿import '../../technician/data/technician_repository.dart';
+import 'dart:convert';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import '../../../core/widgets/pattern_lock_widget.dart';
+import '../../technician/data/technician_repository.dart';
 import '../../technician/models/technician.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
@@ -26,6 +30,11 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
   List<Technician> _technicianList = [];
   bool _isLoadingTechnicians = false;
 
+  final ImagePicker _picker = ImagePicker();
+  File? _newDevicePhotoFile;
+  String? _existingDevicePhotoUrl;
+  bool _photoRemoved = false;
+
   late TextEditingController _problemController;
   late TextEditingController _conditionNotesController;
   late TextEditingController _accessoriesNotesController;
@@ -39,6 +48,19 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
 
   DateTime? _expectedDeliveryDate;
   bool _obscurePin = true;
+  bool _isPatternMode = false;
+  List<int> _patternPoints = [];
+
+  Future<void> _openPatternDialog() async {
+    final result = await PatternLockDialog.show(context, initialPattern: _patternPoints);
+    if (result != null && result.length >= 2) {
+      setState(() {
+        _isPatternMode = true;
+        _patternPoints = result;
+        _pinPasscodeController.text = PatternHelper.formatPattern(_patternPoints);
+      });
+    }
+  }
 
   final List<String> _availableConditions = [
     'Screen damaged',
@@ -86,8 +108,20 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
     _customerNotesController = TextEditingController(text: r.customerNotes);
     _internalNotesController = TextEditingController(text: r.internalNotes);
 
+    _existingDevicePhotoUrl = r.devicePhoto;
+    _newDevicePhotoFile = null;
+    _photoRemoved = false;
+
     _selectedConditions = Set.from(r.deviceCondition);
     _selectedAccessories = Set.from(r.accessoriesReceived);
+
+    if (r.pinPasscode != null && PatternHelper.isPattern(r.pinPasscode)) {
+      _isPatternMode = true;
+      _patternPoints = PatternHelper.parsePattern(r.pinPasscode);
+    } else {
+      _isPatternMode = false;
+      _patternPoints = [];
+    }
 
     if (r.expectedDeliveryDate != null) {
       _expectedDeliveryDate = DateTime.tryParse(r.expectedDeliveryDate!);
@@ -185,6 +219,90 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
     }
   }
 
+  Future<void> _showPhotoPickerSheet() async {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Attach Device Photo (Optional)',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Take a clear photo of the device condition or damage before delivery',
+                  style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                ),
+                const SizedBox(height: 14),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.camera_alt_rounded, color: AppColors.primary),
+                  ),
+                  title: const Text('Take Photo with Camera', style: TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Capture device condition right now'),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await _pickDeviceImage(ImageSource.camera);
+                  },
+                ),
+                const SizedBox(height: 8),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.accent.withOpacity(0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.photo_library_rounded, color: AppColors.accent),
+                  ),
+                  title: const Text('Choose from Gallery', style: TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Select photo from gallery'),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await _pickDeviceImage(ImageSource.gallery);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickDeviceImage(ImageSource source) async {
+    try {
+      final XFile? picked = await _picker.pickImage(
+        source: source,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        imageQuality: 85,
+      );
+      if (picked != null) {
+        setState(() {
+          _newDevicePhotoFile = File(picked.path);
+          _photoRemoved = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        AppFeedback.showError(context, message: 'Failed to pick image: $e');
+      }
+    }
+  }
+
   Future<void> _submitUpdate() async {
     if (!_formKey.currentState!.validate()) {
       _showFormError('Please check the highlighted errors in the form.');
@@ -205,6 +323,16 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
           ? '${_expectedDeliveryDate!.year}-${_expectedDeliveryDate!.month.toString().padLeft(2, '0')}-${_expectedDeliveryDate!.day.toString().padLeft(2, '0')}'
           : null;
 
+      String? photoPayload;
+      if (_newDevicePhotoFile != null) {
+        final bytes = await _newDevicePhotoFile!.readAsBytes();
+        photoPayload = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+      } else if (_photoRemoved) {
+        photoPayload = '';
+      } else {
+        photoPayload = _existingDevicePhotoUrl;
+      }
+
       final res = await _repairRepository.updateRepair(
         id: widget.repair.id,
         technicianId: _selectedTechnician?.id,
@@ -215,6 +343,7 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
         accessoriesReceived: _selectedAccessories.toList(),
         accessoriesNotes: _accessoriesNotesController.text.trim(),
         pinPasscode: _pinPasscodeController.text.trim(),
+        devicePhoto: photoPayload,
         expectedDeliveryDate: dateStr,
         estimatedCost: estimatedCost,
         finalCost: finalCost,
@@ -559,6 +688,152 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
               ),
               const SizedBox(height: 16),
 
+              // Device Photo Card (Optional)
+              CustomCard(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.camera_alt_outlined, color: AppColors.primary, size: 20),
+                            SizedBox(width: 8),
+                            Text('Device Photo', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text('Optional', style: TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Capture or update device condition photo before delivery',
+                      style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    ),
+                    const SizedBox(height: 12),
+                    if (_newDevicePhotoFile != null || (!_photoRemoved && _existingDevicePhotoUrl != null && _existingDevicePhotoUrl!.isNotEmpty)) ...[
+                      Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: _newDevicePhotoFile != null
+                                ? Image.file(
+                                    _newDevicePhotoFile!,
+                                    height: 180,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                  )
+                                : Image.network(
+                                    _existingDevicePhotoUrl!,
+                                    height: 180,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      height: 180,
+                                      width: double.infinity,
+                                      color: Colors.grey[200],
+                                      child: const Center(
+                                        child: Icon(Icons.broken_image_rounded, size: 40, color: Colors.grey),
+                                      ),
+                                    ),
+                                  ),
+                          ),
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _newDevicePhotoFile = null;
+                                  _photoRemoved = true;
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.65),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.close_rounded, size: 18, color: Colors.white),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            bottom: 8,
+                            right: 8,
+                            child: InkWell(
+                              onTap: _showPhotoPickerSheet,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.65),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.refresh_rounded, size: 14, color: Colors.white),
+                                    SizedBox(width: 4),
+                                    Text('Change Photo', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      InkWell(
+                        onTap: _showPhotoPickerSheet,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: AppColors.primary.withOpacity(0.35), width: 1.5),
+                            borderRadius: BorderRadius.circular(12),
+                            color: AppColors.primary.withOpacity(0.04),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withOpacity(0.12),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.add_a_photo_rounded, size: 26, color: AppColors.primary),
+                              ),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'Tap to Take or Upload Device Photo',
+                                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                              ),
+                              const SizedBox(height: 3),
+                              const Text(
+                                'Camera or Gallery (1 Photo Max)',
+                                style: TextStyle(fontSize: 11.5, color: AppColors.textMuted),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
               // Costs & Financials
               CustomCard(
                 padding: const EdgeInsets.all(16),
@@ -600,25 +875,245 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Security & Notes
+              // Security & Delivery Schedule
               CustomCard(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextField(
-                      controller: _pinPasscodeController,
-                      obscureText: _obscurePin,
-                      decoration: InputDecoration(
-                        labelText: 'PIN / Pattern Passcode',
-                        hintText: 'Enter PIN or pattern lock...',
-                        hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                        suffixIcon: IconButton(
-                          icon: Icon(_obscurePin ? Icons.visibility_off : Icons.visibility),
-                          onPressed: () => setState(() => _obscurePin = !_obscurePin),
+                    const Row(
+                      children: [
+                        Icon(Icons.lock_outline_rounded, color: AppColors.accent, size: 20),
+                        SizedBox(width: 8),
+                        Text('Security & Delivery Schedule', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Lock Type Selector
+                    Row(
+                      children: [
+                        ChoiceChip(
+                          label: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.password_rounded, size: 15),
+                              SizedBox(width: 4),
+                              Text('PIN / Password', style: TextStyle(fontSize: 12)),
+                            ],
+                          ),
+                          selected: !_isPatternMode,
+                          onSelected: (val) {
+                            if (val) {
+                              setState(() {
+                                _isPatternMode = false;
+                                if (PatternHelper.isPattern(_pinPasscodeController.text)) {
+                                  _pinPasscodeController.clear();
+                                }
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        ChoiceChip(
+                          label: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.pattern_rounded, size: 15),
+                              SizedBox(width: 4),
+                              Text('Pattern Lock', style: TextStyle(fontSize: 12)),
+                            ],
+                          ),
+                          selected: _isPatternMode,
+                          onSelected: (val) {
+                            if (val) {
+                              setState(() => _isPatternMode = true);
+                              if (_patternPoints.isEmpty) {
+                                _openPatternDialog();
+                              }
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    if (!_isPatternMode) ...[
+                      TextField(
+                        controller: _pinPasscodeController,
+                        obscureText: _obscurePin,
+                        decoration: InputDecoration(
+                          labelText: 'PIN / Password (Optional)',
+                          hintText: 'Enter lock PIN or password...',
+                          hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          prefixIcon: const Icon(Icons.password_rounded, color: AppColors.accent),
+                          suffixIcon: IconButton(
+                            icon: Icon(_obscurePin ? Icons.visibility_off : Icons.visibility, color: AppColors.textMuted),
+                            onPressed: () => setState(() => _obscurePin = !_obscurePin),
+                          ),
                         ),
                       ),
+                    ] else ...[
+                      if (_patternPoints.isNotEmpty) ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.amber.shade300),
+                          ),
+                          child: Row(
+                            children: [
+                              PatternPreviewWidget(
+                                dimension: 85,
+                                pattern: _patternPoints,
+                                lineColor: Colors.amber.shade900,
+                                activeDotColor: Colors.amber.shade900,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Pattern Set (${_patternPoints.length} dots)',
+                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      PatternHelper.toReadableString(_patternPoints),
+                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        InkWell(
+                                          onTap: _openPatternDialog,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              borderRadius: BorderRadius.circular(6),
+                                              border: Border.all(color: Colors.amber.shade400),
+                                            ),
+                                            child: Text('Redraw', style: TextStyle(color: Colors.amber.shade900, fontSize: 11, fontWeight: FontWeight.bold)),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        InkWell(
+                                          onTap: () {
+                                            setState(() {
+                                              _patternPoints.clear();
+                                              _pinPasscodeController.clear();
+                                            });
+                                          },
+                                          child: const Padding(
+                                            padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                            child: Text('Clear', style: TextStyle(color: Colors.red, fontSize: 11, fontWeight: FontWeight.bold)),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ] else ...[
+                        InkWell(
+                          onTap: _openPatternDialog,
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: AppColors.primary, width: 1.2),
+                              borderRadius: BorderRadius.circular(10),
+                              color: AppColors.primary.withOpacity(0.04),
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.pattern_rounded, color: AppColors.primary, size: 20),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Tap to Draw Customer Pattern Lock',
+                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primary),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                    const SizedBox(height: 12),
+                    InkWell(
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _expectedDeliveryDate ?? DateTime.now().add(const Duration(days: 1)),
+                          firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                          lastDate: DateTime.now().add(const Duration(days: 365)),
+                        );
+                        if (picked != null) {
+                          setState(() => _expectedDeliveryDate = picked);
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppColors.border),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.calendar_today_rounded, size: 18, color: AppColors.primary),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _expectedDeliveryDate != null
+                                    ? 'Expected Delivery: ${_expectedDeliveryDate!.day}/${_expectedDeliveryDate!.month}/${_expectedDeliveryDate!.year}'
+                                    : 'Expected Delivery Date (Tap to select)',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: _expectedDeliveryDate != null ? AppColors.textPrimary : AppColors.textMuted,
+                                  fontWeight: _expectedDeliveryDate != null ? FontWeight.bold : FontWeight.normal,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (_expectedDeliveryDate != null)
+                              InkWell(
+                                onTap: () => setState(() => _expectedDeliveryDate = null),
+                                child: const Padding(
+                                  padding: EdgeInsets.all(4.0),
+                                  child: Icon(Icons.close_rounded, size: 16, color: AppColors.textMuted),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Notes Card
+              CustomCard(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.notes_rounded, color: AppColors.accent, size: 20),
+                        SizedBox(width: 8),
+                        Text('Repair Notes & Log', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     CustomTextField(

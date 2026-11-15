@@ -238,6 +238,30 @@ class InventoryRepository {
     );
   }
 
+  /// Check if an IMEI or Serial number is already in stock for the current shop
+  Future<ApiResponse<Map<String, dynamic>>> checkImeiAvailability(String imei, {int? excludeItemId}) async {
+    final queryParams = <String, String>{
+      'imei': imei.trim(),
+      if (excludeItemId != null) 'exclude_item_id': excludeItemId.toString(),
+    };
+    final queryString = Uri(queryParameters: queryParams).query;
+    final path = '${ApiEndpoints.inventoryCheckImei}?$queryString';
+
+    final response = await _apiClient.get(path);
+    if (response.success && response.data != null) {
+      final data = response.data is Map ? Map<String, dynamic>.from(response.data as Map) : <String, dynamic>{};
+      return ApiResponse<Map<String, dynamic>>(
+        success: true,
+        message: response.message,
+        data: data,
+      );
+    }
+    return ApiResponse<Map<String, dynamic>>(
+      success: false,
+      message: response.message,
+    );
+  }
+
   /// Add stock (Purchase / Incoming)
   Future<ApiResponse<InventoryItem>> addStock({
     required int id,

@@ -158,6 +158,7 @@ class Repair {
   final List<String> accessoriesReceived;
   final String? accessoriesNotes;
   final String? pinPasscode;
+  final String? devicePhoto;
   final double estimatedCost;
   final double finalCost;
   final double labourCost;
@@ -199,6 +200,7 @@ class Repair {
     this.accessoriesReceived = const [],
     this.accessoriesNotes,
     this.pinPasscode,
+    this.devicePhoto,
     this.estimatedCost = 0.0,
     this.finalCost = 0.0,
     this.labourCost = 0.0,
@@ -219,7 +221,12 @@ class Repair {
     this.updatedAt,
   });
 
-  double get netCost => finalCost > 0 ? finalCost : estimatedCost;
+  double get netCost {
+    if (finalCost > 0) return finalCost;
+    if (estimatedCost > 0) return estimatedCost;
+    if (amountDue > 0 || amountPaid > 0) return amountDue + amountPaid;
+    return 0.0;
+  }
 
   /// Total cost price of parts used in this repair
   double get partsCostTotal {
@@ -294,6 +301,7 @@ class Repair {
       accessoriesReceived: _parseListString(json['accessories_received']),
       accessoriesNotes: json['accessories_notes']?.toString(),
       pinPasscode: json['pin_passcode']?.toString(),
+      devicePhoto: json['device_photo']?.toString() ?? json['photo']?.toString(),
       estimatedCost: _parseDouble(json['estimated_cost']),
       finalCost: _parseDouble(json['final_cost']),
       labourCost: _parseDouble(json['labour_cost']),
@@ -343,6 +351,7 @@ class Repair {
       'accessories_received': accessoriesReceived,
       'accessories_notes': accessoriesNotes,
       'pin_passcode': pinPasscode,
+      if (devicePhoto != null) 'device_photo': devicePhoto,
       'estimated_cost': estimatedCost,
       'final_cost': finalCost,
       'labour_cost': labourCost,

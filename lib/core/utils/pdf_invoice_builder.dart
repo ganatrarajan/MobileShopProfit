@@ -716,7 +716,7 @@ class PdfInvoiceBuilder {
     final paymentStatusBg = isPaidFull ? PdfColor.fromHex('#DCFCE7') : (repair.amountPaid > 0 ? PdfColor.fromHex('#FFEDD5') : PdfColor.fromHex('#FEE2E2'));
 
     final deviceBrandModel = '${repair.device?.brand ?? ''} ${repair.device?.model ?? ''}'.trim();
-    final serialImei = (repair.device?.serialNumber ?? (repair.device?.imei1 ?? (repair.device?.imei2 ?? 'N/A'))) ?? 'N/A';
+    final serialImei = repair.device?.serialNumber ?? (repair.device?.imei1 ?? (repair.device?.imei2 ?? 'N/A'));
 
     pdf.addPage(
       pw.Page(
@@ -878,8 +878,6 @@ class PdfInvoiceBuilder {
                               pw.SizedBox(height: 4),
                               pw.Text('Device: ${deviceBrandModel.isNotEmpty ? deviceBrandModel : "Mobile Device"}', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: textDark)),
                               pw.Text('IMEI / Serial: $serialImei', style: pw.TextStyle(fontSize: 8.5, color: textDark)),
-                              if (repair.pinPasscode != null && repair.pinPasscode!.isNotEmpty)
-                                pw.Text('Passcode / PIN: ${repair.pinPasscode}', style: pw.TextStyle(fontSize: 8.5, color: textDark)),
                               pw.Text('Problem: ${repair.problemDescription.isNotEmpty ? repair.problemDescription : "Repair Service"}', style: pw.TextStyle(fontSize: 8.5, color: textDark)),
                               if (repair.deviceCondition.isNotEmpty)
                                 pw.Text('Condition: ${repair.deviceCondition.join(", ")}', style: pw.TextStyle(fontSize: 8, color: textMuted)),

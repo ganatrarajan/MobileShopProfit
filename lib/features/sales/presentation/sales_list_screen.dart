@@ -1,9 +1,9 @@
 import '../../../core/utils/date_helper.dart';
 import '../../../core/widgets/app_shimmer.dart';
 import 'package:flutter/material.dart';
+import '../../../core/services/profit_visibility_service.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/widgets/app_empty_state.dart';
 import '../../../core/widgets/date_range_empty_state.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/status_badge.dart';
@@ -413,7 +413,13 @@ class SalesListScreenState extends State<SalesListScreen> {
                       children: [
                         const Icon(Icons.currency_rupee_rounded, size: 12, color: Colors.greenAccent),
                         Text('Net Profit: ', style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 10)),
-                        Text('+\u20B9${_totalNetProfitSum.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12)),
+                        ProfitText(
+                          amount: _totalNetProfitSum,
+                          prefix: '₹',
+                          showSign: true,
+                          decimals: 0,
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12),
+                        ),
                       ],
                     ),
                     const Text('|', style: TextStyle(color: Colors.white24, fontSize: 11)),
@@ -1048,16 +1054,26 @@ class SalesListScreenState extends State<SalesListScreen> {
                           color: isUnpaid ? AppColors.textMuted : const Color(0xFF047857),
                         ),
                       ),
-                      Text(
-                        isUnpaid
-                            ? '\u20B90'
-                            : '+\u20B9${realizedProfit.toStringAsFixed(0)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w900,
-                          color: isUnpaid ? AppColors.textSecondary : const Color(0xFF047857),
-                        ),
-                      ),
+                      isUnpaid
+                          ? const Text(
+                              '\u20B90',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w900,
+                                color: AppColors.textSecondary,
+                              ),
+                            )
+                          : ProfitText(
+                              amount: realizedProfit,
+                              prefix: '₹',
+                              showSign: true,
+                              decimals: 0,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF047857),
+                              ),
+                            ),
                       if (!isUnpaid && margin > 0) ...[
                         const SizedBox(width: 4),
                         Container(

@@ -159,4 +159,28 @@ class ReportsRepository {
       fromJson: (json) => json as Map<String, dynamic>,
     );
   }
+
+  Future<ApiResponse<Map<String, dynamic>>> getOutstandingReport({
+    String period = 'all_time',
+    String? startDate,
+    String? endDate,
+    String? category, // all, repairs, sales, purchases
+    String? search,
+    int page = 1,
+  }) async {
+    final queryParams = <String, String>{
+      'period': period,
+      'page': page.toString(),
+    };
+    if (startDate != null) queryParams['start_date'] = startDate;
+    if (endDate != null) queryParams['end_date'] = endDate;
+    if (category != null && category != 'all') queryParams['category'] = category;
+    if (search != null && search.isNotEmpty) queryParams['search'] = search;
+
+    return await _apiClient.get<Map<String, dynamic>>(
+      '/reports/outstanding',
+      queryParameters: queryParams,
+      fromJson: (json) => json as Map<String, dynamic>,
+    );
+  }
 }

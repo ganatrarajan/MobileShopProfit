@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../../core/services/profit_visibility_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/utils/date_helper.dart';
@@ -745,14 +746,21 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: _buildMetricCard(
-                    title: 'Net Profit',
-                    value: '₹${_stats.totalProfitEarned.toStringAsFixed(0)}',
-                    subtitle: '$periodTag | ${_stats.profitMarginPercentage.toStringAsFixed(1)}% ROI',
-                    icon: Icons.trending_up_rounded,
-                    color: AppColors.accent,
-                    isDark: isDark,
-                    isHighlight: true,
+                  child: ValueListenableBuilder<bool>(
+                    valueListenable: ProfitVisibilityService().isHiddenNotifier,
+                    builder: (context, isHidden, _) {
+                      return _buildMetricCard(
+                        title: 'Net Profit',
+                        value: isHidden ? '₹••••' : '₹${_stats.totalProfitEarned.toStringAsFixed(0)}',
+                        subtitle: isHidden
+                            ? periodTag
+                            : '$periodTag | ${_stats.profitMarginPercentage.toStringAsFixed(1)}% ROI',
+                        icon: Icons.trending_up_rounded,
+                        color: AppColors.accent,
+                        isDark: isDark,
+                        isHighlight: true,
+                      );
+                    },
                   ),
                 ),
               ],
@@ -1628,8 +1636,11 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
                         color: profit >= 0 ? AppColors.accent.withOpacity(0.12) : AppColors.error.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(5),
                       ),
-                      child: Text(
-                        '${profit >= 0 ? "+" : "-"}₹${profit.abs().toStringAsFixed(0)}',
+                      child: ProfitText(
+                        amount: profit,
+                        prefix: '₹',
+                        showSign: true,
+                        decimals: 0,
                         style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w800,

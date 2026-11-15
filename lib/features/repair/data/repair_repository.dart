@@ -1,4 +1,4 @@
-﻿import '../../../core/constants/api_endpoints.dart';
+import '../../../core/constants/api_endpoints.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_response.dart';
 import '../models/repair.dart';
@@ -57,6 +57,7 @@ class RepairRepository {
     List<String>? accessoriesReceived,
     String? accessoriesNotes,
     String? pinPasscode,
+    String? devicePhoto,
     String? dateReceived,
     String? expectedDeliveryDate,
     double estimatedCost = 0.0,
@@ -79,6 +80,7 @@ class RepairRepository {
       if (accessoriesReceived != null) 'accessories_received': accessoriesReceived,
       if (accessoriesNotes != null && accessoriesNotes.isNotEmpty) 'accessories_notes': accessoriesNotes,
       if (pinPasscode != null && pinPasscode.isNotEmpty) 'pin_passcode': pinPasscode,
+      if (devicePhoto != null && devicePhoto.isNotEmpty) 'device_photo': devicePhoto,
       if (dateReceived != null) 'date_received': dateReceived,
       if (expectedDeliveryDate != null) 'expected_delivery_date': expectedDeliveryDate,
       'estimated_cost': estimatedCost,
@@ -132,6 +134,7 @@ class RepairRepository {
     List<String>? accessoriesReceived,
     String? accessoriesNotes,
     String? pinPasscode,
+    String? devicePhoto,
     String? expectedDeliveryDate,
     double? estimatedCost,
     double? finalCost,
@@ -148,6 +151,7 @@ class RepairRepository {
       if (accessoriesReceived != null) 'accessories_received': accessoriesReceived,
       if (accessoriesNotes != null) 'accessories_notes': accessoriesNotes,
       if (pinPasscode != null) 'pin_passcode': pinPasscode,
+      if (devicePhoto != null) 'device_photo': devicePhoto,
       if (expectedDeliveryDate != null) 'expected_delivery_date': expectedDeliveryDate,
       if (estimatedCost != null) 'estimated_cost': estimatedCost,
       if (finalCost != null) 'final_cost': finalCost,

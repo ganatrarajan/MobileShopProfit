@@ -408,6 +408,34 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
 
   bool _isScanning = false;
 
+  bool _isCheckingImei = false;
+
+  Future<String?> _validateImeiStock(String imei) async {
+    final clean = imei.trim();
+    if (clean.isEmpty) return null;
+
+    // Check against current purchase draft items
+    for (final pi in _purchaseItems) {
+      if (pi['imei1'] == clean || pi['imei2'] == clean || pi['serial_number'] == clean) {
+        return "IMEI/Serial '$clean' is already added in this purchase draft.";
+      }
+    }
+
+    // Check against backend active inventory stock for this shop
+    try {
+      final check = await _inventoryRepository.checkImeiAvailability(clean);
+      if (check.success && check.data != null && check.data!['in_stock'] == true) {
+        final itemName = check.data!['item']?['name'];
+        final suffix = itemName != null ? ' ($itemName)' : '';
+        return check.message.isNotEmpty
+            ? check.message
+            : "IMEI/Serial '$clean' is already in stock for this shop$suffix. Cannot add duplicate until the current unit is sold.";
+      }
+    } catch (_) {}
+
+    return null;
+  }
+
   Future<void> _scanBoxTogether({bool isSecondary = false}) async {
     if (_isScanning) return;
     _isScanning = true;
@@ -450,6 +478,20 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
             backgroundColor: AppColors.success,
           ),
         );
+
+        // Immediate background validation to notify user right away if IMEI already in stock
+        final scannedImei1 = _itemImei1Controller.text.trim();
+        final scannedImei2 = _itemImei2Controller.text.trim();
+        if (scannedImei1.isNotEmpty) {
+          _validateImeiStock(scannedImei1).then((err) {
+            if (err != null && mounted) _showFormError(err);
+          });
+        }
+        if (scannedImei2.isNotEmpty) {
+          _validateImeiStock(scannedImei2).then((err) {
+            if (err != null && mounted) _showFormError(err);
+          });
+        }
       }
     } finally {
       _isScanning = false;
@@ -474,10 +516,17 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
           backgroundColor: AppColors.success,
         ),
       );
+
+      // Immediate background validation to notify user right away if S/N already in stock
+      if (_itemSerialController.text.trim().isNotEmpty) {
+        _validateImeiStock(_itemSerialController.text.trim()).then((err) {
+          if (err != null && mounted) _showFormError(err);
+        });
+      }
     }
   }
 
-  void _addItemToPurchase() {
+  Future<void> _addItemToPurchase() async {
     final itemToAdd = _selectedItemForAdd;
     if (itemToAdd == null) {
       _showFormError('Please select an inventory item.');
@@ -501,30 +550,78 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     final imei2 = _itemImei2Controller.text.trim();
     final serial = _itemSerialController.text.trim();
 
-    setState(() {
-      _purchaseItems.add({
-        'inventory_item': itemToAdd,
-        'inventory_item_id': itemToAdd.id,
-        'item_name': itemToAdd.name,
-        'quantity': qty,
-        'imei1': imei1.isNotEmpty ? imei1 : null,
-        'imei2': imei2.isNotEmpty ? imei2 : null,
-        'serial_number': serial.isNotEmpty ? serial : null,
-        'purchase_rate': rate,
-        'total_amount': lineTotal,
+    if (itemToAdd.itemType == 'mobile') {
+      if (imei1.isEmpty) {
+        _showFormError('Primary IMEI 1 is required for mobile phones. Cannot add mobile to purchase without IMEI.');
+        return;
+      }
+      if (imei1.length < 8) {
+        _showFormError('Please enter a valid IMEI number (typically 15 digits).');
+        return;
+      }
+      if (qty > 1) {
+        _showFormError('For mobile phones, please add 1 unit per unique IMEI.');
+        return;
+      }
+    }
+
+    if (imei1.isNotEmpty && imei2.isNotEmpty && imei1 == imei2) {
+      _showFormError('Primary IMEI 1 and Secondary IMEI 2 cannot be identical.');
+      return;
+    }
+
+    setState(() => _isCheckingImei = true);
+
+    try {
+      if (imei1.isNotEmpty) {
+        final err = await _validateImeiStock(imei1);
+        if (err != null) {
+          _showFormError(err);
+          return;
+        }
+      }
+      if (imei2.isNotEmpty) {
+        final err = await _validateImeiStock(imei2);
+        if (err != null) {
+          _showFormError(err);
+          return;
+        }
+      }
+      if (serial.isNotEmpty) {
+        final err = await _validateImeiStock(serial);
+        if (err != null) {
+          _showFormError(err);
+          return;
+        }
+      }
+
+      setState(() {
+        _purchaseItems.add({
+          'inventory_item': itemToAdd,
+          'inventory_item_id': itemToAdd.id,
+          'item_name': itemToAdd.name,
+          'quantity': qty,
+          'imei1': imei1.isNotEmpty ? imei1 : null,
+          'imei2': imei2.isNotEmpty ? imei2 : null,
+          'serial_number': serial.isNotEmpty ? serial : null,
+          'purchase_rate': rate,
+          'total_amount': lineTotal,
+        });
+
+        _selectedItemForAdd = null;
+        _itemQtyController.text = '1';
+        _itemRateController.text = '0';
+        _itemImei1Controller.clear();
+        _itemImei2Controller.clear();
+        _itemSerialController.clear();
+        _showManualImei = false;
+        _errorMessage = null;
       });
 
-      _selectedItemForAdd = null;
-      _itemQtyController.text = '1';
-      _itemRateController.text = '0';
-      _itemImei1Controller.clear();
-      _itemImei2Controller.clear();
-      _itemSerialController.clear();
-      _showManualImei = false;
-      _errorMessage = null;
-    });
-
-    _recalculateTotals();
+      _recalculateTotals();
+    } finally {
+      if (mounted) setState(() => _isCheckingImei = false);
+    }
   }
 
   void _removeItemFromPurchase(int index) {
@@ -581,6 +678,21 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     if (_purchaseItems.isEmpty) {
       _showFormError('Please add at least one item to the purchase.');
       return;
+    }
+
+    // Client-side guard against duplicate IMEIs in the purchase draft
+    final seenImeis = <String>{};
+    for (final pi in _purchaseItems) {
+      for (final key in ['imei1', 'imei2', 'serial_number']) {
+        final val = pi[key] as String?;
+        if (val != null && val.isNotEmpty) {
+          if (seenImeis.contains(val)) {
+            _showFormError("Duplicate IMEI/Serial '$val' found in purchase items draft.");
+            return;
+          }
+          seenImeis.add(val);
+        }
+      }
     }
 
     setState(() => _isSaving = true);
@@ -1032,9 +1144,18 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                           side: const BorderSide(color: AppColors.primary),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
-                        onPressed: _addItemToPurchase,
-                        icon: const Icon(Icons.add_shopping_cart_rounded, color: AppColors.primary),
-                        label: const Text('+ Add Item to Purchase Draft', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                        onPressed: _isCheckingImei ? null : _addItemToPurchase,
+                        icon: _isCheckingImei
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                              )
+                            : const Icon(Icons.add_shopping_cart_rounded, color: AppColors.primary),
+                        label: Text(
+                          _isCheckingImei ? 'Checking IMEI Availability...' : '+ Add Item to Purchase Draft',
+                          style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
+                        ),
                       ),
 
                       // DRAFT ITEMS LIST

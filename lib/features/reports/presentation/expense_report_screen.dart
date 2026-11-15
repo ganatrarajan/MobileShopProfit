@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/report_export_helper.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../data/reports_repository.dart';
 import '../domain/report_models.dart';
@@ -96,6 +97,86 @@ class _ExpenseReportScreenState extends State<ExpenseReportScreen> {
     }
   }
 
+  void _exportExcel() {
+    if (_detailsList.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No records to export.')));
+      return;
+    }
+
+    final headers = ['#', 'Date', 'Title', 'Category', 'Payment Method', 'Amount (₹)'];
+    int idx = 1;
+    final rows = _detailsList.map((item) {
+      final title = item['title']?.toString() ?? 'Expense';
+      final catName = item['category']?['name']?.toString() ?? 'Category';
+      final amt = double.tryParse(item['amount']?.toString() ?? '') ?? 0.0;
+      final method = (item['payment_method']?.toString() ?? 'cash').toUpperCase();
+      final dt = item['expense_date']?.toString().split('T')[0] ?? '';
+      return [
+        idx++,
+        dt,
+        title,
+        catName,
+        method,
+        amt.toStringAsFixed(2),
+      ];
+    }).toList();
+
+    final summaryItems = <ReportExportSummaryItem>[
+      ReportExportSummaryItem(title: 'Total Expenses', value: '₹ ${_totalExpenses.toStringAsFixed(2)}'),
+      ReportExportSummaryItem(title: 'Transactions', value: '${_detailsList.length}'),
+    ];
+
+    ReportExportHelper.exportToCsv(
+      context: context,
+      reportTitle: 'Expense Report',
+      shopName: 'Mobile Repair Shop',
+      period: _selectedPeriod,
+      headers: headers,
+      rows: rows,
+      summaryItems: summaryItems,
+    );
+  }
+
+  void _exportPdf() {
+    if (_detailsList.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No records to export.')));
+      return;
+    }
+
+    final headers = ['#', 'Date', 'Expense Title', 'Category', 'Method', 'Amount'];
+    int idx = 1;
+    final rows = _detailsList.map((item) {
+      final title = item['title']?.toString() ?? 'Expense';
+      final catName = item['category']?['name']?.toString() ?? 'Category';
+      final amt = double.tryParse(item['amount']?.toString() ?? '') ?? 0.0;
+      final method = (item['payment_method']?.toString() ?? 'cash').toUpperCase();
+      final dt = item['expense_date']?.toString().split('T')[0] ?? '';
+      return [
+        idx++,
+        dt,
+        title,
+        catName,
+        method,
+        '₹ ${amt.toStringAsFixed(0)}',
+      ];
+    }).toList();
+
+    final summaryItems = <ReportExportSummaryItem>[
+      ReportExportSummaryItem(title: 'Total Expenses', value: '₹ ${_totalExpenses.toStringAsFixed(0)}'),
+      ReportExportSummaryItem(title: 'Records', value: '${_detailsList.length}'),
+    ];
+
+    ReportExportHelper.exportToPdf(
+      context: context,
+      reportTitle: 'Operational Expenses Report',
+      shopName: 'Mobile Repair Shop',
+      period: _selectedPeriod,
+      headers: headers,
+      rows: rows,
+      summaryItems: summaryItems,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -104,6 +185,12 @@ class _ExpenseReportScreenState extends State<ExpenseReportScreen> {
         title: const Text('Expense Report'),
         backgroundColor: AppColors.primary,
         elevation: 0,
+        actions: [
+          ReportExportHelper.buildExportActionButton(
+            onExportPdf: _exportPdf,
+            onExportExcel: _exportExcel,
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -180,13 +267,16 @@ class _ExpenseReportScreenState extends State<ExpenseReportScreen> {
                                       child: Row(
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
-                                          Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(cat.categoryName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                                              Text('${cat.count} expense records (${(pct * 100).toStringAsFixed(1)}%)', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
-                                            ],
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(cat.categoryName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+                                                Text('${cat.count} expense records (${(pct * 100).toStringAsFixed(1)}%)', style: const TextStyle(fontSize: 11, color: AppColors.textMuted), overflow: TextOverflow.ellipsis),
+                                              ],
+                                            ),
                                           ),
+                                          const SizedBox(width: 8),
                                           Text('₹ ${cat.totalAmount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.error)),
                                         ],
                                       ),
@@ -219,14 +309,17 @@ class _ExpenseReportScreenState extends State<ExpenseReportScreen> {
                                         child: Row(
                                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
-                                            Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                                                const SizedBox(height: 4),
-                                                Text('$catName • ${method.toUpperCase()}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                                              ],
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary), overflow: TextOverflow.ellipsis),
+                                                  const SizedBox(height: 4),
+                                                  Text('$catName • ${method.toUpperCase()}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary), overflow: TextOverflow.ellipsis),
+                                                ],
+                                              ),
                                             ),
+                                            const SizedBox(width: 8),
                                             Text('₹ ${amt.toStringAsFixed(2)}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.error)),
                                           ],
                                         ),

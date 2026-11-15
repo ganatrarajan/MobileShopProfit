@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/report_export_helper.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../data/reports_repository.dart';
 import '../domain/report_models.dart';
@@ -102,6 +103,93 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
     }
   }
 
+  void _exportExcel() {
+    if (_detailsList.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No records to export.')));
+      return;
+    }
+
+    final headers = ['#', 'Invoice #', 'Date', 'Type', 'Customer', 'Total (₹)', 'Paid (₹)', 'Due (₹)', 'Status'];
+    int idx = 1;
+    final rows = _detailsList.map((item) {
+      final total = double.tryParse(item['grand_total']?.toString() ?? '') ?? 0.0;
+      final paid = double.tryParse(item['amount_paid']?.toString() ?? '') ?? 0.0;
+      final due = double.tryParse(item['amount_due']?.toString() ?? '') ?? (total - paid);
+      final dt = item['sale_date']?.toString().split('T')[0] ?? '';
+      return [
+        idx++,
+        item['invoice_number'] ?? 'INV',
+        dt,
+        (item['sale_type'] ?? 'regular').toString().toUpperCase(),
+        item['customer_name'] ?? 'Walk-in',
+        total.toStringAsFixed(2),
+        paid.toStringAsFixed(2),
+        due.toStringAsFixed(2),
+        (item['payment_status'] ?? '').toString().toUpperCase(),
+      ];
+    }).toList();
+
+    final summaryItems = <ReportExportSummaryItem>[
+      ReportExportSummaryItem(title: 'Total Sales', value: '₹ ${_summary?.totalSales.toStringAsFixed(2) ?? '0.00'}'),
+      ReportExportSummaryItem(title: 'Total Collected', value: '₹ ${_summary?.totalCollected.toStringAsFixed(2) ?? '0.00'}'),
+      ReportExportSummaryItem(title: 'Total Outstanding', value: '₹ ${_summary?.totalOutstanding.toStringAsFixed(2) ?? '0.00'}'),
+      ReportExportSummaryItem(title: 'Transactions', value: '${_summary?.totalTransactions ?? 0}'),
+    ];
+
+    ReportExportHelper.exportToCsv(
+      context: context,
+      reportTitle: 'Sales Report',
+      shopName: 'Mobile Repair Shop',
+      period: _selectedPeriod,
+      headers: headers,
+      rows: rows,
+      summaryItems: summaryItems,
+    );
+  }
+
+  void _exportPdf() {
+    if (_detailsList.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No records to export.')));
+      return;
+    }
+
+    final headers = ['#', 'Invoice #', 'Date', 'Type', 'Customer', 'Total', 'Paid', 'Due'];
+    int idx = 1;
+    final rows = _detailsList.map((item) {
+      final total = double.tryParse(item['grand_total']?.toString() ?? '') ?? 0.0;
+      final paid = double.tryParse(item['amount_paid']?.toString() ?? '') ?? 0.0;
+      final due = double.tryParse(item['amount_due']?.toString() ?? '') ?? (total - paid);
+      final dt = item['sale_date']?.toString().split('T')[0] ?? '';
+      return [
+        idx++,
+        item['invoice_number'] ?? 'INV',
+        dt,
+        (item['sale_type'] ?? 'regular').toString().toUpperCase(),
+        item['customer_name'] ?? 'Walk-in',
+        '₹ ${total.toStringAsFixed(0)}',
+        '₹ ${paid.toStringAsFixed(0)}',
+        '₹ ${due.toStringAsFixed(2)}',
+      ];
+    }).toList();
+
+    final summaryItems = <ReportExportSummaryItem>[
+      ReportExportSummaryItem(title: 'Total Sales', value: '₹ ${_summary?.totalSales.toStringAsFixed(0) ?? '0'}'),
+      ReportExportSummaryItem(title: 'Collected', value: '₹ ${_summary?.totalCollected.toStringAsFixed(0) ?? '0'}'),
+      ReportExportSummaryItem(title: 'Due Balance', value: '₹ ${_summary?.totalOutstanding.toStringAsFixed(0) ?? '0'}'),
+      ReportExportSummaryItem(title: 'Invoices', value: '${_summary?.totalTransactions ?? 0}'),
+    ];
+
+    ReportExportHelper.exportToPdf(
+      context: context,
+      reportTitle: 'Sales Performance Report',
+      shopName: 'Mobile Repair Shop',
+      period: _selectedPeriod,
+      headers: headers,
+      rows: rows,
+      summaryItems: summaryItems,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -110,6 +198,12 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
         title: const Text('Sales Report'),
         backgroundColor: AppColors.primary,
         elevation: 0,
+        actions: [
+          ReportExportHelper.buildExportActionButton(
+            onExportPdf: _exportPdf,
+            onExportExcel: _exportExcel,
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -211,17 +305,26 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                                       child: Row(
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
-                                          Row(
-                                            children: [
-                                              CircleAvatar(
-                                                radius: 14,
-                                                backgroundColor: AppColors.primary.withOpacity(0.1),
-                                                child: Text('${idx + 1}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                                              ),
-                                              const SizedBox(width: 12),
-                                              Text(p.productName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                                            ],
+                                          Expanded(
+                                            child: Row(
+                                              children: [
+                                                CircleAvatar(
+                                                  radius: 14,
+                                                  backgroundColor: AppColors.primary.withOpacity(0.1),
+                                                  child: Text('${idx + 1}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Text(
+                                                    p.productName,
+                                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
+                                          const SizedBox(width: 8),
                                           Column(
                                             crossAxisAlignment: CrossAxisAlignment.end,
                                             children: [
@@ -261,24 +364,27 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
                                         child: Row(
                                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
-                                            Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Row(
-                                                  children: [
-                                                    Text(inv, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                                                    const SizedBox(width: 8),
-                                                    Container(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                      decoration: BoxDecoration(color: type == 'quick' ? Colors.amber.shade100 : Colors.blue.shade100, borderRadius: BorderRadius.circular(4)),
-                                                      child: Text(type.toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: type == 'quick' ? Colors.amber.shade900 : Colors.blue.shade900)),
-                                                    ),
-                                                  ],
-                                                ),
-                                                const SizedBox(height: 4),
-                                                Text(cust, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                                              ],
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Row(
+                                                    children: [
+                                                      Text(inv, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                                                      const SizedBox(width: 8),
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                        decoration: BoxDecoration(color: type == 'quick' ? Colors.amber.shade100 : Colors.blue.shade100, borderRadius: BorderRadius.circular(4)),
+                                                        child: Text(type.toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: type == 'quick' ? Colors.amber.shade900 : Colors.blue.shade900)),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Text(cust, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary), overflow: TextOverflow.ellipsis),
+                                                ],
+                                              ),
                                             ),
+                                            const SizedBox(width: 8),
                                             Column(
                                               crossAxisAlignment: CrossAxisAlignment.end,
                                               children: [

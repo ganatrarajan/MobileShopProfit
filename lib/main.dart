@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'core/config/env_config.dart';
 import 'core/routes/app_routes.dart';
+import 'core/services/profit_visibility_service.dart';
 import 'core/storage/preferences_storage.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_notifier.dart';
@@ -9,6 +10,7 @@ import 'core/widgets/app_lock_verify_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await EnvConfig.init();
+  await ProfitVisibilityService().init();
   runApp(const MobileShopProfitApp());
 }
 

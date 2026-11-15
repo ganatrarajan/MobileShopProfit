@@ -82,12 +82,58 @@ class _AddStockDialogState extends State<AddStockDialog> {
       return;
     }
 
+    final isMobile = widget.item.itemType == 'mobile';
     final unitCost = double.tryParse(_unitCostController.text.trim());
+    final imei1 = _imei1Controller.text.trim();
+    final imei2 = _imei2Controller.text.trim();
+    final serial = _serialController.text.trim();
+
+    if (isMobile) {
+      if (imei1.isEmpty) {
+        setState(() => _errorMessage = 'Primary IMEI 1 is required for mobile phones. Stock cannot be added without IMEI.');
+        return;
+      }
+      if (imei1.length < 8) {
+        setState(() => _errorMessage = 'Please enter a valid IMEI number (typically 15 digits).');
+        return;
+      }
+      if (qty > 1) {
+        setState(() => _errorMessage = 'For mobile phones, please add stock 1 unit at a time with its unique IMEI.');
+        return;
+      }
+    }
+
+    if (imei1.isNotEmpty && imei2.isNotEmpty && imei1 == imei2) {
+      setState(() => _errorMessage = 'Primary IMEI 1 and Secondary IMEI 2 cannot be identical.');
+      return;
+    }
 
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
     });
+
+    // Proactively verify if any entered IMEI/Serial is already active in stock for this shop
+    for (final val in [imei1, imei2, serial]) {
+      if (val.isNotEmpty) {
+        try {
+          final check = await _inventoryRepository.checkImeiAvailability(val);
+          if (check.success && check.data != null && check.data!['in_stock'] == true) {
+            final itemName = check.data!['item']?['name'];
+            final suffix = itemName != null ? ' ($itemName)' : '';
+            if (mounted) {
+              setState(() {
+                _isSubmitting = false;
+                _errorMessage = check.message.isNotEmpty
+                    ? check.message
+                    : "IMEI/Serial '$val' is already in stock for this shop$suffix. Cannot add duplicate until the current unit is sold.";
+              });
+            }
+            return;
+          }
+        } catch (_) {}
+      }
+    }
 
     try {
       final res = await _inventoryRepository.addStock(
@@ -163,10 +209,11 @@ class _AddStockDialogState extends State<AddStockDialog> {
               children: [
                 Expanded(
                   child: CustomTextField(
-                    label: 'Quantity *',
-                    hint: 'e.g. 5',
+                    label: widget.item.itemType == 'mobile' ? 'Quantity (1 unit) *' : 'Quantity *',
+                    hint: widget.item.itemType == 'mobile' ? '1' : 'e.g. 5',
                     controller: _quantityController,
                     keyboardType: TextInputType.number,
+                    readOnly: widget.item.itemType == 'mobile',
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -191,10 +238,21 @@ class _AddStockDialogState extends State<AddStockDialog> {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  const Expanded(
-                    child: Text(
-                      'Device Identifiers (Optional)',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          const TextSpan(
+                            text: 'Device Identifiers ',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+                          ),
+                          TextSpan(
+                            text: '(Required) *',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red.shade700),
+                          ),
+                        ],
+                      ),
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -226,9 +284,10 @@ class _AddStockDialogState extends State<AddStockDialog> {
               ),
               const SizedBox(height: 6),
               CustomTextField(
-                label: 'IMEI 1',
-                hint: '15-digit IMEI',
+                label: 'IMEI 1 * (Required)',
+                hint: '15-digit primary IMEI (Required)',
                 controller: _imei1Controller,
+                isRequired: true,
                 keyboardType: TextInputType.number,
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary),
@@ -238,8 +297,8 @@ class _AddStockDialogState extends State<AddStockDialog> {
               ),
               const SizedBox(height: 8),
               CustomTextField(
-                label: 'IMEI 2',
-                hint: '15-digit IMEI',
+                label: 'IMEI 2 (Optional)',
+                hint: '15-digit secondary IMEI',
                 controller: _imei2Controller,
                 keyboardType: TextInputType.number,
                 suffixIcon: IconButton(

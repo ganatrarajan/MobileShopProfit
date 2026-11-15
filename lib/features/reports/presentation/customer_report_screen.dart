@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/report_export_helper.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../data/reports_repository.dart';
 import 'widgets/report_period_selector.dart';
@@ -105,6 +106,80 @@ class _CustomerReportScreenState extends State<CustomerReportScreen> {
     }
   }
 
+  void _exportExcel() {
+    if (_detailsList.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No records to export.')));
+      return;
+    }
+
+    final headers = ['#', 'Customer Name', 'Mobile Number', 'Total Spent (₹)'];
+    int idx = 1;
+    final rows = _detailsList.map((item) {
+      final name = item['name']?.toString() ?? 'Customer';
+      final mob = item['mobile']?.toString() ?? '';
+      final spent = double.tryParse(item['sales_sum_grand_total']?.toString() ?? '') ?? 0.0;
+      return [
+        idx++,
+        name,
+        mob,
+        spent.toStringAsFixed(2),
+      ];
+    }).toList();
+
+    final summaryItems = <ReportExportSummaryItem>[
+      ReportExportSummaryItem(title: 'Total Customers', value: '$_totalCustomers'),
+      ReportExportSummaryItem(title: 'New Customers', value: '$_newCustomers'),
+      ReportExportSummaryItem(title: 'Repeat Customers', value: '${_repeatCustomers ?? 0}'),
+    ];
+
+    ReportExportHelper.exportToCsv(
+      context: context,
+      reportTitle: 'Customer Analytics Report',
+      shopName: 'Mobile Repair Shop',
+      period: _selectedPeriod,
+      headers: headers,
+      rows: rows,
+      summaryItems: summaryItems,
+    );
+  }
+
+  void _exportPdf() {
+    if (_detailsList.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No records to export.')));
+      return;
+    }
+
+    final headers = ['#', 'Customer Name', 'Mobile', 'Total Spent'];
+    int idx = 1;
+    final rows = _detailsList.map((item) {
+      final name = item['name']?.toString() ?? 'Customer';
+      final mob = item['mobile']?.toString() ?? '';
+      final spent = double.tryParse(item['sales_sum_grand_total']?.toString() ?? '') ?? 0.0;
+      return [
+        idx++,
+        name,
+        mob,
+        '₹ ${spent.toStringAsFixed(0)}',
+      ];
+    }).toList();
+
+    final summaryItems = <ReportExportSummaryItem>[
+      ReportExportSummaryItem(title: 'Customers', value: '$_totalCustomers'),
+      ReportExportSummaryItem(title: 'New', value: '$_newCustomers'),
+      ReportExportSummaryItem(title: 'Repeat', value: '${_repeatCustomers ?? 0}'),
+    ];
+
+    ReportExportHelper.exportToPdf(
+      context: context,
+      reportTitle: 'Customer Engagement & Spending Report',
+      shopName: 'Mobile Repair Shop',
+      period: _selectedPeriod,
+      headers: headers,
+      rows: rows,
+      summaryItems: summaryItems,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -113,6 +188,12 @@ class _CustomerReportScreenState extends State<CustomerReportScreen> {
         title: const Text('Customer Analytics Report'),
         backgroundColor: AppColors.primary,
         elevation: 0,
+        actions: [
+          ReportExportHelper.buildExportActionButton(
+            onExportPdf: _exportPdf,
+            onExportExcel: _exportExcel,
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -180,17 +261,26 @@ class _CustomerReportScreenState extends State<CustomerReportScreen> {
                                       child: Row(
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
-                                          Row(
-                                            children: [
-                                              CircleAvatar(
-                                                radius: 14,
-                                                backgroundColor: AppColors.primary.withOpacity(0.1),
-                                                child: Text('${idx + 1}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                                              ),
-                                              const SizedBox(width: 12),
-                                              Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                                            ],
+                                          Expanded(
+                                            child: Row(
+                                              children: [
+                                                CircleAvatar(
+                                                  radius: 14,
+                                                  backgroundColor: AppColors.primary.withOpacity(0.1),
+                                                  child: Text('${idx + 1}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Text(
+                                                    name,
+                                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
+                                          const SizedBox(width: 8),
                                           Text('₹ ${spent.toStringAsFixed(2)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primary)),
                                         ],
                                       ),
@@ -221,14 +311,17 @@ class _CustomerReportScreenState extends State<CustomerReportScreen> {
                                         child: Row(
                                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
-                                            Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                                                const SizedBox(height: 4),
-                                                Text('📱 $mob', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                                              ],
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary), overflow: TextOverflow.ellipsis),
+                                                  const SizedBox(height: 4),
+                                                  Text('📱 $mob', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary), overflow: TextOverflow.ellipsis),
+                                                ],
+                                              ),
                                             ),
+                                            const SizedBox(width: 8),
                                             Text('Spent: ₹ ${spent.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primary)),
                                           ],
                                         ),

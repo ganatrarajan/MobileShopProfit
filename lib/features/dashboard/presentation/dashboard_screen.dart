@@ -2,6 +2,8 @@ import '../../../core/network/api_response.dart';
 import '../../../core/widgets/app_shimmer.dart';
 import '../../../core/utils/date_helper.dart';
 import '../../../core/utils/nav_utils.dart';
+import '../../../core/services/profit_visibility_service.dart';
+import 'profit_ledger_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/routes/app_routes.dart';
@@ -365,12 +367,25 @@ class DashboardScreenState extends State<DashboardScreen> {
                 ? dashData.financialOverview.totalPurchases
                 : purchaseTotalSum;
 
+            final salesProfitVal = (dashData.sales.netProfit > 0)
+                ? dashData.sales.netProfit
+                : dashData.financialOverview.salesProfit;
+            final repairProfitVal = actualRepairProfit;
+            final usedMobileProfitVal = (dashData.usedMobiles.totalProfit > 0)
+                ? dashData.usedMobiles.totalProfit
+                : dashData.financialOverview.usedMobileProfit;
+            final totalProfitVal = salesProfitVal + repairProfitVal + usedMobileProfitVal;
+
             final updatedFin = FinancialOverview(
               totalSales: dashData.financialOverview.totalSales,
-              repairEarnings: actualRepairProfit,
+              invoiceSales: dashData.sales.totalSales,
+              salesProfit: salesProfitVal,
+              usedMobileSales: dashData.usedMobiles.totalSales,
+              usedMobileProfit: usedMobileProfitVal,
+              repairEarnings: repairProfitVal,
               totalPurchases: actualPurchases,
               totalExpenses: dashData.financialOverview.totalExpenses,
-              netProfit: dashData.financialOverview.totalSales + actualRepairProfit - actualPurchases - dashData.financialOverview.totalExpenses,
+              netProfit: totalProfitVal,
               cashCollected: dashData.financialOverview.cashCollected + actualRepairEarned,
               cashPaidPurchases: purchasePaidSum > 0 ? purchasePaidSum : dashData.financialOverview.cashPaidPurchases,
               cashPaidExpenses: dashData.financialOverview.cashPaidExpenses,
@@ -399,6 +414,7 @@ class DashboardScreenState extends State<DashboardScreen> {
               repairs: updatedRepairs,
               inventory: dashData.inventory,
               expenses: dashData.expenses,
+              usedMobiles: dashData.usedMobiles,
               attention: dashData.attention,
               recentActivity: dashData.recentActivity,
               discountBanner: dashData.discountBanner,
@@ -514,6 +530,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                 ),
             ],
           ),
+          const ProfitVisibilityToggle(),
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: Colors.white),
             tooltip: 'Refresh',
@@ -588,6 +605,8 @@ class DashboardScreenState extends State<DashboardScreen> {
                         _buildRepairSummaryCard(_dashboardData!.repairs),
                         const SizedBox(height: 12),
                         _buildSalesSummaryCard(_dashboardData!.sales),
+                        const SizedBox(height: 12),
+                        _buildUsedMobileSummaryCard(_dashboardData!.usedMobiles),
                         const SizedBox(height: 12),
                         _buildPurchaseSummaryCard(_dashboardData!.purchases),
                         const SizedBox(height: 12),
@@ -1408,45 +1427,194 @@ class DashboardScreenState extends State<DashboardScreen> {
   Widget _buildFinancialSummaryCard(FinancialOverview fin) {
     final isProfit = fin.netProfit >= 0;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: isProfit
-            ? const LinearGradient(
-                colors: [Color(0xFF0D9488), Color(0xFF059669)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              )
-            : const LinearGradient(
-                colors: [Color(0xFFDC2626), Color(0xFF991B1B)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: (isProfit ? const Color(0xFF059669) : AppColors.error).withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ProfitLedgerScreen(
+              initialPeriod: _selectedPeriod,
+              initialDateRange: _customDateRange,
+              shopName: _dashboardData?.shopName ?? 'Mobile Repair Shop',
+            ),
           ),
-        ],
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: isProfit
+              ? const LinearGradient(
+                  colors: [Color(0xFF0D9488), Color(0xFF059669)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : const LinearGradient(
+                  colors: [Color(0xFFDC2626), Color(0xFF991B1B)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: (isProfit ? const Color(0xFF059669) : AppColors.error).withOpacity(0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Expanded(
+                  child: Row(
+                    children: [
+                      Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 20),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Net Profit & Financial Overview',
+                          style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const ProfitVisibilityToggle(color: Colors.white, size: 20),
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    isProfit ? 'PROFIT' : 'LOSS',
+                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Total Net Profit (Repairs + Sales + Used Mobiles)',
+              style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 11.5),
+            ),
+            const SizedBox(height: 2),
+            ProfitText(
+              amount: fin.netProfit,
+              prefix: '₹',
+              decimals: 2,
+              style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Repair Profit', style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 10.5, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 3),
+                        ProfitText(
+                          amount: fin.repairEarnings,
+                          prefix: '₹',
+                          decimals: 0,
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Sales Profit', style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 10.5, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 3),
+                        ProfitText(
+                          amount: fin.salesProfit,
+                          prefix: '₹',
+                          decimals: 0,
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Used Mob. Profit', style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 10.5, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 3),
+                        ProfitText(
+                          amount: fin.usedMobileProfit,
+                          prefix: '₹',
+                          decimals: 0,
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  'Tap to view ledger & download PDF / Excel \u2192',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.95),
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildUsedMobileSummaryCard(UsedMobileSummary usedMobiles) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMutedColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
+
+    return CustomCard(
+      onTap: () => NavUtils.pushNamed(context, AppRoutes.usedMobiles),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Expanded(
+              Expanded(
                 child: Row(
                   children: [
-                    Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 20),
-                    SizedBox(width: 8),
+                    const Icon(Icons.phone_android_rounded, color: Color(0xFF0284C7), size: 20),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Net Profit & Financial Overview',
-                        style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                        'Used Mobiles & Profit',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -1454,70 +1622,68 @@ class DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
+              InkWell(
+                onTap: () => NavUtils.pushNamed(context, AppRoutes.usedMobiles),
+                child: const Text('View All \u2192', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0284C7))),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Sales Revenue (${usedMobiles.soldCount} Sold)', style: TextStyle(fontSize: 11, color: textMutedColor)),
+                    const SizedBox(height: 4),
+                    Text(
+                      '\u20B9${usedMobiles.totalSales.toStringAsFixed(0)}',
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF0284C7)),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
-                child: Text(
-                  isProfit ? 'PROFIT' : 'LOSS',
-                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Total Profit', style: TextStyle(fontSize: 11, color: textMutedColor)),
+                    const SizedBox(height: 4),
+                    ProfitText(
+                      amount: usedMobiles.totalProfit,
+                      prefix: '₹',
+                      showSign: true,
+                      decimals: 0,
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF059669)),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          Text(
-            'Net Profit (Revenue - Purchases - Expenses)',
-            style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 11.5),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            '\u20B9${fin.netProfit.toStringAsFixed(2)}',
-            style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(12),
+              color: isDark ? AppColors.darkSurface : const Color(0xFFF0F9FF),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: isDark ? AppColors.darkBorder : const Color(0xFFBAE6FD)),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Sales Revenue', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 10)),
-                    const SizedBox(height: 2),
-                    Text('\u20B9${fin.totalSales.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                  ],
+                const Icon(Icons.inventory_2_outlined, size: 16, color: Color(0xFF0284C7)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'In-Stock: ${usedMobiles.inStockCount} Phones',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isDark ? Colors.white : const Color(0xFF0369A1)),
+                  ),
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Repair Profit', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 10)),
-                    const SizedBox(height: 2),
-                    Text('\u20B9${fin.repairEarnings.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Purchases', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 10)),
-                    const SizedBox(height: 2),
-                    Text('\u20B9${fin.totalPurchases.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Expenses', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 10)),
-                    const SizedBox(height: 2),
-                    Text('\u20B9${fin.totalExpenses.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                  ],
+                Text(
+                  'Inv: \u20B9${usedMobiles.inStockInvestment.toStringAsFixed(0)}',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isDark ? AppColors.darkTextSecondary : const Color(0xFF0284C7)),
                 ),
               ],
             ),
@@ -1595,10 +1761,12 @@ class DashboardScreenState extends State<DashboardScreen> {
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      '+\u20B9${sales.netProfit.toStringAsFixed(0)}',
+                    ProfitText(
+                      amount: sales.netProfit,
+                      prefix: '₹',
+                      showSign: true,
+                      decimals: 0,
                       style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF059669)),
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -1865,10 +2033,11 @@ class DashboardScreenState extends State<DashboardScreen> {
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      '\u20B9${repairs.netProfit.toStringAsFixed(0)}',
+                    ProfitText(
+                      amount: repairs.netProfit,
+                      prefix: '₹',
+                      decimals: 0,
                       style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF059669)),
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../../core/services/profit_visibility_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_feedback.dart';
@@ -370,20 +371,26 @@ class _UsedMobileDetailsScreenState extends State<UsedMobileDetailsScreen> {
               ),
               if (isSold) ...[
                 const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: profit >= 0 ? AppColors.accentLight : AppColors.errorLight,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    profit >= 0 ? '+${roi.toStringAsFixed(1)}% ROI' : '${roi.toStringAsFixed(1)}% Loss',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: profit >= 0 ? Colors.green.shade900 : Colors.red.shade900,
-                    ),
-                  ),
+                ValueListenableBuilder<bool>(
+                  valueListenable: ProfitVisibilityService().isHiddenNotifier,
+                  builder: (context, isHidden, _) {
+                    if (isHidden) return const SizedBox.shrink();
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: profit >= 0 ? AppColors.accentLight : AppColors.errorLight,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        profit >= 0 ? '+${roi.toStringAsFixed(1)}% ROI' : '${roi.toStringAsFixed(1)}% Loss',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: profit >= 0 ? Colors.green.shade900 : Colors.red.shade900,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ],
             ],
@@ -408,6 +415,7 @@ class _UsedMobileDetailsScreenState extends State<UsedMobileDetailsScreen> {
                     profit >= 0 ? AppColors.accent : AppColors.error,
                     isBold: true,
                     prefix: profit >= 0 ? '+₹' : '-₹',
+                    isProfit: true,
                   ),
                 ),
               ],
@@ -418,20 +426,32 @@ class _UsedMobileDetailsScreenState extends State<UsedMobileDetailsScreen> {
     );
   }
 
-  Widget _metricItem(String label, double amount, Color color, {bool isBold = false, String prefix = '₹'}) {
+  Widget _metricItem(String label, double amount, Color color, {bool isBold = false, String prefix = '₹', bool isProfit = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
         const SizedBox(height: 3),
-        Text(
-          '$prefix${amount.toStringAsFixed(0)}',
-          style: TextStyle(
-            fontSize: isBold ? 16 : 14,
-            fontWeight: isBold ? FontWeight.w800 : FontWeight.bold,
-            color: color,
+        if (isProfit)
+          ProfitText(
+            amount: amount,
+            prefix: prefix,
+            decimals: 0,
+            style: TextStyle(
+              fontSize: isBold ? 16 : 14,
+              fontWeight: isBold ? FontWeight.w800 : FontWeight.bold,
+              color: color,
+            ),
+          )
+        else
+          Text(
+            '$prefix${amount.toStringAsFixed(0)}',
+            style: TextStyle(
+              fontSize: isBold ? 16 : 14,
+              fontWeight: isBold ? FontWeight.w800 : FontWeight.bold,
+              color: color,
+            ),
           ),
-        ),
       ],
     );
   }

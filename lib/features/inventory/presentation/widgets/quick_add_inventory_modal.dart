@@ -438,6 +438,50 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
     final purchasePrice = double.tryParse(_purchasePriceController.text.trim()) ?? 0.0;
     final openingStock = widget.isFromPurchase ? 0 : (int.tryParse(_openingStockController.text.trim()) ?? 0);
 
+    final imei1 = _imei1Controller.text.trim();
+    final imei2 = _imei2Controller.text.trim();
+    final serial = _serialController.text.trim();
+
+    if (_itemType == 'mobile' && openingStock > 0) {
+      if (imei1.isEmpty) {
+        AppFeedback.showError(context, error: 'Primary IMEI 1 is required when adding stock for mobile phones.');
+        return;
+      }
+      if (imei1.length < 8) {
+        AppFeedback.showError(context, error: 'Please enter a valid IMEI number (typically 15 digits).');
+        return;
+      }
+      if (openingStock > 1) {
+        AppFeedback.showError(context, error: 'For mobile phones, stock must be added 1 unit at a time with unique IMEI.');
+        return;
+      }
+    }
+
+    if (imei1.isNotEmpty && imei2.isNotEmpty && imei1 == imei2) {
+      AppFeedback.showError(context, error: 'Primary IMEI 1 and Secondary IMEI 2 cannot be identical.');
+      return;
+    }
+
+    // Proactively verify if any entered IMEI/Serial is already active in stock for this shop
+    for (final val in [imei1, imei2, serial]) {
+      if (val.isNotEmpty) {
+        try {
+          final check = await _inventoryRepository.checkImeiAvailability(val);
+          if (check.success && check.data != null && check.data!['in_stock'] == true) {
+            final itemName = check.data!['item']?['name'];
+            final suffix = itemName != null ? ' ($itemName)' : '';
+            AppFeedback.showError(
+              context,
+              error: check.message.isNotEmpty
+                  ? check.message
+                  : "IMEI/Serial '$val' is already in stock for this shop$suffix. Cannot add duplicate until the current unit is sold.",
+            );
+            return;
+          }
+        } catch (_) {}
+      }
+    }
+
     setState(() => _isSaving = true);
     try {
       final response = await _inventoryRepository.createItem(
@@ -783,9 +827,12 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
                       const SizedBox(height: 8),
 
                       CustomTextField(
-                        label: 'Primary IMEI 1 (Optional)',
+                        label: (_openingStockController.text.trim().isNotEmpty && _openingStockController.text.trim() != '0')
+                            ? 'Primary IMEI 1 * (Required)'
+                            : 'Primary IMEI 1 (Optional)',
                         hint: 'Primary 15-digit IMEI',
                         controller: _imei1Controller,
+                        isRequired: _openingStockController.text.trim().isNotEmpty && _openingStockController.text.trim() != '0',
                         keyboardType: TextInputType.number,
                         prefixIcon: Icons.qr_code_2_rounded,
                         suffixIcon: IconButton(

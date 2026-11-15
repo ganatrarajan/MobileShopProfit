@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/report_export_helper.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../data/reports_repository.dart';
 import 'widgets/report_period_selector.dart';
@@ -100,6 +101,82 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
     }
   }
 
+  void _exportExcel() {
+    if (_detailsList.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No records to export.')));
+      return;
+    }
+
+    final headers = ['#', 'Invoice #', 'Payment Method', 'Amount (₹)'];
+    int idx = 1;
+    final rows = _detailsList.map((item) {
+      final inv = item['sale']?['invoice_number']?.toString() ?? 'INV';
+      final method = (item['payment_method']?.toString() ?? 'cash').toUpperCase();
+      final amt = double.tryParse(item['amount']?.toString() ?? '') ?? 0.0;
+      return [
+        idx++,
+        inv,
+        method,
+        amt.toStringAsFixed(2),
+      ];
+    }).toList();
+
+    final summaryItems = <ReportExportSummaryItem>[
+      ReportExportSummaryItem(title: 'Total Collected', value: '₹ ${_totalCollected.toStringAsFixed(2)}'),
+      ReportExportSummaryItem(title: 'Cash', value: '₹ ${double.tryParse(_byMethod['cash']?.toString() ?? '')?.toStringAsFixed(2) ?? '0.00'}'),
+      ReportExportSummaryItem(title: 'UPI / Online', value: '₹ ${double.tryParse(_byMethod['upi']?.toString() ?? '')?.toStringAsFixed(2) ?? '0.00'}'),
+      ReportExportSummaryItem(title: 'Card', value: '₹ ${double.tryParse(_byMethod['card']?.toString() ?? '')?.toStringAsFixed(2) ?? '0.00'}'),
+    ];
+
+    ReportExportHelper.exportToCsv(
+      context: context,
+      reportTitle: 'Payment Collections Report',
+      shopName: 'Mobile Repair Shop',
+      period: _selectedPeriod,
+      headers: headers,
+      rows: rows,
+      summaryItems: summaryItems,
+    );
+  }
+
+  void _exportPdf() {
+    if (_detailsList.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No records to export.')));
+      return;
+    }
+
+    final headers = ['#', 'Invoice #', 'Payment Method', 'Collected Amount'];
+    int idx = 1;
+    final rows = _detailsList.map((item) {
+      final inv = item['sale']?['invoice_number']?.toString() ?? 'INV';
+      final method = (item['payment_method']?.toString() ?? 'cash').toUpperCase();
+      final amt = double.tryParse(item['amount']?.toString() ?? '') ?? 0.0;
+      return [
+        idx++,
+        inv,
+        method,
+        '₹ ${amt.toStringAsFixed(0)}',
+      ];
+    }).toList();
+
+    final summaryItems = <ReportExportSummaryItem>[
+      ReportExportSummaryItem(title: 'Total Collected', value: '₹ ${_totalCollected.toStringAsFixed(0)}'),
+      ReportExportSummaryItem(title: 'Cash Total', value: '₹ ${double.tryParse(_byMethod['cash']?.toString() ?? '')?.toStringAsFixed(0) ?? '0'}'),
+      ReportExportSummaryItem(title: 'UPI Total', value: '₹ ${double.tryParse(_byMethod['upi']?.toString() ?? '')?.toStringAsFixed(0) ?? '0'}'),
+      ReportExportSummaryItem(title: 'Card Total', value: '₹ ${double.tryParse(_byMethod['card']?.toString() ?? '')?.toStringAsFixed(0) ?? '0'}'),
+    ];
+
+    ReportExportHelper.exportToPdf(
+      context: context,
+      reportTitle: 'Payment Collections Report',
+      shopName: 'Mobile Repair Shop',
+      period: _selectedPeriod,
+      headers: headers,
+      rows: rows,
+      summaryItems: summaryItems,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -108,6 +185,12 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
         title: const Text('Payment Collections Report'),
         backgroundColor: AppColors.primary,
         elevation: 0,
+        actions: [
+          ReportExportHelper.buildExportActionButton(
+            onExportPdf: _exportPdf,
+            onExportExcel: _exportExcel,
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -203,14 +286,17 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
                                         child: Row(
                                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
-                                            Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(inv, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                                                const SizedBox(height: 4),
-                                                Text('Method: ${method.toUpperCase()}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                                              ],
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(inv, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                                                  const SizedBox(height: 4),
+                                                  Text('Method: ${method.toUpperCase()}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary), overflow: TextOverflow.ellipsis),
+                                                ],
+                                              ),
                                             ),
+                                            const SizedBox(width: 8),
                                             Text('₹ ${amt.toStringAsFixed(2)}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.green)),
                                           ],
                                         ),

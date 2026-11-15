@@ -182,3 +182,101 @@ class WarrantyReportSummary {
     );
   }
 }
+
+class OutstandingReportSummary {
+  final double totalCustomerDues;
+  final double totalRepairDues;
+  final double totalSalesDues;
+  final double totalVendorDues;
+  final double netBalance;
+  final int totalRecordsCount;
+  final int repairsCount;
+  final int salesCount;
+  final int purchasesCount;
+
+  OutstandingReportSummary({
+    required this.totalCustomerDues,
+    required this.totalRepairDues,
+    required this.totalSalesDues,
+    required this.totalVendorDues,
+    required this.netBalance,
+    required this.totalRecordsCount,
+    required this.repairsCount,
+    required this.salesCount,
+    required this.purchasesCount,
+  });
+
+  factory OutstandingReportSummary.fromJson(Map<String, dynamic> json) {
+    return OutstandingReportSummary(
+      totalCustomerDues: double.tryParse(json['total_customer_dues']?.toString() ?? '') ?? 0.0,
+      totalRepairDues: double.tryParse(json['total_repair_dues']?.toString() ?? '') ?? 0.0,
+      totalSalesDues: double.tryParse(json['total_sales_dues']?.toString() ?? '') ?? 0.0,
+      totalVendorDues: double.tryParse(json['total_vendor_dues']?.toString() ?? '') ?? 0.0,
+      netBalance: double.tryParse(json['net_balance']?.toString() ?? '') ?? 0.0,
+      totalRecordsCount: int.tryParse(json['total_records_count']?.toString() ?? '') ?? 0,
+      repairsCount: int.tryParse(json['repairs_count']?.toString() ?? '') ?? 0,
+      salesCount: int.tryParse(json['sales_count']?.toString() ?? '') ?? 0,
+      purchasesCount: int.tryParse(json['purchases_count']?.toString() ?? '') ?? 0,
+    );
+  }
+}
+
+class OutstandingReportItem {
+  final String id;
+  final int rawId;
+  final String category; // repairs, sales, purchases
+  final String categoryLabel;
+  final String refNumber;
+  final String date;
+  final String partyName;
+  final String partyPhone;
+  final String partyType; // customer, vendor
+  final String description;
+  final double totalAmount;
+  final double amountPaid;
+  final double amountDue;
+  final String status;
+
+  OutstandingReportItem({
+    required this.id,
+    required this.rawId,
+    required this.category,
+    required this.categoryLabel,
+    required this.refNumber,
+    required this.date,
+    required this.partyName,
+    required this.partyPhone,
+    required this.partyType,
+    required this.description,
+    required this.totalAmount,
+    required this.amountPaid,
+    required this.amountDue,
+    required this.status,
+  });
+
+  factory OutstandingReportItem.fromJson(Map<String, dynamic> json) {
+    final due = double.tryParse(json['amount_due']?.toString() ?? '') ?? 0.0;
+    final paid = double.tryParse(json['amount_paid']?.toString() ?? '') ?? 0.0;
+    double total = double.tryParse(json['total_amount']?.toString() ?? '') ?? 0.0;
+    if (total <= 0 && (due > 0 || paid > 0)) {
+      total = due + paid;
+    }
+
+    return OutstandingReportItem(
+      id: json['id']?.toString() ?? '',
+      rawId: int.tryParse(json['raw_id']?.toString() ?? '') ?? 0,
+      category: json['category']?.toString() ?? 'sales',
+      categoryLabel: json['category_label']?.toString() ?? 'Dues',
+      refNumber: json['ref_number']?.toString() ?? '',
+      date: json['date']?.toString() ?? '',
+      partyName: json['party_name']?.toString() ?? 'N/A',
+      partyPhone: json['party_phone']?.toString() ?? '',
+      partyType: json['party_type']?.toString() ?? 'customer',
+      description: json['description']?.toString() ?? '',
+      totalAmount: total,
+      amountPaid: paid,
+      amountDue: due,
+      status: json['status']?.toString() ?? '',
+    );
+  }
+}

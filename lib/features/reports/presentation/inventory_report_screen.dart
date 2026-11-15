@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/report_export_helper.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../data/reports_repository.dart';
 import '../domain/report_models.dart';
@@ -103,6 +104,92 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
     }
   }
 
+  void _exportExcel() {
+    if (_detailsList.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No records to export.')));
+      return;
+    }
+
+    final headers = ['#', 'Item Name', 'Category', 'Stock Qty', 'Cost Price (₹)', 'Selling Price (₹)', 'Stock Value (₹)'];
+    int idx = 1;
+    final rows = _detailsList.map((item) {
+      final name = item['name']?.toString() ?? 'Item';
+      final cat = item['category']?.toString() ?? 'General';
+      final stock = int.tryParse(item['current_stock']?.toString() ?? '') ?? 0;
+      final cost = double.tryParse(item['purchase_price']?.toString() ?? '') ?? 0.0;
+      final sell = double.tryParse(item['selling_price']?.toString() ?? '') ?? 0.0;
+      final val = stock * cost;
+      return [
+        idx++,
+        name,
+        cat,
+        stock,
+        cost.toStringAsFixed(2),
+        sell.toStringAsFixed(2),
+        val.toStringAsFixed(2),
+      ];
+    }).toList();
+
+    final summaryItems = <ReportExportSummaryItem>[
+      ReportExportSummaryItem(title: 'Inventory Value', value: '₹ ${_summary?.totalInventoryValue.toStringAsFixed(2) ?? '0.00'}'),
+      ReportExportSummaryItem(title: 'Total Items', value: '${_summary?.totalItems ?? 0}'),
+      ReportExportSummaryItem(title: 'Stock Qty', value: '${_summary?.totalStockQty ?? 0}'),
+      ReportExportSummaryItem(title: 'Low Stock', value: '${_summary?.lowStock ?? 0}'),
+    ];
+
+    ReportExportHelper.exportToCsv(
+      context: context,
+      reportTitle: 'Inventory Report',
+      shopName: 'Mobile Repair Shop',
+      period: _selectedPeriod,
+      headers: headers,
+      rows: rows,
+      summaryItems: summaryItems,
+    );
+  }
+
+  void _exportPdf() {
+    if (_detailsList.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No records to export.')));
+      return;
+    }
+
+    final headers = ['#', 'Item Name', 'Category', 'Stock', 'Cost Price', 'Selling Price'];
+    int idx = 1;
+    final rows = _detailsList.map((item) {
+      final name = item['name']?.toString() ?? 'Item';
+      final cat = item['category']?.toString() ?? 'General';
+      final stock = int.tryParse(item['current_stock']?.toString() ?? '') ?? 0;
+      final cost = double.tryParse(item['purchase_price']?.toString() ?? '') ?? 0.0;
+      final sell = double.tryParse(item['selling_price']?.toString() ?? '') ?? 0.0;
+      return [
+        idx++,
+        name,
+        cat,
+        '$stock pcs',
+        '₹ ${cost.toStringAsFixed(0)}',
+        '₹ ${sell.toStringAsFixed(0)}',
+      ];
+    }).toList();
+
+    final summaryItems = <ReportExportSummaryItem>[
+      ReportExportSummaryItem(title: 'Inventory Value', value: '₹ ${_summary?.totalInventoryValue.toStringAsFixed(0) ?? '0'}'),
+      ReportExportSummaryItem(title: 'Items', value: '${_summary?.totalItems ?? 0}'),
+      ReportExportSummaryItem(title: 'Total Stock', value: '${_summary?.totalStockQty ?? 0}'),
+      ReportExportSummaryItem(title: 'Low Stock', value: '${_summary?.lowStock ?? 0}'),
+    ];
+
+    ReportExportHelper.exportToPdf(
+      context: context,
+      reportTitle: 'Inventory Stock Valuation Report',
+      shopName: 'Mobile Repair Shop',
+      period: _selectedPeriod,
+      headers: headers,
+      rows: rows,
+      summaryItems: summaryItems,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -111,6 +198,12 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
         title: const Text('Inventory Report'),
         backgroundColor: AppColors.primary,
         elevation: 0,
+        actions: [
+          ReportExportHelper.buildExportActionButton(
+            onExportPdf: _exportPdf,
+            onExportExcel: _exportExcel,
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -212,17 +305,26 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
                                       child: Row(
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
-                                          Row(
-                                            children: [
-                                              CircleAvatar(
-                                                radius: 12,
-                                                backgroundColor: AppColors.primary.withOpacity(0.1),
-                                                child: Text('${idx + 1}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                                              ),
-                                              const SizedBox(width: 10),
-                                              Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                                            ],
+                                          Expanded(
+                                            child: Row(
+                                              children: [
+                                                CircleAvatar(
+                                                  radius: 12,
+                                                  backgroundColor: AppColors.primary.withOpacity(0.1),
+                                                  child: Text('${idx + 1}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                                                ),
+                                                const SizedBox(width: 10),
+                                                Expanded(
+                                                  child: Text(
+                                                    name,
+                                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
+                                          const SizedBox(width: 8),
                                           Text('$totalQty sold', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
                                         ],
                                       ),
@@ -255,7 +357,14 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
                                               child: Row(
                                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                                 children: [
-                                                  Text(item['name']?.toString() ?? 'Item', style: const TextStyle(fontWeight: FontWeight.w600)),
+                                                  Expanded(
+                                                    child: Text(
+                                                      item['name']?.toString() ?? 'Item',
+                                                      style: const TextStyle(fontWeight: FontWeight.w600),
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
                                                   Text('Stock: $st', style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
                                                 ],
                                               ),
@@ -287,14 +396,17 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
                                         child: Row(
                                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
-                                            Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                                                const SizedBox(height: 4),
-                                                Text('Category: $cat', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                                              ],
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primary), overflow: TextOverflow.ellipsis),
+                                                  const SizedBox(height: 4),
+                                                  Text('Category: $cat', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary), overflow: TextOverflow.ellipsis),
+                                                ],
+                                              ),
                                             ),
+                                            const SizedBox(width: 8),
                                             Column(
                                               crossAxisAlignment: CrossAxisAlignment.end,
                                               children: [

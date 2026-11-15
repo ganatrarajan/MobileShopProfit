@@ -487,6 +487,50 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
       return;
     }
 
+    final imei1 = _imei1Controller.text.trim();
+    final imei2 = _imei2Controller.text.trim();
+    final serial = _serialController.text.trim();
+
+    if (_itemType == 'mobile' && openingStock > 0 && !_isEditing) {
+      if (imei1.isEmpty) {
+        _showFormError('Primary IMEI 1 is required when adding stock for mobile phones.');
+        return;
+      }
+      if (imei1.length < 8) {
+        _showFormError('Please enter a valid IMEI number (typically 15 digits).');
+        return;
+      }
+      if (openingStock > 1) {
+        _showFormError('For mobile phones, stock must be added 1 unit at a time with unique IMEI.');
+        return;
+      }
+    }
+
+    if (imei1.isNotEmpty && imei2.isNotEmpty && imei1 == imei2) {
+      _showFormError('Primary IMEI 1 and Secondary IMEI 2 cannot be identical.');
+      return;
+    }
+
+    // Proactively verify if any entered IMEI/Serial is already active in stock for this shop
+    for (final val in [imei1, imei2, serial]) {
+      if (val.isNotEmpty) {
+        try {
+          final check = await _inventoryRepository.checkImeiAvailability(
+            val,
+            excludeItemId: _isEditing ? widget.item?.id : null,
+          );
+          if (check.success && check.data != null && check.data!['in_stock'] == true) {
+            final itemName = check.data!['item']?['name'];
+            final suffix = itemName != null ? ' ($itemName)' : '';
+            _showFormError(check.message.isNotEmpty
+                ? check.message
+                : "IMEI/Serial '$val' is already in stock for this shop$suffix. Cannot add duplicate until the current unit is sold.");
+            return;
+          }
+        } catch (_) {}
+      }
+    }
+
     // Auto-compose description if empty and mobile specs provided
     String description = _descriptionController.text.trim();
     if (_itemType == 'mobile') {

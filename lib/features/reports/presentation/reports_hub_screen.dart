@@ -10,6 +10,13 @@ class ReportsHubScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final reportCategories = [
       {
+        'title': 'Outstanding Dues Report',
+        'subtitle': 'Remaining balances across Repairs, Sales & Vendors',
+        'icon': Icons.pending_actions_rounded,
+        'color': Colors.deepOrange.shade700,
+        'route': AppRoutes.outstandingReport,
+      },
+      {
         'title': 'Sales Report',
         'subtitle': 'Revenue, transactions, quick vs regular sales',
         'icon': Icons.receipt_long_rounded,

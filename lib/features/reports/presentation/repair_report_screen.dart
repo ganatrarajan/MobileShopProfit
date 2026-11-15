@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/report_export_helper.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../data/reports_repository.dart';
 import '../domain/report_models.dart';
@@ -99,6 +100,90 @@ class _RepairReportScreenState extends State<RepairReportScreen> {
     }
   }
 
+  void _exportExcel() {
+    if (_detailsList.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No records to export.')));
+      return;
+    }
+
+    final headers = ['#', 'Job Number', 'Customer', 'Device', 'Status', 'Estimated Cost (₹)'];
+    int idx = 1;
+    final rows = _detailsList.map((item) {
+      final job = item['job_number']?.toString() ?? 'JOB';
+      final cust = item['customer']?['name']?.toString() ?? 'Customer';
+      final status = item['repair_status']?.toString() ?? 'pending';
+      final dev = (item['device'] != null ? '${item['device']['brand'] ?? ''} ${item['device']['model'] ?? ''}' : '').trim();
+      final est = double.tryParse(item['estimated_cost']?.toString() ?? '') ?? 0.0;
+      return [
+        idx++,
+        job,
+        cust,
+        dev.isNotEmpty ? dev : 'Device',
+        status.toUpperCase(),
+        est.toStringAsFixed(2),
+      ];
+    }).toList();
+
+    final summaryItems = <ReportExportSummaryItem>[
+      ReportExportSummaryItem(title: 'Total Repairs', value: '${_summary?.totalRepairs ?? 0}'),
+      ReportExportSummaryItem(title: 'Completed', value: '${_summary?.completed ?? 0}'),
+      ReportExportSummaryItem(title: 'Delivered', value: '${_summary?.delivered ?? 0}'),
+      ReportExportSummaryItem(title: 'Repair Revenue', value: '₹ ${_summary?.repairRevenue.toStringAsFixed(2) ?? '0.00'}'),
+    ];
+
+    ReportExportHelper.exportToCsv(
+      context: context,
+      reportTitle: 'Repair Report',
+      shopName: 'Mobile Repair Shop',
+      period: _selectedPeriod,
+      headers: headers,
+      rows: rows,
+      summaryItems: summaryItems,
+    );
+  }
+
+  void _exportPdf() {
+    if (_detailsList.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No records to export.')));
+      return;
+    }
+
+    final headers = ['#', 'Job #', 'Customer', 'Device', 'Status', 'Cost'];
+    int idx = 1;
+    final rows = _detailsList.map((item) {
+      final job = item['job_number']?.toString() ?? 'JOB';
+      final cust = item['customer']?['name']?.toString() ?? 'Customer';
+      final status = item['repair_status']?.toString() ?? 'pending';
+      final dev = (item['device'] != null ? '${item['device']['brand'] ?? ''} ${item['device']['model'] ?? ''}' : '').trim();
+      final est = double.tryParse(item['estimated_cost']?.toString() ?? '') ?? 0.0;
+      return [
+        idx++,
+        job,
+        cust,
+        dev.isNotEmpty ? dev : 'Device',
+        status.toUpperCase(),
+        '₹ ${est.toStringAsFixed(0)}',
+      ];
+    }).toList();
+
+    final summaryItems = <ReportExportSummaryItem>[
+      ReportExportSummaryItem(title: 'Total Jobs', value: '${_summary?.totalRepairs ?? 0}'),
+      ReportExportSummaryItem(title: 'Completed', value: '${_summary?.completed ?? 0}'),
+      ReportExportSummaryItem(title: 'Delivered', value: '${_summary?.delivered ?? 0}'),
+      ReportExportSummaryItem(title: 'Revenue', value: '₹ ${_summary?.repairRevenue.toStringAsFixed(0) ?? '0'}'),
+    ];
+
+    ReportExportHelper.exportToPdf(
+      context: context,
+      reportTitle: 'Repair Service Report',
+      shopName: 'Mobile Repair Shop',
+      period: _selectedPeriod,
+      headers: headers,
+      rows: rows,
+      summaryItems: summaryItems,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -107,6 +192,12 @@ class _RepairReportScreenState extends State<RepairReportScreen> {
         title: const Text('Repair Report'),
         backgroundColor: AppColors.primary,
         elevation: 0,
+        actions: [
+          ReportExportHelper.buildExportActionButton(
+            onExportPdf: _exportPdf,
+            onExportExcel: _exportExcel,
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -210,14 +301,17 @@ class _RepairReportScreenState extends State<RepairReportScreen> {
                                         child: Row(
                                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
-                                            Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(job, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                                                const SizedBox(height: 4),
-                                                Text(cust, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                                              ],
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(job, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                                                  const SizedBox(height: 4),
+                                                  Text(cust, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary), overflow: TextOverflow.ellipsis),
+                                                ],
+                                              ),
                                             ),
+                                            const SizedBox(width: 8),
                                             Column(
                                               crossAxisAlignment: CrossAxisAlignment.end,
                                               children: [

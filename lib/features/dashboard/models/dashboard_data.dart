@@ -13,6 +13,10 @@ int _parseInt(dynamic val) {
 
 class FinancialOverview {
   final double totalSales;
+  final double invoiceSales;
+  final double salesProfit;
+  final double usedMobileSales;
+  final double usedMobileProfit;
   final double repairEarnings;
   final double totalPurchases;
   final double totalExpenses;
@@ -24,6 +28,10 @@ class FinancialOverview {
 
   FinancialOverview({
     required this.totalSales,
+    this.invoiceSales = 0.0,
+    this.salesProfit = 0.0,
+    this.usedMobileSales = 0.0,
+    this.usedMobileProfit = 0.0,
     required this.repairEarnings,
     required this.totalPurchases,
     required this.totalExpenses,
@@ -37,6 +45,10 @@ class FinancialOverview {
   factory FinancialOverview.fromJson(Map<String, dynamic> json) {
     return FinancialOverview(
       totalSales: _parseDouble(json['total_sales']),
+      invoiceSales: _parseDouble(json['invoice_sales']),
+      salesProfit: _parseDouble(json['sales_profit'] ?? json['salesNetProfit']),
+      usedMobileSales: _parseDouble(json['used_mobile_sales']),
+      usedMobileProfit: _parseDouble(json['used_mobile_profit']),
       repairEarnings: _parseDouble(json['repair_earnings'] ?? json['total_repairs'] ?? json['repairs_revenue']),
       totalPurchases: _parseDouble(json['total_purchases']),
       totalExpenses: _parseDouble(json['total_expenses']),
@@ -216,6 +228,35 @@ class ExpenseSummary {
   }
 }
 
+class UsedMobileSummary {
+  final int soldCount;
+  final double totalSales;
+  final double totalProfit;
+  final double totalCost;
+  final int inStockCount;
+  final double inStockInvestment;
+
+  UsedMobileSummary({
+    this.soldCount = 0,
+    this.totalSales = 0.0,
+    this.totalProfit = 0.0,
+    this.totalCost = 0.0,
+    this.inStockCount = 0,
+    this.inStockInvestment = 0.0,
+  });
+
+  factory UsedMobileSummary.fromJson(Map<String, dynamic> json) {
+    return UsedMobileSummary(
+      soldCount: _parseInt(json['sold_count']),
+      totalSales: _parseDouble(json['total_sales'] ?? json['total_sale_revenue']),
+      totalProfit: _parseDouble(json['total_profit'] ?? json['total_profit_earned']),
+      totalCost: _parseDouble(json['total_cost']),
+      inStockCount: _parseInt(json['in_stock_count']),
+      inStockInvestment: _parseDouble(json['in_stock_investment']),
+    );
+  }
+}
+
 class AttentionItem {
   final String type;
   final String title;
@@ -290,6 +331,7 @@ class DashboardData {
   final RepairSummary repairs;
   final InventorySummary inventory;
   final ExpenseSummary expenses;
+  final UsedMobileSummary usedMobiles;
   final List<AttentionItem> attention;
   final List<RecentActivityItem> recentActivity;
   final Map<String, dynamic>? discountBanner;
@@ -310,6 +352,7 @@ class DashboardData {
     required this.repairs,
     required this.inventory,
     required this.expenses,
+    required this.usedMobiles,
     required this.attention,
     required this.recentActivity,
     this.discountBanner,
@@ -358,6 +401,7 @@ class DashboardData {
     final purchasesObj = PurchaseSummary.fromJson(Map<String, dynamic>.from(dataMap['purchases'] ?? {}));
     final expensesObj = ExpenseSummary.fromJson(Map<String, dynamic>.from(dataMap['expenses'] ?? {}));
     final repairsObj = RepairSummary.fromJson(Map<String, dynamic>.from(dataMap['repairs'] ?? {}));
+    final usedMobilesObj = UsedMobileSummary.fromJson(Map<String, dynamic>.from(dataMap['used_mobiles'] ?? {}));
 
     FinancialOverview finOverview;
     if (dataMap['financial_overview'] != null && dataMap['financial_overview'] is Map<String, dynamic>) {
@@ -372,6 +416,10 @@ class DashboardData {
 
       finOverview = FinancialOverview(
         totalSales: rawSales,
+        invoiceSales: _parseDouble(finMap['invoice_sales']),
+        salesProfit: _parseDouble(finMap['sales_profit'] ?? salesObj.netProfit),
+        usedMobileSales: _parseDouble(finMap['used_mobile_sales']),
+        usedMobileProfit: _parseDouble(finMap['used_mobile_profit']),
         repairEarnings: repEarn,
         totalPurchases: purchasesObj.totalPurchases,
         totalExpenses: expensesObj.totalExpensesSum,
@@ -387,6 +435,10 @@ class DashboardData {
       final cRem = salesObj.totalCollected + repEarn - purchasesObj.totalPaid - expensesObj.totalExpensesSum;
       finOverview = FinancialOverview(
         totalSales: salesObj.totalSales,
+        invoiceSales: salesObj.totalSales,
+        salesProfit: salesObj.netProfit,
+        usedMobileSales: usedMobilesObj.totalSales,
+        usedMobileProfit: usedMobilesObj.totalProfit,
         repairEarnings: repEarn,
         totalPurchases: purchasesObj.totalPurchases,
         totalExpenses: expensesObj.totalExpensesSum,
@@ -402,6 +454,8 @@ class DashboardData {
         (salesObj.totalCount == 0 &&
             repairsObj.totalRepairsCount == 0 &&
             purchasesObj.totalCount == 0 &&
+            usedMobilesObj.soldCount == 0 &&
+            usedMobilesObj.inStockCount == 0 &&
             finOverview.totalSales == 0 &&
             finOverview.repairEarnings == 0 &&
             finOverview.netProfit == 0);
@@ -426,6 +480,7 @@ class DashboardData {
       repairs: repairsObj,
       inventory: InventorySummary.fromJson(Map<String, dynamic>.from(dataMap['inventory'] ?? {})),
       expenses: expensesObj,
+      usedMobiles: usedMobilesObj,
       attention: attList.map((a) => AttentionItem.fromJson(Map<String, dynamic>.from(a))).toList(),
       recentActivity: actList.map((a) => RecentActivityItem.fromJson(Map<String, dynamic>.from(a))).toList(),
       discountBanner: dBanner,

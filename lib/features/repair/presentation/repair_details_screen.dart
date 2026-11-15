@@ -1,3 +1,5 @@
+import 'package:flutter/services.dart';
+import '../../../core/widgets/pattern_lock_widget.dart';
 import '../../../core/storage/auth_storage.dart';
 import '../../../core/widgets/app_shimmer.dart';
 import 'repair_invoice_pdf_screen.dart';
@@ -10,6 +12,7 @@ import '../../../core/utils/app_feedback.dart';
 import '../../../core/utils/date_helper.dart';
 import '../../../core/utils/whatsapp_helper.dart';
 import '../../../core/storage/preferences_storage.dart';
+import '../../../core/services/profit_visibility_service.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/whatsapp_icon.dart';
 import '../../warranty/presentation/warranty_details_screen.dart';
@@ -36,6 +39,7 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
   late Repair _repair;
   bool _isLoading = false;
   bool _isOwner = true;
+  bool _obscurePasscode = true;
 
   static const Map<String, Color> _statusColors = {
     'received': Colors.blue,
@@ -116,6 +120,7 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
               accessoriesReceived: fetchedRepair.accessoriesReceived,
               accessoriesNotes: fetchedRepair.accessoriesNotes,
               pinPasscode: fetchedRepair.pinPasscode,
+              devicePhoto: fetchedRepair.devicePhoto,
               estimatedCost: fetchedRepair.estimatedCost,
               finalCost: fetchedRepair.finalCost,
               labourCost: fetchedRepair.labourCost,
@@ -147,6 +152,31 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
     } catch (_) {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _showFullImageDialog(BuildContext context, String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            InteractiveViewer(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.network(imageUrl, fit: BoxFit.contain),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close_rounded, color: Colors.white, size: 30),
+              onPressed: () => Navigator.pop(ctx),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _updateStatus() async {
@@ -563,17 +593,40 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
               },
               tooltip: 'Edit Job Card',
             ),
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _refreshDetails,
-            tooltip: 'Refresh',
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+            tooltip: 'More Options',
+            onSelected: (value) {
+              if (value == 'refresh') {
+                _refreshDetails();
+              } else if (value == 'delete') {
+                _confirmDeleteRepair();
+              }
+            },
+            itemBuilder: (ctx) => [
+              const PopupMenuItem(
+                value: 'refresh',
+                child: Row(
+                  children: [
+                    Icon(Icons.refresh_rounded, size: 20, color: AppColors.textPrimary),
+                    SizedBox(width: 10),
+                    Text('Refresh Details'),
+                  ],
+                ),
+              ),
+              if (!isDelivered && _isOwner)
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_outline_rounded, size: 20, color: AppColors.error),
+                      SizedBox(width: 10),
+                      Text('Delete Job Card', style: TextStyle(color: AppColors.error)),
+                    ],
+                  ),
+                ),
+            ],
           ),
-          if (!isDelivered && _isOwner)
-            IconButton(
-              icon: const Icon(Icons.delete_outline_rounded, color: Colors.white),
-              onPressed: _confirmDeleteRepair,
-              tooltip: 'Delete Job Card',
-            ),
         ],
       ),
       bottomNavigationBar: Container(
@@ -1013,6 +1066,227 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
                             if (_repair.device!.imei2 != null && _repair.device!.imei2!.isNotEmpty)
                               Text('IMEI 2: ${_repair.device!.imei2}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                           ],
+                          if (_repair.pinPasscode != null && _repair.pinPasscode!.trim().isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            Builder(
+                              builder: (ctx) {
+                                final isPattern = PatternHelper.isPattern(_repair.pinPasscode);
+                                final patternPoints = isPattern ? PatternHelper.parsePattern(_repair.pinPasscode) : <int>[];
+
+                                return Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.amber.shade50,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: Colors.amber.shade300),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Icon(isPattern ? Icons.pattern_rounded : Icons.lock_rounded, size: 18, color: Colors.amber.shade900),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                isPattern ? 'Device Pattern Lock' : 'Device PIN / Password',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.amber.shade900,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              InkWell(
+                                                onTap: () => setState(() => _obscurePasscode = !_obscurePasscode),
+                                                borderRadius: BorderRadius.circular(6),
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white,
+                                                    borderRadius: BorderRadius.circular(6),
+                                                    border: Border.all(color: Colors.amber.shade300),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      Icon(
+                                                        _obscurePasscode ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                                                        size: 15,
+                                                        color: Colors.amber.shade900,
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                      Text(
+                                                        _obscurePasscode ? 'View' : 'Hide',
+                                                        style: TextStyle(
+                                                          fontSize: 11,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: Colors.amber.shade900,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              IconButton(
+                                                icon: const Icon(Icons.copy_rounded, size: 17),
+                                                color: Colors.amber.shade900,
+                                                tooltip: isPattern ? 'Copy Pattern Sequence' : 'Copy PIN',
+                                                padding: EdgeInsets.zero,
+                                                constraints: const BoxConstraints(),
+                                                onPressed: () {
+                                                  final copyText = isPattern
+                                                      ? PatternHelper.toReadableString(patternPoints)
+                                                      : _repair.pinPasscode!;
+                                                  Clipboard.setData(ClipboardData(text: copyText));
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    SnackBar(
+                                                      content: Text(isPattern ? 'Pattern sequence copied' : 'PIN copied to clipboard'),
+                                                      duration: const Duration(seconds: 1),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+
+                                      // Secret Display (Obscured vs Revealed)
+                                      if (_obscurePasscode) ...[
+                                        Text(
+                                          isPattern ? '••••••••  (Pattern Lock Protected)' : '••••••••',
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.amber.shade900,
+                                            letterSpacing: 2.0,
+                                          ),
+                                        ),
+                                      ] else ...[
+                                        if (isPattern) ...[
+                                          // Pattern Revealed
+                                          Row(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              PatternPreviewWidget(
+                                                dimension: 110,
+                                                pattern: patternPoints,
+                                                lineColor: Colors.amber.shade900,
+                                                activeDotColor: Colors.amber.shade900,
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    const Text(
+                                                      'Connect in order:',
+                                                      style: TextStyle(fontSize: 11, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    SelectableText(
+                                                      PatternHelper.toReadableString(patternPoints),
+                                                      style: TextStyle(
+                                                        fontSize: 13,
+                                                        fontWeight: FontWeight.bold,
+                                                        color: Colors.amber.shade900,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 8),
+                                                    InkWell(
+                                                      onTap: () {
+                                                        showDialog(
+                                                          context: context,
+                                                          builder: (_) => Dialog(
+                                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                                            child: Padding(
+                                                              padding: const EdgeInsets.all(20),
+                                                              child: Column(
+                                                                mainAxisSize: MainAxisSize.min,
+                                                                children: [
+                                                                  Row(
+                                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                                    children: [
+                                                                      Text(
+                                                                        'Device Pattern Lock',
+                                                                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
+                                                                      ),
+                                                                      IconButton(
+                                                                        icon: const Icon(Icons.close_rounded),
+                                                                        onPressed: () => Navigator.pop(context),
+                                                                      ),
+                                                                    ],
+                                                                  ),
+                                                                  const SizedBox(height: 12),
+                                                                  PatternPreviewWidget(
+                                                                    dimension: 220,
+                                                                    pattern: patternPoints,
+                                                                    lineColor: Colors.amber.shade900,
+                                                                    activeDotColor: Colors.amber.shade900,
+                                                                  ),
+                                                                  const SizedBox(height: 14),
+                                                                  Text(
+                                                                    'Sequence: ${PatternHelper.toReadableString(patternPoints)}',
+                                                                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        );
+                                                      },
+                                                      child: Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                        decoration: BoxDecoration(
+                                                          color: Colors.amber.shade100,
+                                                          borderRadius: BorderRadius.circular(6),
+                                                        ),
+                                                        child: Row(
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          children: [
+                                                            Icon(Icons.zoom_in_rounded, size: 14, color: Colors.amber.shade900),
+                                                            const SizedBox(width: 4),
+                                                            Text(
+                                                              'Enlarge Pattern',
+                                                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ] else ...[
+                                          // PIN / Password Revealed
+                                          SelectableText(
+                                            _repair.pinPasscode!,
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.amber.shade900,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -1105,6 +1379,75 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
                       ),
                     ),
                     const SizedBox(height: 14),
+
+                    // 4b. Device Condition Photo (Optional)
+                    if (_repair.devicePhoto != null && _repair.devicePhoto!.isNotEmpty) ...[
+                      CustomCard(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Row(
+                                  children: [
+                                    Icon(Icons.photo_camera_rounded, color: AppColors.primary, size: 20),
+                                    SizedBox(width: 8),
+                                    Text('Device Photo', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withOpacity(0.08),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.zoom_in_rounded, size: 14, color: AppColors.primary),
+                                      SizedBox(width: 4),
+                                      Text('Tap to zoom', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            InkWell(
+                              onTap: () => _showFullImageDialog(context, _repair.devicePhoto!),
+                              borderRadius: BorderRadius.circular(12),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.network(
+                                  _repair.devicePhoto!,
+                                  height: 200,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    height: 120,
+                                    width: double.infinity,
+                                    color: Colors.grey[200],
+                                    child: const Center(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.broken_image_rounded, size: 36, color: Colors.grey),
+                                          SizedBox(height: 6),
+                                          Text('Failed to load device photo', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
 
                     // 5. Parts Used List (Hide if delivered and empty)
                     if (!(isDelivered && isPartsEmpty)) ...[
@@ -1200,12 +1543,17 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
                               const Divider(height: 16),
                               _buildRow('TOTAL NET AMOUNT', '\u20B9 ${_repair.netCost.toStringAsFixed(2)}', isBold: true, fontSize: 16),
                               if (_isOwner)
-                                _buildRow(
-                                  'NET PROFIT',
-                                  '\u20B9 ${netProfit.toStringAsFixed(2)}',
-                                  color: netProfit >= 0 ? Colors.green.shade700 : Colors.red.shade700,
-                                  isBold: true,
-                                  fontSize: 16,
+                                ValueListenableBuilder<bool>(
+                                  valueListenable: ProfitVisibilityService().isHiddenNotifier,
+                                  builder: (context, isHidden, _) {
+                                    return _buildRow(
+                                      'NET PROFIT',
+                                      ProfitVisibilityService().format(netProfit, prefix: '₹ ', decimals: 2),
+                                      color: netProfit >= 0 ? Colors.green.shade700 : Colors.red.shade700,
+                                      isBold: true,
+                                      fontSize: 16,
+                                    );
+                                  },
                                 ),
                               const SizedBox(height: 6),
                               _buildRow('Total Paid / Advance', '\u20B9 ${_repair.amountPaid.toStringAsFixed(2)}', color: Colors.green.shade700, isBold: true),

@@ -7,6 +7,7 @@ class PreferencesStorage {
   static const String _keyCurrency = 'pref_currency';    // 'INR'
   static const String _keyAppLock = 'pref_app_lock_enabled';
   static const String _keyAppLockPin = 'pref_app_lock_pin';
+  static const String _keyHideProfit = 'pref_hide_profit_enabled';
 
   Future<String> getThemeMode() async {
     final prefs = await SharedPreferences.getInstance();
@@ -66,6 +67,16 @@ class PreferencesStorage {
   Future<void> saveAppLockPin(String pin) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyAppLockPin, pin);
+  }
+
+  Future<bool> isHideProfitEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyHideProfit) ?? false;
+  }
+
+  Future<void> setHideProfitEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyHideProfit, enabled);
   }
 
   static const String _keyRamRomCombinations = 'pref_ram_rom_combinations';

@@ -322,6 +322,7 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
     ).then((_) => _activeCustomerModalState = null);
   }
 
+  // ignore: unused_element
   void _showDeviceSearchBottomSheet() {
     if (_selectedCustomer == null) return;
     String filterQuery = '';
@@ -1721,6 +1722,14 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
   }
 
   Future<void> _submitSale() async {
+    if (_selectedCustomer == null) {
+      _showFormError('Please select or add a customer to generate this invoice.');
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+      }
+      return;
+    }
+
     if (_items.isEmpty) {
       _showFormError('Please add at least one sale item.');
       return;
@@ -1840,7 +1849,7 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                         const Expanded(
                           child: Row(
                             children: [
-                              Icon(Icons.person_outline_rounded, color: AppColors.accent, size: 20),
+                              Icon(Icons.person_rounded, color: AppColors.primary, size: 20),
                               SizedBox(width: 8),
                               Flexible(
                                 child: Column(
@@ -1848,12 +1857,12 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
-                                      'Customer & Device',
+                                      'Customer Details *',
                                       style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                     Text(
-                                      'Link customer or walk-in sale',
+                                      'Select or register customer for invoice',
                                       style: TextStyle(fontSize: 11, color: AppColors.textMuted),
                                       overflow: TextOverflow.ellipsis,
                                     ),
@@ -1863,18 +1872,23 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                             ],
                           ),
                         ),
-                        if (_selectedCustomer != null)
-                          TextButton(
-                            onPressed: () {
+                        TextButton.icon(
+                          onPressed: () async {
+                            final newCust = await QuickAddCustomerModal.show(context);
+                            if (newCust != null && mounted) {
                               setState(() {
-                                _selectedCustomer = null;
-                                _selectedDevice = null;
-                                _deviceList = [];
+                                _customerList.insert(0, newCust);
+                                _selectedCustomer = newCust;
                               });
-                            },
-                            style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(50, 30)),
-                            child: const Text('Walk-in Sale', style: TextStyle(fontSize: 12, color: AppColors.error, fontWeight: FontWeight.bold)),
+                            }
+                          },
+                          icon: const Icon(Icons.person_add_rounded, size: 16, color: AppColors.primary),
+                          label: const Text('+ Add', style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.bold)),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            minimumSize: const Size(60, 30),
                           ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 14),
@@ -1883,16 +1897,26 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                       borderRadius: BorderRadius.circular(10),
                       child: InputDecorator(
                         decoration: InputDecoration(
-                          labelText: 'Customer (Optional / Walk-in)',
+                          labelText: 'Customer Name *',
+                          labelStyle: TextStyle(
+                            color: _selectedCustomer == null ? AppColors.error : AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(
+                              color: _selectedCustomer == null ? AppColors.border : AppColors.primary,
+                            ),
+                          ),
                           prefixIcon: const Icon(Icons.person_rounded, color: AppColors.primary),
                           suffixIcon: const Icon(Icons.search_rounded, size: 22, color: AppColors.primary),
                         ),
                         child: Text(
                           _selectedCustomer != null
                               ? '${_selectedCustomer!.name} (${_selectedCustomer!.mobile})'
-                              : (_isLoadingCustomers ? 'Loading customers...' : 'Tap to search & select customer (${_customerList.length} registered)'),
+                              : (_isLoadingCustomers ? 'Loading customers...' : 'Tap to search & select customer *'),
                           style: TextStyle(
                             color: _selectedCustomer == null ? AppColors.textMuted : AppColors.textPrimary,
                             fontSize: 14,
@@ -1902,33 +1926,34 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                         ),
                       ),
                     ),
-                    if (_selectedCustomer != null) ...[
-                      const SizedBox(height: 12),
-                      InkWell(
-                        onTap: _showDeviceSearchBottomSheet,
-                        borderRadius: BorderRadius.circular(10),
-                        child: InputDecorator(
-                          decoration: InputDecoration(
-                            labelText: 'Customer Device (Optional)',
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                            prefixIcon: const Icon(Icons.phone_android_rounded, color: AppColors.primary),
-                            suffixIcon: const Icon(Icons.search_rounded, size: 22, color: AppColors.primary),
-                          ),
-                          child: Text(
-                            _selectedDevice != null
-                                ? '${_selectedDevice!.brand} ${_selectedDevice!.model}${_selectedDevice!.imei1 != null ? ' (IMEI: ${_selectedDevice!.imei1})' : ''}'
-                                : (_isLoadingDevices ? 'Loading devices...' : 'Tap to search & select device (${_deviceList.length} available)'),
-                            style: TextStyle(
-                              color: _selectedDevice == null ? AppColors.textMuted : AppColors.textPrimary,
-                              fontSize: 14,
-                              fontWeight: _selectedDevice != null ? FontWeight.w600 : FontWeight.normal,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                    ],
+                    // Device selection dropdown commented out as not needed in sales
+                    // if (_selectedCustomer != null) ...[
+                    //   const SizedBox(height: 12),
+                    //   InkWell(
+                    //     onTap: _showDeviceSearchBottomSheet,
+                    //     borderRadius: BorderRadius.circular(10),
+                    //     child: InputDecorator(
+                    //       decoration: InputDecoration(
+                    //         labelText: 'Customer Device (Optional)',
+                    //         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    //         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    //         prefixIcon: const Icon(Icons.phone_android_rounded, color: AppColors.primary),
+                    //         suffixIcon: const Icon(Icons.search_rounded, size: 22, color: AppColors.primary),
+                    //       ),
+                    //       child: Text(
+                    //         _selectedDevice != null
+                    //             ? '${_selectedDevice!.brand} ${_selectedDevice!.model}${_selectedDevice!.imei1 != null ? ' (IMEI: ${_selectedDevice!.imei1})' : ''}'
+                    //             : (_isLoadingDevices ? 'Loading devices...' : 'Tap to search & select device (${_deviceList.length} available)'),
+                    //         style: TextStyle(
+                    //           color: _selectedDevice == null ? AppColors.textMuted : AppColors.textPrimary,
+                    //           fontSize: 14,
+                    //           fontWeight: _selectedDevice != null ? FontWeight.w600 : FontWeight.normal,
+                    //         ),
+                    //         overflow: TextOverflow.ellipsis,
+                    //       ),
+                    //     ),
+                    //   ),
+                    // ],
                   ],
                 ),
               ),

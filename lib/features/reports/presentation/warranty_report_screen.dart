@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/report_export_helper.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../data/reports_repository.dart';
 import '../domain/report_models.dart';
@@ -99,6 +100,82 @@ class _WarrantyReportScreenState extends State<WarrantyReportScreen> {
     }
   }
 
+  void _exportExcel() {
+    if (_detailsList.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No records to export.')));
+      return;
+    }
+
+    final headers = ['#', 'Warranty Number', 'Item / Product', 'Status'];
+    int idx = 1;
+    final rows = _detailsList.map((item) {
+      final num = item['warranty_number']?.toString() ?? 'WAR';
+      final prod = item['product_name']?.toString() ?? 'Item';
+      final status = (item['status']?.toString() ?? 'active').toUpperCase();
+      return [
+        idx++,
+        num,
+        prod,
+        status,
+      ];
+    }).toList();
+
+    final summaryItems = <ReportExportSummaryItem>[
+      ReportExportSummaryItem(title: 'Total Warranties', value: '${_summary?.totalWarranties ?? 0}'),
+      ReportExportSummaryItem(title: 'Active Warranties', value: '${_summary?.active ?? 0}'),
+      ReportExportSummaryItem(title: 'Total Claims', value: '${_summary?.totalClaims ?? 0}'),
+      ReportExportSummaryItem(title: 'Claim Rate', value: _summary?.claimRate ?? '0%'),
+    ];
+
+    ReportExportHelper.exportToCsv(
+      context: context,
+      reportTitle: 'Warranty and Claims Report',
+      shopName: 'Mobile Repair Shop',
+      period: _selectedPeriod,
+      headers: headers,
+      rows: rows,
+      summaryItems: summaryItems,
+    );
+  }
+
+  void _exportPdf() {
+    if (_detailsList.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No records to export.')));
+      return;
+    }
+
+    final headers = ['#', 'Warranty #', 'Product / Item', 'Status'];
+    int idx = 1;
+    final rows = _detailsList.map((item) {
+      final num = item['warranty_number']?.toString() ?? 'WAR';
+      final prod = item['product_name']?.toString() ?? 'Item';
+      final status = (item['status']?.toString() ?? 'active').toUpperCase();
+      return [
+        idx++,
+        num,
+        prod,
+        status,
+      ];
+    }).toList();
+
+    final summaryItems = <ReportExportSummaryItem>[
+      ReportExportSummaryItem(title: 'Warranties', value: '${_summary?.totalWarranties ?? 0}'),
+      ReportExportSummaryItem(title: 'Active', value: '${_summary?.active ?? 0}'),
+      ReportExportSummaryItem(title: 'Claims', value: '${_summary?.totalClaims ?? 0}'),
+      ReportExportSummaryItem(title: 'Rate', value: _summary?.claimRate ?? '0%'),
+    ];
+
+    ReportExportHelper.exportToPdf(
+      context: context,
+      reportTitle: 'Warranty & Claims Analysis Report',
+      shopName: 'Mobile Repair Shop',
+      period: _selectedPeriod,
+      headers: headers,
+      rows: rows,
+      summaryItems: summaryItems,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -107,6 +184,12 @@ class _WarrantyReportScreenState extends State<WarrantyReportScreen> {
         title: const Text('Warranty & Claims Report'),
         backgroundColor: AppColors.primary,
         elevation: 0,
+        actions: [
+          ReportExportHelper.buildExportActionButton(
+            onExportPdf: _exportPdf,
+            onExportExcel: _exportExcel,
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -179,14 +262,17 @@ class _WarrantyReportScreenState extends State<WarrantyReportScreen> {
                                         child: Row(
                                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
-                                            Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(num, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                                                const SizedBox(height: 4),
-                                                Text(item, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                                              ],
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(num, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                                                  const SizedBox(height: 4),
+                                                  Text(item, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary), overflow: TextOverflow.ellipsis),
+                                                ],
+                                              ),
                                             ),
+                                            const SizedBox(width: 8),
                                             Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                               decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(4)),
