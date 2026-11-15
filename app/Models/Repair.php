@@ -32,6 +32,7 @@ class Repair extends Model
         'accessories_received',
         'accessories_notes',
         'pin_passcode',
+        'device_photo',
         'estimated_cost',
         'final_cost',
         'labour_cost',

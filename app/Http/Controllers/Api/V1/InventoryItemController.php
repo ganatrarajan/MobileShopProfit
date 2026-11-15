@@ -107,11 +107,50 @@ class InventoryItemController extends Controller
 
         $validated = $request->validated();
 
-        // Duplicate IMEI check for mobile items
-        if (!empty($validated['imei1'])) {
-            $exists = InventorySerial::forShop($shopId)->where('imei1', $validated['imei1'])->exists();
-            if ($exists) {
-                return response()->json(['message' => 'IMEI 1 already exists in this shop inventory.'], 422);
+        // Mobile IMEI requirement check
+        $openingStock = isset($validated['opening_stock']) ? (int)$validated['opening_stock'] : (isset($validated['current_stock']) ? (int)$validated['current_stock'] : 0);
+        if (($validated['item_type'] ?? '') === 'mobile') {
+            if ($openingStock > 0 && empty($validated['imei1'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Primary IMEI 1 is required when adding initial stock for mobile phones.',
+                    'errors' => ['imei1' => ['Primary IMEI 1 is required for mobile phones.']],
+                ], 422);
+            }
+            if ($openingStock > 1) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'For mobile phones, initial stock must be 1 unit per unique IMEI (or 0 and added via incoming stock/purchase).',
+                    'errors' => ['opening_stock' => ['Mobile stock must be 1 unit per unique IMEI.']],
+                ], 422);
+            }
+        }
+
+        // Duplicate IMEI / Serial check against active in-stock items
+        $imeisToCheck = array_filter([
+            $validated['imei1'] ?? null,
+            $validated['imei2'] ?? null,
+            $validated['serial_number'] ?? null,
+        ]);
+
+        foreach ($imeisToCheck as $imei) {
+            $existing = InventorySerial::forShop($shopId)
+                ->where('status', 'available')
+                ->where(function ($q) use ($imei) {
+                    $q->where('imei1', $imei)
+                      ->orWhere('imei2', $imei)
+                      ->orWhere('serial_number', $imei);
+                })
+                ->with('inventoryItem:id,name')
+                ->first();
+
+            if ($existing) {
+                $itemName = $existing->inventoryItem ? " ({$existing->inventoryItem->name})" : '';
+                return response()->json([
+                    'success' => false,
+                    'message' => "IMEI/Serial '{$imei}' is already in stock in this shop{$itemName}. Cannot add duplicate until the current unit is sold.",
+                    'errors' => ['imei1' => ["IMEI/Serial '{$imei}' is already in stock in this shop."]],
+                ], 422);
             }
         }
 
@@ -276,6 +315,52 @@ class InventoryItemController extends Controller
         }
 
         $validated = $request->validated();
+
+        $qty = (int) $validated['quantity'];
+        if ($item->item_type === 'mobile') {
+            if (empty($validated['imei1'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Primary IMEI 1 is required for mobile phones. Stock cannot be added without IMEI.',
+                    'errors' => ['imei1' => ['Primary IMEI 1 is required for mobile phones.']],
+                ], 422);
+            }
+            if ($qty > 1) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'For mobile phones, please add stock 1 unit at a time with its unique IMEI.',
+                    'errors' => ['quantity' => ['Mobile stock must be added 1 unit per unique IMEI.']],
+                ], 422);
+            }
+        }
+
+        // Check if IMEI 1, IMEI 2, or Serial is already in stock in this shop
+        $imeisToCheck = array_filter([
+            $validated['imei1'] ?? null,
+            $validated['imei2'] ?? null,
+            $validated['serial_number'] ?? null,
+        ]);
+
+        foreach ($imeisToCheck as $imei) {
+            $existing = InventorySerial::forShop($shopId)
+                ->where('status', 'available')
+                ->where(function ($q) use ($imei) {
+                    $q->where('imei1', $imei)
+                      ->orWhere('imei2', $imei)
+                      ->orWhere('serial_number', $imei);
+                })
+                ->with('inventoryItem:id,name')
+                ->first();
+
+            if ($existing) {
+                $itemName = $existing->inventoryItem ? " ({$existing->inventoryItem->name})" : '';
+                return response()->json([
+                    'success' => false,
+                    'message' => "IMEI/Serial '{$imei}' is already in stock in this shop{$itemName}. Cannot add duplicate until the current unit is sold.",
+                ], 422);
+            }
+        }
+
         $qty = (int) $validated['quantity'];
         $unitCost = isset($validated['unit_cost']) ? (float) $validated['unit_cost'] : (float) $item->purchase_price;
 
@@ -397,6 +482,44 @@ class InventoryItemController extends Controller
             'success' => true,
             'message' => 'Stock movements retrieved successfully.',
             'data' => StockMovementResource::collection($movements),
+        ]);
+    }
+
+    /**
+     * Check if an IMEI/Serial is currently in stock for the current shop.
+     */
+    public function checkImei(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $shopId = $user->shop_id ?? $user->shop->id ?? null;
+        $imei = trim($request->input('imei', ''));
+
+        if (empty($imei)) {
+            return response()->json(['in_stock' => false]);
+        }
+
+        $existing = InventorySerial::forShop($shopId)
+            ->where('status', 'available')
+            ->where(function ($q) use ($imei) {
+                $q->where('imei1', $imei)
+                  ->orWhere('imei2', $imei)
+                  ->orWhere('serial_number', $imei);
+            })
+            ->with('inventoryItem:id,name,brand,model,current_stock')
+            ->first();
+
+        if ($existing) {
+            $itemName = $existing->inventoryItem ? $existing->inventoryItem->name : 'an inventory item';
+            return response()->json([
+                'in_stock' => true,
+                'message' => "IMEI/Serial '{$imei}' is already in stock for this shop ({$itemName}). It must be sold or removed before adding again.",
+                'item' => $existing->inventoryItem,
+            ]);
+        }
+
+        return response()->json([
+            'in_stock' => false,
+            'message' => 'IMEI is available to add.',
         ]);
     }
 }

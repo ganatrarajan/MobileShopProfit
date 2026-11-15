@@ -14,6 +14,8 @@ use App\Models\RepairPayment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class RepairController extends Controller
 {
@@ -139,8 +141,10 @@ class RepairController extends Controller
             }
         }
 
+        $devicePhoto = $this->processDevicePhoto($request, $validated['device_photo'] ?? null);
+
         try {
-            $repair = DB::transaction(function () use ($user, $validated) {
+            $repair = DB::transaction(function () use ($user, $validated, $devicePhoto) {
                 // Generate per-shop unique job card number collision-safely
                 $lastJob = Repair::withTrashed()->forShop($user->shop_id)
                     ->where('job_number', 'like', 'JOB-%')
@@ -179,6 +183,7 @@ class RepairController extends Controller
                     'accessories_received' => $validated['accessories_received'] ?? [],
                     'accessories_notes' => $validated['accessories_notes'] ?? null,
                     'pin_passcode' => $validated['pin_passcode'] ?? null,
+                    'device_photo' => $devicePhoto,
                     'estimated_cost' => $estimatedCost,
                     'final_cost' => $finalCost,
                     'labour_cost' => (float) ($validated['labour_cost'] ?? 0),
@@ -313,6 +318,10 @@ class RepairController extends Controller
             }
         }
 
+        if ($request->hasFile('device_photo') || array_key_exists('device_photo', $validated)) {
+            $validated['device_photo'] = $this->processDevicePhoto($request, $validated['device_photo'] ?? null);
+        }
+
         $repair->update($validated);
         $repair->recalculatePaymentStatus();
 
@@ -401,5 +410,34 @@ class RepairController extends Controller
             'success' => true,
             'message' => 'Repair job card deleted successfully.',
         ]);
+    }
+
+    /**
+     * Process and store device photo from file upload or base64 data URL.
+     */
+    private function processDevicePhoto(Request $request, ?string $devicePhoto): ?string
+    {
+        if ($request->hasFile('device_photo')) {
+            $path = $request->file('device_photo')->store('repairs/photos', 'public');
+            return asset('storage/' . $path);
+        } elseif (!empty($devicePhoto) && str_starts_with($devicePhoto, 'data:image')) {
+            try {
+                $imageParts = explode(';base64,', $devicePhoto);
+                if (count($imageParts) === 2) {
+                    $imageTypeAux = explode('image/', $imageParts[0]);
+                    $imageType = $imageTypeAux[1] ?? 'jpeg';
+                    if (str_contains($imageType, '+')) {
+                        $imageType = explode('+', $imageType)[0];
+                    }
+                    $imageBase64 = base64_decode($imageParts[1]);
+                    $fileName = 'repairs/photos/repair_' . uniqid() . '.' . $imageType;
+                    Storage::disk('public')->put($fileName, $imageBase64);
+                    return asset('storage/' . $fileName);
+                }
+            } catch (\Exception $e) {
+                Log::warning('Repair device photo save failed: ' . $e->getMessage());
+            }
+        }
+        return $devicePhoto;
     }
 }

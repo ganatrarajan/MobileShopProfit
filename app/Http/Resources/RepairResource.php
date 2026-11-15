@@ -36,6 +36,7 @@ class RepairResource extends JsonResource
             'accessories_received' => $this->accessories_received ?? [],
             'accessories_notes' => $this->accessories_notes,
             'pin_passcode' => $this->pin_passcode,
+            'device_photo' => $this->device_photo,
             'estimated_cost' => (float) $this->estimated_cost,
             'final_cost' => (float) $this->final_cost,
             'labour_cost' => (float) $this->labour_cost,

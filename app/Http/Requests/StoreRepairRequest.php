@@ -28,6 +28,7 @@ class StoreRepairRequest extends FormRequest
             'accessories_received.*' => ['string', 'max:100'],
             'accessories_notes' => ['nullable', 'string', 'max:1000'],
             'pin_passcode' => ['nullable', 'string', 'max:100'],
+            'device_photo' => ['nullable', 'string'],
             'estimated_cost' => ['nullable', 'numeric', 'min:0'],
             'final_cost' => ['nullable', 'numeric', 'min:0'],
             'labour_cost' => ['nullable', 'numeric', 'min:0'],

@@ -245,6 +245,24 @@ class SaleController extends Controller
                             'reference_id' => $sale->id,
                             'notes' => "Sold {$pItem['quantity']} unit(s) via Invoice #{$sale->invoice_number}",
                         ]);
+
+                        // Mark inventory serial as sold
+                        $serialQuery = \App\Models\InventorySerial::forShop($user->shop_id)
+                            ->where('inventory_item_id', $invItem->id)
+                            ->where('status', 'available');
+
+                        if (!empty($pItem['imei_1']) || !empty($pItem['imei_2']) || !empty($pItem['serial_number'])) {
+                            $serialQuery->where(function ($q) use ($pItem) {
+                                if (!empty($pItem['imei_1'])) $q->orWhere('imei1', $pItem['imei_1'])->orWhere('imei2', $pItem['imei_1']);
+                                if (!empty($pItem['imei_2'])) $q->orWhere('imei1', $pItem['imei_2'])->orWhere('imei2', $pItem['imei_2']);
+                                if (!empty($pItem['serial_number'])) $q->orWhere('serial_number', $pItem['serial_number']);
+                            });
+                        }
+
+                        $serialToMark = $serialQuery->first();
+                        if ($serialToMark) {
+                            $serialToMark->update(['status' => 'sold']);
+                        }
                     }
                     $sale->items()->create($pItem);
                 }
@@ -397,12 +415,30 @@ class SaleController extends Controller
         }
 
         DB::transaction(function () use ($saleRecord) {
-            // Restore inventory stock for each sold item before deleting
+            // Restore inventory stock and serials for each sold item before deleting
             foreach ($saleRecord->items as $item) {
                 if ($item->inventory_item_id) {
                     $invItem = \App\Models\InventoryItem::forShop($saleRecord->shop_id)->find($item->inventory_item_id);
                     if ($invItem) {
                         $invItem->increment('current_stock', $item->quantity);
+                    }
+
+                    // Restore serial back to available
+                    $serialQuery = \App\Models\InventorySerial::forShop($saleRecord->shop_id)
+                        ->where('inventory_item_id', $item->inventory_item_id)
+                        ->where('status', 'sold');
+
+                    if (!empty($item->imei_1) || !empty($item->imei_2) || !empty($item->serial_number)) {
+                        $serialQuery->where(function ($q) use ($item) {
+                            if (!empty($item->imei_1)) $q->orWhere('imei1', $item->imei_1)->orWhere('imei2', $item->imei_1);
+                            if (!empty($item->imei_2)) $q->orWhere('imei1', $item->imei_2)->orWhere('imei2', $item->imei_2);
+                            if (!empty($item->serial_number)) $q->orWhere('serial_number', $item->serial_number);
+                        });
+                    }
+
+                    $serialToRestore = $serialQuery->first();
+                    if ($serialToRestore) {
+                        $serialToRestore->update(['status' => 'available']);
                     }
                 }
             }

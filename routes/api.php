@@ -31,6 +31,7 @@ use App\Http\Controllers\Api\V1\ExpenseCategoryController;
 use App\Http\Controllers\Api\V1\ExpenseController;
 use App\Http\Controllers\Api\V1\InventoryItemController;
 use App\Http\Controllers\Api\V1\ProfitIntelligenceController;
+use App\Http\Controllers\Api\V1\ProfitLedgerController;
 use App\Http\Controllers\Api\V1\RepairController;
 use App\Http\Controllers\Api\V1\RepairPartController;
 use App\Http\Controllers\Api\V1\RepairPaymentController;
@@ -215,6 +216,7 @@ Route::prefix('v1')->group(function () {
     Route::middleware(['auth:sanctum', EnsureShopIsActive::class])->group(function () {
         // Dashboard Endpoint
         Route::get('/dashboard', [DashboardController::class, 'index']);
+        Route::get('/profit-ledger', [ProfitLedgerController::class, 'index']);
 
         // Auth User Profile & Password Change
         Route::get('/auth/me', [AuthController::class, 'me']);
@@ -289,6 +291,7 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('warranty-claims', WarrantyClaimController::class);
 
         // Inventory Module
+        Route::get('/inventory/check-imei', [InventoryItemController::class, 'checkImei']);
         Route::post('/inventory/{id}/stock', [InventoryItemController::class, 'addStock']);
         Route::post('/inventory/{id}/adjustment', [InventoryItemController::class, 'adjustStock']);
         Route::get('/inventory/{id}/movements', [InventoryItemController::class, 'movements']);
@@ -326,6 +329,7 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('staff', StaffController::class);
 
         // Reports Module
+        Route::get('/reports/outstanding', [ReportController::class, 'outstanding']);
         Route::get('/reports/sales', [ReportController::class, 'sales']);
         Route::get('/reports/repairs', [ReportController::class, 'repairs']);
         Route::get('/reports/inventory', [ReportController::class, 'inventory']);

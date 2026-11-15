@@ -66,6 +66,16 @@ class StoreSaleRequest extends FormRequest
         ];
     }
 
+    public function messages(): array
+    {
+        return [
+            'customer_id.required' => 'Please select or add a customer for this invoice.',
+            'customer_id.exists' => 'Selected customer was not found or does not belong to your shop.',
+            'items.required' => 'Please add at least one item to the invoice.',
+            'items.min' => 'Please add at least one item to the invoice.',
+        ];
+    }
+
     protected function prepareForValidation(): void
     {
         $items = $this->input('items', []);

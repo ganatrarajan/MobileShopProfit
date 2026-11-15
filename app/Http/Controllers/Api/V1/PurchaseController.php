@@ -155,6 +155,46 @@ class PurchaseController extends Controller
                 ];
             }
 
+            // Check for duplicate IMEIs across purchase items and against active inventory stock
+            $batchImeis = [];
+            foreach ($itemsData as $bItem) {
+                foreach (['imei1', 'imei2', 'serial_number'] as $key) {
+                    $val = $bItem[$key] ?? null;
+                    if (!empty($val)) {
+                        if (in_array($val, $batchImeis)) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => "Duplicate IMEI/Serial '{$val}' entered multiple times in this purchase.",
+                            ], 422);
+                        }
+                        $batchImeis[] = $val;
+                    }
+                }
+            }
+
+            if (!empty($batchImeis)) {
+                $existing = \App\Models\InventorySerial::forShop($shopId)
+                    ->where('status', 'available')
+                    ->where(function ($q) use ($batchImeis) {
+                        $q->whereIn('imei1', $batchImeis)
+                          ->orWhereIn('imei2', $batchImeis)
+                          ->orWhereIn('serial_number', $batchImeis);
+                    })
+                    ->with('inventoryItem:id,name')
+                    ->first();
+
+                if ($existing) {
+                    $dupVal = in_array($existing->imei1, $batchImeis)
+                        ? $existing->imei1
+                        : (in_array($existing->imei2, $batchImeis) ? $existing->imei2 : $existing->serial_number);
+                    $itemName = $existing->inventoryItem ? " ({$existing->inventoryItem->name})" : '';
+                    return response()->json([
+                        'success' => false,
+                        'message' => "IMEI/Serial '{$dupVal}' is already in stock for this shop{$itemName}. Cannot add duplicate until the current unit is sold.",
+                    ], 422);
+                }
+            }
+
             $discount = (float) ($validated['discount'] ?? 0);
             $additionalCharges = (float) ($validated['additional_charges'] ?? 0);
             $grandTotal = max(0, $subtotal - $discount + $additionalCharges);
@@ -314,7 +354,6 @@ class PurchaseController extends Controller
 
             // Update Items if passed
             if (isset($validated['items'])) {
-                $purchase->items()->delete();
                 $subtotal = 0;
                 $itemsData = [];
 
@@ -329,20 +368,70 @@ class PurchaseController extends Controller
                     $lineTotal = $qty * $rate;
                     $subtotal += $lineTotal;
 
-                    PurchaseItem::create([
-                        'purchase_id' => $purchase->id,
-                        'inventory_item_id' => $invItem->id,
-                        'quantity' => $qty,
-                        'purchase_rate' => $rate,
-                        'total_amount' => $lineTotal,
-                    ]);
-
                     $itemsData[] = [
                         'inventory_item' => $invItem,
                         'inventory_item_id' => $invItem->id,
                         'quantity' => $qty,
+                        'imei1' => !empty($itemInput['imei1']) ? trim($itemInput['imei1']) : null,
+                        'imei2' => !empty($itemInput['imei2']) ? trim($itemInput['imei2']) : null,
+                        'serial_number' => !empty($itemInput['serial_number']) ? trim($itemInput['serial_number']) : null,
                         'purchase_rate' => $rate,
+                        'total_amount' => $lineTotal,
                     ];
+                }
+
+                // Check for duplicate IMEIs across purchase items and against active inventory stock
+                $batchImeis = [];
+                foreach ($itemsData as $bItem) {
+                    foreach (['imei1', 'imei2', 'serial_number'] as $key) {
+                        $val = $bItem[$key] ?? null;
+                        if (!empty($val)) {
+                            if (in_array($val, $batchImeis)) {
+                                return response()->json([
+                                    'success' => false,
+                                    'message' => "Duplicate IMEI/Serial '{$val}' entered multiple times in this purchase.",
+                                ], 422);
+                            }
+                            $batchImeis[] = $val;
+                        }
+                    }
+                }
+
+                if (!empty($batchImeis)) {
+                    $existing = \App\Models\InventorySerial::forShop($shopId)
+                        ->where('status', 'available')
+                        ->where(function ($q) use ($batchImeis) {
+                            $q->whereIn('imei1', $batchImeis)
+                              ->orWhereIn('imei2', $batchImeis)
+                              ->orWhereIn('serial_number', $batchImeis);
+                        })
+                        ->with('inventoryItem:id,name')
+                        ->first();
+
+                    if ($existing) {
+                        $dupVal = in_array($existing->imei1, $batchImeis)
+                            ? $existing->imei1
+                            : (in_array($existing->imei2, $batchImeis) ? $existing->imei2 : $existing->serial_number);
+                        $itemName = $existing->inventoryItem ? " ({$existing->inventoryItem->name})" : '';
+                        return response()->json([
+                            'success' => false,
+                            'message' => "IMEI/Serial '{$dupVal}' is already in stock for this shop{$itemName}. Cannot add duplicate until the current unit is sold.",
+                        ], 422);
+                    }
+                }
+
+                $purchase->items()->delete();
+                foreach ($itemsData as $itemRow) {
+                    PurchaseItem::create([
+                        'purchase_id' => $purchase->id,
+                        'inventory_item_id' => $itemRow['inventory_item_id'],
+                        'quantity' => $itemRow['quantity'],
+                        'imei1' => $itemRow['imei1'],
+                        'imei2' => $itemRow['imei2'],
+                        'serial_number' => $itemRow['serial_number'],
+                        'purchase_rate' => $itemRow['purchase_rate'],
+                        'total_amount' => $itemRow['total_amount'],
+                    ]);
                 }
                 $purchase->subtotal = $subtotal;
             }
@@ -405,18 +494,18 @@ class PurchaseController extends Controller
                             'notes' => "Stock added from Purchase #{$purchase->purchase_number}",
                         ]);
                         // Record serial / IMEI if provided
-                    if (!empty($item['imei1']) || !empty($item['imei2']) || !empty($item['serial_number'])) {
-                        \App\Models\InventorySerial::create([
-                            'shop_id' => $shopId,
-                            'inventory_item_id' => $invItem->id,
-                            'imei1' => $item['imei1'],
-                            'imei2' => $item['imei2'],
-                            'serial_number' => $item['serial_number'],
-                            'status' => 'available',
-                        ]);
-                    }
+                        if (!empty($pItem->imei1) || !empty($pItem->imei2) || !empty($pItem->serial_number)) {
+                            \App\Models\InventorySerial::create([
+                                'shop_id' => $shopId,
+                                'inventory_item_id' => $invItem->id,
+                                'imei1' => $pItem->imei1,
+                                'imei2' => $pItem->imei2,
+                                'serial_number' => $pItem->serial_number,
+                                'status' => 'available',
+                            ]);
+                        }
 
-                    $invItem->recalculateStock();
+                        $invItem->recalculateStock();
                     }
                 }
             }
@@ -530,6 +619,40 @@ class PurchaseController extends Controller
             ], 400);
         }
 
+        // Validate that none of the IMEIs in this purchase are already in stock
+        $batchImeis = [];
+        foreach ($purchase->items as $pItem) {
+            foreach (['imei1', 'imei2', 'serial_number'] as $key) {
+                $val = $pItem->{$key} ?? null;
+                if (!empty($val)) {
+                    $batchImeis[] = $val;
+                }
+            }
+        }
+
+        if (!empty($batchImeis)) {
+            $existing = \App\Models\InventorySerial::forShop($shopId)
+                ->where('status', 'available')
+                ->where(function ($q) use ($batchImeis) {
+                    $q->whereIn('imei1', $batchImeis)
+                      ->orWhereIn('imei2', $batchImeis)
+                      ->orWhereIn('serial_number', $batchImeis);
+                })
+                ->with('inventoryItem:id,name')
+                ->first();
+
+            if ($existing) {
+                $dupVal = in_array($existing->imei1, $batchImeis)
+                    ? $existing->imei1
+                    : (in_array($existing->imei2, $batchImeis) ? $existing->imei2 : $existing->serial_number);
+                $itemName = $existing->inventoryItem ? " ({$existing->inventoryItem->name})" : '';
+                return response()->json([
+                    'success' => false,
+                    'message' => "IMEI/Serial '{$dupVal}' is already in stock for this shop{$itemName}. Cannot add duplicate until the current unit is sold.",
+                ], 422);
+            }
+        }
+
         return DB::transaction(function () use ($shopId, $purchase) {
             $addedCount = 0;
             foreach ($purchase->items as $pItem) {
@@ -547,13 +670,13 @@ class PurchaseController extends Controller
                         'notes' => "Stock added from Purchase #{$purchase->purchase_number}",
                     ]);
                     // Record serial / IMEI if provided
-                    if (!empty($item['imei1']) || !empty($item['imei2']) || !empty($item['serial_number'])) {
+                    if (!empty($pItem->imei1) || !empty($pItem->imei2) || !empty($pItem->serial_number)) {
                         \App\Models\InventorySerial::create([
                             'shop_id' => $shopId,
                             'inventory_item_id' => $invItem->id,
-                            'imei1' => $item['imei1'],
-                            'imei2' => $item['imei2'],
-                            'serial_number' => $item['serial_number'],
+                            'imei1' => $pItem->imei1,
+                            'imei2' => $pItem->imei2,
+                            'serial_number' => $pItem->serial_number,
                             'status' => 'available',
                         ]);
                     }
@@ -578,6 +701,23 @@ class PurchaseController extends Controller
      */
     private function revertPurchaseStockMovements(int $shopId, Purchase $purchase): void
     {
+        // Clean up available serials recorded with this purchase
+        $purchase->loadMissing('items');
+        foreach ($purchase->items as $pItem) {
+            $imeis = array_values(array_filter([$pItem->imei1, $pItem->imei2, $pItem->serial_number]));
+            if (!empty($imeis)) {
+                \App\Models\InventorySerial::forShop($shopId)
+                    ->where('inventory_item_id', $pItem->inventory_item_id)
+                    ->where('status', 'available')
+                    ->where(function ($q) use ($imeis) {
+                        $q->whereIn('imei1', $imeis)
+                          ->orWhereIn('imei2', $imeis)
+                          ->orWhereIn('serial_number', $imeis);
+                    })
+                    ->delete();
+            }
+        }
+
         $movements = StockMovement::forShop($shopId)
             ->where('reference_type', 'App\Models\Purchase')
             ->where('reference_id', $purchase->id)
