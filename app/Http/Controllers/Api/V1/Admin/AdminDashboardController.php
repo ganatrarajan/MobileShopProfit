@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\Device;
+use App\Models\PaymentTransaction;
 use App\Models\Repair;
 use App\Models\Sale;
 use App\Models\Shop;
@@ -37,14 +38,30 @@ class AdminDashboardController extends Controller
         $cancelledCount = Subscription::where('status', 'cancelled')->count();
 
         // 3. Business & Revenue
-        $totalRevenue = Subscription::join('plans', 'subscriptions.plan_id', '=', 'plans.id')
+        $txTotalRevenue = (float) PaymentTransaction::where('status', 'successful')->sum('amount');
+        $planTotalRevenue = (float) Subscription::join('plans', 'subscriptions.plan_id', '=', 'plans.id')
             ->where('subscriptions.payment_status', 'paid')
             ->sum('plans.price');
+        $totalRevenue = max($txTotalRevenue, $planTotalRevenue);
 
-        $revenueThisMonth = Subscription::join('plans', 'subscriptions.plan_id', '=', 'plans.id')
+        $txMonthRevenue = (float) PaymentTransaction::where('status', 'successful')
+            ->where('created_at', '>=', $startOfMonth)
+            ->sum('amount');
+        $planMonthRevenue = (float) Subscription::join('plans', 'subscriptions.plan_id', '=', 'plans.id')
             ->where('subscriptions.payment_status', 'paid')
             ->where('subscriptions.created_at', '>=', $startOfMonth)
             ->sum('plans.price');
+        $revenueThisMonth = max($txMonthRevenue, $planMonthRevenue);
+
+        // Paid shops count: count distinct shops that have purchased a paid plan
+        $paidShopsCount = max(
+            Subscription::where('payment_status', 'paid')->distinct('shop_id')->count('shop_id'),
+            PaymentTransaction::where('status', 'successful')->distinct('shop_id')->count('shop_id')
+        );
+
+        // Total successful payment transactions count
+        $successfulTxCount = PaymentTransaction::where('status', 'successful')->count();
+        $paidCount = max($paidShopsCount, $successfulTxCount);
 
         $newSubscriptionsThisMonth = Subscription::where('created_at', '>=', $startOfMonth)->count();
 
@@ -76,15 +93,21 @@ class AdminDashboardController extends Controller
                 'new_month'  => $newShopsThisMonth,
             ],
             'subscriptions' => [
-                'trial'      => $trialCount,
-                'active'     => $activePaidCount,
-                'expired'    => $expiredCount,
-                'cancelled'  => $cancelledCount,
+                'trial'               => $trialCount,
+                'active'              => $activePaidCount,
+                'expired'             => $expiredCount,
+                'cancelled'           => $cancelledCount,
+                'paid_count'          => $paidShopsCount,
+                'paid_shops_count'    => $paidShopsCount,
+                'successful_tx_count' => $successfulTxCount,
             ],
             'business' => [
                 'total_revenue'       => (float) $totalRevenue,
                 'revenue_this_month'  => (float) $revenueThisMonth,
                 'new_subscriptions'   => $newSubscriptionsThisMonth,
+                'paid_count'          => $paidCount,
+                'paid_shops_count'    => $paidShopsCount,
+                'successful_tx_count' => $successfulTxCount,
             ],
             'usage' => [
                 'total_customers'  => $totalCustomers,

@@ -7,7 +7,9 @@ use App\Http\Requests\Shop\CreateShopRequest;
 use App\Http\Requests\Shop\UpdateShopRequest;
 use App\Http\Requests\Shop\UploadLogoRequest;
 use App\Http\Resources\ShopResource;
+use App\Models\Plan;
 use App\Models\Shop;
+use App\Models\Subscription;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -31,21 +33,41 @@ class ShopController extends Controller
                 $logoPath = $request->file('logo')->store('logos', 'public');
             }
 
+            $trialExpiry = now()->addDays(30);
+
             $shop = Shop::create([
-                'user_id'    => $user->id,
-                'name'       => $request->name,
-                'owner_name' => $request->owner_name,
-                'phone'      => $request->mobile,
-                'mobile'     => $request->mobile,
-                'email'      => $request->email,
-                'address'    => $request->address,
-                'city'       => $request->city,
-                'state'      => $request->state,
-                'pincode'    => $request->pincode,
-                'gst_number' => $request->gst_number,
-                'logo'       => $logoPath,
-                'currency'   => 'INR',
-                'status'     => 'active',
+                'user_id'                  => $user->id,
+                'name'                     => $request->name,
+                'owner_name'               => $request->owner_name,
+                'phone'                    => $request->mobile,
+                'mobile'                   => $request->mobile,
+                'email'                    => $request->email,
+                'address'                  => $request->address,
+                'city'                     => $request->city,
+                'state'                    => $request->state,
+                'pincode'                  => $request->pincode,
+                'google_maps_url'          => $request->google_maps_url,
+                'latitude'                 => $request->latitude,
+                'longitude'                => $request->longitude,
+                'upi_id'                   => $request->upi_id,
+                'tagline'                  => $request->tagline,
+                'gst_number'               => $request->gst_number,
+                'logo'                     => $logoPath,
+                'currency'                 => 'INR',
+                'status'                   => 'active',
+                'custom_max_staff'         => 1,
+                'custom_staff_valid_until' => $trialExpiry->format('Y-m-d'),
+                'custom_staff_note'        => 'Free Trial (1 Staff Login Included)',
+            ]);
+
+            $defaultPlan = Plan::where('slug', 'monthly')->first() ?? Plan::first();
+            Subscription::create([
+                'shop_id'        => $shop->id,
+                'plan_id'        => $defaultPlan ? $defaultPlan->id : null,
+                'status'         => 'trial',
+                'start_date'     => now(),
+                'expiry_date'    => $trialExpiry,
+                'payment_status' => 'free',
             ]);
 
             // Link user to shop
@@ -96,6 +118,11 @@ class ShopController extends Controller
             'city',
             'state',
             'pincode',
+            'google_maps_url',
+            'latitude',
+            'longitude',
+            'upi_id',
+            'tagline',
             'gst_number',
             'currency',
         ]));

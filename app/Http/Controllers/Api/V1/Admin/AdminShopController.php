@@ -31,7 +31,7 @@ class AdminShopController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Shop::with(['user', 'latestSubscription.plan'])
+        $query = Shop::with(['user', 'latestSubscription.plan', 'latestPaymentTransaction.plan'])
             ->withCount([
                 'technicians',
                 'users as staff_logins_count' => function ($q) {
@@ -88,6 +88,7 @@ class AdminShopController extends Controller
             'user',
             'users',
             'latestSubscription.plan',
+            'latestPaymentTransaction.plan',
             'subscriptions.plan',
         ])->find($id);
 

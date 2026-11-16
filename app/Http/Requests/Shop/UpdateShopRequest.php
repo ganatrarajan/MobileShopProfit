@@ -22,8 +22,13 @@ class UpdateShopRequest extends FormRequest
             'address'    => 'sometimes|required|string',
             'city'       => 'sometimes|required|string|max:100',
             'state'      => 'sometimes|required|string|max:100',
-            'pincode'    => 'sometimes|required|string|max:20',
-            'gst_number' => 'nullable|string|max:50',
+            'pincode'         => 'sometimes|required|string|max:20',
+            'google_maps_url' => 'nullable|string|max:500',
+            'latitude'        => 'nullable|numeric',
+            'longitude'       => 'nullable|numeric',
+            'upi_id'          => 'nullable|string|max:100',
+            'tagline'         => 'nullable|string|max:255',
+            'gst_number'      => 'nullable|string|max:50',
             'currency'   => 'nullable|string|max:10',
         ];
     }

@@ -25,6 +25,11 @@ class SaleItem extends Model
         'unit_price',
         'discount',
         'tax_amount',
+        'tax_rate',
+        'tax_type',
+        'cgst_amount',
+        'sgst_amount',
+        'igst_amount',
         'cost_price',
         'total',
     ];
@@ -34,6 +39,10 @@ class SaleItem extends Model
         'unit_price' => 'decimal:2',
         'discount' => 'decimal:2',
         'tax_amount' => 'decimal:2',
+        'tax_rate' => 'decimal:2',
+        'cgst_amount' => 'decimal:2',
+        'sgst_amount' => 'decimal:2',
+        'igst_amount' => 'decimal:2',
         'cost_price' => 'decimal:2',
         'total' => 'decimal:2',
     ];

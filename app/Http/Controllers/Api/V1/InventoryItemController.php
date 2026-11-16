@@ -167,6 +167,8 @@ class InventoryItemController extends Controller
                 'item_type' => $validated['item_type'],
                 'purchase_price' => $validated['purchase_price'],
                 'selling_price' => $validated['selling_price'],
+                'tax_rate' => $validated['tax_rate'] ?? 0,
+                'tax_type' => $validated['tax_type'] ?? 'exclusive',
                 'opening_stock' => $openingStock,
                 'current_stock' => $openingStock,
                 'minimum_stock' => $validated['minimum_stock'] ?? 2,

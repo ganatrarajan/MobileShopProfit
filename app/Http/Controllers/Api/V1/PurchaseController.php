@@ -140,8 +140,11 @@ class PurchaseController extends Controller
 
                 $qty = (int) $itemInput['quantity'];
                 $rate = (float) $itemInput['purchase_rate'];
-                $lineTotal = $qty * $rate;
-                $subtotal += $lineTotal;
+                $itemTaxAmount = (float) ($itemInput['tax_amount'] ?? 0);
+                $itemTaxRate = (float) ($itemInput['tax_rate'] ?? 0);
+                $itemTaxType = $itemInput['tax_type'] ?? 'exclusive';
+                $lineTotal = (float) ($itemInput['total_amount'] ?? ($qty * $rate));
+                $subtotal += ($qty * $rate);
 
                 $itemsData[] = [
                     'inventory_item' => $invItem,
@@ -151,6 +154,9 @@ class PurchaseController extends Controller
                     'imei2' => !empty($itemInput['imei2']) ? trim($itemInput['imei2']) : null,
                     'serial_number' => !empty($itemInput['serial_number']) ? trim($itemInput['serial_number']) : null,
                     'purchase_rate' => $rate,
+                    'tax_amount' => $itemTaxAmount,
+                    'tax_rate' => $itemTaxRate,
+                    'tax_type' => $itemTaxType,
                     'total_amount' => $lineTotal,
                 ];
             }
@@ -197,7 +203,33 @@ class PurchaseController extends Controller
 
             $discount = (float) ($validated['discount'] ?? 0);
             $additionalCharges = (float) ($validated['additional_charges'] ?? 0);
-            $grandTotal = max(0, $subtotal - $discount + $additionalCharges);
+            $taxRate = (float) ($validated['tax_rate'] ?? 0);
+            $taxType = $validated['tax_type'] ?? 'exclusive';
+            $isInterState = (bool) ($validated['is_inter_state'] ?? false);
+            $taxAmount = (float) ($validated['tax_amount'] ?? 0);
+
+            if ($taxAmount <= 0 && $taxRate > 0) {
+                $taxable = max(0, $subtotal - $discount);
+                if ($taxType === 'inclusive') {
+                    $taxableBase = $taxable / (1 + ($taxRate / 100));
+                    $taxAmount = round($taxable - $taxableBase, 2);
+                } else {
+                    $taxAmount = round($taxable * ($taxRate / 100), 2);
+                }
+            }
+
+            if ($isInterState) {
+                $igstAmount = $taxAmount;
+                $cgstAmount = 0;
+                $sgstAmount = 0;
+            } else {
+                $cgstAmount = round($taxAmount / 2, 2);
+                $sgstAmount = round($taxAmount - $cgstAmount, 2);
+                $igstAmount = 0;
+            }
+
+            $netBeforeAdd = $taxType === 'inclusive' ? ($subtotal - $discount) : ($subtotal - $discount + $taxAmount);
+            $grandTotal = max(0, $netBeforeAdd + $additionalCharges);
 
             $amountPaid = (float) ($validated['amount_paid'] ?? 0);
             if ($amountPaid > $grandTotal) {
@@ -225,6 +257,13 @@ class PurchaseController extends Controller
                 'purchase_date' => $validated['purchase_date'],
                 'subtotal' => $subtotal,
                 'discount' => $discount,
+                'tax_amount' => $taxAmount,
+                'tax_rate' => $taxRate,
+                'tax_type' => $taxType,
+                'is_inter_state' => $isInterState,
+                'cgst_amount' => $cgstAmount,
+                'sgst_amount' => $sgstAmount,
+                'igst_amount' => $igstAmount,
                 'additional_charges' => $additionalCharges,
                 'grand_total' => $grandTotal,
                 'amount_paid' => $amountPaid,
@@ -244,6 +283,9 @@ class PurchaseController extends Controller
                     'imei2' => $item['imei2'],
                     'serial_number' => $item['serial_number'],
                     'purchase_rate' => $item['purchase_rate'],
+                    'tax_amount' => $item['tax_amount'],
+                    'tax_rate' => $item['tax_rate'],
+                    'tax_type' => $item['tax_type'],
                     'total_amount' => $item['total_amount'],
                 ]);
             }
@@ -266,8 +308,13 @@ class PurchaseController extends Controller
                 foreach ($itemsData as $item) {
                     $invItem = $item['inventory_item'];
 
-                    // Update purchase cost price on item (without touching selling price)
-                    $invItem->update(['purchase_price' => $item['purchase_rate']]);
+                    // Update purchase cost price and GST setting on item
+                    $invUpdates = ['purchase_price' => $item['purchase_rate']];
+                    if ($taxRate > 0 || ($item['tax_rate'] ?? 0) > 0) {
+                        $invUpdates['tax_rate'] = ($item['tax_rate'] ?? 0) > 0 ? $item['tax_rate'] : $taxRate;
+                        $invUpdates['tax_type'] = $item['tax_type'] ?? $taxType;
+                    }
+                    $invItem->update($invUpdates);
 
                     // Add Stock Movement
                     StockMovement::create([

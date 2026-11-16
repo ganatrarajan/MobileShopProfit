@@ -33,6 +33,8 @@ class InventoryItem extends Model
         'item_type',
         'purchase_price',
         'selling_price',
+        'tax_rate',
+        'tax_type',
         'opening_stock',
         'current_stock',
         'minimum_stock',
@@ -44,6 +46,7 @@ class InventoryItem extends Model
     protected $casts = [
         'purchase_price' => 'decimal:2',
         'selling_price' => 'decimal:2',
+        'tax_rate' => 'decimal:2',
         'opening_stock' => 'integer',
         'current_stock' => 'integer',
         'minimum_stock' => 'integer',

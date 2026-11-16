@@ -23,6 +23,12 @@ class Sale extends Model
         'subtotal',
         'discount',
         'tax_amount',
+        'tax_rate',
+        'tax_type',
+        'is_inter_state',
+        'cgst_amount',
+        'sgst_amount',
+        'igst_amount',
         'grand_total',
         'amount_paid',
         'amount_due',
@@ -36,6 +42,11 @@ class Sale extends Model
         'subtotal' => 'decimal:2',
         'discount' => 'decimal:2',
         'tax_amount' => 'decimal:2',
+        'tax_rate' => 'decimal:2',
+        'is_inter_state' => 'boolean',
+        'cgst_amount' => 'decimal:2',
+        'sgst_amount' => 'decimal:2',
+        'igst_amount' => 'decimal:2',
         'grand_total' => 'decimal:2',
         'amount_paid' => 'decimal:2',
         'amount_due' => 'decimal:2',
@@ -123,39 +134,54 @@ class Sale extends Model
 
     /**
      * Realized cash-based net profit:
-     * strictly based on money received minus item purchase cost.
+     * strictly based on money received (excluding GST tax payable to government) minus item purchase cost.
      */
     public function getNetProfitAttribute(): float
     {
         $paid = (float) $this->amount_paid;
-        $cost = $this->total_cost;
-        if ($paid <= 0 || $paid <= $cost) {
+        $cost = (float) $this->total_cost;
+        if ($paid <= 0) {
             return 0.0;
         }
-        return round($paid - $cost, 2);
+
+        $grandTotal = (float) $this->grand_total;
+        $taxAmount = (float) $this->tax_amount;
+
+        // The tax portion in the collected amount belongs to the government, not shop profit
+        $collectedTax = ($grandTotal > 0 && $taxAmount > 0) ? ($paid / $grandTotal) * $taxAmount : 0.0;
+        $netPaidRevenue = $paid - $collectedTax;
+
+        return round($netPaidRevenue - $cost, 2);
     }
 
     /**
-     * Expected net profit when the invoice is fully settled.
+     * Expected net profit when the invoice is fully settled (excluding tax).
      */
     public function getExpectedNetProfitAttribute(): float
     {
         $grandTotal = (float) $this->grand_total;
-        $cost = $this->total_cost;
-        return round(max(0, $grandTotal - $cost), 2);
+        $taxAmount = (float) $this->tax_amount;
+        $cost = (float) $this->total_cost;
+        $netTotalRevenue = max(0, $grandTotal - $taxAmount);
+
+        return round($netTotalRevenue - $cost, 2);
     }
 
     /**
-     * Profit margin percentage based on collected cash.
+     * Profit margin percentage based on collected net revenue (excluding tax).
      */
     public function getProfitMarginPercentAttribute(): float
     {
-        $paid = (float) $this->amount_paid;
+        $grandTotal = (float) $this->grand_total;
+        $taxAmount = (float) $this->tax_amount;
+        $netTotalRevenue = max(0, $grandTotal - $taxAmount);
         $profit = $this->net_profit;
-        if ($paid <= 0 || $profit <= 0) {
+
+        if ($netTotalRevenue <= 0 || $profit <= 0) {
             return 0.0;
         }
-        return round(($profit / $paid) * 100, 1);
+
+        return round(($profit / $netTotalRevenue) * 100, 1);
     }
 
     protected static function booted(): void
