@@ -9,6 +9,8 @@ import '../../../core/widgets/custom_text_field.dart';
 import '../../device/data/device_repository.dart';
 import '../data/inventory_repository.dart';
 import '../models/inventory_item.dart';
+import '../../../core/utils/gst_calculator.dart';
+import '../../../core/widgets/gst_input_card.dart';
 
 class AddEditInventoryItemScreen extends StatefulWidget {
   final InventoryItem? item;
@@ -24,6 +26,11 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
   final _inventoryRepository = InventoryRepository();
   final _deviceRepo = DeviceRepository();
   final ScrollController _scrollController = ScrollController();
+
+  // GST State
+  bool _gstEnabled = false;
+  GstMode _gstMode = GstMode.exclusive;
+  double _gstRate = 18.0;
 
   late TextEditingController _nameController;
   late TextEditingController _categoryController;
@@ -185,6 +192,11 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
   void initState() {
     super.initState();
     final item = widget.item;
+    _gstRate = item?.taxRate ?? 0.0;
+    _gstMode = (item?.taxType == 'inclusive') ? GstMode.inclusive : GstMode.exclusive;
+    _gstEnabled = _gstRate > 0;
+    if (_gstRate == 0) _gstRate = 18.0;
+
     _nameController = TextEditingController(text: item?.name ?? '');
     _categoryController = TextEditingController(text: item?.category ?? (item?.itemType == 'mobile' ? 'Mobile Phone' : 'General'));
     _brandController = TextEditingController(text: item?.brand ?? '');
@@ -561,6 +573,8 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
           itemType: _itemType,
           purchasePrice: purchasePrice,
           sellingPrice: sellingPrice,
+          taxRate: _gstEnabled ? _gstRate : 0.0,
+          taxType: _gstMode == GstMode.inclusive ? 'inclusive' : 'exclusive',
           category: _categoryController.text.trim().isNotEmpty ? _categoryController.text.trim() : (_itemType == 'mobile' ? 'Mobile Phone' : null),
           brand: _brandController.text.trim(),
           model: _modelController.text.trim(),
@@ -592,6 +606,8 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
           itemType: _itemType,
           purchasePrice: purchasePrice,
           sellingPrice: sellingPrice,
+          taxRate: _gstEnabled ? _gstRate : 0.0,
+          taxType: _gstMode == GstMode.inclusive ? 'inclusive' : 'exclusive',
           category: _categoryController.text.trim().isNotEmpty ? _categoryController.text.trim() : (_itemType == 'mobile' ? 'Mobile Phone' : null),
           brand: _brandController.text.trim(),
           model: _modelController.text.trim(),
@@ -902,6 +918,7 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
                             controller: _purchasePriceController,
                             keyboardType: TextInputType.number,
                             validator: (val) => val == null || val.trim().isEmpty ? 'Cost price required' : null,
+                            onChanged: (_) => setState(() {}),
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -912,9 +929,25 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
                             controller: _sellingPriceController,
                             keyboardType: TextInputType.number,
                             validator: (val) => val == null || val.trim().isEmpty ? 'Selling price required' : null,
+                            onChanged: (_) => setState(() {}),
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 12),
+                    GstInputCard(
+                      amount: double.tryParse(_sellingPriceController.text.trim()) ?? 0.0,
+                      initialEnabled: _gstEnabled,
+                      initialMode: _gstMode,
+                      initialRate: _gstRate,
+                      title: 'Product GST Setting (Selling Price)',
+                      onChanged: (res) {
+                        setState(() {
+                          _gstEnabled = res.isEnabled;
+                          _gstMode = res.mode;
+                          _gstRate = res.rate;
+                        });
+                      },
                     ),
                   ],
                 ),

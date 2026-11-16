@@ -24,6 +24,7 @@ import '../../repair/data/repair_repository.dart';
 import '../../repair/models/repair.dart';
 import '../../purchase/data/purchase_repository.dart';
 import '../../../core/services/fcm_service.dart';
+import '../../shop/presentation/digital_visiting_card_screen.dart';
 import 'widgets/dashboard_drawer.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -63,6 +64,7 @@ class DashboardScreenState extends State<DashboardScreen> {
 
   final ReferralRepository _referralRepo = ReferralRepository();
   bool _isReferralEnabled = false;
+  bool _isOwner = true;
   double _referralPoints = 0.0;
   double _referralRechargePercent = 0.0;
   double _referralSignupPoints = 0.0;
@@ -70,11 +72,17 @@ class DashboardScreenState extends State<DashboardScreen> {
   double _referralMaxRedeemPercent = 50.0;
   String _referralRewardMode = 'signup_and_recharge';
   bool _hasCheckedFirstOpenReferral = false;
+  bool _showVisitingCardBanner = false;
 
   @override
   void initState() {
     super.initState();
+    _isOwner = ProfitVisibilityService().isOwner;
+    AuthStorage().isOwner().then((val) {
+      if (mounted && _isOwner != val) setState(() => _isOwner = val);
+    });
     _loadStoredShopInfo();
+    _checkVisitingCardBannerVisibility();
     fetchDashboard();
     _loadReferralStatus();
     NotificationRepository().pingAppOpen();
@@ -137,6 +145,44 @@ class DashboardScreenState extends State<DashboardScreen> {
       MaterialPageRoute(builder: (_) => const ReferAndEarnScreen()),
     );
     _loadReferralStatus();
+  }
+
+  Future<void> _checkVisitingCardBannerVisibility() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final now = DateTime.now();
+      final todayStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      final lastDismissedDate = prefs.getString('visiting_card_banner_dismissed_date');
+      // Show once a day unless already dismissed today
+      if (lastDismissedDate != todayStr) {
+        if (mounted) {
+          setState(() {
+            _showVisitingCardBanner = true;
+          });
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _dismissVisitingCardBanner() async {
+    setState(() {
+      _showVisitingCardBanner = false;
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final now = DateTime.now();
+      final todayStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      await prefs.setString('visiting_card_banner_dismissed_date', todayStr);
+    } catch (_) {}
+  }
+
+  Future<void> _openVisitingCardFromBanner() async {
+    // When owner explores the feature from the banner, dismiss it for the rest of today
+    _dismissVisitingCardBanner();
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const DigitalVisitingCardScreen()),
+    );
   }
 
   Future<void> _fetchUnreadNotificationCount() async {
@@ -557,6 +603,10 @@ class DashboardScreenState extends State<DashboardScreen> {
               // Period Filter Header Bar
               _buildPeriodFilterBar(),
 
+              // Compact Once-a-Day Visiting Card & Map Notice Strip
+              if (_showVisitingCardBanner)
+                _buildVisitingCardNoticeStrip(isDark),
+
               if (_isLoading)
                 AppShimmer.detailsLoading()
               else if (_errorMessage != null)
@@ -675,6 +725,130 @@ class DashboardScreenState extends State<DashboardScreen> {
   }
 
 
+
+  // Compact Once-a-Day Visiting Card & Shop Map Announcement Strip
+  Widget _buildVisitingCardNoticeStrip(bool isDark) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 8, 14, 2),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1B4B).withOpacity(0.4) : const Color(0xFFF5F3FF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? const Color(0xFF6366F1).withOpacity(0.35) : const Color(0xFFC7D2FE),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _openVisitingCardFromBanner,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: Row(
+              children: [
+                // Small gradient icon badge
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.badge_rounded, color: Colors.white, size: 16),
+                ),
+                const SizedBox(width: 9),
+
+                // Main Notice Text
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              'Free Digital Visiting Card & Map',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                color: isDark ? const Color(0xFFE0E7FF) : const Color(0xFF312E81),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF10B981),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'NEW',
+                              style: TextStyle(
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '1-Tap GPS map, UPI QR & 5 styles • Share on WhatsApp',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          color: isDark ? const Color(0xFFA5B4FC) : const Color(0xFF4338CA),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(width: 4),
+
+                // Tap arrow
+                const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 11,
+                  color: Color(0xFF6366F1),
+                ),
+                const SizedBox(width: 4),
+
+                // Close / Cross icon to dismiss
+                InkWell(
+                  onTap: _dismissVisitingCardBanner,
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.close_rounded,
+                      size: 17,
+                      color: isDark ? Colors.white54 : Colors.black45,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   // TOP USP BANNER: Profit AI Business Assistant
   Widget _buildTopProfitAiBanner() {
@@ -2242,6 +2416,13 @@ class DashboardScreenState extends State<DashboardScreen> {
           _buildActionTile('Technicians', Icons.build_circle_rounded, const Color(0xFF0EA5E9), () {
             NavUtils.pushNamed(context, AppRoutes.technicians);
           }),
+          const SizedBox(width: 8),
+          _buildActionTile('Visiting Card', Icons.qr_code_2_rounded, const Color(0xFF059669), () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const DigitalVisitingCardScreen()),
+            );
+          }),
         ],
       ),
     );
@@ -2350,6 +2531,18 @@ class DashboardScreenState extends State<DashboardScreen> {
           icon: Icons.phone_android_rounded,
           color: AppColors.textSecondary,
           onTap: () => NavUtils.pushNamed(context, AppRoutes.deviceSearch),
+        ),
+        const SizedBox(height: 10),
+        _buildModuleCard(
+          title: 'Visiting Card & Shop Location',
+          desc: 'Free Google Maps QR, UPI payment code & 1-tap WhatsApp sharing',
+          icon: Icons.qr_code_2_rounded,
+          color: const Color(0xFF059669),
+          isNew: true,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const DigitalVisitingCardScreen()),
+          ),
         ),
       ],
     );

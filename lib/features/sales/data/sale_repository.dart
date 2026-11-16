@@ -1,4 +1,4 @@
-﻿import '../../../core/constants/api_endpoints.dart';
+import '../../../core/constants/api_endpoints.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_response.dart';
 import '../models/sale.dart';
@@ -57,6 +57,12 @@ class SaleRepository {
     String? saleDate,
     double discount = 0.0,
     double taxAmount = 0.0,
+    double taxRate = 0.0,
+    String taxType = 'exclusive',
+    bool isInterState = false,
+    double cgstAmount = 0.0,
+    double sgstAmount = 0.0,
+    double igstAmount = 0.0,
     String? notes,
     required List<SaleItem> items,
     double? paymentAmount,
@@ -72,6 +78,12 @@ class SaleRepository {
       if (saleDate != null) 'sale_date': saleDate,
       'discount': discount,
       'tax_amount': taxAmount,
+      'tax_rate': taxRate,
+      'tax_type': taxType,
+      'is_inter_state': isInterState,
+      'cgst_amount': cgstAmount,
+      'sgst_amount': sgstAmount,
+      'igst_amount': igstAmount,
       if (notes != null && notes.isNotEmpty) 'notes': notes,
       'items': items.map((i) => i.toJson()).toList(),
       if (paymentAmount != null) 'payment_amount': paymentAmount,

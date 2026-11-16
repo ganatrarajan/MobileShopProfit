@@ -5,10 +5,12 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/utils/date_helper.dart';
+import '../../../../core/utils/gst_calculator.dart';
 import '../../../../core/widgets/app_searchable_bottom_sheet.dart';
 import '../../../../core/widgets/barcode_scanner_screen.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/custom_text_field.dart';
+import '../../../../core/widgets/gst_input_card.dart';
 import '../../device/data/device_repository.dart';
 import '../data/used_mobile_repository.dart';
 import '../models/used_mobile.dart';
@@ -70,6 +72,36 @@ class _BuyUsedMobileScreenState extends State<BuyUsedMobileScreen> {
   String _paymentMode = 'Cash';
   DateTime _purchaseDate = DateTime.now();
   late final TextEditingController _purchaseNotesController;
+
+  // Optional GST / Tax
+  bool _gstEnabled = false;
+  GstMode _gstMode = GstMode.inclusive;
+  double _gstRate = 18.0;
+  bool _gstIsInterState = false;
+  GstCalculationResult? _gstResult;
+
+  double get _purchasePrice {
+    final text = _purchasePriceController.text.trim();
+    return double.tryParse(text) ?? 0.0;
+  }
+
+  GstCalculationResult get _currentPurchaseGst {
+    if (!_gstEnabled || _purchasePrice <= 0) {
+      return GstCalculationResult.disabled(amount: _purchasePrice);
+    }
+    return _gstResult ??
+        GstCalculator.calculate(
+          amount: _purchasePrice,
+          rate: _gstRate,
+          mode: _gstMode,
+          isInterState: _gstIsInterState,
+          isEnabled: _gstEnabled,
+        );
+  }
+
+  double get _finalPurchasePayable => _gstEnabled && _gstMode == GstMode.exclusive
+      ? _currentPurchaseGst.totalPayable
+      : _purchasePrice;
 
   bool _isLoading = false;
   bool _isScanning = false;
@@ -215,6 +247,13 @@ class _BuyUsedMobileScreenState extends State<BuyUsedMobileScreen> {
     _paymentMode = m?.paymentMode ?? 'Cash';
     _purchaseDate = m?.purchaseDate ?? DateTime.now();
     _purchaseNotesController = TextEditingController(text: m?.purchaseNotes ?? '');
+
+    if (m != null) {
+      _gstEnabled = m.hasPurchaseTax;
+      _gstRate = m.purchaseTaxRate > 0 ? m.purchaseTaxRate : 18.0;
+      _gstMode = m.purchaseTaxType == 'exclusive' ? GstMode.exclusive : GstMode.inclusive;
+      _gstIsInterState = m.purchaseIsInterState;
+    }
 
     _fetchBrandsCatalog();
     if (_brandController.text.trim().isNotEmpty) {
@@ -637,6 +676,15 @@ class _BuyUsedMobileScreenState extends State<BuyUsedMobileScreen> {
       'purchase_date': _purchaseDate.toIso8601String().split('T').first,
       if (_purchaseNotesController.text.trim().isNotEmpty)
         'purchase_notes': _purchaseNotesController.text.trim(),
+
+      // Optional Purchase GST
+      'purchase_tax_rate': _gstEnabled ? _currentPurchaseGst.rate : 0.0,
+      'purchase_tax_type': _gstEnabled ? (_gstMode == GstMode.exclusive ? 'exclusive' : 'inclusive') : 'inclusive',
+      'purchase_tax_amount': _gstEnabled ? _currentPurchaseGst.taxAmount : 0.0,
+      'purchase_cgst_amount': _gstEnabled ? _currentPurchaseGst.cgstAmount : 0.0,
+      'purchase_sgst_amount': _gstEnabled ? _currentPurchaseGst.sgstAmount : 0.0,
+      'purchase_igst_amount': _gstEnabled ? _currentPurchaseGst.igstAmount : 0.0,
+      'purchase_is_inter_state': _gstEnabled && _gstIsInterState,
     };
 
     if (_isEdit) {
@@ -1141,6 +1189,7 @@ class _BuyUsedMobileScreenState extends State<BuyUsedMobileScreen> {
                       hint: 'Amount paid to customer',
                       prefixIcon: Icons.currency_rupee_rounded,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      onChanged: (_) => setState(() {}),
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) return 'Enter purchase price';
                         final n = double.tryParse(v.trim());
@@ -1148,6 +1197,125 @@ class _BuyUsedMobileScreenState extends State<BuyUsedMobileScreen> {
                         return null;
                       },
                     ),
+                    const SizedBox(height: 12),
+
+                    // Optional GST Input Card (Defaults to OFF)
+                    GstInputCard(
+                      amount: double.tryParse(_purchasePriceController.text.trim()) ?? 0.0,
+                      initialEnabled: _gstEnabled,
+                      initialMode: _gstMode,
+                      initialRate: _gstRate,
+                      initialInterState: _gstIsInterState,
+                      title: 'Apply GST / Tax (Optional)',
+                      onChanged: (result) {
+                        setState(() {
+                          _gstResult = result;
+                          _gstEnabled = result.isEnabled;
+                          _gstMode = result.mode;
+                          _gstRate = result.rate;
+                          _gstIsInterState = result.isInterState;
+                        });
+                      },
+                    ),
+
+                    // Final Amount Paid to Seller Summary Card
+                    if (_purchasePrice > 0 && _gstEnabled) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: AppColors.primary.withOpacity(0.5),
+                            width: 1.2,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (_currentPurchaseGst.taxAmount > 0) ...[
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    _gstMode == GstMode.exclusive ? 'Base Price (before tax):' : 'Gross Price:',
+                                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+                                  ),
+                                  Text(
+                                    '₹${(_gstMode == GstMode.inclusive ? _currentPurchaseGst.taxableAmount : _purchasePrice).toStringAsFixed(2)}',
+                                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    _gstMode == GstMode.exclusive
+                                        ? 'GST Input Added (+${_currentPurchaseGst.rate.toStringAsFixed(0)}%):'
+                                        : 'GST Included (${_currentPurchaseGst.rate.toStringAsFixed(0)}%):',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: _gstMode == GstMode.exclusive ? AppColors.primary : Colors.teal.shade800,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${_gstMode == GstMode.exclusive ? "+" : ""}₹${_currentPurchaseGst.taxAmount.toStringAsFixed(2)}',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: _gstMode == GstMode.exclusive ? AppColors.primary : Colors.teal.shade800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _gstIsInterState
+                                    ? '  • IGST: ₹${_currentPurchaseGst.igstAmount.toStringAsFixed(2)}'
+                                    : '  • CGST: ₹${_currentPurchaseGst.cgstAmount.toStringAsFixed(2)} | SGST: ₹${_currentPurchaseGst.sgstAmount.toStringAsFixed(2)}',
+                                style: const TextStyle(fontSize: 10.5, color: AppColors.textMuted),
+                              ),
+                              const Divider(height: 14),
+                            ],
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'TOTAL PAID TO SELLER',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800,
+                                        color: AppColors.textPrimary,
+                                        letterSpacing: 0.3,
+                                      ),
+                                    ),
+                                    Text(
+                                      _gstMode == GstMode.exclusive ? 'Base + GST Tax Total' : 'Price Includes GST',
+                                      style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                                    ),
+                                  ],
+                                ),
+                                Text(
+                                  '₹${_finalPurchasePayable.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 12),
 
                     Row(
@@ -1248,7 +1416,11 @@ class _BuyUsedMobileScreenState extends State<BuyUsedMobileScreen> {
               CustomButton(
                 text: _isLoading
                     ? 'Saving...'
-                    : (_isEdit ? 'Update Used Mobile' : 'Confirm Purchase & Add to Stock'),
+                    : (_isEdit
+                        ? 'Update Used Mobile'
+                        : (_purchasePrice > 0
+                            ? 'Confirm Purchase & Add (₹${_finalPurchasePayable.toStringAsFixed(0)})'
+                            : 'Confirm Purchase & Add to Stock')),
                 icon: _isEdit ? Icons.save_rounded : Icons.add_shopping_cart_rounded,
                 isLoading: _isLoading,
                 backgroundColor: AppColors.primary,

@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_feedback.dart';
@@ -13,6 +14,8 @@ import '../../warranty/data/warranty_repository.dart';
 import '../../../core/utils/whatsapp_helper.dart';
 import '../models/sale.dart';
 import '../../subscription/utils/subscription_guard.dart';
+import '../../../core/utils/gst_calculator.dart';
+import '../../../core/widgets/gst_input_card.dart';
 
 class QuickSaleScreen extends StatefulWidget {
   final VoidCallback? onSuccess;
@@ -27,6 +30,13 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
   final SaleRepository _saleRepository = SaleRepository();
   final WarrantyRepository _warrantyRepository = WarrantyRepository();
   final InventoryRepository _inventoryRepository = InventoryRepository();
+
+  // GST State
+  bool _gstEnabled = false;
+  GstMode _gstMode = GstMode.exclusive;
+  double _gstRate = 18.0;
+  bool _isInterState = false;
+  GstCalculationResult? _gstResult;
 
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _customerNameController = TextEditingController();
@@ -98,8 +108,16 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
   }
 
   double get _total {
-    final t = _subtotal - _totalDiscount;
-    return t < 0 ? 0.0 : t;
+    final base = _subtotal - _totalDiscount;
+    if (_gstEnabled && _gstResult != null) {
+      if (_gstMode == GstMode.inclusive) {
+        return base < 0 ? 0.0 : base;
+      } else {
+        final withTax = base + _gstResult!.taxAmount;
+        return withTax < 0 ? 0.0 : withTax;
+      }
+    }
+    return base < 0 ? 0.0 : base;
   }
 
   bool _isProcessingScan = false;
@@ -264,6 +282,18 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
           return;
         }
 
+        final itemTaxRate = matchedItem.taxRate;
+        final itemTaxType = matchedItem.taxType;
+        final itemGst = itemTaxRate > 0
+            ? GstCalculator.calculate(
+                amount: matchedItem.sellingPrice,
+                rate: itemTaxRate,
+                mode: itemTaxType == 'inclusive' ? GstMode.inclusive : GstMode.exclusive,
+                isInterState: _isInterState,
+                isEnabled: true,
+              )
+            : null;
+
         final saleItem = SaleItem(
           inventoryItemId: matchedItem.id,
           productName: matchedItem.name,
@@ -276,11 +306,22 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
           quantity: 1,
           unitPrice: matchedItem.sellingPrice,
           costPrice: matchedItem.purchasePrice > 0 ? matchedItem.purchasePrice : null,
+          taxRate: itemTaxRate,
+          taxType: itemTaxType,
+          taxAmount: itemGst?.taxAmount ?? 0.0,
+          cgstAmount: itemGst?.cgstAmount ?? 0.0,
+          sgstAmount: itemGst?.sgstAmount ?? 0.0,
+          igstAmount: itemGst?.igstAmount ?? 0.0,
         );
 
         if (mounted) {
           setState(() {
             _items.add(saleItem);
+            if (itemTaxRate > 0 && !_gstEnabled) {
+              _gstEnabled = true;
+              _gstRate = itemTaxRate;
+              _gstMode = itemTaxType == 'inclusive' ? GstMode.inclusive : GstMode.exclusive;
+            }
           });
           final idLabel = matchedImei1 != null ? " (IMEI: $matchedImei1)" : (matchedSerial != null ? " (S/N: $matchedSerial)" : "");
           AppFeedback.showSuccess(
@@ -1131,6 +1172,18 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
                                 return;
                               }
 
+                              final itemTaxRate = selectedInvItem!.taxRate;
+                              final itemTaxType = selectedInvItem!.taxType;
+                              final itemGst = itemTaxRate > 0
+                                  ? GstCalculator.calculate(
+                                      amount: price * qty,
+                                      rate: itemTaxRate,
+                                      mode: itemTaxType == 'inclusive' ? GstMode.inclusive : GstMode.exclusive,
+                                      isInterState: _isInterState,
+                                      isEnabled: true,
+                                    )
+                                  : null;
+
                               setState(() {
                                 _items.add(
                                   SaleItem(
@@ -1143,8 +1196,19 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
                                     unitPrice: price,
                                     costPrice: selectedInvItem!.purchasePrice,
                                     discount: 0.0,
+                                    taxRate: itemTaxRate,
+                                    taxType: itemTaxType,
+                                    taxAmount: itemGst?.taxAmount ?? 0.0,
+                                    cgstAmount: itemGst?.cgstAmount ?? 0.0,
+                                    sgstAmount: itemGst?.sgstAmount ?? 0.0,
+                                    igstAmount: itemGst?.igstAmount ?? 0.0,
                                   ),
                                 );
+                                if (itemTaxRate > 0 && !_gstEnabled) {
+                                  _gstEnabled = true;
+                                  _gstRate = itemTaxRate;
+                                  _gstMode = itemTaxType == 'inclusive' ? GstMode.inclusive : GstMode.exclusive;
+                                }
                               });
                             } else {
                               final name = nameCtrl.text.trim();
@@ -1214,6 +1278,17 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
     });
 
     try {
+      final discount = double.tryParse(_discountController.text.trim()) ?? 0.0;
+      final effectiveGst = _gstEnabled
+          ? GstCalculator.calculate(
+              amount: max(0, _subtotal - discount),
+              rate: _gstRate,
+              mode: _gstMode,
+              isInterState: _isInterState,
+              isEnabled: true,
+            )
+          : null;
+
       final res = await _saleRepository.createSale(
         saleType: 'quick',
         customerId: null,
@@ -1221,7 +1296,14 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
         customerMobile: _customerMobileController.text.trim(),
         notes: _notesController.text.trim(),
         items: _items,
-        discount: double.tryParse(_discountController.text.trim()) ?? 0.0,
+        discount: discount,
+        taxAmount: effectiveGst?.taxAmount ?? 0.0,
+        taxRate: _gstEnabled ? _gstRate : 0.0,
+        taxType: _gstMode == GstMode.inclusive ? 'inclusive' : 'exclusive',
+        isInterState: _isInterState,
+        cgstAmount: effectiveGst?.cgstAmount ?? 0.0,
+        sgstAmount: effectiveGst?.sgstAmount ?? 0.0,
+        igstAmount: effectiveGst?.igstAmount ?? 0.0,
         paymentAmount: _total,
         paymentMethod: _paymentMethod,
       );
@@ -1477,10 +1559,17 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                     const SizedBox(height: 2),
-                                    Text(
-                                      '${item.quantity} x \u20B9${item.unitPrice.toStringAsFixed(2)}${isInv ? " (Inventory Stock)" : " (Custom Item)"}',
-                                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                                    ),
+                                     Text(
+                                       '${item.quantity} x \u{20B9}${item.unitPrice.toStringAsFixed(2)}${isInv ? " (Inventory Stock)" : " (Custom Item)"}',
+                                       style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                                     ),
+                                     if (item.taxRate > 0) ...[
+                                       const SizedBox(height: 2),
+                                       Text(
+                                         'GST: ${item.taxRate.toStringAsFixed(item.taxRate % 1 == 0 ? 0 : 1)}% (${item.taxType == 'inclusive' ? 'Incl.' : 'Excl.'})',
+                                         style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.bold),
+                                       ),
+                                     ],
                                   ],
                                 ),
                               ),
@@ -1635,7 +1724,45 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
             ),
             const SizedBox(height: 14),
 
-            // 5. Total Breakdown & Action Button
+            // 5. GST & Tax Card
+            CustomCard(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Discount & GST Settings', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  CustomTextField(
+                    label: 'Sale Discount (₹)',
+                    hint: '0',
+                    controller: _discountController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 12),
+                  GstInputCard(
+                    amount: max(0, _subtotal - _totalDiscount),
+                    initialEnabled: _gstEnabled,
+                    initialMode: _gstMode,
+                    initialRate: _gstRate,
+                    initialInterState: _isInterState,
+                    title: 'Apply GST / Tax',
+                    onChanged: (res) {
+                      setState(() {
+                        _gstEnabled = res.isEnabled;
+                        _gstMode = res.mode;
+                        _gstRate = res.rate;
+                        _isInterState = res.isInterState;
+                        _gstResult = res;
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // 6. Total Breakdown & Action Button
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -1651,15 +1778,63 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text('Subtotal:', style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
-                      Text('\u20B9${_subtotal.toStringAsFixed(2)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                      Text('₹${_subtotal.toStringAsFixed(2)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  if (_totalDiscount > 0) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Discount:', style: TextStyle(fontSize: 13, color: Colors.green)),
+                        Text('- ₹${_totalDiscount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.green)),
+                      ],
+                    ),
+                  ],
+                  if (_gstEnabled && _gstResult != null) ...[
+                    const SizedBox(height: 6),
+                    if (_isInterState) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('IGST (${_gstResult!.rate.toStringAsFixed(1)}%):', style: const TextStyle(fontSize: 13, color: Colors.purple)),
+                          Text('+ ₹${_gstResult!.igstAmount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.purple)),
+                        ],
+                      ),
+                    ] else ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('CGST (${(_gstResult!.rate / 2).toStringAsFixed(1)}%):', style: const TextStyle(fontSize: 13, color: Colors.teal)),
+                          Text('+ ₹${_gstResult!.cgstAmount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.teal)),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('SGST (${(_gstResult!.rate / 2).toStringAsFixed(1)}%):', style: const TextStyle(fontSize: 13, color: Colors.teal)),
+                          Text('+ ₹${_gstResult!.sgstAmount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.teal)),
+                        ],
+                      ),
+                    ],
+                    if (_gstMode == GstMode.inclusive) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Tax Status:', style: TextStyle(fontSize: 11, color: Colors.grey, fontStyle: FontStyle.italic)),
+                          Text('Included in price (Base: ₹${_gstResult!.taxableAmount.toStringAsFixed(2)})', style: const TextStyle(fontSize: 11, color: Colors.grey, fontStyle: FontStyle.italic)),
+                        ],
+                      ),
+                    ],
+                  ],
+                  const Divider(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text('Total Amount:', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                      Text('\u20B9${_total.toStringAsFixed(2)}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                      Text('₹${_total.toStringAsFixed(2)}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.primary)),
                     ],
                   ),
                   const SizedBox(height: 14),

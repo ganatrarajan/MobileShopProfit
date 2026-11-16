@@ -2,6 +2,7 @@ import '../../../core/widgets/app_shimmer.dart';
 import 'repair_invoice_pdf_screen.dart';
 import 'package:flutter/material.dart';
 import '../../../core/services/profit_visibility_service.dart';
+import '../../../core/storage/auth_storage.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_feedback.dart';
@@ -45,6 +46,7 @@ class RepairListScreenState extends State<RepairListScreen> {
   double _totalPartsCost = 0.0;
   double _totalTechCost = 0.0;
   double _totalNetProfit = 0.0;
+  bool _isOwner = true;
 
   final Map<String, String> _statusLabels = {
     'all': 'All Repairs',
@@ -85,6 +87,10 @@ class RepairListScreenState extends State<RepairListScreen> {
   @override
   void initState() {
     super.initState();
+    _isOwner = ProfitVisibilityService().isOwner;
+    AuthStorage().isOwner().then((val) {
+      if (mounted && _isOwner != val) setState(() => _isOwner = val);
+    });
   }
 
   @override
@@ -456,38 +462,40 @@ class RepairListScreenState extends State<RepairListScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
-              // Row 2: Ultra-compact Net Profit & Cost breakdown strip
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(6),
+              if (_isOwner) ...[
+                const SizedBox(height: 6),
+                // Row 2: Ultra-compact Net Profit & Cost breakdown strip
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.currency_rupee_rounded, size: 12, color: Colors.greenAccent),
+                          Text('Net Profit: ', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 10)),
+                          ProfitText(
+                            amount: _totalNetProfit,
+                            prefix: '₹',
+                            showSign: true,
+                            decimals: 0,
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                      const Text('|', style: TextStyle(color: Colors.white24, fontSize: 11)),
+                      Text('Parts: \u20B9${_totalPartsCost.toStringAsFixed(0)}', style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 10.5, fontWeight: FontWeight.bold)),
+                      const Text('|', style: TextStyle(color: Colors.white24, fontSize: 11)),
+                      Text('Tech: \u20B9${_totalTechCost.toStringAsFixed(0)}', style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 10.5, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.currency_rupee_rounded, size: 12, color: Colors.greenAccent),
-                        Text('Net Profit: ', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 10)),
-                        ProfitText(
-                          amount: _totalNetProfit,
-                          prefix: '₹',
-                          showSign: true,
-                          decimals: 0,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                    const Text('|', style: TextStyle(color: Colors.white24, fontSize: 11)),
-                    Text('Parts: \u20B9${_totalPartsCost.toStringAsFixed(0)}', style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 10.5, fontWeight: FontWeight.bold)),
-                    const Text('|', style: TextStyle(color: Colors.white24, fontSize: 11)),
-                    Text('Tech: \u20B9${_totalTechCost.toStringAsFixed(0)}', style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 10.5, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ),
+              ],
               const SizedBox(height: 6),
               // Row 3: Compact Search & 2 Dropdowns (Status + Date)
               Row(
@@ -1049,103 +1057,105 @@ class RepairListScreenState extends State<RepairListScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 5),
-          Divider(
-            height: 1,
-            thickness: 0.6,
-            color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-          ),
-          const SizedBox(height: 5),
-          // Line 2: Parts, Tech, and Realized Net Profit
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: SizedBox(
-              width: MediaQuery.of(context).size.width - 56,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.inventory_2_outlined, size: 12, color: textMutedColor),
-                      const SizedBox(width: 2),
-                      Text(
-                        'Parts: ',
-                        style: TextStyle(fontSize: 11, color: textMutedColor),
-                      ),
-                      Text(
-                        '\u20B9${partsCost.toStringAsFixed(0)}',
-                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: textColor),
-                      ),
-                      const SizedBox(width: 8),
-                      Icon(Icons.engineering_outlined, size: 12, color: textMutedColor),
-                      const SizedBox(width: 2),
-                      Text(
-                        'Tech: ',
-                        style: TextStyle(fontSize: 11, color: textMutedColor),
-                      ),
-                      Text(
-                        '\u20B9${techCost.toStringAsFixed(0)}',
-                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: textColor),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Profit: ',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.bold,
-                          color: isUnpaid ? AppColors.textMuted : const Color(0xFF047857),
+          if (_isOwner) ...[
+            const SizedBox(height: 5),
+            Divider(
+              height: 1,
+              thickness: 0.6,
+              color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+            ),
+            const SizedBox(height: 5),
+            // Line 2: Parts, Tech, and Realized Net Profit
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: SizedBox(
+                width: MediaQuery.of(context).size.width - 56,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.inventory_2_outlined, size: 12, color: textMutedColor),
+                        const SizedBox(width: 2),
+                        Text(
+                          'Parts: ',
+                          style: TextStyle(fontSize: 11, color: textMutedColor),
                         ),
-                      ),
-                      isUnpaid
-                          ? const Text(
-                              '\u20B90',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w900,
-                                color: AppColors.textSecondary,
-                              ),
-                            )
-                          : ProfitText(
-                              amount: realizedProfit,
-                              prefix: '₹',
-                              showSign: true,
-                              decimals: 0,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFF047857),
-                              ),
-                            ),
-                      if (!isUnpaid && margin > 0) ...[
-                        const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF059669),
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: Text(
-                            '${margin.toStringAsFixed(0)}%',
-                            style: const TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                            ),
-                          ),
+                        Text(
+                          '\u20B9${partsCost.toStringAsFixed(0)}',
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: textColor),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(Icons.engineering_outlined, size: 12, color: textMutedColor),
+                        const SizedBox(width: 2),
+                        Text(
+                          'Tech: ',
+                          style: TextStyle(fontSize: 11, color: textMutedColor),
+                        ),
+                        Text(
+                          '\u20B9${techCost.toStringAsFixed(0)}',
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: textColor),
                         ),
                       ],
-                    ],
-                  ),
-                ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Profit: ',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                            color: isUnpaid ? AppColors.textMuted : const Color(0xFF047857),
+                          ),
+                        ),
+                        isUnpaid
+                            ? const Text(
+                                '\u20B90',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w900,
+                                  color: AppColors.textSecondary,
+                                ),
+                              )
+                            : ProfitText(
+                                amount: realizedProfit,
+                                prefix: '₹',
+                                showSign: true,
+                                decimals: 0,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF047857),
+                                ),
+                              ),
+                        if (!isUnpaid && margin > 0) ...[
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF059669),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: Text(
+                              '${margin.toStringAsFixed(0)}%',
+                              style: const TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );

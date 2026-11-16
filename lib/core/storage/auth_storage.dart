@@ -15,6 +15,8 @@ class AuthStorage {
     return role == null || role.isEmpty || role == 'owner' || role == 'admin' || role == 'super_admin';
   }
 
+  static bool get isOwnerSync => isOwnerUser(_cachedUser);
+
   static bool hasModulePermission(Map<String, dynamic>? user, String module) {
     if (user == null) return true;
     if (isOwnerUser(user)) return true;

@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_error_mapper.dart';
@@ -21,6 +22,8 @@ import '../../inventory/presentation/widgets/quick_add_inventory_modal.dart';
 import '../../../core/widgets/barcode_scanner_screen.dart';
 import '../../used_mobile/data/used_mobile_repository.dart';
 import '../../used_mobile/models/used_mobile.dart';
+import '../../../core/utils/gst_calculator.dart';
+import '../../../core/widgets/gst_input_card.dart';
 
 class CreateSaleScreen extends StatefulWidget {
   const CreateSaleScreen({super.key});
@@ -31,13 +34,20 @@ class CreateSaleScreen extends StatefulWidget {
 
 class _CreateSaleScreenState extends State<CreateSaleScreen> {
   final _formKey = GlobalKey<FormState>();
-    final _saleRepository = SaleRepository();
+  final _saleRepository = SaleRepository();
   final _warrantyRepository = WarrantyRepository();
   bool _addWarrantyOnCreate = false;
   int _selectedWarrantyDays = 180;
   final _warrantyTermsController = TextEditingController();
   final _customerRepository = CustomerRepository();
   final _deviceRepository = DeviceRepository();
+
+  // GST State
+  bool _gstEnabled = false;
+  GstMode _gstMode = GstMode.exclusive;
+  double _gstRate = 18.0;
+  bool _isInterState = false;
+  GstCalculationResult? _gstResult;
 
   final ScrollController _scrollController = ScrollController();
   final _discountController = TextEditingController(text: '0');
@@ -168,6 +178,10 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
   }
 
   double get _grandTotal {
+    if (_gstEnabled && _gstMode == GstMode.inclusive) {
+      final total = _subtotal - _totalDiscount;
+      return total < 0 ? 0.0 : total;
+    }
     final total = _subtotal - _totalDiscount + _totalTax;
     return total < 0 ? 0.0 : total;
   }
@@ -677,6 +691,18 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
           return;
         }
 
+        final itemTaxRate = matchedItem.taxRate;
+        final itemTaxType = matchedItem.taxType;
+        final itemGst = itemTaxRate > 0
+            ? GstCalculator.calculate(
+                amount: matchedItem.sellingPrice,
+                rate: itemTaxRate,
+                mode: itemTaxType == 'inclusive' ? GstMode.inclusive : GstMode.exclusive,
+                isInterState: _isInterState,
+                isEnabled: true,
+              )
+            : null;
+
         final saleItem = SaleItem(
           inventoryItemId: matchedItem.id,
           productName: matchedItem.name,
@@ -689,11 +715,22 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
           quantity: 1,
           unitPrice: matchedItem.sellingPrice,
           costPrice: matchedItem.purchasePrice > 0 ? matchedItem.purchasePrice : null,
+          taxRate: itemTaxRate,
+          taxType: itemTaxType,
+          taxAmount: itemGst?.taxAmount ?? 0.0,
+          cgstAmount: itemGst?.cgstAmount ?? 0.0,
+          sgstAmount: itemGst?.sgstAmount ?? 0.0,
+          igstAmount: itemGst?.igstAmount ?? 0.0,
         );
 
         if (mounted) {
           setState(() {
             _items.add(saleItem);
+            if (itemTaxRate > 0 && !_gstEnabled) {
+              _gstEnabled = true;
+              _gstRate = itemTaxRate;
+              _gstMode = itemTaxType == 'inclusive' ? GstMode.inclusive : GstMode.exclusive;
+            }
             _paymentAmountController.text = _grandTotal.toStringAsFixed(2);
           });
           final idLabel = matchedImei1 != null ? " (IMEI: $matchedImei1)" : (matchedSerial != null ? " (S/N: $matchedSerial)" : "");
@@ -1684,6 +1721,18 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                               }
                             }
 
+                            final itemTaxRate = (saleMode == 'inventory' && selectedInvItem != null) ? selectedInvItem!.taxRate : 0.0;
+                            final itemTaxType = (saleMode == 'inventory' && selectedInvItem != null) ? selectedInvItem!.taxType : 'exclusive';
+                            final itemGst = itemTaxRate > 0
+                                ? GstCalculator.calculate(
+                                    amount: (price * qty) - disc,
+                                    rate: itemTaxRate,
+                                    mode: itemTaxType == 'inclusive' ? GstMode.inclusive : GstMode.exclusive,
+                                    isInterState: _isInterState,
+                                    isEnabled: true,
+                                  )
+                                : null;
+
                             final newItem = SaleItem(
                               inventoryItemId: saleMode == 'inventory' ? selectedInvItem?.id : null,
                               productName: name,
@@ -1694,10 +1743,21 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                               unitPrice: price,
                               costPrice: saleMode == 'inventory' ? selectedInvItem?.purchasePrice : null,
                               discount: disc,
+                              taxRate: itemTaxRate,
+                              taxType: itemTaxType,
+                              taxAmount: itemGst?.taxAmount ?? 0.0,
+                              cgstAmount: itemGst?.cgstAmount ?? 0.0,
+                              sgstAmount: itemGst?.sgstAmount ?? 0.0,
+                              igstAmount: itemGst?.igstAmount ?? 0.0,
                             );
 
                             setState(() {
                               _items.add(newItem);
+                              if (itemTaxRate > 0 && !_gstEnabled) {
+                                _gstEnabled = true;
+                                _gstRate = itemTaxRate;
+                                _gstMode = itemTaxType == 'inclusive' ? GstMode.inclusive : GstMode.exclusive;
+                              }
                               _paymentAmountController.text = _grandTotal.toStringAsFixed(2);
                             });
 
@@ -1742,14 +1802,29 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
 
     try {
       final discount = double.tryParse(_discountController.text.trim()) ?? 0.0;
-      final tax = double.tryParse(_taxController.text.trim()) ?? 0.0;
       final initialPayment = double.tryParse(_paymentAmountController.text.trim()) ?? 0.0;
+
+      final effectiveGst = _gstEnabled
+          ? GstCalculator.calculate(
+              amount: max(0, _subtotal - discount),
+              rate: _gstRate,
+              mode: _gstMode,
+              isInterState: _isInterState,
+              isEnabled: true,
+            )
+          : null;
 
       final response = await _saleRepository.createSale(
         customerId: _selectedCustomer?.id,
         deviceId: _selectedDevice?.id,
         discount: discount,
-        taxAmount: tax,
+        taxAmount: effectiveGst?.taxAmount ?? 0.0,
+        taxRate: _gstEnabled ? _gstRate : 0.0,
+        taxType: _gstMode == GstMode.inclusive ? 'inclusive' : 'exclusive',
+        isInterState: _isInterState,
+        cgstAmount: effectiveGst?.cgstAmount ?? 0.0,
+        sgstAmount: effectiveGst?.sgstAmount ?? 0.0,
+        igstAmount: effectiveGst?.igstAmount ?? 0.0,
         notes: _notesController.text.trim(),
         items: _items,
         paymentAmount: initialPayment,
@@ -2102,6 +2177,13 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                                     '${item.quantity} x ₹${item.unitPrice.toStringAsFixed(2)} ${item.discount > 0 ? "(-₹${item.discount.toStringAsFixed(2)})" : ""}',
                                     style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                                   ),
+                                  if (item.taxRate > 0) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'GST: ${item.taxRate.toStringAsFixed(item.taxRate % 1 == 0 ? 0 : 1)}% (${item.taxType == 'inclusive' ? 'Incl.' : 'Excl.'})',
+                                      style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
@@ -2138,38 +2220,38 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Overall Discount & Tax', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                    const Text('Discount & GST Settings', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: CustomTextField(
-                            label: 'Overall Discount (₹)',
-                            hint: '0',
-                            controller: _discountController,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            onChanged: (_) {
-                              setState(() {
-                                _paymentAmountController.text = _grandTotal.toStringAsFixed(2);
-                              });
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: CustomTextField(
-                            label: 'Tax / GST Amount (₹)',
-                            hint: '0',
-                            controller: _taxController,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            onChanged: (_) {
-                              setState(() {
-                                _paymentAmountController.text = _grandTotal.toStringAsFixed(2);
-                              });
-                            },
-                          ),
-                        ),
-                      ],
+                    CustomTextField(
+                      label: 'Overall Discount (₹)',
+                      hint: '0',
+                      controller: _discountController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      onChanged: (_) {
+                        setState(() {
+                          _paymentAmountController.text = _grandTotal.toStringAsFixed(2);
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    GstInputCard(
+                      amount: max(0, _subtotal - _totalDiscount),
+                      initialEnabled: _gstEnabled,
+                      initialMode: _gstMode,
+                      initialRate: _gstRate,
+                      initialInterState: _isInterState,
+                      title: 'Apply GST / Tax',
+                      onChanged: (res) {
+                        setState(() {
+                          _gstEnabled = res.isEnabled;
+                          _gstMode = res.mode;
+                          _gstRate = res.rate;
+                          _isInterState = res.isInterState;
+                          _gstResult = res;
+                          _taxController.text = res.taxAmount.toStringAsFixed(2);
+                          _paymentAmountController.text = _grandTotal.toStringAsFixed(2);
+                        });
+                      },
                     ),
                   ],
                 ),
@@ -2199,7 +2281,44 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                         ],
                       ),
                     ],
-                    if (_totalTax > 0) ...[
+                    if (_gstEnabled && _gstResult != null) ...[
+                      const SizedBox(height: 6),
+                      if (_isInterState) ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('IGST (${_gstResult!.rate.toStringAsFixed(1)}%):', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                            Text('+ ₹ ${_gstResult!.igstAmount.toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ] else ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('CGST (${(_gstResult!.rate / 2).toStringAsFixed(1)}%):', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                            Text('+ ₹ ${_gstResult!.cgstAmount.toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('SGST (${(_gstResult!.rate / 2).toStringAsFixed(1)}%):', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                            Text('+ ₹ ${_gstResult!.sgstAmount.toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ],
+                      if (_gstMode == GstMode.inclusive) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Tax Status:', style: TextStyle(color: Colors.white70, fontSize: 12, fontStyle: FontStyle.italic)),
+                            Text('Included in price (Base: ₹${_gstResult!.taxableAmount.toStringAsFixed(2)})', style: const TextStyle(color: Colors.white70, fontSize: 12, fontStyle: FontStyle.italic)),
+                          ],
+                        ),
+                      ],
+                    ] else if (_totalTax > 0) ...[
                       const SizedBox(height: 6),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,

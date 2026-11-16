@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../../core/services/profit_visibility_service.dart';
+import '../../../../core/storage/auth_storage.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/utils/date_helper.dart';
@@ -42,6 +43,7 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
   // Date Filtering state (defaults to 'this_month' matching other modules)
   String _datePreset = 'this_month';
   DateTimeRange? _customDateRange;
+  bool _isOwner = true;
 
   void applyDateFilter(String period, DateTimeRange? customRange) {
     if (_datePreset != period || _customDateRange != customRange) {
@@ -223,6 +225,10 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
   @override
   void initState() {
     super.initState();
+    _isOwner = ProfitVisibilityService().isOwner;
+    AuthStorage().isOwner().then((val) {
+      if (mounted) setState(() => _isOwner = val);
+    });
   }
 
   @override
@@ -738,7 +744,9 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
                   child: _buildMetricCard(
                     title: 'In Stock Devices',
                     value: '${_stats.inStockCount} Units',
-                    subtitle: 'Invested: ₹${_stats.inStockInvestment.toStringAsFixed(0)}',
+                    subtitle: _isOwner
+                        ? 'Invested: ₹${_stats.inStockInvestment.toStringAsFixed(0)}'
+                        : 'Active Inventory',
                     icon: Icons.inventory_2_rounded,
                     color: AppColors.primary,
                     isDark: isDark,
@@ -746,51 +754,62 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: ValueListenableBuilder<bool>(
-                    valueListenable: ProfitVisibilityService().isHiddenNotifier,
-                    builder: (context, isHidden, _) {
-                      return _buildMetricCard(
-                        title: 'Net Profit',
-                        value: isHidden ? '₹••••' : '₹${_stats.totalProfitEarned.toStringAsFixed(0)}',
-                        subtitle: isHidden
-                            ? periodTag
-                            : '$periodTag | ${_stats.profitMarginPercentage.toStringAsFixed(1)}% ROI',
-                        icon: Icons.trending_up_rounded,
-                        color: AppColors.accent,
-                        isDark: isDark,
-                        isHighlight: true,
-                      );
-                    },
-                  ),
+                  child: _isOwner
+                      ? ValueListenableBuilder<bool>(
+                          valueListenable: ProfitVisibilityService().isHiddenNotifier,
+                          builder: (context, isHidden, _) {
+                            return _buildMetricCard(
+                              title: 'Net Profit',
+                              value: isHidden ? '₹••••' : '₹${_stats.totalProfitEarned.toStringAsFixed(0)}',
+                              subtitle: isHidden
+                                  ? periodTag
+                                  : '$periodTag | ${_stats.profitMarginPercentage.toStringAsFixed(1)}% ROI',
+                              icon: Icons.trending_up_rounded,
+                              color: AppColors.accent,
+                              isDark: isDark,
+                              isHighlight: true,
+                            );
+                          },
+                        )
+                      : _buildMetricCard(
+                          title: 'Sold Devices',
+                          value: '${_stats.soldCount} Units',
+                          subtitle: '$periodTag (Completed)',
+                          icon: Icons.check_circle_rounded,
+                          color: AppColors.accent,
+                          isDark: isDark,
+                        ),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildMetricCard(
-                    title: 'Sold Revenue',
-                    value: '₹${_stats.totalSaleRevenue.toStringAsFixed(0)}',
-                    subtitle: '$periodTag (${_stats.soldCount} Sold)',
-                    icon: Icons.point_of_sale_rounded,
-                    color: Colors.blue.shade700,
-                    isDark: isDark,
+            if (_isOwner) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildMetricCard(
+                      title: 'Sold Revenue',
+                      value: '₹${_stats.totalSaleRevenue.toStringAsFixed(0)}',
+                      subtitle: '$periodTag (${_stats.soldCount} Sold)',
+                      icon: Icons.point_of_sale_rounded,
+                      color: Colors.blue.shade700,
+                      isDark: isDark,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildMetricCard(
-                    title: 'Total Purchased',
-                    value: '${_stats.totalPurchasedCount} Phones',
-                    subtitle: '$periodTag (₹${_stats.totalPurchasedAmount.toStringAsFixed(0)})',
-                    icon: Icons.shopping_bag_outlined,
-                    color: Colors.indigo,
-                    isDark: isDark,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildMetricCard(
+                      title: 'Total Purchased',
+                      value: '${_stats.totalPurchasedCount} Phones',
+                      subtitle: '$periodTag (₹${_stats.totalPurchasedAmount.toStringAsFixed(0)})',
+                      icon: Icons.shopping_bag_outlined,
+                      color: Colors.indigo,
+                      isDark: isDark,
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -1185,88 +1204,90 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        if (_isOwner) ...[
+          const SizedBox(width: 8),
 
-        // Excel Download Button
-        InkWell(
-          onTap: () async {
-            if (_mobiles.isEmpty) {
-              AppFeedback.showError(
-                context,
-                title: 'No Records',
-                message: 'No devices found to download in this tab.',
-              );
-              return;
-            }
-            if (isSoldTab) {
-              await UsedMobileExportHelper.exportSalesToExcel(context, _mobiles);
-            } else {
-              await UsedMobileExportHelper.exportPurchasesToExcel(context, _mobiles);
-            }
-          },
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            height: 38,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFF107C41).withOpacity(0.12),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFF107C41).withOpacity(0.3)),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.download_rounded, size: 15, color: Color(0xFF107C41)),
-                SizedBox(width: 4),
-                Text(
-                  'Excel',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF107C41)),
-                ),
-              ],
+          // Excel Download Button
+          InkWell(
+            onTap: () async {
+              if (_mobiles.isEmpty) {
+                AppFeedback.showError(
+                  context,
+                  title: 'No Records',
+                  message: 'No devices found to download in this tab.',
+                );
+                return;
+              }
+              if (isSoldTab) {
+                await UsedMobileExportHelper.exportSalesToExcel(context, _mobiles);
+              } else {
+                await UsedMobileExportHelper.exportPurchasesToExcel(context, _mobiles);
+              }
+            },
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              height: 38,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF107C41).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFF107C41).withOpacity(0.3)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.download_rounded, size: 15, color: Color(0xFF107C41)),
+                  SizedBox(width: 4),
+                  Text(
+                    'Excel',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF107C41)),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-        const SizedBox(width: 6),
+          const SizedBox(width: 6),
 
-        // PDF Download Button
-        InkWell(
-          onTap: () async {
-            if (_mobiles.isEmpty) {
-              AppFeedback.showError(
-                context,
-                title: 'No Records',
-                message: 'No devices found to download report in this tab.',
-              );
-              return;
-            }
-            if (isSoldTab) {
-              await UsedMobileExportHelper.downloadSalesPdf(context, _mobiles);
-            } else {
-              await UsedMobileExportHelper.downloadPurchasesPdf(context, _mobiles);
-            }
-          },
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            height: 38,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            decoration: BoxDecoration(
-              color: Colors.red.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.red.withOpacity(0.3)),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.download_rounded, size: 15, color: Colors.red),
-                SizedBox(width: 4),
-                Text(
-                  'PDF',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.red),
-                ),
-              ],
+          // PDF Download Button
+          InkWell(
+            onTap: () async {
+              if (_mobiles.isEmpty) {
+                AppFeedback.showError(
+                  context,
+                  title: 'No Records',
+                  message: 'No devices found to download report in this tab.',
+                );
+                return;
+              }
+              if (isSoldTab) {
+                await UsedMobileExportHelper.downloadSalesPdf(context, _mobiles);
+              } else {
+                await UsedMobileExportHelper.downloadPurchasesPdf(context, _mobiles);
+              }
+            },
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              height: 38,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.red.withOpacity(0.3)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.download_rounded, size: 15, color: Colors.red),
+                  SizedBox(width: 4),
+                  Text(
+                    'PDF',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.red),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -1629,25 +1650,27 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
                       '₹${(mobile.sellingPrice ?? 0).toStringAsFixed(0)}',
                       style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
                     ),
-                    const SizedBox(height: 3),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: profit >= 0 ? AppColors.accent.withOpacity(0.12) : AppColors.error.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                      child: ProfitText(
-                        amount: profit,
-                        prefix: '₹',
-                        showSign: true,
-                        decimals: 0,
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w800,
-                          color: profit >= 0 ? AppColors.accent : AppColors.error,
+                    if (_isOwner) ...[
+                      const SizedBox(height: 3),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: profit >= 0 ? AppColors.accent.withOpacity(0.12) : AppColors.error.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: ProfitText(
+                          amount: profit,
+                          prefix: '₹',
+                          showSign: true,
+                          decimals: 0,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                            color: profit >= 0 ? AppColors.accent : AppColors.error,
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ],
 
                   // More Menu (PDF, WhatsApp, Repair, Details)

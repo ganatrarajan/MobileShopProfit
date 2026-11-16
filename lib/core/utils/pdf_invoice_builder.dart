@@ -1,3 +1,4 @@
+import '../../features/auth/data/auth_repository.dart';
 import '../../features/repair/models/repair.dart';
 import 'dart:io';
 import 'dart:typed_data';
@@ -53,7 +54,22 @@ class PdfInvoiceBuilder {
     Uint8List? signatureBytes;
 
     try {
-      final shop = await AuthStorage().getShop();
+      var shop = await AuthStorage().getShop();
+      final hasGst = shop != null &&
+          (shop['gst_number'] != null || shop['gstin'] != null || shop['gst'] != null) &&
+          (shop['gst_number']?.toString().trim().isNotEmpty == true ||
+              shop['gstin']?.toString().trim().isNotEmpty == true ||
+              shop['gst']?.toString().trim().isNotEmpty == true);
+
+      if (shop == null || !hasGst) {
+        try {
+          final res = await AuthRepository().fetchShop();
+          if (res.success && res.data != null && res.data is Map<String, dynamic>) {
+            shop = res.data as Map<String, dynamic>;
+          }
+        } catch (_) {}
+      }
+
       if (shop != null) {
         if (shop['name'] != null && shop['name'].toString().trim().isNotEmpty) {
           shopName = shop['name'].toString().trim();
@@ -61,6 +77,7 @@ class PdfInvoiceBuilder {
 
         final addressParts = [
           if (shop['address'] != null && shop['address'].toString().trim().isNotEmpty) shop['address'].toString().trim(),
+          if (shop['city'] != null && shop['city'].toString().trim().isNotEmpty) shop['city'].toString().trim(),
           if (shop['state'] != null && shop['state'].toString().trim().isNotEmpty) shop['state'].toString().trim(),
           if (shop['pincode'] != null && shop['pincode'].toString().trim().isNotEmpty) shop['pincode'].toString().trim(),
         ];
@@ -72,14 +89,14 @@ class PdfInvoiceBuilder {
           shopPhone = shop['phone'].toString().trim();
         }
 
-        if (shop['gstin'] != null && shop['gstin'].toString().trim().isNotEmpty) {
-          shopGstin = shop['gstin'].toString().trim();
+        final rawGst = shop['gst_number'] ?? shop['gstin'] ?? shop['gst'] ?? shop['gst_no'];
+        if (rawGst != null && rawGst.toString().trim().isNotEmpty) {
+          shopGstin = rawGst.toString().trim();
         }
 
-        if (shop['pan_number'] != null && shop['pan_number'].toString().trim().isNotEmpty) {
-          shopPan = shop['pan_number'].toString().trim();
-        } else if (shop['pan'] != null && shop['pan'].toString().trim().isNotEmpty) {
-          shopPan = shop['pan'].toString().trim();
+        final rawPan = shop['pan_number'] ?? shop['pan'] ?? shop['pan_no'];
+        if (rawPan != null && rawPan.toString().trim().isNotEmpty) {
+          shopPan = rawPan.toString().trim();
         }
 
         if (shop['terms_and_conditions'] != null && shop['terms_and_conditions'].toString().trim().isNotEmpty) {
@@ -129,6 +146,22 @@ class PdfInvoiceBuilder {
     final paymentStatusText = isPaidFull ? 'PAID' : (sale.amountPaid > 0 ? 'PARTIAL' : 'DUE');
     final paymentStatusColor = isPaidFull ? PdfColors.green700 : (sale.amountPaid > 0 ? PdfColors.orange700 : PdfColors.red700);
     final paymentStatusBg = isPaidFull ? PdfColor.fromHex('#DCFCE7') : (sale.amountPaid > 0 ? PdfColor.fromHex('#FFEDD5') : PdfColor.fromHex('#FEE2E2'));
+
+    final itemsTaxSum = sale.items.fold<double>(0.0, (sum, i) => sum + i.taxAmount);
+    final hasTax = sale.taxAmount > 0 || sale.taxRate > 0 || itemsTaxSum > 0;
+    final effectiveTaxAmount = sale.taxAmount > 0 ? sale.taxAmount : itemsTaxSum;
+    final effectiveTaxRate = sale.taxRate > 0
+        ? sale.taxRate
+        : (sale.items.any((i) => i.taxRate > 0) ? sale.items.firstWhere((i) => i.taxRate > 0).taxRate : 0.0);
+    final effectiveTaxType = sale.taxRate > 0
+        ? sale.taxType
+        : (sale.items.any((i) => i.taxRate > 0) ? sale.items.firstWhere((i) => i.taxRate > 0).taxType : 'exclusive');
+    final effectiveCgst = sale.cgstAmount > 0 ? sale.cgstAmount : (sale.isInterState ? 0.0 : effectiveTaxAmount / 2);
+    final effectiveSgst = sale.sgstAmount > 0 ? sale.sgstAmount : (sale.isInterState ? 0.0 : effectiveTaxAmount / 2);
+    final effectiveIgst = sale.igstAmount > 0 ? sale.igstAmount : (sale.isInterState ? effectiveTaxAmount : 0.0);
+    final taxableBase = effectiveTaxType == 'inclusive'
+        ? (sale.subtotal - sale.totalDiscount - effectiveTaxAmount > 0 ? sale.subtotal - sale.totalDiscount - effectiveTaxAmount : 0.0)
+        : (sale.subtotal - sale.totalDiscount > 0 ? sale.subtotal - sale.totalDiscount : 0.0);
 
     pdf.addPage(
       pw.Page(
@@ -195,6 +228,21 @@ class PdfInvoiceBuilder {
                                       style: pw.TextStyle(fontSize: 8.5, color: textMuted),
                                     ),
                                   ],
+                                   if (shopGstin.isNotEmpty) ...[
+                                     pw.SizedBox(height: 2.5),
+                                     pw.Container(
+                                       padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                       decoration: pw.BoxDecoration(
+                                         color: PdfColors.blue50,
+                                         borderRadius: pw.BorderRadius.circular(3),
+                                         border: pw.Border.all(color: PdfColors.blue200, width: 0.6),
+                                       ),
+                                       child: pw.Text(
+                                         'GSTIN: $shopGstin',
+                                         style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: brandBlue),
+                                       ),
+                                     ),
+                                   ],
                                   if (contactLine.isNotEmpty) ...[
                                     pw.SizedBox(height: 2),
                                     pw.Text(
@@ -243,7 +291,7 @@ class PdfInvoiceBuilder {
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
                             pw.Text(
-                              'Sales Invoice',
+                              hasTax ? 'Tax Invoice' : 'Sales Invoice',
                               style: pw.TextStyle(
                                 fontSize: 20,
                                 fontWeight: pw.FontWeight.bold,
@@ -252,7 +300,9 @@ class PdfInvoiceBuilder {
                             ),
                             pw.SizedBox(height: 2),
                             pw.Text(
-                              'SALES   |   SERVICE   |   ACCESSORIES   |   SUPPORT',
+                              hasTax
+                                  ? 'ORIGINAL FOR RECIPIENT   |   GST TAX INVOICE'
+                                  : 'SALES   |   SERVICE   |   ACCESSORIES   |   SUPPORT',
                               style: pw.TextStyle(
                                 fontSize: 7.5,
                                 fontWeight: pw.FontWeight.bold,
@@ -393,10 +443,24 @@ class PdfInvoiceBuilder {
                           final itemTitle = '${item.brand ?? ''} ${item.model ?? ''}'.trim().isNotEmpty
                               ? '${item.productName} (${item.brand ?? ''} ${item.model ?? ''})'.trim()
                               : item.productName;
+
+                          final notesList = <String>[];
+                          if (item.imei1 != null && item.imei1!.isNotEmpty) {
+                            notesList.add('IMEI: ${item.imei1}');
+                          } else if (item.serialNumber != null && item.serialNumber!.isNotEmpty) {
+                            notesList.add('S/N: ${item.serialNumber}');
+                          }
+                          if (item.taxRate > 0 || item.taxAmount > 0) {
+                            final rateLabel = item.taxRate > 0 ? '${item.taxRate.toStringAsFixed(item.taxRate % 1 == 0 ? 0 : 1)}% ' : '';
+                            final modeLabel = item.taxType == 'inclusive' ? 'Incl.' : 'Excl.';
+                            notesList.add('GST $rateLabel($modeLabel: Rs. ${item.taxAmount.toStringAsFixed(2)})');
+                          }
+                          final subtext = notesList.isNotEmpty ? notesList.join('  |  ') : null;
+
                           return pw.TableRow(
                             children: [
                               _dataCell('$idx', align: pw.TextAlign.center),
-                              _dataCell(itemTitle, isBold: true),
+                              _dataCell(itemTitle, isBold: true, subtext: subtext),
                               _dataCell('${item.quantity}', align: pw.TextAlign.center),
                               _dataCell('Rs. ${item.unitPrice.toStringAsFixed(2)}', align: pw.TextAlign.right),
                               _dataCell('Rs. ${item.total.toStringAsFixed(2)}', isBold: true, align: pw.TextAlign.right),
@@ -474,6 +538,59 @@ class PdfInvoiceBuilder {
                                 ],
                               ),
                             ),
+                            if (hasTax) ...[
+                              pw.SizedBox(height: 6),
+                              pw.Container(
+                                decoration: pw.BoxDecoration(
+                                  color: cardBgBlue,
+                                  border: pw.Border.all(color: borderBlue, width: 0.8),
+                                  borderRadius: pw.BorderRadius.circular(6),
+                                ),
+                                padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                child: pw.Column(
+                                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                                  children: [
+                                    pw.Text('GST TAX SUMMARY', style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: brandBlue)),
+                                    if (shopGstin.isNotEmpty) ...[
+                                      pw.SizedBox(height: 2),
+                                      pw.Row(
+                                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          pw.Text('Shop GSTIN:', style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: textDark)),
+                                          pw.Text(shopGstin, style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: brandBlue)),
+                                        ],
+                                      ),
+                                    ],
+                                    pw.SizedBox(height: 3),
+                                    pw.Row(
+                                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        pw.Text('Tax Rate & Mode:', style: pw.TextStyle(fontSize: 7.5, color: textMuted)),
+                                        pw.Text('${effectiveTaxRate > 0 ? "${effectiveTaxRate.toStringAsFixed(effectiveTaxRate % 1 == 0 ? 0 : 1)}% " : ""}(${effectiveTaxType == "inclusive" ? "Incl. in Price" : "Added Extra"})', style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: textDark)),
+                                      ],
+                                    ),
+                                    if (effectiveTaxType == 'inclusive') ...[
+                                      pw.SizedBox(height: 2),
+                                      pw.Row(
+                                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          pw.Text('Taxable Base Value:', style: pw.TextStyle(fontSize: 7.5, color: textMuted)),
+                                          pw.Text('Rs. ${taxableBase.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: textDark)),
+                                        ],
+                                      ),
+                                    ],
+                                    pw.SizedBox(height: 2),
+                                    pw.Row(
+                                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        pw.Text('Total Tax Amount:', style: pw.TextStyle(fontSize: 7.5, color: textMuted)),
+                                        pw.Text('Rs. ${effectiveTaxAmount.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: brandBlue)),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -496,8 +613,8 @@ class PdfInvoiceBuilder {
                                 child: pw.Row(
                                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                                   children: [
-                                    pw.Text('Subtotal:', style: pw.TextStyle(fontSize: 9.5, color: textDark)),
-                                    pw.Text('Rs. ${sale.subtotal.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: textDark)),
+                                    pw.Text(effectiveTaxType == 'inclusive' ? 'Taxable Value (Base):' : 'Subtotal:', style: pw.TextStyle(fontSize: 9.5, color: textDark)),
+                                    pw.Text('Rs. ${effectiveTaxType == 'inclusive' ? taxableBase.toStringAsFixed(2) : sale.subtotal.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: textDark)),
                                   ],
                                 ),
                               ),
@@ -512,25 +629,86 @@ class PdfInvoiceBuilder {
                                     ],
                                   ),
                                 ),
+                              if (hasTax) ...[
+                                if (sale.isInterState) ...[
+                                  pw.Padding(
+                                    padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 2.5),
+                                    child: pw.Row(
+                                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        pw.Text('IGST (${effectiveTaxRate > 0 ? effectiveTaxRate.toStringAsFixed(effectiveTaxRate % 1 == 0 ? 0 : 1) : ""}${effectiveTaxRate > 0 ? "%" : ""}):', style: pw.TextStyle(fontSize: 9.5, color: textDark)),
+                                        pw.Text('${effectiveTaxType == 'exclusive' ? "+ " : ""}Rs. ${effectiveIgst.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: textDark)),
+                                      ],
+                                    ),
+                                  ),
+                                ] else ...[
+                                  pw.Padding(
+                                    padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                                    child: pw.Row(
+                                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        pw.Text('CGST (${effectiveTaxRate > 0 ? (effectiveTaxRate / 2).toStringAsFixed((effectiveTaxRate / 2) % 1 == 0 ? 0 : 1) : ""}${effectiveTaxRate > 0 ? "%" : ""}):', style: pw.TextStyle(fontSize: 9.5, color: textDark)),
+                                        pw.Text('${effectiveTaxType == 'exclusive' ? "+ " : ""}Rs. ${effectiveCgst.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: textDark)),
+                                      ],
+                                    ),
+                                  ),
+                                  pw.Padding(
+                                    padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                                    child: pw.Row(
+                                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        pw.Text('SGST (${effectiveTaxRate > 0 ? (effectiveTaxRate / 2).toStringAsFixed((effectiveTaxRate / 2) % 1 == 0 ? 0 : 1) : ""}${effectiveTaxRate > 0 ? "%" : ""}):', style: pw.TextStyle(fontSize: 9.5, color: textDark)),
+                                        pw.Text('${effectiveTaxType == 'exclusive' ? "+ " : ""}Rs. ${effectiveSgst.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: textDark)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                if (effectiveTaxType == 'inclusive')
+                                  pw.Padding(
+                                    padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                                    child: pw.Row(
+                                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        pw.Text('Tax Mode:', style: pw.TextStyle(fontSize: 7.5, fontStyle: pw.FontStyle.italic, color: textMuted)),
+                                        pw.Text('Incl. in price (Rs. ${effectiveTaxAmount.toStringAsFixed(2)})', style: pw.TextStyle(fontSize: 7.5, fontStyle: pw.FontStyle.italic, color: textMuted)),
+                                      ],
+                                    ),
+                                  ),
+                              ],
 
                               // GRAND TOTAL BLUE BANNER
                               pw.Container(
                                 decoration: pw.BoxDecoration(
                                   color: brandBlue,
-                                  borderRadius: const pw.BorderRadius.only(
-                                    bottomLeft: pw.Radius.circular(5),
-                                    bottomRight: pw.Radius.circular(5),
+                                  borderRadius: pw.BorderRadius.only(
+                                    bottomLeft: (sale.amountPaid > 0 || sale.amountDue > 0) ? const pw.Radius.circular(0) : const pw.Radius.circular(5),
+                                    bottomRight: (sale.amountPaid > 0 || sale.amountDue > 0) ? const pw.Radius.circular(0) : const pw.Radius.circular(5),
                                   ),
                                 ),
-                                padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                                 child: pw.Row(
                                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                                   children: [
-                                    pw.Text('Grand Total:', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
-                                    pw.Text('Rs. ${sale.grandTotal.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
+                                    pw.Text('Grand Total:', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
+                                    pw.Text('Rs. ${sale.grandTotal.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
                                   ],
                                 ),
                               ),
+                              if (sale.amountPaid > 0 || sale.amountDue > 0) ...[
+                                pw.Padding(
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  child: pw.Row(
+                                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      pw.Text('Paid: Rs. ${sale.amountPaid.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColors.green700)),
+                                      if (sale.amountDue > 0)
+                                        pw.Text('Due: Rs. ${sale.amountDue.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColors.red700))
+                                      else
+                                        pw.Text('Due: Rs. 0.00', style: pw.TextStyle(fontSize: 8.5, color: textMuted)),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -606,17 +784,37 @@ class PdfInvoiceBuilder {
     );
   }
 
-  static pw.Widget _dataCell(String text, {pw.TextAlign align = pw.TextAlign.left, bool isBold = false}) {
+  static pw.Widget _dataCell(
+    String text, {
+    pw.TextAlign align = pw.TextAlign.left,
+    bool isBold = false,
+    String? subtext,
+  }) {
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-      child: pw.Text(
-        text,
-        style: pw.TextStyle(
-          fontSize: 8,
-          fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
-          color: textDark,
-        ),
-        textAlign: align,
+      child: pw.Column(
+        crossAxisAlignment: align == pw.TextAlign.right
+            ? pw.CrossAxisAlignment.end
+            : (align == pw.TextAlign.center ? pw.CrossAxisAlignment.center : pw.CrossAxisAlignment.start),
+        children: [
+          pw.Text(
+            text,
+            style: pw.TextStyle(
+              fontSize: 8,
+              fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
+              color: textDark,
+            ),
+            textAlign: align,
+          ),
+          if (subtext != null && subtext.isNotEmpty) ...[
+            pw.SizedBox(height: 1.5),
+            pw.Text(
+              subtext,
+              style: pw.TextStyle(fontSize: 6.5, color: textMuted),
+              textAlign: align,
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -635,7 +833,22 @@ class PdfInvoiceBuilder {
     Uint8List? signatureBytes;
 
     try {
-      final shop = await AuthStorage().getShop();
+      var shop = await AuthStorage().getShop();
+      final hasGst = shop != null &&
+          (shop['gst_number'] != null || shop['gstin'] != null || shop['gst'] != null) &&
+          (shop['gst_number']?.toString().trim().isNotEmpty == true ||
+              shop['gstin']?.toString().trim().isNotEmpty == true ||
+              shop['gst']?.toString().trim().isNotEmpty == true);
+
+      if (shop == null || !hasGst) {
+        try {
+          final res = await AuthRepository().fetchShop();
+          if (res.success && res.data != null && res.data is Map<String, dynamic>) {
+            shop = res.data as Map<String, dynamic>;
+          }
+        } catch (_) {}
+      }
+
       if (shop != null) {
         if (shop['name'] != null && shop['name'].toString().trim().isNotEmpty) {
           shopName = shop['name'].toString().trim();
@@ -643,6 +856,7 @@ class PdfInvoiceBuilder {
 
         final addressParts = [
           if (shop['address'] != null && shop['address'].toString().trim().isNotEmpty) shop['address'].toString().trim(),
+          if (shop['city'] != null && shop['city'].toString().trim().isNotEmpty) shop['city'].toString().trim(),
           if (shop['state'] != null && shop['state'].toString().trim().isNotEmpty) shop['state'].toString().trim(),
           if (shop['pincode'] != null && shop['pincode'].toString().trim().isNotEmpty) shop['pincode'].toString().trim(),
         ];
@@ -654,14 +868,14 @@ class PdfInvoiceBuilder {
           shopPhone = shop['phone'].toString().trim();
         }
 
-        if (shop['gstin'] != null && shop['gstin'].toString().trim().isNotEmpty) {
-          shopGstin = shop['gstin'].toString().trim();
+        final rawGst = shop['gst_number'] ?? shop['gstin'] ?? shop['gst'] ?? shop['gst_no'];
+        if (rawGst != null && rawGst.toString().trim().isNotEmpty) {
+          shopGstin = rawGst.toString().trim();
         }
 
-        if (shop['pan_number'] != null && shop['pan_number'].toString().trim().isNotEmpty) {
-          shopPan = shop['pan_number'].toString().trim();
-        } else if (shop['pan'] != null && shop['pan'].toString().trim().isNotEmpty) {
-          shopPan = shop['pan'].toString().trim();
+        final rawPan = shop['pan_number'] ?? shop['pan'] ?? shop['pan_no'];
+        if (rawPan != null && rawPan.toString().trim().isNotEmpty) {
+          shopPan = rawPan.toString().trim();
         }
 
         if (shop['terms_and_conditions'] != null && shop['terms_and_conditions'].toString().trim().isNotEmpty) {

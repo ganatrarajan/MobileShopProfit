@@ -48,6 +48,15 @@ class UsedMobile {
   final String? repairDetails;
   final double totalCost;
 
+  // Purchase Tax / GST fields
+  final double purchaseTaxRate;
+  final String purchaseTaxType;
+  final double purchaseTaxAmount;
+  final double purchaseCgstAmount;
+  final double purchaseSgstAmount;
+  final double purchaseIgstAmount;
+  final bool purchaseIsInterState;
+
   final String status; // in_stock, sold, returned, scrapped
 
   final String? saleInvoiceNumber;
@@ -61,6 +70,15 @@ class UsedMobile {
   final String? warrantyTerms;
   final String? saleNotes;
   final double? profit;
+
+  // Sale Tax / GST fields
+  final double taxRate;
+  final String taxType;
+  final double taxAmount;
+  final double cgstAmount;
+  final double sgstAmount;
+  final double igstAmount;
+  final bool isInterState;
 
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -97,6 +115,13 @@ class UsedMobile {
     this.repairCost = 0.0,
     this.repairDetails,
     required this.totalCost,
+    this.purchaseTaxRate = 0.0,
+    this.purchaseTaxType = 'inclusive',
+    this.purchaseTaxAmount = 0.0,
+    this.purchaseCgstAmount = 0.0,
+    this.purchaseSgstAmount = 0.0,
+    this.purchaseIgstAmount = 0.0,
+    this.purchaseIsInterState = false,
     this.status = 'in_stock',
     this.saleInvoiceNumber,
     this.buyerName,
@@ -109,12 +134,21 @@ class UsedMobile {
     this.warrantyTerms,
     this.saleNotes,
     this.profit,
+    this.taxRate = 0.0,
+    this.taxType = 'inclusive',
+    this.taxAmount = 0.0,
+    this.cgstAmount = 0.0,
+    this.sgstAmount = 0.0,
+    this.igstAmount = 0.0,
+    this.isInterState = false,
     this.createdAt,
     this.updatedAt,
   });
 
   bool get isInStock => status.toLowerCase() == 'in_stock';
   bool get isSold => status.toLowerCase() == 'sold';
+  bool get hasPurchaseTax => purchaseTaxAmount > 0 || purchaseTaxRate > 0;
+  bool get hasSaleTax => taxAmount > 0 || taxRate > 0;
 
   String get deviceDisplayName {
     final specParts = <String>[];
@@ -196,6 +230,16 @@ class UsedMobile {
       repairCost: _toDouble(json['repair_cost']),
       repairDetails: json['repair_details']?.toString(),
       totalCost: _toDouble(json['total_cost']),
+      purchaseTaxRate: _toDouble(json['purchase_tax_rate']),
+      purchaseTaxType: json['purchase_tax_type']?.toString() ?? 'inclusive',
+      purchaseTaxAmount: _toDouble(json['purchase_tax_amount']),
+      purchaseCgstAmount: _toDouble(json['purchase_cgst_amount']),
+      purchaseSgstAmount: _toDouble(json['purchase_sgst_amount']),
+      purchaseIgstAmount: _toDouble(json['purchase_igst_amount']),
+      purchaseIsInterState: json['purchase_is_inter_state'] == true ||
+          json['purchase_is_inter_state'] == 1 ||
+          json['purchase_is_inter_state']?.toString() == '1' ||
+          json['purchase_is_inter_state']?.toString().toLowerCase() == 'true',
       status: json['status']?.toString() ?? 'in_stock',
       saleInvoiceNumber: json['sale_invoice_number']?.toString(),
       buyerName: json['buyer_name']?.toString(),
@@ -208,6 +252,16 @@ class UsedMobile {
       warrantyTerms: json['warranty_terms']?.toString(),
       saleNotes: json['sale_notes']?.toString(),
       profit: json['profit'] != null ? _toDouble(json['profit']) : null,
+      taxRate: _toDouble(json['tax_rate']),
+      taxType: json['tax_type']?.toString() ?? 'inclusive',
+      taxAmount: _toDouble(json['tax_amount']),
+      cgstAmount: _toDouble(json['cgst_amount']),
+      sgstAmount: _toDouble(json['sgst_amount']),
+      igstAmount: _toDouble(json['igst_amount']),
+      isInterState: json['is_inter_state'] == true ||
+          json['is_inter_state'] == 1 ||
+          json['is_inter_state']?.toString() == '1' ||
+          json['is_inter_state']?.toString().toLowerCase() == 'true',
       createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
       updatedAt: json['updated_at'] != null ? DateTime.tryParse(json['updated_at'].toString()) : null,
     );
@@ -248,6 +302,13 @@ class UsedMobile {
       'repair_cost': repairCost,
       'repair_details': repairDetails,
       'total_cost': totalCost,
+      'purchase_tax_rate': purchaseTaxRate,
+      'purchase_tax_type': purchaseTaxType,
+      'purchase_tax_amount': purchaseTaxAmount,
+      'purchase_cgst_amount': purchaseCgstAmount,
+      'purchase_sgst_amount': purchaseSgstAmount,
+      'purchase_igst_amount': purchaseIgstAmount,
+      'purchase_is_inter_state': purchaseIsInterState,
       'status': status,
       'sale_invoice_number': saleInvoiceNumber,
       'buyer_name': buyerName,
@@ -260,6 +321,13 @@ class UsedMobile {
       'warranty_terms': warrantyTerms,
       'sale_notes': saleNotes,
       'profit': profit,
+      'tax_rate': taxRate,
+      'tax_type': taxType,
+      'tax_amount': taxAmount,
+      'cgst_amount': cgstAmount,
+      'sgst_amount': sgstAmount,
+      'igst_amount': igstAmount,
+      'is_inter_state': isInterState,
     };
   }
 }

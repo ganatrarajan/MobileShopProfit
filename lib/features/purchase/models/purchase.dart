@@ -1,4 +1,4 @@
-﻿import 'vendor.dart';
+import 'vendor.dart';
 import 'purchase_item.dart';
 import 'purchase_payment.dart';
 
@@ -25,6 +25,13 @@ class Purchase {
   final DateTime purchaseDate;
   final double subtotal;
   final double discount;
+  final double taxAmount;
+  final double taxRate;
+  final String taxType; // exclusive, inclusive
+  final bool isInterState;
+  final double cgstAmount;
+  final double sgstAmount;
+  final double igstAmount;
   final double additionalCharges;
   final double grandTotal;
   final double amountPaid;
@@ -46,6 +53,13 @@ class Purchase {
     required this.purchaseDate,
     required this.subtotal,
     this.discount = 0.0,
+    this.taxAmount = 0.0,
+    this.taxRate = 0.0,
+    this.taxType = 'exclusive',
+    this.isInterState = false,
+    this.cgstAmount = 0.0,
+    this.sgstAmount = 0.0,
+    this.igstAmount = 0.0,
     this.additionalCharges = 0.0,
     required this.grandTotal,
     this.amountPaid = 0.0,
@@ -79,6 +93,13 @@ class Purchase {
       purchaseDate: json['purchase_date'] != null ? DateTime.tryParse(json['purchase_date'].toString()) ?? DateTime.now() : DateTime.now(),
       subtotal: _toDouble(json['subtotal']),
       discount: _toDouble(json['discount']),
+      taxAmount: _toDouble(json['tax_amount']),
+      taxRate: _toDouble(json['tax_rate']),
+      taxType: json['tax_type']?.toString() ?? 'exclusive',
+      isInterState: json['is_inter_state'] == true || json['is_inter_state'] == 1 || json['is_inter_state']?.toString() == '1',
+      cgstAmount: _toDouble(json['cgst_amount']),
+      sgstAmount: _toDouble(json['sgst_amount']),
+      igstAmount: _toDouble(json['igst_amount']),
       additionalCharges: _toDouble(json['additional_charges']),
       grandTotal: _toDouble(json['grand_total']),
       amountPaid: _toDouble(json['amount_paid']),

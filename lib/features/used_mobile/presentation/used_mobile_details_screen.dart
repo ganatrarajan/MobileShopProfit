@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/services/profit_visibility_service.dart';
+import '../../../../core/storage/auth_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_feedback.dart';
@@ -27,10 +28,15 @@ class _UsedMobileDetailsScreenState extends State<UsedMobileDetailsScreen> {
   late UsedMobile _mobile;
   final UsedMobileRepository _repo = UsedMobileRepository();
   bool _isLoading = false;
+  bool _isOwner = true;
 
   @override
   void initState() {
     super.initState();
+    _isOwner = ProfitVisibilityService().isOwner;
+    AuthStorage().isOwner().then((val) {
+      if (mounted && _isOwner != val) setState(() => _isOwner = val);
+    });
     _mobile = widget.mobile;
     _refreshDetails();
   }
@@ -341,6 +347,68 @@ class _UsedMobileDetailsScreenState extends State<UsedMobileDetailsScreen> {
     final profit = _mobile.profit ?? 0.0;
     final roi = _mobile.profitPercentage;
 
+    if (!_isOwner) {
+      if (!isSold) return const SizedBox.shrink();
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkSurface : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Sale Information',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(child: _metricItem('Sold Price', _mobile.sellingPrice ?? 0.0, AppColors.textPrimary, isBold: true)),
+                if (_mobile.hasSaleTax)
+                  Expanded(
+                    child: _metricItem(
+                      'Sale Tax (${_mobile.taxRate.toStringAsFixed(0)}%)',
+                      _mobile.taxAmount,
+                      Colors.green,
+                      isBold: true,
+                    ),
+                  ),
+              ],
+            ),
+            if (_mobile.hasSaleTax) ...[
+              const Divider(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _mobile.isInterState
+                        ? 'IGST: ₹${_mobile.igstAmount.toStringAsFixed(2)}'
+                        : 'CGST: ₹${_mobile.cgstAmount.toStringAsFixed(2)} | SGST: ₹${_mobile.sgstAmount.toStringAsFixed(2)}',
+                    style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                  ),
+                  if (_mobile.taxType == 'exclusive')
+                    Text(
+                      'Total Billed: ₹${((_mobile.sellingPrice ?? 0.0) + _mobile.taxAmount).toStringAsFixed(2)}',
+                      style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.primary),
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -420,6 +488,76 @@ class _UsedMobileDetailsScreenState extends State<UsedMobileDetailsScreen> {
                 ),
               ],
             ),
+          ],
+          if (_mobile.hasPurchaseTax || (isSold && _mobile.hasSaleTax)) ...[
+            const Divider(height: 20),
+            if (_mobile.hasPurchaseTax) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.receipt_long_rounded, size: 14, color: AppColors.primary),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Purchase GST (${_mobile.purchaseTaxRate.toStringAsFixed(0)}% ${_mobile.purchaseTaxType == "inclusive" ? "Incl." : "Excl."})',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    '₹${_mobile.purchaseTaxAmount.toStringAsFixed(2)}',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                _mobile.purchaseIsInterState
+                    ? 'IGST: ₹${_mobile.purchaseIgstAmount.toStringAsFixed(2)}'
+                    : 'CGST: ₹${_mobile.purchaseCgstAmount.toStringAsFixed(2)} | SGST: ₹${_mobile.purchaseSgstAmount.toStringAsFixed(2)}',
+                style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+              ),
+              if (isSold && _mobile.hasSaleTax) const SizedBox(height: 6),
+            ],
+            if (isSold && _mobile.hasSaleTax) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.receipt_rounded, size: 14, color: Colors.green),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Sale GST (${_mobile.taxRate.toStringAsFixed(0)}% ${_mobile.taxType == "inclusive" ? "Incl." : "Excl."})',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    '₹${_mobile.taxAmount.toStringAsFixed(2)}',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.green),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _mobile.isInterState
+                        ? 'IGST: ₹${_mobile.igstAmount.toStringAsFixed(2)}'
+                        : 'CGST: ₹${_mobile.cgstAmount.toStringAsFixed(2)} | SGST: ₹${_mobile.sgstAmount.toStringAsFixed(2)}',
+                    style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                  ),
+                  if (_mobile.taxType == 'exclusive')
+                    Text(
+                      'Total Billed: ₹${((_mobile.sellingPrice ?? 0.0) + _mobile.taxAmount).toStringAsFixed(2)}',
+                      style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.primary),
+                    ),
+                ],
+              ),
+            ],
           ],
         ],
       ),

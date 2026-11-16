@@ -96,6 +96,11 @@ class _AppSearchableBottomSheetState extends State<AppSearchableBottomSheet> {
       _isAddingCustom = false;
       _isSavingCustom = false;
     });
+
+    if (!widget.isMultiSelect) {
+      Navigator.pop(context, text);
+      return;
+    }
   }
 
   @override

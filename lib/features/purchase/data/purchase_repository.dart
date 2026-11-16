@@ -1,4 +1,4 @@
-﻿import '../../../../core/constants/api_endpoints.dart';
+import '../../../../core/constants/api_endpoints.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_response.dart';
 import '../models/vendor.dart';
@@ -264,6 +264,13 @@ class PurchaseRepository {
     String? purchaseNumber,
     required List<Map<String, dynamic>> items,
     double discount = 0,
+    double taxAmount = 0,
+    double taxRate = 0,
+    String taxType = 'exclusive',
+    bool isInterState = false,
+    double cgstAmount = 0,
+    double sgstAmount = 0,
+    double igstAmount = 0,
     double additionalCharges = 0,
     double amountPaid = 0,
     String paymentStatus = 'pending',
@@ -276,6 +283,13 @@ class PurchaseRepository {
       if (purchaseNumber != null && purchaseNumber.isNotEmpty) 'purchase_number': purchaseNumber,
       'items': items,
       'discount': discount,
+      'tax_amount': taxAmount,
+      'tax_rate': taxRate,
+      'tax_type': taxType,
+      'is_inter_state': isInterState,
+      'cgst_amount': cgstAmount,
+      'sgst_amount': sgstAmount,
+      'igst_amount': igstAmount,
       'additional_charges': additionalCharges,
       'amount_paid': amountPaid,
       'payment_status': paymentStatus,

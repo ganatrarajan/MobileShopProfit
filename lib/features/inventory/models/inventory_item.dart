@@ -87,6 +87,8 @@ class InventoryItem {
   final String itemType; // mobile, spare_part, accessory, other
   final double purchasePrice;
   final double sellingPrice;
+  final double taxRate;
+  final String taxType; // exclusive, inclusive
   final int openingStock;
   final int totalStock;
   final int currentStock;
@@ -113,6 +115,8 @@ class InventoryItem {
     required this.itemType,
     required this.purchasePrice,
     required this.sellingPrice,
+    this.taxRate = 0.0,
+    this.taxType = 'exclusive',
     this.openingStock = 0,
     required this.totalStock,
     required this.currentStock,
@@ -158,6 +162,8 @@ class InventoryItem {
       itemType: json['item_type']?.toString() ?? 'spare_part',
       purchasePrice: _parseDouble(json['purchase_price']),
       sellingPrice: _parseDouble(json['selling_price']),
+      taxRate: _parseDouble(json['tax_rate']),
+      taxType: json['tax_type']?.toString() ?? 'exclusive',
       openingStock: opStock,
       totalStock: totStock,
       currentStock: curStock,
@@ -186,6 +192,8 @@ class InventoryItem {
       'item_type': itemType,
       'purchase_price': purchasePrice,
       'selling_price': sellingPrice,
+      'tax_rate': taxRate,
+      'tax_type': taxType,
       'opening_stock': openingStock,
       'current_stock': currentStock,
       'minimum_stock': minimumStock,

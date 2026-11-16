@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../storage/auth_storage.dart';
+import '../../features/auth/data/auth_repository.dart';
 import '../../features/used_mobile/models/used_mobile.dart';
 import 'date_helper.dart';
 
@@ -67,7 +68,20 @@ class PdfUsedMobileBuilder {
           shopPhone = shop['phone'].toString().trim();
         }
 
-        if (shop['gstin'] != null) shopGstin = shop['gstin'].toString().trim();
+        final rawGst = shop['gst_number'] ?? shop['gstin'];
+        if (rawGst != null && rawGst.toString().trim().isNotEmpty) {
+          shopGstin = rawGst.toString().trim();
+        }
+        if (shopGstin.isEmpty) {
+          try {
+            final fresh = await AuthRepository().fetchShop();
+            if (fresh.success && fresh.data is Map) {
+              final shopData = fresh.data as Map;
+              final g = (shopData['gst_number'] ?? shopData['gstin'])?.toString().trim();
+              if (g != null && g.isNotEmpty) shopGstin = g;
+            }
+          } catch (_) {}
+        }
         if (shop['pan_number'] != null) shopPan = shop['pan_number'].toString().trim();
 
         final logoPath = shop['logo_path'] ?? shop['logo_url'] ?? shop['logo'];
@@ -324,12 +338,32 @@ class PdfUsedMobileBuilder {
                   borderRadius: pw.BorderRadius.circular(4),
                   border: pw.Border.all(color: borderSlate),
                 ),
-                child: pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                child: pw.Column(
                   children: [
-                    pw.Text('Payment Mode: ${mobile.paymentMode}', style: const pw.TextStyle(fontSize: 9)),
-                    pw.Text('Total Paid in Full: Rs. ${mobile.purchasePrice.toStringAsFixed(2)}',
-                        style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: successGreen)),
+                    if (mobile.hasPurchaseTax) ...[
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text(
+                            'GST Input Tax (${mobile.purchaseTaxRate.toStringAsFixed(0)}% ${mobile.purchaseTaxType == "inclusive" ? "Included" : "Added"}):',
+                            style: pw.TextStyle(fontSize: 8.5, color: textMuted),
+                          ),
+                          pw.Text(
+                            'Rs. ${mobile.purchaseTaxAmount.toStringAsFixed(2)} (${mobile.purchaseIsInterState ? "IGST" : "CGST+SGST"})',
+                            style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: textDark),
+                          ),
+                        ],
+                      ),
+                      pw.Divider(color: borderSlate, height: 6),
+                    ],
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text('Payment Mode: ${mobile.paymentMode}', style: const pw.TextStyle(fontSize: 9)),
+                        pw.Text('Total Paid in Full: Rs. ${mobile.purchasePrice.toStringAsFixed(2)}',
+                            style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: successGreen)),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -496,7 +530,9 @@ class PdfUsedMobileBuilder {
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
                     pw.Text(
-                      'PRE-OWNED MOBILE SALE INVOICE & WARRANTY CERTIFICATE',
+                      mobile.hasSaleTax
+                          ? 'TAX INVOICE & TESTING WARRANTY CERTIFICATE'
+                          : 'PRE-OWNED MOBILE SALE INVOICE & WARRANTY CERTIFICATE',
                       style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 10),
                     ),
                     pw.Text(
@@ -643,20 +679,74 @@ class PdfUsedMobileBuilder {
                 mainAxisAlignment: pw.MainAxisAlignment.end,
                 children: [
                   pw.Container(
-                    width: 200,
+                    width: 220,
                     padding: const pw.EdgeInsets.all(8),
                     decoration: pw.BoxDecoration(
                       color: cardBg,
                       borderRadius: pw.BorderRadius.circular(4),
                       border: pw.Border.all(color: borderSlate),
                     ),
-                    child: pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    child: pw.Column(
                       children: [
-                        pw.Text('Net Total Paid:', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: textDark)),
-                        pw.Text(
-                          'Rs. ${(mobile.sellingPrice ?? 0.0).toStringAsFixed(2)}',
-                          style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: brandPurple),
+                        if (mobile.hasSaleTax) ...[
+                          pw.Row(
+                            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                            children: [
+                              pw.Text(
+                                mobile.taxType == 'exclusive' ? 'Base Price:' : 'Taxable Base Price:',
+                                style: pw.TextStyle(fontSize: 8.5, color: textMuted),
+                              ),
+                              pw.Text(
+                                'Rs. ${(mobile.taxType == 'exclusive' ? (mobile.sellingPrice ?? 0.0) : ((mobile.sellingPrice ?? 0.0) - mobile.taxAmount)).toStringAsFixed(2)}',
+                                style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: textDark),
+                              ),
+                            ],
+                          ),
+                          pw.SizedBox(height: 3),
+                          if (mobile.isInterState) ...[
+                            pw.Row(
+                              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                              children: [
+                                pw.Text('IGST (${mobile.taxRate.toStringAsFixed(0)}%):', style: pw.TextStyle(fontSize: 8.5, color: textMuted)),
+                                pw.Text('Rs. ${mobile.igstAmount.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: textDark)),
+                              ],
+                            ),
+                          ] else ...[
+                            pw.Row(
+                              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                              children: [
+                                pw.Text('CGST (${(mobile.taxRate / 2).toStringAsFixed(1)}%):', style: pw.TextStyle(fontSize: 8.5, color: textMuted)),
+                                pw.Text('Rs. ${mobile.cgstAmount.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: textDark)),
+                              ],
+                            ),
+                            pw.SizedBox(height: 2),
+                            pw.Row(
+                              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                              children: [
+                                pw.Text('SGST (${(mobile.taxRate / 2).toStringAsFixed(1)}%):', style: pw.TextStyle(fontSize: 8.5, color: textMuted)),
+                                pw.Text('Rs. ${mobile.sgstAmount.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: textDark)),
+                              ],
+                            ),
+                          ],
+                          pw.SizedBox(height: 3),
+                          pw.Row(
+                            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                            children: [
+                              pw.Text('Total GST (${mobile.taxType == "inclusive" ? "Included" : "Added"}):', style: pw.TextStyle(fontSize: 8.5, color: brandPurple)),
+                              pw.Text('Rs. ${mobile.taxAmount.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: brandPurple)),
+                            ],
+                          ),
+                          pw.Divider(color: borderSlate, height: 8),
+                        ],
+                        pw.Row(
+                          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                          children: [
+                            pw.Text('Net Total Paid:', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: textDark)),
+                            pw.Text(
+                              'Rs. ${(mobile.taxType == 'exclusive' ? ((mobile.sellingPrice ?? 0.0) + mobile.taxAmount) : (mobile.sellingPrice ?? 0.0)).toStringAsFixed(2)}',
+                              style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: brandPurple),
+                            ),
+                          ],
                         ),
                       ],
                     ),

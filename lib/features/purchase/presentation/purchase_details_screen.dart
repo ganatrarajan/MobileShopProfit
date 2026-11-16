@@ -312,6 +312,11 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             Text(item.itemName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                                            if (item.taxRate > 0)
+                                              Text(
+                                                'GST: ${item.taxRate.toStringAsFixed(item.taxRate % 1 == 0 ? 0 : 1)}% (${item.taxType})',
+                                                style: const TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.w600),
+                                              ),
                                             if (item.imei1 != null && item.imei1!.isNotEmpty)
                                               Text(
                                                 'IMEI: ${item.imei1}${item.imei2 != null && item.imei2!.isNotEmpty ? ' / ${item.imei2}' : ''}',
@@ -364,6 +369,66 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
                                 children: [
                                   const Text('Discount:'),
                                   Text('- \u20B9${_purchase.discount.toStringAsFixed(2)}', style: const TextStyle(color: AppColors.error)),
+                                ],
+                              ),
+                            ],
+                            if (_purchase.taxAmount > 0 || _purchase.taxRate > 0) ...[
+                              const SizedBox(height: 6),
+                              if (_purchase.isInterState) ...[
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text('IGST (${_purchase.taxRate.toStringAsFixed(_purchase.taxRate % 1 == 0 ? 0 : 1)}%):'),
+                                    Text(
+                                      '${_purchase.taxType == 'exclusive' ? '+ ' : ''}\u20B9${_purchase.igstAmount > 0 ? _purchase.igstAmount.toStringAsFixed(2) : _purchase.taxAmount.toStringAsFixed(2)}',
+                                      style: TextStyle(
+                                        color: _purchase.taxType == 'inclusive' ? Colors.grey.shade600 : AppColors.primary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ] else ...[
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text('CGST (${(_purchase.taxRate / 2).toStringAsFixed((_purchase.taxRate / 2) % 1 == 0 ? 0 : 1)}%):'),
+                                    Text(
+                                      '${_purchase.taxType == 'exclusive' ? '+ ' : ''}\u20B9${_purchase.cgstAmount > 0 ? _purchase.cgstAmount.toStringAsFixed(2) : (_purchase.taxAmount / 2).toStringAsFixed(2)}',
+                                      style: TextStyle(
+                                        color: _purchase.taxType == 'inclusive' ? Colors.grey.shade600 : AppColors.primary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text('SGST (${(_purchase.taxRate / 2).toStringAsFixed((_purchase.taxRate / 2) % 1 == 0 ? 0 : 1)}%):'),
+                                    Text(
+                                      '${_purchase.taxType == 'exclusive' ? '+ ' : ''}\u20B9${_purchase.sgstAmount > 0 ? _purchase.sgstAmount.toStringAsFixed(2) : (_purchase.taxAmount / 2).toStringAsFixed(2)}',
+                                      style: TextStyle(
+                                        color: _purchase.taxType == 'inclusive' ? Colors.grey.shade600 : AppColors.primary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Tax Mode (${_purchase.taxType == 'inclusive' ? 'Included in Price' : 'Added to Subtotal'}):',
+                                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
+                                  ),
+                                  Text(
+                                    'Total Tax: \u20B9${_purchase.taxAmount.toStringAsFixed(2)}',
+                                    style: TextStyle(fontSize: 11, color: Colors.grey.shade700, fontWeight: FontWeight.bold),
+                                  ),
                                 ],
                               ),
                             ],

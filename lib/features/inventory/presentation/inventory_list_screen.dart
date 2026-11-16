@@ -1,5 +1,7 @@
 import '../../../core/widgets/app_shimmer.dart';
 import 'package:flutter/material.dart';
+import '../../../core/services/profit_visibility_service.dart';
+import '../../../core/storage/auth_storage.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_empty_state.dart';
@@ -47,10 +49,15 @@ class InventoryListScreenState extends State<InventoryListScreen> {
   };
 
   bool _hasParsedArgs = false;
+  bool _isOwner = true;
 
   @override
   void initState() {
     super.initState();
+    _isOwner = ProfitVisibilityService().isOwner;
+    AuthStorage().isOwner().then((val) {
+      if (mounted && _isOwner != val) setState(() => _isOwner = val);
+    });
   }
 
     @override
@@ -119,10 +126,7 @@ class InventoryListScreenState extends State<InventoryListScreen> {
   }
 
   Future<void> _openAddStock(InventoryItem item) async {
-    final updatedItem = await showDialog<InventoryItem>(
-      context: context,
-      builder: (ctx) => AddStockDialog(item: item),
-    );
+    final updatedItem = await AddStockDialog.show(context, item: item);
 
     if (updatedItem != null) {
       _fetchInventory();
@@ -191,15 +195,17 @@ class InventoryListScreenState extends State<InventoryListScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildSummaryMetric(
-                    title: 'Stock Value',
-                    value: '\u{20B9}${_metrics!.totalStockValue.toStringAsFixed(0)}',
-                    icon: Icons.account_balance_wallet_rounded,
-                    color: Colors.lightGreenAccent,
+                if (_isOwner) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildSummaryMetric(
+                      title: 'Stock Value',
+                      value: '\u{20B9}${_metrics!.totalStockValue.toStringAsFixed(0)}',
+                      icon: Icons.account_balance_wallet_rounded,
+                      color: Colors.lightGreenAccent,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -343,7 +349,7 @@ class InventoryListScreenState extends State<InventoryListScreen> {
                           actionLabel: '+ Add Item',
                           onActionPressed: () async {
                             final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'add inventory items');
-                            if (!ok) return;
+                            if (!ok || !context.mounted) return;
                             await Navigator.pushNamed(context, AppRoutes.addInventoryItem);
                             _fetchInventory();
                           },
@@ -462,7 +468,13 @@ class InventoryListScreenState extends State<InventoryListScreen> {
                                                 ),
                                                 const SizedBox(height: 4),
                                                 Text(
-                                                  'Buy: \u{20B9}${item.purchasePrice.toStringAsFixed(2)} | Sell: \u{20B9}${item.sellingPrice.toStringAsFixed(2)}',
+                                                  _isOwner
+                                                      ? (item.taxRate > 0
+                                                          ? 'Buy: \u{20B9}${item.purchasePrice.toStringAsFixed(2)} | Sell: \u{20B9}${item.sellingPrice.toStringAsFixed(2)} • ${item.taxRate.toStringAsFixed(item.taxRate % 1 == 0 ? 0 : 1)}% GST (${item.taxType == 'inclusive' ? 'Incl' : 'Excl'})'
+                                                          : 'Buy: \u{20B9}${item.purchasePrice.toStringAsFixed(2)} | Sell: \u{20B9}${item.sellingPrice.toStringAsFixed(2)}')
+                                                      : (item.taxRate > 0
+                                                          ? 'Price: \u{20B9}${item.sellingPrice.toStringAsFixed(2)} • ${item.taxRate.toStringAsFixed(item.taxRate % 1 == 0 ? 0 : 1)}% GST (${item.taxType == 'inclusive' ? 'Incl' : 'Excl'})'
+                                                          : 'Price: \u{20B9}${item.sellingPrice.toStringAsFixed(2)}'),
                                                   style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
                                                 ),
                                               ],
@@ -512,7 +524,7 @@ class InventoryListScreenState extends State<InventoryListScreen> {
           heroTag: 'fab_inventory_tab',
           onPressed: () async {
             final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'manage inventory items');
-            if (!ok) return;
+            if (!ok || !context.mounted) return;
             final result = await Navigator.pushNamed(context, AppRoutes.addInventoryItem);
             if (result == true) _fetchInventory();
           },
@@ -534,7 +546,7 @@ class InventoryListScreenState extends State<InventoryListScreen> {
             icon: const Icon(Icons.add_rounded),
             onPressed: () async {
               final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'manage inventory items');
-              if (!ok) return;
+              if (!ok || !context.mounted) return;
               final result = await Navigator.pushNamed(context, AppRoutes.addInventoryItem);
               if (result == true) _fetchInventory();
             },
@@ -546,7 +558,7 @@ class InventoryListScreenState extends State<InventoryListScreen> {
         heroTag: 'fab_inventory_list',
         onPressed: () async {
           final ok = await SubscriptionGuard.checkAndGuard(context, actionName: 'manage inventory items');
-          if (!ok) return;
+          if (!ok || !context.mounted) return;
           final result = await Navigator.pushNamed(context, AppRoutes.addInventoryItem);
           if (result == true) _fetchInventory();
         },

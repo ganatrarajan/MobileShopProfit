@@ -8,6 +8,8 @@ import '../../../../core/widgets/custom_text_field.dart';
 import '../../../device/data/device_repository.dart';
 import '../../data/inventory_repository.dart';
 import '../../models/inventory_item.dart';
+import '../../../../core/utils/gst_calculator.dart';
+import '../../../../core/widgets/gst_input_card.dart';
 
 class QuickAddInventoryModal extends StatefulWidget {
   final String? defaultItemType;
@@ -59,6 +61,11 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
   final _imei1Controller = TextEditingController();
   final _imei2Controller = TextEditingController();
   final _serialController = TextEditingController();
+
+  // GST State
+  bool _gstEnabled = false;
+  GstMode _gstMode = GstMode.exclusive;
+  double _gstRate = 18.0;
 
   String _itemType = 'mobile';
   bool _isSaving = false;
@@ -470,12 +477,14 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
           if (check.success && check.data != null && check.data!['in_stock'] == true) {
             final itemName = check.data!['item']?['name'];
             final suffix = itemName != null ? ' ($itemName)' : '';
-            AppFeedback.showError(
-              context,
-              error: check.message.isNotEmpty
-                  ? check.message
-                  : "IMEI/Serial '$val' is already in stock for this shop$suffix. Cannot add duplicate until the current unit is sold.",
-            );
+            if (mounted) {
+              AppFeedback.showError(
+                context,
+                error: check.message.isNotEmpty
+                    ? check.message
+                    : "IMEI/Serial '$val' is already in stock for this shop$suffix. Cannot add duplicate until the current unit is sold.",
+              );
+            }
             return;
           }
         } catch (_) {}
@@ -493,6 +502,8 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
         sku: _skuController.text.trim().isNotEmpty ? _skuController.text.trim() : null,
         purchasePrice: purchasePrice,
         sellingPrice: sellingPrice,
+        taxRate: _gstEnabled ? _gstRate : 0.0,
+        taxType: _gstMode == GstMode.inclusive ? 'inclusive' : 'exclusive',
         openingStock: openingStock,
         imei1: _imei1Controller.text.trim().isNotEmpty ? _imei1Controller.text.trim() : null,
         imei2: _imei2Controller.text.trim().isNotEmpty ? _imei2Controller.text.trim() : null,
@@ -930,6 +941,7 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
                       isRequired: true,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       prefixIcon: Icons.currency_rupee,
+                      onChanged: (_) => setState(() {}),
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) return 'Enter price';
                         if (double.tryParse(v.trim()) == null) return 'Invalid price';
@@ -945,9 +957,25 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
                       controller: _purchasePriceController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       prefixIcon: Icons.money_off_outlined,
+                      onChanged: (_) => setState(() {}),
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 12),
+              GstInputCard(
+                amount: double.tryParse(_sellingPriceController.text.trim()) ?? 0.0,
+                initialEnabled: _gstEnabled,
+                initialMode: _gstMode,
+                initialRate: _gstRate,
+                title: 'Product GST Setting',
+                onChanged: (res) {
+                  setState(() {
+                    _gstEnabled = res.isEnabled;
+                    _gstMode = res.mode;
+                    _gstRate = res.rate;
+                  });
+                },
               ),
               const SizedBox(height: 14),
 

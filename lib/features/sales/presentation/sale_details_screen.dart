@@ -67,36 +67,7 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
               }
             }
 
-            fetchedSale = Sale(
-              id: fetchedSale.id,
-              shopId: fetchedSale.shopId,
-              saleType: fetchedSale.saleType,
-              customerId: fetchedSale.customerId,
-              customerName: fetchedSale.customerName,
-              customerMobile: fetchedSale.customerMobile,
-              deviceId: fetchedSale.deviceId,
-              invoiceNumber: fetchedSale.invoiceNumber,
-              saleDate: fetchedSale.saleDate,
-              subtotal: fetchedSale.subtotal,
-              discount: fetchedSale.discount,
-              taxAmount: fetchedSale.taxAmount,
-              grandTotal: fetchedSale.grandTotal,
-              amountPaid: fetchedSale.amountPaid,
-              amountDue: fetchedSale.amountDue,
-              paymentStatus: fetchedSale.paymentStatus,
-              notes: fetchedSale.notes,
-              createdBy: fetchedSale.createdBy,
-              creatorName: fetchedSale.creatorName,
-              customer: fetchedSale.customer,
-              device: fetchedSale.device,
-              items: fetchedSale.items,
-              payments: fetchedSale.payments,
-              warranty: matchingWarranty,
-              createdAt: fetchedSale.createdAt,
-              updatedAt: fetchedSale.updatedAt,
-              rawTotalCost: fetchedSale.rawTotalCost,
-              rawNetProfit: fetchedSale.rawNetProfit,
-            );
+            fetchedSale = fetchedSale.copyWith(warranty: matchingWarranty);
           }
           setState(() {
             _sale = fetchedSale;
@@ -472,30 +443,7 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                                   final newW = await QuickWarrantyModal.show(context, sale: _sale);
                                   if (newW != null) {
                                     setState(() {
-                                      _sale = Sale(
-                                        id: _sale.id,
-                                        shopId: _sale.shopId,
-                                        customerId: _sale.customerId,
-                                        invoiceNumber: _sale.invoiceNumber,
-                                        saleDate: _sale.saleDate,
-                                        subtotal: _sale.subtotal,
-                                        discount: _sale.discount,
-                                        taxAmount: _sale.taxAmount,
-                                        grandTotal: _sale.grandTotal,
-                                        amountPaid: _sale.amountPaid,
-                                        amountDue: _sale.amountDue,
-                                        paymentStatus: _sale.paymentStatus,
-//                                         paymentMethod: _sale.paymentMethod,
-                                        notes: _sale.notes,
-                                        createdBy: _sale.createdBy,
-                                        customer: _sale.customer,
-                                        device: _sale.device,
-                                        items: _sale.items,
-                                        payments: _sale.payments,
-                                        warranty: newW,
-                                        createdAt: _sale.createdAt,
-                                        updatedAt: _sale.updatedAt,
-                                      );
+                                      _sale = _sale.copyWith(warranty: newW);
                                     });
                                     _refreshDetails();
                                   }
@@ -539,8 +487,10 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(item.productName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                                      if (item.brand != null || item.model != null)
-                                        Text('${item.brand ?? ''} ${item.model ?? ''}'.trim(), style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                                       if ((item.brand != null || item.model != null) &&
+                                           !item.productName.toLowerCase().contains((item.brand ?? '').toLowerCase()) &&
+                                           !item.productName.toLowerCase().contains((item.model ?? '').toLowerCase()))
+                                         Text('${item.brand ?? ''} ${item.model ?? ''}'.trim(), style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
                                       if (item.imei1 != null)
                                         Text('IMEI: ${item.imei1}', style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
                                       if (_isOwner && item.costPrice != null && item.costPrice! > 0) ...[
@@ -548,14 +498,41 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                                         ValueListenableBuilder<bool>(
                                           valueListenable: ProfitVisibilityService().isHiddenNotifier,
                                           builder: (context, _, __) {
-                                            final profitVal = item.total - (item.costPrice! * item.quantity);
+                                            // For inclusive tax, the net revenue of this item is total - taxAmount
+                                            final taxableRevenue = item.taxType == 'inclusive' && item.taxAmount > 0
+                                                ? (item.total - item.taxAmount)
+                                                : item.total;
+                                            final totalCost = item.costPrice! * item.quantity;
+                                            final profitVal = taxableRevenue - totalCost;
+                                            final isProfit = profitVal >= 0;
                                             return Text(
-                                              'Cost: \u20B9${(item.costPrice! * item.quantity).toStringAsFixed(0)} \u2022 Profit: ${ProfitVisibilityService().format(profitVal, showSign: true, decimals: 0)}',
-                                              style: const TextStyle(fontSize: 10.5, color: Color(0xFF047857), fontWeight: FontWeight.w600),
+                                              'Cost: \u20B9${totalCost.toStringAsFixed(0)} \u2022 ${isProfit ? "Profit" : "Loss"}: ${ProfitVisibilityService().format(profitVal, showSign: true, decimals: 0)}',
+                                              style: TextStyle(
+                                                fontSize: 10.5,
+                                                color: isProfit ? const Color(0xFF047857) : const Color(0xFFDC2626),
+                                                fontWeight: FontWeight.w600,
+                                             ),
                                             );
                                           },
                                         ),
                                       ],
+                                       if (item.taxRate > 0 || item.taxAmount > 0) ...[
+                                         const SizedBox(height: 3),
+                                         Container(
+                                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                           decoration: BoxDecoration(
+                                             color: AppColors.primary.withOpacity(0.08),
+                                             borderRadius: BorderRadius.circular(4),
+                                             border: Border.all(color: AppColors.primary.withOpacity(0.25), width: 0.8),
+                                           ),
+                                           child: Text(
+                                             item.taxType == 'inclusive'
+                                                 ? '${item.taxRate.toStringAsFixed(item.taxRate % 1 == 0 ? 0 : 1)}% GST Incl. (₹${item.taxAmount.toStringAsFixed(2)})'
+                                                 : '+${item.taxRate.toStringAsFixed(item.taxRate % 1 == 0 ? 0 : 1)}% GST Extra (+₹${item.taxAmount.toStringAsFixed(2)})',
+                                             style: const TextStyle(fontSize: 9.5, color: AppColors.primary, fontWeight: FontWeight.bold),
+                                           ),
+                                         ),
+                                       ],
                                       if (item.discount > 0)
                                         Text('Disc: -₹${item.discount.toStringAsFixed(2)}', style: TextStyle(fontSize: 10, color: Colors.green.shade700, fontWeight: FontWeight.bold)),
                                     ],
@@ -585,118 +562,260 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                   // Financial Breakdown Card
                   CustomCard(
                     padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        _buildRow('Subtotal', '₹ ${_sale.subtotal.toStringAsFixed(2)}'),
-                        if (_sale.totalDiscount > 0)
-                          _buildRow('Total Discount', '- ₹ ${_sale.totalDiscount.toStringAsFixed(2)}', color: Colors.green.shade700, isBold: true),
-                        if (_sale.taxAmount > 0)
-                          _buildRow('Tax / GST', '+ ₹ ${_sale.taxAmount.toStringAsFixed(2)}'),
-                        const Divider(height: 20),
-                        _buildRow('GRAND TOTAL', '₹ ${_sale.grandTotal.toStringAsFixed(2)}', isBold: true, fontSize: 18),
-                        const SizedBox(height: 6),
-                        _buildRow('Amount Paid', '₹ ${_sale.amountPaid.toStringAsFixed(2)}', color: Colors.green.shade700, isBold: true),
-                        const SizedBox(height: 6),
-                        _buildRow('AMOUNT DUE', '\u20B9 ${_sale.amountDue.toStringAsFixed(2)}', color: _sale.amountDue > 0 ? Colors.red.shade700 : Colors.green.shade700, isBold: true, fontSize: 18),
-                        if (_isOwner) ...[
-                          const Divider(height: 20),
-                          _buildRow('Item Purchase Cost', '\u20B9 ${_sale.totalCost.toStringAsFixed(2)}', color: AppColors.textSecondary),
-                          const SizedBox(height: 10),
-                          // Net Profit Box
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: _sale.amountPaid > 0 ? const Color(0xFFECFDF5) : const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: _sale.amountPaid > 0 ? const Color(0xFFA7F3D0) : const Color(0xFFE2E8F0),
-                              width: 1.2,
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              Wrap(
-                                alignment: WrapAlignment.spaceBetween,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                spacing: 8,
-                                runSpacing: 6,
-                                children: [
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.monetization_on_rounded,
-                                        size: 18,
-                                        color: _sale.amountPaid > 0 ? const Color(0xFF059669) : AppColors.textMuted,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      const Text(
-                                        'Realized Net Profit',
-                                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF047857)),
-                                      ),
-                                    ],
-                                  ),
-                                  Wrap(
-                                    crossAxisAlignment: WrapCrossAlignment.center,
-                                    spacing: 6,
-                                    runSpacing: 4,
-                                    children: [
-                                      ProfitText(
-                                        amount: _sale.amountPaid > 0 ? _sale.netProfit : 0.0,
-                                        prefix: '₹ ',
-                                        showSign: _sale.amountPaid > 0,
-                                        decimals: 2,
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w900,
-                                          color: _sale.amountPaid > 0 ? const Color(0xFF059669) : AppColors.textMuted,
+                    child: Builder(
+                      builder: (context) {
+                        final itemsTaxSum = _sale.items.fold<double>(0.0, (sum, i) => sum + i.taxAmount);
+                        final hasTax = _sale.taxAmount > 0 || _sale.taxRate > 0 || itemsTaxSum > 0;
+                        final displayTaxAmount = _sale.taxAmount > 0 ? _sale.taxAmount : itemsTaxSum;
+                        final displayTaxRate = _sale.taxRate > 0
+                            ? _sale.taxRate
+                            : (_sale.items.any((i) => i.taxRate > 0) ? _sale.items.firstWhere((i) => i.taxRate > 0).taxRate : 0.0);
+                        final displayTaxType = _sale.taxRate > 0
+                            ? _sale.taxType
+                            : (_sale.items.any((i) => i.taxRate > 0) ? _sale.items.firstWhere((i) => i.taxRate > 0).taxType : 'exclusive');
+                        final displayCgst = _sale.cgstAmount > 0 ? _sale.cgstAmount : (_sale.isInterState ? 0.0 : displayTaxAmount / 2);
+                        final displaySgst = _sale.sgstAmount > 0 ? _sale.sgstAmount : (_sale.isInterState ? 0.0 : displayTaxAmount / 2);
+                        final displayIgst = _sale.igstAmount > 0 ? _sale.igstAmount : (_sale.isInterState ? displayTaxAmount : 0.0);
+
+                        final taxableBase = displayTaxType == 'inclusive'
+                            ? (_sale.subtotal - _sale.totalDiscount - displayTaxAmount > 0 ? _sale.subtotal - _sale.totalDiscount - displayTaxAmount : 0.0)
+                            : (_sale.subtotal - _sale.totalDiscount > 0 ? _sale.subtotal - _sale.totalDiscount : 0.0);
+
+                        final isProfitable = _sale.netProfit >= 0;
+
+                        return Column(
+                          children: [
+                            if (displayTaxType == 'inclusive' && hasTax) ...[
+                              _buildRow('Taxable Base (Subtotal)', '₹ ${taxableBase.toStringAsFixed(2)}'),
+                              if (_sale.totalDiscount > 0)
+                                _buildRow('Total Discount', '- ₹ ${_sale.totalDiscount.toStringAsFixed(2)}', color: Colors.green.shade700, isBold: true),
+                            ] else ...[
+                              _buildRow('Subtotal', '₹ ${_sale.subtotal.toStringAsFixed(2)}'),
+                              if (_sale.totalDiscount > 0)
+                                _buildRow('Total Discount', '- ₹ ${_sale.totalDiscount.toStringAsFixed(2)}', color: Colors.green.shade700, isBold: true),
+                            ],
+                            if (hasTax) ...[
+                              Container(
+                                margin: const EdgeInsets.only(top: 8, bottom: 4),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.receipt_long_rounded, size: 14, color: AppColors.primary),
+                                        const SizedBox(width: 5),
+                                        Expanded(
+                                          child: Text(
+                                            'GST Breakdown (${displayTaxRate.toStringAsFixed(displayTaxRate % 1 == 0 ? 0 : 1)}%)',
+                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
                                         ),
-                                      ),
-                                      if (_sale.amountPaid > 0 && _sale.profitMarginPercent > 0)
+                                        const SizedBox(width: 6),
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFF059669),
+                                            color: displayTaxType == 'inclusive' ? const Color(0xFFEFF6FF) : const Color(0xFFFAF5FF),
                                             borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(
+                                              color: displayTaxType == 'inclusive' ? const Color(0xFFBFDBFE) : const Color(0xFFE9D5FF),
+                                              width: 0.8,
+                                            ),
                                           ),
                                           child: Text(
-                                            '${_sale.profitMarginPercent.toStringAsFixed(0)}% Margin',
-                                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                                            displayTaxType == 'inclusive' ? 'Incl. in Price' : 'Added to Price',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: displayTaxType == 'inclusive' ? const Color(0xFF1D4ED8) : const Color(0xFF7E22CE),
+                                            ),
                                           ),
                                         ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              if (_sale.amountDue > 0) ...[
-                                const SizedBox(height: 6),
-                                const Divider(height: 1),
-                                const SizedBox(height: 6),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    const Expanded(
-                                      child: Text(
-                                        'Expected Profit (Full Payment)',
-                                        style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
+                                      ],
                                     ),
-                                    const SizedBox(width: 8),
-                                    ProfitText(
-                                      amount: _sale.expectedNetProfit,
-                                      prefix: '₹ ',
-                                      decimals: 2,
-                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                    const Divider(height: 14, thickness: 0.7),
+                                    if (displayTaxType == 'inclusive') ...[
+                                      Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                        margin: const EdgeInsets.only(bottom: 8),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFEFF6FF),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          'Tax is included in product price: Base ₹${taxableBase.toStringAsFixed(2)} + GST ₹${displayTaxAmount.toStringAsFixed(2)} = ₹${_sale.grandTotal.toStringAsFixed(2)}',
+                                          style: const TextStyle(fontSize: 10.5, color: Color(0xFF1D4ED8), fontWeight: FontWeight.w600),
+                                        ),
+                                      ),
+                                    ],
+                                    if (_sale.isInterState) ...[
+                                      _buildRow(
+                                        'IGST (${displayTaxRate.toStringAsFixed(displayTaxRate % 1 == 0 ? 0 : 1)}%)',
+                                        '${displayTaxType == 'exclusive' ? "+ " : ""}₹ ${displayIgst.toStringAsFixed(2)}',
+                                        fontSize: 12,
+                                        color: AppColors.primary,
+                                      ),
+                                    ] else ...[
+                                      _buildRow(
+                                        'CGST (${(displayTaxRate / 2).toStringAsFixed((displayTaxRate / 2) % 1 == 0 ? 0 : 1)}%)',
+                                        '${displayTaxType == 'exclusive' ? "+ " : ""}₹ ${displayCgst.toStringAsFixed(2)}',
+                                        fontSize: 12,
+                                        color: Colors.teal.shade800,
+                                      ),
+                                      const SizedBox(height: 3),
+                                      _buildRow(
+                                        'SGST (${(displayTaxRate / 2).toStringAsFixed((displayTaxRate / 2) % 1 == 0 ? 0 : 1)}%)',
+                                        '${displayTaxType == 'exclusive' ? "+ " : ""}₹ ${displaySgst.toStringAsFixed(2)}',
+                                        fontSize: 12,
+                                        color: Colors.teal.shade800,
+                                      ),
+                                    ],
+                                    const SizedBox(height: 4),
+                                    const Divider(height: 8, thickness: 0.5),
+                                    _buildRow(
+                                      'Total GST Amount',
+                                      '₹ ${displayTaxAmount.toStringAsFixed(2)}',
+                                      isBold: true,
+                                      fontSize: 12.5,
+                                      color: AppColors.primary,
                                     ),
                                   ],
                                 ),
-                              ],
+                              ),
                             ],
-                          ),
-                        ),
-                        ],
-                      ],
+                            const Divider(height: 20),
+                            _buildRow('GRAND TOTAL', '₹ ${_sale.grandTotal.toStringAsFixed(2)}', isBold: true, fontSize: 18),
+                            const SizedBox(height: 6),
+                            _buildRow('Amount Paid', '₹ ${_sale.amountPaid.toStringAsFixed(2)}', color: Colors.green.shade700, isBold: true),
+                            const SizedBox(height: 6),
+                            _buildRow('AMOUNT DUE', '\u20B9 ${_sale.amountDue.toStringAsFixed(2)}', color: _sale.amountDue > 0 ? Colors.red.shade700 : Colors.green.shade700, isBold: true, fontSize: 18),
+                            if (_isOwner) ...[
+                              const Divider(height: 20),
+                              _buildRow('Item Purchase Cost', '\u20B9 ${_sale.totalCost.toStringAsFixed(2)}', color: AppColors.textSecondary),
+                              const SizedBox(height: 10),
+                              // Net Profit / Loss Box
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: _sale.amountPaid > 0
+                                      ? (isProfitable ? const Color(0xFFECFDF5) : const Color(0xFFFEF2F2))
+                                      : const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: _sale.amountPaid > 0
+                                        ? (isProfitable ? const Color(0xFFA7F3D0) : const Color(0xFFFECACA))
+                                        : const Color(0xFFE2E8F0),
+                                    width: 1.2,
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Wrap(
+                                      alignment: WrapAlignment.spaceBetween,
+                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      spacing: 8,
+                                      runSpacing: 6,
+                                      children: [
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              isProfitable ? Icons.monetization_on_rounded : Icons.trending_down_rounded,
+                                              size: 18,
+                                              color: _sale.amountPaid > 0
+                                                  ? (isProfitable ? const Color(0xFF059669) : const Color(0xFFDC2626))
+                                                  : AppColors.textMuted,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              isProfitable ? 'Realized Net Profit' : 'Loss on Sale',
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.bold,
+                                                color: isProfitable ? const Color(0xFF047857) : const Color(0xFFDC2626),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        Wrap(
+                                          crossAxisAlignment: WrapCrossAlignment.center,
+                                          spacing: 6,
+                                          runSpacing: 4,
+                                          children: [
+                                            ProfitText(
+                                              amount: _sale.amountPaid > 0 ? _sale.netProfit : 0.0,
+                                              prefix: '₹ ',
+                                              showSign: _sale.amountPaid > 0 && isProfitable,
+                                              decimals: 2,
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w900,
+                                                color: _sale.amountPaid > 0
+                                                    ? (isProfitable ? const Color(0xFF059669) : const Color(0xFFDC2626))
+                                                    : AppColors.textMuted,
+                                              ),
+                                            ),
+                                            if (_sale.amountPaid > 0 && _sale.profitMarginPercent > 0 && isProfitable)
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFF059669),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  '${_sale.profitMarginPercent.toStringAsFixed(0)}% Margin',
+                                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                    if (hasTax) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Excludes ₹${displayTaxAmount.toStringAsFixed(2)} GST tax paid to government',
+                                        style: TextStyle(fontSize: 9.5, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
+                                      ),
+                                    ],
+                                    if (_sale.amountDue > 0) ...[
+                                      const SizedBox(height: 6),
+                                      const Divider(height: 1),
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          const Expanded(
+                                            child: Text(
+                                              'Expected Profit (Full Payment)',
+                                              style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          ProfitText(
+                                            amount: _sale.expectedNetProfit,
+                                            prefix: '₹ ',
+                                            decimals: 2,
+                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        );
+                      },
                     ),
                   ),
                   const SizedBox(height: 14),

@@ -639,7 +639,12 @@ class PurchaseListScreenState extends State<PurchaseListScreen>
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text('Total: \u20B9${p.grandTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textPrimary)),
+                                      Text(
+                                        p.taxAmount > 0
+                                            ? 'Total: \u20B9${p.grandTotal.toStringAsFixed(2)} (${p.taxRate.toStringAsFixed(p.taxRate % 1 == 0 ? 0 : 1)}% GST)'
+                                            : 'Total: \u20B9${p.grandTotal.toStringAsFixed(2)}',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textPrimary),
+                                      ),
                                       Text('Paid: \u20B9${p.amountPaid.toStringAsFixed(2)}', style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.w600, fontSize: 12)),
                                       Text('Due: \u20B9${p.outstandingAmount.toStringAsFixed(2)}', style: TextStyle(color: p.outstandingAmount > 0 ? AppColors.error : AppColors.success, fontWeight: FontWeight.bold, fontSize: 12)),
                                     ],

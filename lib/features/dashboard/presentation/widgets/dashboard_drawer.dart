@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../../../core/services/profit_visibility_service.dart';
 import '../../../../core/routes/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../referral/presentation/refer_and_earn_screen.dart';
+import '../../../shop/presentation/digital_visiting_card_screen.dart';
 
 class DashboardDrawer extends StatelessWidget {
   final String shopName;
@@ -93,14 +95,15 @@ class DashboardDrawer extends StatelessWidget {
             title: const Text('Dashboard', style: textStyle),
             onTap: () => _navigateToTab(context, 0, AppRoutes.dashboard),
           ),
-          ListTile(
-            leading: const Icon(Icons.star_rounded, color: AppColors.warning),
-            title: const Text('Profit AI Assistant', style: boldTextStyle),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushNamed(context, AppRoutes.profitIntelligence);
-            },
-          ),
+          if (ProfitVisibilityService().isOwner)
+            ListTile(
+              leading: const Icon(Icons.star_rounded, color: AppColors.warning),
+              title: const Text('Profit AI Assistant', style: boldTextStyle),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, AppRoutes.profitIntelligence);
+              },
+            ),
           if (isReferralEnabled)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
@@ -312,6 +315,26 @@ class DashboardDrawer extends StatelessWidget {
             onTap: () {
               Navigator.pop(context);
               Navigator.pushNamed(context, AppRoutes.shopProfile);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.qr_code_2_rounded, color: Color(0xFF6366F1)),
+            title: const Text('Visiting Card & Location', style: boldTextStyle),
+            subtitle: const Text('Free Google Maps & UPI Card', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text('FREE', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)),
+            ),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const DigitalVisitingCardScreen()),
+              );
             },
           ),
           ListTile(

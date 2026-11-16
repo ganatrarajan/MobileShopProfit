@@ -23,6 +23,9 @@ class PurchaseItem {
   final String? imei2;
   final String? serialNumber;
   final double purchaseRate;
+  final double taxAmount;
+  final double taxRate;
+  final String taxType; // exclusive, inclusive
   final double totalAmount;
 
   PurchaseItem({
@@ -37,6 +40,9 @@ class PurchaseItem {
     this.imei2,
     this.serialNumber,
     required this.purchaseRate,
+    this.taxAmount = 0.0,
+    this.taxRate = 0.0,
+    this.taxType = 'exclusive',
     required this.totalAmount,
   });
 
@@ -53,6 +59,9 @@ class PurchaseItem {
       imei2: json['imei2']?.toString(),
       serialNumber: json['serial_number']?.toString(),
       purchaseRate: _toDouble(json['purchase_rate']),
+      taxAmount: _toDouble(json['tax_amount']),
+      taxRate: _toDouble(json['tax_rate']),
+      taxType: json['tax_type']?.toString() ?? 'exclusive',
       totalAmount: _toDouble(json['total_amount']),
     );
   }
@@ -65,6 +74,9 @@ class PurchaseItem {
       if (imei2 != null && imei2!.isNotEmpty) 'imei2': imei2,
       if (serialNumber != null && serialNumber!.isNotEmpty) 'serial_number': serialNumber,
       'purchase_rate': purchaseRate,
+      'tax_amount': taxAmount,
+      'tax_rate': taxRate,
+      'tax_type': taxType,
       'total_amount': totalAmount,
     };
   }

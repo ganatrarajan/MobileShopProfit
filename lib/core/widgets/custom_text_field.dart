@@ -14,6 +14,7 @@ class CustomTextField extends StatefulWidget {
   final void Function(String)? onChanged;
   final int maxLines;
   final bool isRequired;
+  final VoidCallback? onTap;
 
   const CustomTextField({
     super.key,
@@ -29,6 +30,7 @@ class CustomTextField extends StatefulWidget {
     this.onChanged,
     this.maxLines = 1,
     this.isRequired = false,
+    this.onTap,
   });
 
   @override
@@ -89,6 +91,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
           obscureText: widget.isPassword ? _obscureText : false,
           maxLines: widget.isPassword ? 1 : widget.maxLines,
           readOnly: widget.readOnly,
+          onTap: widget.onTap,
           onChanged: widget.onChanged,
           validator: widget.validator,
           style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: textColor),

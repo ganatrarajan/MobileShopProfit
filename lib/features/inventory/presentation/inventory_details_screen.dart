@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import '../../../core/services/profit_visibility_service.dart';
+import '../../../core/storage/auth_storage.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../data/inventory_repository.dart';
 import '../models/inventory_item.dart';
+import '../../../core/utils/gst_calculator.dart';
 import 'add_stock_dialog.dart';
 import 'adjust_stock_dialog.dart';
 
@@ -20,6 +23,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
   final InventoryRepository _inventoryRepository = InventoryRepository();
   late InventoryItem _item;
   bool _isLoading = false;
+  bool _isOwner = true;
 
   final Map<String, Color> _movementColors = {
     'opening_stock': Colors.blue.shade700,
@@ -35,6 +39,10 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
   @override
   void initState() {
     super.initState();
+    _isOwner = ProfitVisibilityService().isOwner;
+    AuthStorage().isOwner().then((val) {
+      if (mounted && _isOwner != val) setState(() => _isOwner = val);
+    });
     _item = widget.item;
     _refreshDetails();
   }
@@ -59,10 +67,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
   }
 
   Future<void> _openAddStock() async {
-    final updatedItem = await showDialog<InventoryItem>(
-      context: context,
-      builder: (ctx) => AddStockDialog(item: _item),
-    );
+    final updatedItem = await AddStockDialog.show(context, item: _item);
 
     if (updatedItem != null) {
       _refreshDetails();
@@ -266,22 +271,24 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                        Row(
                           children: [
-                            Icon(Icons.account_balance_wallet_rounded, color: AppColors.accent, size: 20),
-                            SizedBox(width: 8),
-                            Text('Stock Valuation & Pricing', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                            const Icon(Icons.account_balance_wallet_rounded, color: AppColors.accent, size: 20),
+                            const SizedBox(width: 8),
+                            Text(_isOwner ? 'Stock Valuation & Pricing' : 'Product Pricing', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                           ],
                         ),
                         const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Purchase Price (Cost):', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-                            Text('₹${_item.purchasePrice.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
+                        if (_isOwner) ...[
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Purchase Price (Cost):', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                              Text('₹${_item.purchasePrice.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                        ],
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -293,21 +300,119 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Margin / Profit per Unit:', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-                            Text(
-                              '₹${(_item.sellingPrice - _item.purchasePrice).toStringAsFixed(2)}',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.accent),
+                            const Text('Product GST Status:', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: _item.taxRate > 0 ? AppColors.primary.withOpacity(0.08) : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(5),
+                                border: Border.all(color: _item.taxRate > 0 ? AppColors.primary.withOpacity(0.25) : Colors.grey.shade300),
+                              ),
+                              child: Text(
+                                _item.taxRate > 0
+                                    ? '${_item.taxRate.toStringAsFixed(_item.taxRate % 1 == 0 ? 0 : 1)}% (${_item.taxType == 'inclusive' ? "Inclusive" : "Exclusive"})'
+                                    : 'Exempt (0% GST)',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  color: _item.taxRate > 0 ? AppColors.primary : Colors.grey.shade600,
+                                ),
+                              ),
                             ),
                           ],
                         ),
-                        const Divider(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Total Stock Value (Cost):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                            Text('₹${_item.stockValue.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary)),
-                          ],
-                        ),
+                        if (_item.taxRate > 0) ...[
+                          const SizedBox(height: 8),
+                          Builder(
+                            builder: (context) {
+                              final gstRes = GstCalculator.calculate(
+                                amount: _item.sellingPrice,
+                                rate: _item.taxRate,
+                                mode: _item.taxType == 'inclusive' ? GstMode.inclusive : GstMode.exclusive,
+                                isInterState: false,
+                                isEnabled: true,
+                              );
+                              return Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Text('Taxable Base Price:', style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
+                                        Text('₹${gstRes.taxableAmount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text('CGST (${(gstRes.rate / 2).toStringAsFixed(1)}%):', style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
+                                        Text('+ ₹${gstRes.cgstAmount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF15803D))),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text('SGST (${(gstRes.rate / 2).toStringAsFixed(1)}%):', style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
+                                        Text('+ ₹${gstRes.sgstAmount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF15803D))),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Text('Total Tax Amount:', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                                        Text('₹${gstRes.taxAmount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF15803D))),
+                                      ],
+                                    ),
+                                    const Divider(height: 10, thickness: 0.6),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          _item.taxType == 'inclusive' ? 'Final Customer MRP:' : 'Final Price (Inc. Tax):',
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                        ),
+                                        Text(
+                                          '₹${gstRes.totalPayable.toStringAsFixed(2)}',
+                                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primary),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                        if (_isOwner) ...[
+                          const SizedBox(height: 6),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Margin / Profit per Unit:', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                              Text(
+                                '₹${(_item.sellingPrice - _item.purchasePrice).toStringAsFixed(2)}',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.accent),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Total Stock Value (Cost):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                              Text('₹${_item.stockValue.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary)),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),

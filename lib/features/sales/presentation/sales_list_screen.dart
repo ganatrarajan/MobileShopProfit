@@ -2,6 +2,7 @@ import '../../../core/utils/date_helper.dart';
 import '../../../core/widgets/app_shimmer.dart';
 import 'package:flutter/material.dart';
 import '../../../core/services/profit_visibility_service.dart';
+import '../../../core/storage/auth_storage.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/date_range_empty_state.dart';
@@ -41,6 +42,7 @@ class SalesListScreenState extends State<SalesListScreen> {
   double _totalDueSum = 0.0;
   double _totalCostSum = 0.0;
   double _totalNetProfitSum = 0.0;
+  bool _isOwner = true;
 
   bool _hasParsedArgs = false;
 
@@ -57,6 +59,10 @@ class SalesListScreenState extends State<SalesListScreen> {
   @override
   void initState() {
     super.initState();
+    _isOwner = ProfitVisibilityService().isOwner;
+    AuthStorage().isOwner().then((val) {
+      if (mounted && _isOwner != val) setState(() => _isOwner = val);
+    });
   }
 
   @override
@@ -397,36 +403,38 @@ class SalesListScreenState extends State<SalesListScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
               // Compact Profit & Costs Breakdown Strip
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(8),
+              if (_isOwner) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.currency_rupee_rounded, size: 12, color: Colors.greenAccent),
+                          Text('Net Profit: ', style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 10)),
+                          ProfitText(
+                            amount: _totalNetProfitSum,
+                            prefix: '₹',
+                            showSign: true,
+                            decimals: 0,
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                      const Text('|', style: TextStyle(color: Colors.white24, fontSize: 11)),
+                      Text('Items Cost: \u20B9${_totalCostSum.toStringAsFixed(0)}', style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 10.5, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.currency_rupee_rounded, size: 12, color: Colors.greenAccent),
-                        Text('Net Profit: ', style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 10)),
-                        ProfitText(
-                          amount: _totalNetProfitSum,
-                          prefix: '₹',
-                          showSign: true,
-                          decimals: 0,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                    const Text('|', style: TextStyle(color: Colors.white24, fontSize: 11)),
-                    Text('Items Cost: \u20B9${_totalCostSum.toStringAsFixed(0)}', style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 10.5, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ),
+              ],
               const SizedBox(height: 10),
               // Search Field & Date Filter Chip
               Row(
@@ -1012,92 +1020,94 @@ class SalesListScreenState extends State<SalesListScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 5),
-          Divider(
-            height: 1,
-            thickness: 0.6,
-            color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-          ),
-          const SizedBox(height: 5),
-          // Line 2: Purchase Cost & Realized Net Profit
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: SizedBox(
-              width: MediaQuery.of(context).size.width - 56,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.shopping_bag_outlined, size: 12, color: textMutedColor),
-                      const SizedBox(width: 3),
-                      Text(
-                        'Purchase: ',
-                        style: TextStyle(fontSize: 11, color: textMutedColor),
-                      ),
-                      Text(
-                        '\u20B9${cost.toStringAsFixed(0)}',
-                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: textColor),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Profit: ',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.bold,
-                          color: isUnpaid ? AppColors.textMuted : const Color(0xFF047857),
+          if (_isOwner) ...[
+            const SizedBox(height: 5),
+            Divider(
+              height: 1,
+              thickness: 0.6,
+              color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+            ),
+            const SizedBox(height: 5),
+            // Line 2: Purchase Cost & Realized Net Profit
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: SizedBox(
+                width: MediaQuery.of(context).size.width - 56,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.shopping_bag_outlined, size: 12, color: textMutedColor),
+                        const SizedBox(width: 3),
+                        Text(
+                          'Purchase: ',
+                          style: TextStyle(fontSize: 11, color: textMutedColor),
                         ),
-                      ),
-                      isUnpaid
-                          ? const Text(
-                              '\u20B90',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w900,
-                                color: AppColors.textSecondary,
-                              ),
-                            )
-                          : ProfitText(
-                              amount: realizedProfit,
-                              prefix: '₹',
-                              showSign: true,
-                              decimals: 0,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFF047857),
-                              ),
-                            ),
-                      if (!isUnpaid && margin > 0) ...[
-                        const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF059669),
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: Text(
-                            '${margin.toStringAsFixed(0)}%',
-                            style: const TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                            ),
-                          ),
+                        Text(
+                          '\u20B9${cost.toStringAsFixed(0)}',
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: textColor),
                         ),
                       ],
-                    ],
-                  ),
-                ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Profit: ',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                            color: isUnpaid ? AppColors.textMuted : const Color(0xFF047857),
+                          ),
+                        ),
+                        isUnpaid
+                            ? const Text(
+                                '\u20B90',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w900,
+                                  color: AppColors.textSecondary,
+                                ),
+                              )
+                            : ProfitText(
+                                amount: realizedProfit,
+                                prefix: '₹',
+                                showSign: true,
+                                decimals: 0,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF047857),
+                                ),
+                              ),
+                        if (!isUnpaid && margin > 0) ...[
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF059669),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: Text(
+                              '${margin.toStringAsFixed(0)}%',
+                              style: const TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );

@@ -40,6 +40,11 @@ class SaleItem {
   final double unitPrice;
   final double discount;
   final double taxAmount;
+  final double taxRate;
+  final String taxType; // exclusive, inclusive
+  final double cgstAmount;
+  final double sgstAmount;
+  final double igstAmount;
   final double? costPrice;
   final double total;
 
@@ -58,9 +63,14 @@ class SaleItem {
     required this.unitPrice,
     this.discount = 0.0,
     this.taxAmount = 0.0,
+    this.taxRate = 0.0,
+    this.taxType = 'exclusive',
+    this.cgstAmount = 0.0,
+    this.sgstAmount = 0.0,
+    this.igstAmount = 0.0,
     this.costPrice,
     double? total,
-  }) : total = total ?? ((quantity * unitPrice) - discount + taxAmount);
+  }) : total = total ?? ((quantity * unitPrice) - discount + (taxType == 'inclusive' ? 0.0 : taxAmount));
 
   SaleItem copyWith({
     int? id,
@@ -77,6 +87,11 @@ class SaleItem {
     double? unitPrice,
     double? discount,
     double? taxAmount,
+    double? taxRate,
+    String? taxType,
+    double? cgstAmount,
+    double? sgstAmount,
+    double? igstAmount,
     double? costPrice,
     double? total,
   }) {
@@ -95,6 +110,11 @@ class SaleItem {
       unitPrice: unitPrice ?? this.unitPrice,
       discount: discount ?? this.discount,
       taxAmount: taxAmount ?? this.taxAmount,
+      taxRate: taxRate ?? this.taxRate,
+      taxType: taxType ?? this.taxType,
+      cgstAmount: cgstAmount ?? this.cgstAmount,
+      sgstAmount: sgstAmount ?? this.sgstAmount,
+      igstAmount: igstAmount ?? this.igstAmount,
       costPrice: costPrice ?? this.costPrice,
       total: total,
     );
@@ -116,6 +136,11 @@ class SaleItem {
       unitPrice: _parseDouble(json['unit_price']),
       discount: _parseDouble(json['discount']),
       taxAmount: _parseDouble(json['tax_amount']),
+      taxRate: _parseDouble(json['tax_rate']),
+      taxType: json['tax_type']?.toString() ?? 'exclusive',
+      cgstAmount: _parseDouble(json['cgst_amount']),
+      sgstAmount: _parseDouble(json['sgst_amount']),
+      igstAmount: _parseDouble(json['igst_amount']),
       costPrice: json['cost_price'] != null ? _parseDouble(json['cost_price']) : null,
       total: _parseDouble(json['total']),
     );
@@ -137,6 +162,11 @@ class SaleItem {
       'unit_price': unitPrice,
       'discount': discount,
       'tax_amount': taxAmount,
+      'tax_rate': taxRate,
+      'tax_type': taxType,
+      'cgst_amount': cgstAmount,
+      'sgst_amount': sgstAmount,
+      'igst_amount': igstAmount,
       'cost_price': costPrice,
       'total': total,
     };
@@ -212,6 +242,12 @@ class Sale {
   final double subtotal;
   final double discount;
   final double taxAmount;
+  final double taxRate;
+  final String taxType; // exclusive, inclusive
+  final bool isInterState;
+  final double cgstAmount;
+  final double sgstAmount;
+  final double igstAmount;
   final double grandTotal;
   final double amountPaid;
   final double amountDue;
@@ -283,6 +319,12 @@ class Sale {
     required this.subtotal,
     this.discount = 0.0,
     this.taxAmount = 0.0,
+    this.taxRate = 0.0,
+    this.taxType = 'exclusive',
+    this.isInterState = false,
+    this.cgstAmount = 0.0,
+    this.sgstAmount = 0.0,
+    this.igstAmount = 0.0,
     required this.grandTotal,
     this.amountPaid = 0.0,
     required this.amountDue,
@@ -301,6 +343,80 @@ class Sale {
     this.rawNetProfit,
   });
 
+  Sale copyWith({
+    int? id,
+    int? shopId,
+    String? saleType,
+    int? customerId,
+    String? customerName,
+    String? customerMobile,
+    int? deviceId,
+    String? invoiceNumber,
+    String? saleDate,
+    double? subtotal,
+    double? discount,
+    double? taxAmount,
+    double? taxRate,
+    String? taxType,
+    bool? isInterState,
+    double? cgstAmount,
+    double? sgstAmount,
+    double? igstAmount,
+    double? grandTotal,
+    double? amountPaid,
+    double? amountDue,
+    String? paymentStatus,
+    String? notes,
+    int? createdBy,
+    String? creatorName,
+    Customer? customer,
+    Device? device,
+    List<SaleItem>? items,
+    List<SalePayment>? payments,
+    Warranty? warranty,
+    String? createdAt,
+    String? updatedAt,
+    double? rawTotalCost,
+    double? rawNetProfit,
+  }) {
+    return Sale(
+      id: id ?? this.id,
+      shopId: shopId ?? this.shopId,
+      saleType: saleType ?? this.saleType,
+      customerId: customerId ?? this.customerId,
+      customerName: customerName ?? this.customerName,
+      customerMobile: customerMobile ?? this.customerMobile,
+      deviceId: deviceId ?? this.deviceId,
+      invoiceNumber: invoiceNumber ?? this.invoiceNumber,
+      saleDate: saleDate ?? this.saleDate,
+      subtotal: subtotal ?? this.subtotal,
+      discount: discount ?? this.discount,
+      taxAmount: taxAmount ?? this.taxAmount,
+      taxRate: taxRate ?? this.taxRate,
+      taxType: taxType ?? this.taxType,
+      isInterState: isInterState ?? this.isInterState,
+      cgstAmount: cgstAmount ?? this.cgstAmount,
+      sgstAmount: sgstAmount ?? this.sgstAmount,
+      igstAmount: igstAmount ?? this.igstAmount,
+      grandTotal: grandTotal ?? this.grandTotal,
+      amountPaid: amountPaid ?? this.amountPaid,
+      amountDue: amountDue ?? this.amountDue,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
+      notes: notes ?? this.notes,
+      createdBy: createdBy ?? this.createdBy,
+      creatorName: creatorName ?? this.creatorName,
+      customer: customer ?? this.customer,
+      device: device ?? this.device,
+      items: items ?? this.items,
+      payments: payments ?? this.payments,
+      warranty: warranty ?? this.warranty,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rawTotalCost: rawTotalCost ?? this.rawTotalCost,
+      rawNetProfit: rawNetProfit ?? this.rawNetProfit,
+    );
+  }
+
   factory Sale.fromJson(Map<String, dynamic> json) {
     return Sale(
       id: _parseInt(json['id']),
@@ -315,6 +431,12 @@ class Sale {
       subtotal: _parseDouble(json['subtotal']),
       discount: _parseDouble(json['discount']),
       taxAmount: _parseDouble(json['tax_amount']),
+      taxRate: _parseDouble(json['tax_rate']),
+      taxType: json['tax_type']?.toString() ?? 'exclusive',
+      isInterState: json['is_inter_state'] == true || json['is_inter_state'] == 1 || json['is_inter_state']?.toString() == '1',
+      cgstAmount: _parseDouble(json['cgst_amount']),
+      sgstAmount: _parseDouble(json['sgst_amount']),
+      igstAmount: _parseDouble(json['igst_amount']),
       grandTotal: _parseDouble(json['grand_total']),
       amountPaid: _parseDouble(json['amount_paid']),
       amountDue: _parseDouble(json['amount_due']),
@@ -355,6 +477,12 @@ class Sale {
       'subtotal': subtotal,
       'discount': discount,
       'tax_amount': taxAmount,
+      'tax_rate': taxRate,
+      'tax_type': taxType,
+      'is_inter_state': isInterState,
+      'cgst_amount': cgstAmount,
+      'sgst_amount': sgstAmount,
+      'igst_amount': igstAmount,
       'grand_total': grandTotal,
       'amount_paid': amountPaid,
       'amount_due': amountDue,

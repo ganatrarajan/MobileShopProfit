@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -11,6 +11,10 @@ import '../../auth/data/auth_repository.dart';
 import '../../../core/storage/auth_storage.dart';
 import '../../auth/presentation/otp_verification_screen.dart';
 import '../../../core/widgets/confirm_phone_dialog.dart';
+import 'package:geolocator/geolocator.dart';
+import '../../../core/utils/india_locations.dart';
+import '../../../core/widgets/app_searchable_bottom_sheet.dart';
+import 'digital_visiting_card_screen.dart';
 
 class ShopProfileScreen extends StatefulWidget {
   const ShopProfileScreen({super.key});
@@ -32,6 +36,9 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
   final _pincodeController = TextEditingController();
   final _gstController = TextEditingController();
   final _termsController = TextEditingController();
+  final _taglineController = TextEditingController();
+  final _mapsUrlController = TextEditingController();
+  final _upiIdController = TextEditingController();
 
   final _authRepository = AuthRepository();
   final ImagePicker _picker = ImagePicker();
@@ -39,6 +46,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
 
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _isDetectingLocation = false;
   String? _logoUrl;
   File? _newLogoFile;
   String? _signatureUrl;
@@ -68,6 +76,9 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
         _stateController.text = shop['state'] ?? '';
         _pincodeController.text = shop['pincode'] ?? '';
         _gstController.text = shop['gst_number'] ?? '';
+        _taglineController.text = shop['tagline'] ?? '';
+        _mapsUrlController.text = shop['google_maps_url'] ?? '';
+        _upiIdController.text = shop['upi_id'] ?? '';
         _logoUrl = shop['logo_url'];
         final localShop = await AuthStorage().getShop();
         final savedTerms = shop['terms_and_conditions'] ?? shop['terms'] ?? localShop?['terms_and_conditions'];
@@ -215,6 +226,141 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
     }
   }
 
+  Future<void> _detectGpsLocation() async {
+    setState(() => _isDetectingLocation = true);
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          AppFeedback.showError(
+            context,
+            title: 'GPS Disabled',
+            message: 'Please enable Location / GPS in your phone settings to detect shop coordinates.',
+          );
+        }
+        await Geolocator.openLocationSettings();
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (mounted) {
+            AppFeedback.showError(
+              context,
+              title: 'Permission Denied',
+              message: 'Location permission is required to detect shop GPS.',
+            );
+          }
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          AppFeedback.showError(
+            context,
+            title: 'Permission Denied',
+            message: 'Please enable Location permission in App Settings.',
+          );
+        }
+        await Geolocator.openAppSettings();
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
+
+      final lat = position.latitude;
+      final lng = position.longitude;
+      final mapsUrl = 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
+
+      setState(() {
+        _mapsUrlController.text = mapsUrl;
+      });
+
+      if (mounted) {
+        AppFeedback.showSuccess(
+          context,
+          title: 'Shop Location Detected! 📍',
+          message: 'GPS coordinates saved: ${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        AppFeedback.showError(
+          context,
+          title: 'GPS Detection Failed',
+          error: e.toString(),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isDetectingLocation = false);
+    }
+  }
+
+  Future<void> _selectState() async {
+    final selected = await AppSearchableBottomSheet.show(
+      context,
+      title: 'Select State',
+      searchHint: 'Search state (e.g. Gujarat, Maharashtra)...',
+      options: IndiaLocations.states,
+      selectedValues: _stateController.text.isNotEmpty ? [_stateController.text] : [],
+      isMultiSelect: false,
+    );
+
+    if (selected != null && selected is String && selected.isNotEmpty) {
+      if (_stateController.text != selected) {
+        setState(() {
+          _stateController.text = selected;
+          // When state changes, reset city if it does not belong to the selected state
+          final cities = IndiaLocations.getCitiesForState(selected);
+          if (_cityController.text.isNotEmpty && !cities.contains(_cityController.text)) {
+            _cityController.clear();
+          }
+        });
+      }
+    }
+  }
+
+  Future<void> _selectCity() async {
+    final currentState = _stateController.text.trim();
+    if (currentState.isEmpty) {
+      AppFeedback.showInfo(
+        context,
+        title: 'Select State First',
+        message: 'Please select your State first to view its cities.',
+      );
+      await _selectState();
+      if (!mounted) return;
+      if (_stateController.text.trim().isEmpty) return;
+    }
+
+    final cities = IndiaLocations.getCitiesForState(_stateController.text.trim());
+
+    final selected = await AppSearchableBottomSheet.show(
+      context,
+      title: 'Select City in ${_stateController.text.trim()}',
+      searchHint: 'Search city (e.g. Rajkot, Surat, Ahmedabad)...',
+      options: cities,
+      selectedValues: _cityController.text.isNotEmpty ? [_cityController.text] : [],
+      isMultiSelect: false,
+      addCustomHint: 'Enter custom city name...',
+      onAddCustomOption: (customCity) async {},
+    );
+
+    if (selected != null && selected is String && selected.isNotEmpty) {
+      setState(() {
+        _cityController.text = selected;
+      });
+    }
+  }
+
   Future<void> _handleUpdateShop() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -306,10 +452,27 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
         state: _stateController.text.trim(),
         pincode: _pincodeController.text.trim(),
         gstNumber: _gstController.text.trim().isNotEmpty ? _gstController.text.trim() : null,
+        googleMapsUrl: _mapsUrlController.text.trim().isNotEmpty ? _mapsUrlController.text.trim() : null,
+        upiId: _upiIdController.text.trim().isNotEmpty ? _upiIdController.text.trim() : null,
+        tagline: _taglineController.text.trim().isNotEmpty ? _taglineController.text.trim() : null,
       );
 
       final shopData = await AuthStorage().getShop() ?? {};
+      shopData['name'] = _nameController.text.trim();
+      shopData['owner_name'] = _ownerController.text.trim();
+      shopData['phone'] = newMobile;
+      shopData['mobile'] = newMobile;
+      shopData['email'] = _emailController.text.trim();
+      shopData['address'] = _addressController.text.trim();
+      shopData['city'] = _cityController.text.trim();
+      shopData['state'] = _stateController.text.trim();
+      shopData['pincode'] = _pincodeController.text.trim();
+      shopData['gst_number'] = _gstController.text.trim();
+      shopData['gstin'] = _gstController.text.trim();
       shopData['terms_and_conditions'] = _termsController.text.trim();
+      shopData['tagline'] = _taglineController.text.trim();
+      shopData['google_maps_url'] = _mapsUrlController.text.trim();
+      shopData['upi_id'] = _upiIdController.text.trim();
       await AuthStorage().saveSession(
         token: (await AuthStorage().getToken()) ?? '',
         user: (await AuthStorage().getUser()) ?? {},
@@ -324,7 +487,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
             message: 'Shop profile and details saved successfully!',
           );
         } else {
-          _showErrorAndScrollToTop('Update Failed', response.message ?? 'Failed to update shop details.');
+          _showErrorAndScrollToTop('Update Failed', response.message);
         }
       }
     } catch (e) {
@@ -348,6 +511,9 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
     _pincodeController.dispose();
     _gstController.dispose();
     _termsController.dispose();
+    _taglineController.dispose();
+    _mapsUrlController.dispose();
+    _upiIdController.dispose();
     super.dispose();
   }
 
@@ -359,6 +525,18 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
         title: const Text('Manage Shop Profile'),
         backgroundColor: AppColors.primary,
         elevation: 0,
+        actions: [
+          IconButton(
+            tooltip: 'Digital Visiting Card',
+            icon: const Icon(Icons.qr_code_2_rounded),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const DigitalVisitingCardScreen()),
+              );
+            },
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -537,17 +715,25 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
                               children: [
                                 Expanded(
                                   child: CustomTextField(
-                                    label: 'City',
-                                    controller: _cityController,
-                                    prefixIcon: Icons.location_city_outlined,
+                                    label: 'State',
+                                    controller: _stateController,
+                                    readOnly: true,
+                                    prefixIcon: Icons.map_outlined,
+                                    suffixIcon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
+                                    hint: 'Select State',
+                                    onTap: _selectState,
                                   ),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: CustomTextField(
-                                    label: 'State',
-                                    controller: _stateController,
-                                    prefixIcon: Icons.map_outlined,
+                                    label: 'City',
+                                    controller: _cityController,
+                                    readOnly: true,
+                                    prefixIcon: Icons.location_city_outlined,
+                                    suffixIcon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
+                                    hint: _stateController.text.isEmpty ? 'Pick State 1st' : 'Select City',
+                                    onTap: _selectCity,
                                   ),
                                 ),
                               ],
@@ -568,7 +754,124 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
+
+                      // Digital Visiting Card & Google Maps Section
+                      CustomCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(7),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF6366F1).withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(Icons.qr_code_2_rounded, color: Color(0xFF6366F1), size: 20),
+                                ),
+                                const SizedBox(width: 10),
+                                const Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Digital Card & Maps Location',
+                                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                      ),
+                                      Text(
+                                        'Google Maps link & UPI QR for customers',
+                                        style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                TextButton.icon(
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (_) => const DigitalVisitingCardScreen()),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.remove_red_eye_rounded, size: 16),
+                                  label: const Text('Preview Card', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            CustomTextField(
+                              label: 'Shop Tagline / Specialty',
+                              controller: _taglineController,
+                              prefixIcon: Icons.auto_awesome_rounded,
+                              hint: 'e.g. Expert Mobile Repair & Original Accessories',
+                            ),
+                            const SizedBox(height: 14),
+                            CustomTextField(
+                              label: 'Google Maps Location Link',
+                              controller: _mapsUrlController,
+                              prefixIcon: Icons.map_outlined,
+                              hint: 'https://maps.app.goo.gl/... or GPS link',
+                            ),
+                            const SizedBox(height: 8),
+                            InkWell(
+                              onTap: _isDetectingLocation ? null : _detectGpsLocation,
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF10B981).withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    _isDetectingLocation
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF059669)),
+                                          )
+                                        : const Icon(Icons.my_location_rounded, size: 18, color: Color(0xFF059669)),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Text(
+                                        _isDetectingLocation ? 'Detecting Shop GPS...' : '📍 Auto-Detect Shop GPS (1-Tap)',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF047857),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              '💡 Tap "Auto-Detect Shop GPS" while inside your shop to lock your exact navigation coordinates without searching or typing!',
+                              style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                            ),
+                            const SizedBox(height: 14),
+                            CustomTextField(
+                              label: 'UPI ID for Payment (Optional)',
+                              controller: _upiIdController,
+                              prefixIcon: Icons.account_balance_wallet_outlined,
+                              hint: 'e.g. yourname@okhdfcbank or 9876543210@paytm',
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              '💡 Generates a live QR code on your digital card so customers can pay directly.',
+                              style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
 
                       CustomCard(
                         child: Column(

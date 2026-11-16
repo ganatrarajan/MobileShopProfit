@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import '../../../../core/services/profit_visibility_service.dart';
+import '../../../../core/storage/auth_storage.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/utils/date_helper.dart';
+import '../../../../core/utils/gst_calculator.dart';
 import '../../../../core/widgets/app_searchable_bottom_sheet.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/custom_text_field.dart';
+import '../../../../core/widgets/gst_input_card.dart';
 import '../../data/used_mobile_repository.dart';
 import '../../models/used_mobile.dart';
 
@@ -50,6 +54,14 @@ class _SellUsedMobileModalState extends State<SellUsedMobileModal> {
   int _warrantyDays = 15;
   bool _isCustomWarranty = false;
   bool _isLoading = false;
+  bool _isOwner = true;
+
+  // Optional GST / Tax
+  bool _gstEnabled = false;
+  GstMode _gstMode = GstMode.inclusive;
+  double _gstRate = 18.0;
+  bool _gstIsInterState = false;
+  GstCalculationResult? _gstResult;
 
   final List<String> _paymentModes = ['Cash', 'UPI / GPay / PhonePe', 'Debit/Credit Card', 'Bank Transfer'];
   final List<int> _warrantyOptions = [0, 7, 15, 30, 60];
@@ -57,9 +69,19 @@ class _SellUsedMobileModalState extends State<SellUsedMobileModal> {
   @override
   void initState() {
     super.initState();
+    _isOwner = ProfitVisibilityService().isOwner;
+    AuthStorage().isOwner().then((val) {
+      if (mounted && _isOwner != val) setState(() => _isOwner = val);
+    });
     // If selling price was already estimated or mobile is sold
     if (widget.mobile.sellingPrice != null && widget.mobile.sellingPrice! > 0) {
       _sellingPriceController.text = widget.mobile.sellingPrice!.toStringAsFixed(0);
+    }
+    if (widget.mobile.hasSaleTax) {
+      _gstEnabled = true;
+      _gstRate = widget.mobile.taxRate > 0 ? widget.mobile.taxRate : 18.0;
+      _gstMode = widget.mobile.taxType == 'exclusive' ? GstMode.exclusive : GstMode.inclusive;
+      _gstIsInterState = widget.mobile.isInterState;
     }
   }
 
@@ -79,8 +101,36 @@ class _SellUsedMobileModalState extends State<SellUsedMobileModal> {
     return double.tryParse(text) ?? 0.0;
   }
 
+  GstCalculationResult get _currentGstResult {
+    if (!_gstEnabled || _sellingPrice <= 0) {
+      return GstCalculationResult.disabled(amount: _sellingPrice);
+    }
+    return _gstResult ??
+        GstCalculator.calculate(
+          amount: _sellingPrice,
+          rate: _gstRate,
+          mode: _gstMode,
+          isInterState: _gstIsInterState,
+          isEnabled: _gstEnabled,
+        );
+  }
+
+  double get _finalPayable => _gstEnabled && _gstMode == GstMode.exclusive
+      ? _currentGstResult.totalPayable
+      : _sellingPrice;
+
   double get _totalCost => widget.mobile.totalCost;
-  double get _calculatedProfit => _sellingPrice - _totalCost;
+
+  // Net revenue that belongs to the shop (excludes GST tax that must be paid to government)
+  double get _netSellingRevenue {
+    if (!_gstEnabled || _sellingPrice <= 0) return _sellingPrice;
+    return _gstMode == GstMode.inclusive
+        ? _currentGstResult.taxableAmount
+        : _sellingPrice;
+  }
+
+  // Realized Net Profit (Net Revenue minus Total Cost)
+  double get _calculatedProfit => _netSellingRevenue - _totalCost;
   double get _calculatedRoi => _totalCost > 0 ? (_calculatedProfit / _totalCost * 100) : 0.0;
 
   Future<void> _submitSale() async {
@@ -131,6 +181,8 @@ class _SellUsedMobileModalState extends State<SellUsedMobileModal> {
 
     setState(() => _isLoading = true);
 
+    final currentGst = _currentGstResult;
+
     final payload = {
       'buyer_name': _buyerNameController.text.trim(),
       'buyer_phone': buyerPhone,
@@ -145,6 +197,15 @@ class _SellUsedMobileModalState extends State<SellUsedMobileModal> {
           : null,
       if (_notesController.text.trim().isNotEmpty)
         'sale_notes': _notesController.text.trim(),
+
+      // Optional Sale GST
+      'tax_rate': _gstEnabled ? currentGst.rate : 0.0,
+      'tax_type': _gstEnabled ? (_gstMode == GstMode.exclusive ? 'exclusive' : 'inclusive') : 'inclusive',
+      'tax_amount': _gstEnabled ? currentGst.taxAmount : 0.0,
+      'cgst_amount': _gstEnabled ? currentGst.cgstAmount : 0.0,
+      'sgst_amount': _gstEnabled ? currentGst.sgstAmount : 0.0,
+      'igst_amount': _gstEnabled ? currentGst.igstAmount : 0.0,
+      'is_inter_state': _gstEnabled && _gstIsInterState,
     };
 
     final result = await _repo.sellUsedMobile(widget.mobile.id, payload);
@@ -342,17 +403,21 @@ class _SellUsedMobileModalState extends State<SellUsedMobileModal> {
 
                 const SizedBox(height: 16),
 
-                // Selling Price & Real-Time Profit Card
-                const Text(
-                  'Sale Pricing & Real-Time Profit',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.textMuted),
+                // Selling Price Card
+                Text(
+                  _isOwner ? 'Sale Pricing & Real-Time Profit' : 'Sale Pricing',
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.textMuted),
                 ),
                 const SizedBox(height: 8),
 
                 CustomTextField(
                   controller: _sellingPriceController,
-                  label: 'Selling Price (₹) *',
-                  hint: 'Enter final price to buyer',
+                  label: _gstEnabled && _gstMode == GstMode.exclusive
+                      ? 'Base Selling Price (₹) *'
+                      : 'Selling Price (₹) *',
+                  hint: _gstEnabled && _gstMode == GstMode.exclusive
+                      ? 'Enter base price (GST extra on top)'
+                      : 'Enter final price to buyer',
                   prefixIcon: Icons.currency_rupee_rounded,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   onChanged: (_) => setState(() {}),
@@ -366,8 +431,131 @@ class _SellUsedMobileModalState extends State<SellUsedMobileModal> {
 
                 const SizedBox(height: 10),
 
+                // Optional GST / Tax Input Card (Defaults to OFF)
+                GstInputCard(
+                  amount: _sellingPrice,
+                  initialEnabled: _gstEnabled,
+                  initialMode: _gstMode,
+                  initialRate: _gstRate,
+                  initialInterState: _gstIsInterState,
+                  title: 'Apply GST / Tax (Optional)',
+                  onChanged: (result) {
+                    setState(() {
+                      _gstResult = result;
+                      _gstEnabled = result.isEnabled;
+                      _gstMode = result.mode;
+                      _gstRate = result.rate;
+                      _gstIsInterState = result.isInterState;
+                    });
+                  },
+                ),
+
+                // Final Amount to Collect & Billing Summary
+                if (_sellingPrice > 0) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _gstEnabled
+                            ? AppColors.primary.withOpacity(0.5)
+                            : (isDark ? AppColors.darkBorder : AppColors.border),
+                        width: _gstEnabled ? 1.5 : 1.0,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (_gstEnabled && _currentGstResult.taxAmount > 0) ...[
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                _gstMode == GstMode.exclusive ? 'Base Price (before tax):' : 'Gross Selling Price:',
+                                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+                              ),
+                              Text(
+                                '₹${(_gstMode == GstMode.inclusive ? _currentGstResult.taxableAmount : _sellingPrice).toStringAsFixed(2)}',
+                                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                _gstMode == GstMode.exclusive
+                                    ? 'GST Added (+${_currentGstResult.rate.toStringAsFixed(0)}%):'
+                                    : 'GST Included (${_currentGstResult.rate.toStringAsFixed(0)}%):',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: _gstMode == GstMode.exclusive ? AppColors.primary : Colors.teal.shade800,
+                                ),
+                              ),
+                              Text(
+                                '${_gstMode == GstMode.exclusive ? "+" : ""}₹${_currentGstResult.taxAmount.toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: _gstMode == GstMode.exclusive ? AppColors.primary : Colors.teal.shade800,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _gstIsInterState
+                                ? '  • IGST: ₹${_currentGstResult.igstAmount.toStringAsFixed(2)}'
+                                : '  • CGST: ₹${_currentGstResult.cgstAmount.toStringAsFixed(2)} | SGST: ₹${_currentGstResult.sgstAmount.toStringAsFixed(2)}',
+                            style: const TextStyle(fontSize: 10.5, color: AppColors.textMuted),
+                          ),
+                          const Divider(height: 14),
+                        ],
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'FINAL AMOUNT TO COLLECT',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.textPrimary,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                                Text(
+                                  _gstEnabled
+                                      ? (_gstMode == GstMode.exclusive ? 'Base + GST Tax Total' : 'Price Includes GST')
+                                      : 'No GST Applied (Exempt)',
+                                  style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                                ),
+                              ],
+                            ),
+                            Text(
+                              '₹${_finalPayable.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontSize: 19,
+                                fontWeight: FontWeight.w900,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
                 // Live Profit Calculation Card
-                if (_sellingPrice > 0)
+                if (_isOwner && _sellingPrice > 0) ...[
+                  const SizedBox(height: 10),
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     padding: const EdgeInsets.all(12),
@@ -411,6 +599,17 @@ class _SellUsedMobileModalState extends State<SellUsedMobileModal> {
                                     color: _calculatedProfit >= 0 ? AppColors.accent : AppColors.error,
                                   ),
                                 ),
+                                if (_gstEnabled && _currentGstResult.taxAmount > 0)
+                                  Text(
+                                    _gstMode == GstMode.inclusive
+                                        ? 'Excl. ₹${_currentGstResult.taxAmount.toStringAsFixed(0)} GST paid to govt'
+                                        : 'Base ₹${_netSellingRevenue.toStringAsFixed(0)} - Cost ₹${_totalCost.toStringAsFixed(0)}',
+                                    style: TextStyle(
+                                      fontSize: 9.5,
+                                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
                               ],
                             ),
                           ],
@@ -434,6 +633,7 @@ class _SellUsedMobileModalState extends State<SellUsedMobileModal> {
                       ],
                     ),
                   ),
+                ],
 
                 const SizedBox(height: 16),
 
@@ -585,7 +785,11 @@ class _SellUsedMobileModalState extends State<SellUsedMobileModal> {
 
                 // Submit Button
                 CustomButton(
-                  text: _isLoading ? 'Recording Sale...' : 'Confirm Sale & Generate Bill',
+                  text: _isLoading
+                      ? 'Recording Sale...'
+                      : (_sellingPrice > 0
+                          ? 'Confirm Sale & Bill (₹${_finalPayable.toStringAsFixed(0)})'
+                          : 'Confirm Sale & Generate Bill'),
                   icon: Icons.check_circle_rounded,
                   isLoading: _isLoading,
                   backgroundColor: AppColors.accent,

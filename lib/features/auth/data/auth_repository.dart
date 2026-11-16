@@ -245,6 +245,11 @@ class AuthRepository {
     String? phone,
     String? email,
     String? gstNumber,
+    String? googleMapsUrl,
+    double? latitude,
+    double? longitude,
+    String? upiId,
+    String? tagline,
   }) async {
     final response = await _apiClient.post(
       ApiEndpoints.shop,
@@ -258,6 +263,11 @@ class AuthRepository {
         'city': city,
         'state': state,
         'pincode': pincode,
+        'google_maps_url': googleMapsUrl,
+        'latitude': latitude,
+        'longitude': longitude,
+        'upi_id': upiId,
+        'tagline': tagline,
         'gst_number': gstNumber,
       },
     );
@@ -288,6 +298,11 @@ class AuthRepository {
     String? phone,
     String? email,
     String? gstNumber,
+    String? googleMapsUrl,
+    double? latitude,
+    double? longitude,
+    String? upiId,
+    String? tagline,
   }) async {
     final shopName = (name != null && name.trim().isNotEmpty) ? name.trim() : 'My Mobile Shop';
     final shopOwner = (ownerName != null && ownerName.trim().isNotEmpty) ? ownerName.trim() : 'Shop Owner';
@@ -308,6 +323,11 @@ class AuthRepository {
         'city': shopCity,
         'state': shopState,
         'pincode': shopPincode,
+        'google_maps_url': googleMapsUrl,
+        'latitude': latitude,
+        'longitude': longitude,
+        'upi_id': upiId,
+        'tagline': tagline,
         'gst_number': gstNumber,
       },
     );
