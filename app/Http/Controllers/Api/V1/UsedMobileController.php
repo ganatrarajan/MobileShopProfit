@@ -223,6 +223,13 @@ class UsedMobileController extends Controller
             'purchase_notes' => 'nullable|string|max:1000',
             'repair_cost' => 'nullable|numeric|min:0',
             'repair_details' => 'nullable|string|max:500',
+            'purchase_tax_rate' => 'nullable|numeric|min:0|max:100',
+            'purchase_tax_type' => 'nullable|string|in:inclusive,exclusive',
+            'purchase_tax_amount' => 'nullable|numeric|min:0',
+            'purchase_cgst_amount' => 'nullable|numeric|min:0',
+            'purchase_sgst_amount' => 'nullable|numeric|min:0',
+            'purchase_igst_amount' => 'nullable|numeric|min:0',
+            'purchase_is_inter_state' => 'nullable|boolean',
         ]);
 
         $purchasePrice = (float) $validated['purchase_price'];
@@ -298,6 +305,13 @@ class UsedMobileController extends Controller
             'repair_details' => $validated['repair_details'] ?? null,
             'total_cost' => $totalCost,
 
+            'purchase_tax_rate' => $validated['purchase_tax_rate'] ?? 0,
+            'purchase_tax_type' => $validated['purchase_tax_type'] ?? 'inclusive',
+            'purchase_tax_amount' => $validated['purchase_tax_amount'] ?? 0,
+            'purchase_cgst_amount' => $validated['purchase_cgst_amount'] ?? 0,
+            'purchase_sgst_amount' => $validated['purchase_sgst_amount'] ?? 0,
+            'purchase_igst_amount' => $validated['purchase_igst_amount'] ?? 0,
+            'purchase_is_inter_state' => $validated['purchase_is_inter_state'] ?? false,
             'status' => 'in_stock',
             'created_by' => $user->id,
         ]);
@@ -382,6 +396,20 @@ class UsedMobileController extends Controller
             'warranty_terms' => 'nullable|string|max:500',
             'sale_notes' => 'nullable|string|max:1000',
             'status' => 'nullable|string|in:in_stock,sold,returned,scrapped',
+            'purchase_tax_rate' => 'nullable|numeric|min:0|max:100',
+            'purchase_tax_type' => 'nullable|string|in:inclusive,exclusive',
+            'purchase_tax_amount' => 'nullable|numeric|min:0',
+            'purchase_cgst_amount' => 'nullable|numeric|min:0',
+            'purchase_sgst_amount' => 'nullable|numeric|min:0',
+            'purchase_igst_amount' => 'nullable|numeric|min:0',
+            'purchase_is_inter_state' => 'nullable|boolean',
+            'tax_rate' => 'nullable|numeric|min:0|max:100',
+            'tax_type' => 'nullable|string|in:inclusive,exclusive',
+            'tax_amount' => 'nullable|numeric|min:0',
+            'cgst_amount' => 'nullable|numeric|min:0',
+            'sgst_amount' => 'nullable|numeric|min:0',
+            'igst_amount' => 'nullable|numeric|min:0',
+            'is_inter_state' => 'nullable|boolean',
         ]);
 
         $purchasePrice = isset($validated['purchase_price']) ? (float) $validated['purchase_price'] : (float) $usedMobile->purchase_price;
@@ -391,7 +419,11 @@ class UsedMobileController extends Controller
 
         if ($usedMobile->status === 'sold' || (isset($validated['status']) && $validated['status'] === 'sold')) {
             $sellingPrice = isset($validated['selling_price']) ? (float) $validated['selling_price'] : (float) ($usedMobile->selling_price ?? 0);
-            $validated['profit'] = $sellingPrice - $totalCost;
+            $taxRate = (float) (isset($validated['tax_rate']) ? $validated['tax_rate'] : ($usedMobile->tax_rate ?? 0));
+            $taxType = isset($validated['tax_type']) ? $validated['tax_type'] : ($usedMobile->tax_type ?? 'inclusive');
+            $taxAmount = (float) (isset($validated['tax_amount']) ? $validated['tax_amount'] : ($usedMobile->tax_amount ?? 0));
+            $netSellingRevenue = ($taxRate > 0 && $taxType === 'inclusive') ? max(0, $sellingPrice - $taxAmount) : $sellingPrice;
+            $validated['profit'] = round($netSellingRevenue - $totalCost, 2);
         }
 
         if ($request->hasFile('id_proof_photo')) {
@@ -450,6 +482,13 @@ class UsedMobileController extends Controller
         $validated = $request->validate([
             'repair_cost' => 'required|numeric|min:0',
             'repair_details' => 'nullable|string|max:500',
+            'purchase_tax_rate' => 'nullable|numeric|min:0|max:100',
+            'purchase_tax_type' => 'nullable|string|in:inclusive,exclusive',
+            'purchase_tax_amount' => 'nullable|numeric|min:0',
+            'purchase_cgst_amount' => 'nullable|numeric|min:0',
+            'purchase_sgst_amount' => 'nullable|numeric|min:0',
+            'purchase_igst_amount' => 'nullable|numeric|min:0',
+            'purchase_is_inter_state' => 'nullable|boolean',
         ]);
 
         $newRepairCost = (float) $validated['repair_cost'];
@@ -463,7 +502,12 @@ class UsedMobileController extends Controller
 
         // Recalculate profit if already sold
         if ($usedMobile->status === 'sold' && $usedMobile->selling_price !== null) {
-            $updateData['profit'] = (float) $usedMobile->selling_price - $totalCost;
+            $taxRate = (float) ($usedMobile->tax_rate ?? 0);
+            $taxType = $usedMobile->tax_type ?? 'inclusive';
+            $taxAmount = (float) ($usedMobile->tax_amount ?? 0);
+            $sellingPrice = (float) $usedMobile->selling_price;
+            $netSellingRevenue = ($taxRate > 0 && $taxType === 'inclusive') ? max(0, $sellingPrice - $taxAmount) : $sellingPrice;
+            $updateData['profit'] = round($netSellingRevenue - $totalCost, 2);
         }
 
         $usedMobile->update($updateData);
@@ -500,11 +544,27 @@ class UsedMobileController extends Controller
             'warranty_days' => 'nullable|integer|min:0',
             'warranty_terms' => 'nullable|string|max:500',
             'sale_notes' => 'nullable|string|max:1000',
+            'tax_rate' => 'nullable|numeric|min:0|max:100',
+            'tax_type' => 'nullable|string|in:inclusive,exclusive',
+            'tax_amount' => 'nullable|numeric|min:0',
+            'cgst_amount' => 'nullable|numeric|min:0',
+            'sgst_amount' => 'nullable|numeric|min:0',
+            'igst_amount' => 'nullable|numeric|min:0',
+            'is_inter_state' => 'nullable|boolean',
         ]);
 
         $sellingPrice = (float) $validated['selling_price'];
         $totalCost = (float) $usedMobile->total_cost;
-        $profit = $sellingPrice - $totalCost;
+        $taxRate = (float) ($validated['tax_rate'] ?? 0);
+        $taxType = $validated['tax_type'] ?? 'inclusive';
+        $taxAmount = (float) ($validated['tax_amount'] ?? 0);
+
+        // Net revenue of shopkeeper (excluding GST tax payable to govt)
+        $netSellingRevenue = ($taxRate > 0 && $taxType === 'inclusive') 
+            ? max(0, $sellingPrice - $taxAmount) 
+            : $sellingPrice;
+
+        $profit = round($netSellingRevenue - $totalCost, 2);
 
         $warrantyDays = (int) ($validated['warranty_days'] ?? 0);
         $warrantyExpiry = $warrantyDays > 0 ? Carbon::parse($validated['sale_date'])->addDays($warrantyDays)->toDateString() : null;
@@ -524,6 +584,13 @@ class UsedMobileController extends Controller
             'sale_notes' => $validated['sale_notes'] ?? null,
             'sale_invoice_number' => $saleInvoiceNumber,
             'profit' => $profit,
+            'tax_rate' => $validated['tax_rate'] ?? 0,
+            'tax_type' => $validated['tax_type'] ?? 'inclusive',
+            'tax_amount' => $validated['tax_amount'] ?? 0,
+            'cgst_amount' => $validated['cgst_amount'] ?? 0,
+            'sgst_amount' => $validated['sgst_amount'] ?? 0,
+            'igst_amount' => $validated['igst_amount'] ?? 0,
+            'is_inter_state' => $validated['is_inter_state'] ?? false,
             'status' => 'sold',
             'sold_by' => $user->id,
         ]);

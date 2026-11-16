@@ -22,6 +22,8 @@ class UpdateInventoryItemRequest extends FormRequest
             'item_type' => ['sometimes', 'string', 'in:mobile,spare_part,accessory,other'],
             'purchase_price' => ['sometimes', 'numeric', 'min:0'],
             'selling_price' => ['sometimes', 'numeric', 'min:0'],
+            'tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'tax_type' => ['nullable', 'string', 'in:exclusive,inclusive'],
             'opening_stock' => ['nullable', 'integer', 'min:0'],
             'minimum_stock' => ['sometimes', 'integer', 'min:0'],
             'unit' => ['nullable', 'string', 'max:20'],

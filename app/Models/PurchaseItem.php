@@ -18,12 +18,17 @@ class PurchaseItem extends Model
         'imei2',
         'serial_number',
         'purchase_rate',
+        'tax_amount',
+        'tax_rate',
+        'tax_type',
         'total_amount',
     ];
 
     protected $casts = [
         'quantity' => 'integer',
         'purchase_rate' => 'decimal:2',
+        'tax_amount' => 'decimal:2',
+        'tax_rate' => 'decimal:2',
         'total_amount' => 'decimal:2',
     ];
 

@@ -10,7 +10,9 @@ use App\Http\Requests\Auth\ResetPasswordRequest;
 use App\Http\Requests\Auth\UpdateProfileRequest;
 use App\Http\Requests\Auth\VerifyOtpRequest;
 use App\Models\PendingRegistration;
+use App\Models\Plan;
 use App\Models\Shop;
+use App\Models\Subscription;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Services\Msg91Service;
@@ -32,13 +34,29 @@ class AuthController extends Controller
     public function register(RegisterRequest $request): JsonResponse
     {
         return DB::transaction(function () use ($request) {
-            // 1. Create Shop Record
+            $trialExpiry = now()->addDays(30);
+
+            // 1. Create Shop Record (with 1 Staff Login and Expiry Date pre-set)
             $shop = Shop::create([
-                'name'       => $request->shop_name,
-                'owner_name' => $request->name,
-                'phone'      => $request->mobile,
-                'currency'   => 'INR',
-                'status'     => 'active',
+                'name'                     => $request->shop_name,
+                'owner_name'               => $request->name,
+                'phone'                    => $request->mobile,
+                'currency'                 => 'INR',
+                'status'                   => 'active',
+                'custom_max_staff'         => 1,
+                'custom_staff_valid_until' => $trialExpiry->format('Y-m-d'),
+                'custom_staff_note'        => 'Free Trial (1 Staff Login Included)',
+            ]);
+
+            // 1b. Create Initial Free Trial Subscription
+            $defaultPlan = Plan::where('slug', 'monthly')->first() ?? Plan::first();
+            Subscription::create([
+                'shop_id'        => $shop->id,
+                'plan_id'        => $defaultPlan ? $defaultPlan->id : null,
+                'status'         => 'trial',
+                'start_date'     => now(),
+                'expiry_date'    => $trialExpiry,
+                'payment_status' => 'free',
             ]);
 
             // 2. Create Owner User Record
@@ -81,12 +99,27 @@ class AuthController extends Controller
     {
         if (! $this->isOtpEnabled()) {
             return DB::transaction(function () use ($request) {
+                $trialExpiry = now()->addDays(30);
+
                 $shop = Shop::create([
-                    'name'       => $request->shop_name,
-                    'owner_name' => $request->name,
-                    'phone'      => $request->mobile,
-                    'currency'   => 'INR',
-                    'status'     => 'active',
+                    'name'                     => $request->shop_name,
+                    'owner_name'               => $request->name,
+                    'phone'                    => $request->mobile,
+                    'currency'                 => 'INR',
+                    'status'                   => 'active',
+                    'custom_max_staff'         => 1,
+                    'custom_staff_valid_until' => $trialExpiry->format('Y-m-d'),
+                    'custom_staff_note'        => 'Free Trial (1 Staff Login Included)',
+                ]);
+
+                $defaultPlan = Plan::where('slug', 'monthly')->first() ?? Plan::first();
+                Subscription::create([
+                    'shop_id'        => $shop->id,
+                    'plan_id'        => $defaultPlan ? $defaultPlan->id : null,
+                    'status'         => 'trial',
+                    'start_date'     => now(),
+                    'expiry_date'    => $trialExpiry,
+                    'payment_status' => 'free',
                 ]);
 
                 $user = User::create([
@@ -193,13 +226,29 @@ class AuthController extends Controller
         $payload = $pending->payload;
 
         return DB::transaction(function () use ($payload, $pending) {
-            // 1. Create Shop Record
+            $trialExpiry = now()->addDays(30);
+
+            // 1. Create Shop Record (with 1 Staff Login and Expiry Date pre-set)
             $shop = Shop::create([
-                'name'       => $payload['shop_name'],
-                'owner_name' => $payload['name'],
-                'phone'      => $payload['mobile'],
-                'currency'   => 'INR',
-                'status'     => 'active',
+                'name'                     => $payload['shop_name'],
+                'owner_name'               => $payload['name'],
+                'phone'                    => $payload['mobile'],
+                'currency'                 => 'INR',
+                'status'                   => 'active',
+                'custom_max_staff'         => 1,
+                'custom_staff_valid_until' => $trialExpiry->format('Y-m-d'),
+                'custom_staff_note'        => 'Free Trial (1 Staff Login Included)',
+            ]);
+
+            // 1b. Create Initial Free Trial Subscription
+            $defaultPlan = Plan::where('slug', 'monthly')->first() ?? Plan::first();
+            Subscription::create([
+                'shop_id'        => $shop->id,
+                'plan_id'        => $defaultPlan ? $defaultPlan->id : null,
+                'status'         => 'trial',
+                'start_date'     => now(),
+                'expiry_date'    => $trialExpiry,
+                'payment_status' => 'free',
             ]);
 
             // 2. Create Owner User Record

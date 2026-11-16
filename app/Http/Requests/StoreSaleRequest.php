@@ -35,6 +35,12 @@ class StoreSaleRequest extends FormRequest
             'sale_date' => ['nullable', 'date'],
             'discount' => ['nullable', 'numeric', 'min:0'],
             'tax_amount' => ['nullable', 'numeric', 'min:0'],
+            'tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'tax_type' => ['nullable', 'string', 'in:exclusive,inclusive'],
+            'is_inter_state' => ['nullable', 'boolean'],
+            'cgst_amount' => ['nullable', 'numeric', 'min:0'],
+            'sgst_amount' => ['nullable', 'numeric', 'min:0'],
+            'igst_amount' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string', 'max:1000'],
             
             'items' => ['required', 'array', 'min:1'],
@@ -51,6 +57,11 @@ class StoreSaleRequest extends FormRequest
             'items.*.unit_price' => ['required', 'numeric', 'min:0'],
             'items.*.discount' => ['nullable', 'numeric', 'min:0'],
             'items.*.tax_amount' => ['nullable', 'numeric', 'min:0'],
+            'items.*.tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'items.*.tax_type' => ['nullable', 'string', 'in:exclusive,inclusive'],
+            'items.*.cgst_amount' => ['nullable', 'numeric', 'min:0'],
+            'items.*.sgst_amount' => ['nullable', 'numeric', 'min:0'],
+            'items.*.igst_amount' => ['nullable', 'numeric', 'min:0'],
             'items.*.cost_price' => ['nullable', 'numeric', 'min:0'],
 
             'payment_amount' => ['nullable', 'numeric', 'min:0'],
@@ -63,6 +74,16 @@ class StoreSaleRequest extends FormRequest
             'duration_days' => ['nullable', 'integer', 'min:1', 'max:3650'],
             'warranty_terms' => ['nullable', 'string', 'max:2000'],
             'warranty_notes' => ['nullable', 'string', 'max:2000'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'customer_id.required' => 'Please select or add a customer for this invoice.',
+            'customer_id.exists' => 'Selected customer was not found or does not belong to your shop.',
+            'items.required' => 'Please add at least one item to the invoice.',
+            'items.min' => 'Please add at least one item to the invoice.',
         ];
     }
 

@@ -32,6 +32,8 @@ class InventoryItemResource extends JsonResource
             'item_type' => $this->item_type,
             'purchase_price' => (float) $this->purchase_price,
             'selling_price' => (float) $this->selling_price,
+            'tax_rate' => (float) ($this->tax_rate ?? 0),
+            'tax_type' => $this->tax_type ?? 'exclusive',
             'opening_stock' => $openingStock,
             'total_stock' => $totalStock,
             'current_stock' => $currentStock,

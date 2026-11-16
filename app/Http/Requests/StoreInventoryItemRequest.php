@@ -22,6 +22,8 @@ class StoreInventoryItemRequest extends FormRequest
             'item_type' => ['required', 'string', 'in:mobile,spare_part,accessory,other'],
             'purchase_price' => ['required', 'numeric', 'min:0'],
             'selling_price' => ['required', 'numeric', 'min:0'],
+            'tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'tax_type' => ['nullable', 'string', 'in:exclusive,inclusive'],
             'opening_stock' => ['nullable', 'integer', 'min:0'],
             'minimum_stock' => ['nullable', 'integer', 'min:0'],
             'unit' => ['nullable', 'string', 'max:20'],

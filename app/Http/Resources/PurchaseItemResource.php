@@ -21,6 +21,9 @@ class PurchaseItemResource extends JsonResource
             'imei2' => $this->imei2,
             'current_stock' => (int) ($this->inventoryItem?->current_stock ?? 0),
             'purchase_rate' => round((float) $this->purchase_rate, 2),
+            'tax_amount' => round((float) ($this->tax_amount ?? 0), 2),
+            'tax_rate' => round((float) ($this->tax_rate ?? 0), 2),
+            'tax_type' => $this->tax_type ?? 'exclusive',
             'total_amount' => round((float) $this->total_amount, 2),
         ];
     }

@@ -13,6 +13,8 @@ use App\Models\SalePayment;
 use App\Models\StockMovement;
 use App\Models\Warranty;
 use App\Models\WarrantyClaim;
+use App\Models\Purchase;
+use App\Models\Vendor;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -45,6 +47,10 @@ class ReportController extends Controller
                 $start = Carbon::now()->startOfYear();
                 $end = Carbon::now()->endOfYear();
                 break;
+            case 'all_time':
+                $start = Carbon::create(2020, 1, 1);
+                $end = Carbon::now()->addYear();
+                break;
             case 'custom':
                 if ($request->filled('start_date') && $request->filled('end_date')) {
                     $start = Carbon::parse($request->query('start_date'))->startOfDay();
@@ -62,6 +68,208 @@ class ReportController extends Controller
         }
 
         return [$start, $end, $preset];
+    }
+
+    /**
+     * 0. OUTSTANDING / REMAINING DUES REPORT (All Categories, Filterable)
+     */
+    public function outstanding(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $shopId = $user->shop_id ?? $user->shop->id ?? null;
+        [$start, $end, $period] = $this->resolveDateRange($request);
+        $category = $request->query('category', 'all'); // all, repairs, sales, purchases
+        $search = $request->query('search');
+
+        $isAllTime = ($period === 'all_time');
+        $items = [];
+
+        // 1. REPAIR DUES (Customer Receivables)
+        $repairQuery = Repair::forShop($shopId)
+            ->where(function($q) {
+                $q->where('amount_due', '>', 0)
+                  ->orWhereRaw('(COALESCE(final_cost, estimated_cost) - amount_paid) > 0');
+            })
+            ->where('repair_status', '!=', 'cancelled');
+
+        if (!$isAllTime) {
+            $repairQuery->whereBetween('date_received', [$start, $end]);
+        }
+
+        if (!empty($search)) {
+            $s = '%' . $search . '%';
+            $repairQuery->where(function ($q) use ($s) {
+                $q->where('job_number', 'like', $s)
+                  ->orWhereHas('customer', function($cq) use ($s) {
+                      $cq->where('name', 'like', $s)->orWhere('phone', 'like', $s);
+                  });
+            });
+        }
+
+        $allRepairs = (clone $repairQuery)->with(['customer', 'device'])->get();
+        $totalRepairDues = 0;
+        foreach ($allRepairs as $r) {
+            $final = (float)($r->final_cost ?? 0);
+            $est = (float)($r->estimated_cost ?? 0);
+            $effectiveCost = $final > 0 ? $final : ($est > 0 ? $est : (float)$r->effective_cost);
+            if ($effectiveCost <= 0) {
+                $effectiveCost = (float)($r->amount_due ?? 0) + (float)($r->amount_paid ?? 0);
+            }
+            $paid = (float)($r->amount_paid ?? 0);
+            $due = max(0, (float)($r->amount_due > 0 ? $r->amount_due : ($effectiveCost - $paid)));
+            $totalRepairDues += $due;
+
+            if ($category === 'all' || $category === 'repairs' || $category === 'customers') {
+                $items[] = [
+                    'id' => 'repair_' . $r->id,
+                    'raw_id' => $r->id,
+                    'category' => 'repairs',
+                    'category_label' => 'Repair Job',
+                    'ref_number' => $r->job_number,
+                    'date' => $r->date_received ? $r->date_received->format('Y-m-d') : $r->created_at->format('Y-m-d'),
+                    'party_name' => $r->customer?->name ?? 'Walk-in Customer',
+                    'party_phone' => $r->customer?->phone ?? '',
+                    'party_type' => 'customer',
+                    'description' => trim(($r->device?->brand ?? '') . ' ' . ($r->device?->model ?? 'Device')),
+                    'total_amount' => $effectiveCost,
+                    'amount_paid' => $paid,
+                    'amount_due' => $due,
+                    'status' => $r->repair_status,
+                ];
+            }
+        }
+
+        // 2. SALES DUES (Customer Receivables)
+        $saleQuery = Sale::forShop($shopId)
+            ->where(function($q) {
+                $q->where('amount_due', '>', 0)
+                  ->orWhereRaw('(grand_total - amount_paid) > 0');
+            })
+            ->where('payment_status', '!=', 'paid');
+
+        if (!$isAllTime) {
+            $saleQuery->whereBetween('sale_date', [$start, $end]);
+        }
+
+        if (!empty($search)) {
+            $s = '%' . $search . '%';
+            $saleQuery->where(function ($q) use ($s) {
+                $q->where('invoice_number', 'like', $s)
+                  ->orWhere('customer_name', 'like', $s)
+                  ->orWhere('customer_mobile', 'like', $s);
+            });
+        }
+
+        $allSales = (clone $saleQuery)->get();
+        $totalSalesDues = 0;
+        foreach ($allSales as $s) {
+            $total = (float)$s->grand_total;
+            $paid = (float)$s->amount_paid;
+            $due = max(0, (float)($s->amount_due > 0 ? $s->amount_due : ($total - $paid)));
+            $totalSalesDues += $due;
+
+            if ($category === 'all' || $category === 'sales' || $category === 'customers') {
+                $items[] = [
+                    'id' => 'sale_' . $s->id,
+                    'raw_id' => $s->id,
+                    'category' => 'sales',
+                    'category_label' => 'Sale Invoice',
+                    'ref_number' => $s->invoice_number,
+                    'date' => $s->sale_date ? Carbon::parse($s->sale_date)->format('Y-m-d') : $s->created_at->format('Y-m-d'),
+                    'party_name' => $s->customer_name ?? 'Walk-in Customer',
+                    'party_phone' => $s->customer_mobile ?? '',
+                    'party_type' => 'customer',
+                    'description' => ucfirst($s->sale_type ?? 'regular') . ' Sale',
+                    'total_amount' => $total,
+                    'amount_paid' => $paid,
+                    'amount_due' => $due,
+                    'status' => $s->payment_status,
+                ];
+            }
+        }
+
+        // 3. PURCHASES DUES (Vendor Payables)
+        $purchaseQuery = Purchase::forShop($shopId)
+            ->where(function($q) {
+                $q->where('outstanding_amount', '>', 0)
+                  ->orWhereRaw('(grand_total - amount_paid) > 0');
+            })
+            ->where('payment_status', '!=', 'paid');
+
+        if (!$isAllTime) {
+            $purchaseQuery->whereBetween('purchase_date', [$start, $end]);
+        }
+
+        if (!empty($search)) {
+            $s = '%' . $search . '%';
+            $purchaseQuery->where(function ($q) use ($s) {
+                $q->where('purchase_number', 'like', $s)
+                  ->orWhereHas('vendor', function($vq) use ($s) {
+                      $vq->where('name', 'like', $s)->orWhere('phone', 'like', $s);
+                  });
+            });
+        }
+
+        $allPurchases = (clone $purchaseQuery)->with('vendor')->get();
+        $totalVendorDues = 0;
+        foreach ($allPurchases as $p) {
+            $total = (float)$p->grand_total;
+            $paid = (float)$p->amount_paid;
+            $due = max(0, (float)($p->outstanding_amount > 0 ? $p->outstanding_amount : ($total - $paid)));
+            $totalVendorDues += $due;
+
+            if ($category === 'all' || $category === 'purchases' || $category === 'vendors') {
+                $items[] = [
+                    'id' => 'purchase_' . $p->id,
+                    'raw_id' => $p->id,
+                    'category' => 'purchases',
+                    'category_label' => 'Vendor Purchase',
+                    'ref_number' => $p->purchase_number,
+                    'date' => $p->purchase_date ? Carbon::parse($p->purchase_date)->format('Y-m-d') : $p->created_at->format('Y-m-d'),
+                    'party_name' => $p->vendor?->name ?? 'Vendor',
+                    'party_phone' => $p->vendor?->phone ?? '',
+                    'party_type' => 'vendor',
+                    'description' => 'Inventory / Parts Purchase',
+                    'total_amount' => $total,
+                    'amount_paid' => $paid,
+                    'amount_due' => $due,
+                    'status' => $p->payment_status,
+                ];
+            }
+        }
+
+        // Sort items by date desc, then by amount_due desc
+        usort($items, function($a, $b) {
+            $dateCmp = strcmp($b['date'], $a['date']);
+            if ($dateCmp !== 0) return $dateCmp;
+            return $b['amount_due'] <=> $a['amount_due'];
+        });
+
+        $totalCustomerDues = $totalRepairDues + $totalSalesDues;
+        $netBalance = $totalCustomerDues - $totalVendorDues;
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Outstanding dues report retrieved successfully.',
+            'data' => [
+                'period' => $period,
+                'start_date' => $start->format('Y-m-d'),
+                'end_date' => $end->format('Y-m-d'),
+                'category' => $category,
+                'summary' => [
+                    'total_customer_dues' => (float)$totalCustomerDues,
+                    'total_repair_dues' => (float)$totalRepairDues,
+                    'total_sales_dues' => (float)$totalSalesDues,
+                    'total_vendor_dues' => (float)$totalVendorDues,
+                    'net_balance' => (float)$netBalance,
+                    'total_records_count' => count($items),
+                    'repairs_count' => count($allRepairs),
+                    'sales_count' => count($allSales),
+                    'purchases_count' => count($allPurchases),
+                ],
+                'details' => $items,
+            ],
+        ]);
     }
 
     /**

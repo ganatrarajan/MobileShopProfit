@@ -11,6 +11,7 @@ use App\Models\Shop;
 use App\Models\Sale;
 use App\Models\StockMovement;
 use App\Models\Technician;
+use App\Models\UsedMobile;
 use App\Models\Warranty;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -218,7 +219,46 @@ class DashboardController extends Controller
                 ->sum('outstanding_amount');
         }
 
-        // 6. Expiring Warranties Count (within next 7 days, matching computed_status 'expiring_soon')
+        // 6. Used Mobiles Aggregations for the selected date period ($sDateStr to $eDateStr)
+        $usedMobileSoldCount = 0;
+        $usedMobileSales = 0.0;
+        $usedMobileCost = 0.0;
+        $usedMobileProfit = 0.0;
+        $usedMobileInStockCount = 0;
+        $usedMobileInStockInvestment = 0.0;
+
+        if (Schema::hasTable('used_mobiles')) {
+            $usedMobileSoldAgg = DB::table('used_mobiles')
+                ->where('shop_id', $shopId)
+                ->whereNull('deleted_at')
+                ->where('status', 'sold')
+                ->whereBetween('sale_date', [$sDateStr, $eDateStr])
+                ->selectRaw('
+                    COUNT(*) as sold_count,
+                    COALESCE(SUM(selling_price), 0) as total_sales,
+                    COALESCE(SUM(total_cost), 0) as total_cost,
+                    COALESCE(SUM(profit), 0) as total_profit
+                ')->first();
+
+            $usedMobileSoldCount = (int) ($usedMobileSoldAgg->sold_count ?? 0);
+            $usedMobileSales = (float) ($usedMobileSoldAgg->total_sales ?? 0);
+            $usedMobileCost = (float) ($usedMobileSoldAgg->total_cost ?? 0);
+            $usedMobileProfit = (float) ($usedMobileSoldAgg->total_profit ?? 0);
+
+            $usedMobileInStockAgg = DB::table('used_mobiles')
+                ->where('shop_id', $shopId)
+                ->whereNull('deleted_at')
+                ->where('status', 'in_stock')
+                ->selectRaw('
+                    COUNT(*) as in_stock_count,
+                    COALESCE(SUM(total_cost), 0) as in_stock_investment
+                ')->first();
+
+            $usedMobileInStockCount = (int) ($usedMobileInStockAgg->in_stock_count ?? 0);
+            $usedMobileInStockInvestment = (float) ($usedMobileInStockAgg->in_stock_investment ?? 0);
+        }
+
+        // 7. Expiring Warranties Count (within next 7 days, matching computed_status 'expiring_soon')
         $expiringWarrantiesCount = (int) Warranty::forShop($shopId)
             ->where('status', 'active')
             ->whereBetween('warranty_end_date', [$now->format('Y-m-d'), $now->copy()->addDays(7)->format('Y-m-d')])
@@ -347,6 +387,28 @@ class DashboardController extends Controller
             ];
         }
 
+        // Recent Sold Used Mobiles
+        if (Schema::hasTable('used_mobiles')) {
+            $recentUsedMobiles = DB::table('used_mobiles')
+                ->where('shop_id', $shopId)
+                ->whereNull('deleted_at')
+                ->where('status', 'sold')
+                ->orderByDesc('sale_date')
+                ->take(3)
+                ->get();
+
+            foreach ($recentUsedMobiles as $um) {
+                $recentActivities[] = [
+                    'type' => 'used_mobile',
+                    'title' => "Sold Used: {$um->brand} {$um->model}",
+                    'subtitle' => $um->buyer_name ?: ($um->sale_invoice_number ?: 'Used Phone Sale'),
+                    'amount' => (float) $um->selling_price,
+                    'time' => $um->sale_date ? Carbon::parse($um->sale_date)->format('d M') : '',
+                    'raw_time' => $um->sale_date ? Carbon::parse($um->sale_date)->toIso8601String() : $sDateStr,
+                ];
+            }
+        }
+
         // Sort combined activities by raw_time desc and take top 6
         usort($recentActivities, function ($a, $b) {
             return strcmp($b['raw_time'], $a['raw_time']);
@@ -358,7 +420,8 @@ class DashboardController extends Controller
             || DB::table('repairs')->where('shop_id', $shopId)->whereNull('deleted_at')->exists()
             || DB::table('purchases')->where('shop_id', $shopId)->whereNull('deleted_at')->exists()
             || DB::table('inventory_items')->where('shop_id', $shopId)->whereNull('deleted_at')->exists()
-            || DB::table('expenses')->where('shop_id', $shopId)->whereNull('deleted_at')->exists();
+            || DB::table('expenses')->where('shop_id', $shopId)->whereNull('deleted_at')->exists()
+            || (Schema::hasTable('used_mobiles') && DB::table('used_mobiles')->where('shop_id', $shopId)->whereNull('deleted_at')->exists());
 
         $isEmptyShop = !$hasAnyAllTimeRecords;
 
@@ -373,9 +436,10 @@ class DashboardController extends Controller
         $shopNameVal = $shopObj ? $shopObj->name : "My Mobile Shop";
         $ownerNameVal = ($shopObj && $shopObj->user) ? $shopObj->user->name : ($user ? $user->name : "Shop Owner");
 
-        $totalRevenue = $totalSales + $repairNetProfit;
-        $netProfit = $totalRevenue - $totalPurchases - $totalExpensesSum;
-        $netCashRemaining = ($totalCollected + $effectiveRepairEarnings) - $totalPurchasePaid - $totalExpensesSum - $totalRepairPartsCost - $totalRepairTechCost;
+        $combinedSales = $totalSales + $usedMobileSales;
+        $totalRevenue = $combinedSales + $repairNetProfit;
+        $netProfit = round($salesNetProfit + $repairNetProfit + $usedMobileProfit, 2);
+        $netCashRemaining = ($totalCollected + $effectiveRepairEarnings + $usedMobileSales) - $totalPurchasePaid - $totalExpensesSum - $totalRepairPartsCost - $totalRepairTechCost;
 
         $discountBanner = null;
         if ($shopObj && $shopObj->hasActiveCustomDiscount()) {
@@ -408,7 +472,11 @@ class DashboardController extends Controller
                 'is_expiring_soon' => ($daysRemainingVal <= 10),
                 'discount_banner' => $discountBanner,
                 'financial_overview' => [
-                    'total_sales' => round($totalSales, 2),
+                    'total_sales' => round($combinedSales, 2),
+                    'invoice_sales' => round($totalSales, 2),
+                    'used_mobile_sales' => round($usedMobileSales, 2),
+                    'used_mobile_profit' => round($usedMobileProfit, 2),
+                    'used_mobile_cost' => round($usedMobileCost, 2),
                     'sales_cost' => round($totalSalesCost, 2),
                     'sales_profit' => round($salesNetProfit, 2),
                     'repair_earnings' => round($repairNetProfit, 2),
@@ -417,7 +485,7 @@ class DashboardController extends Controller
                     'total_purchases' => round($totalPurchases, 2),
                     'total_expenses' => round($totalExpensesSum, 2),
                     'net_profit' => round($netProfit, 2),
-                    'cash_collected' => round($totalCollected + $effectiveRepairEarnings, 2),
+                    'cash_collected' => round($totalCollected + $effectiveRepairEarnings + $usedMobileSales, 2),
                     'cash_paid_purchases' => round($totalPurchasePaid, 2),
                     'cash_paid_expenses' => round($totalExpensesSum, 2),
                     'net_cash_remaining' => round($netCashRemaining, 2),
@@ -474,6 +542,14 @@ class DashboardController extends Controller
                     'in_progress_jobs' => (int) Repair::forShop($shopId)->whereIn('repair_status', ['repairing', 'in_progress'])->whereNotNull('technician_id')->count(),
                     'pending_jobs' => (int) Repair::forShop($shopId)->whereIn('repair_status', ['received', 'diagnosing', 'waiting_customer', 'waiting_parts', 'pending_approval'])->whereNotNull('technician_id')->count(),
                     'completed_jobs' => (int) Repair::forShop($shopId)->whereIn('repair_status', ['ready', 'delivered'])->whereNotNull('technician_id')->count(),
+                ],
+                'used_mobiles' => [
+                    'sold_count' => $usedMobileSoldCount,
+                    'total_sales' => round($usedMobileSales, 2),
+                    'total_cost' => round($usedMobileCost, 2),
+                    'total_profit' => round($usedMobileProfit, 2),
+                    'in_stock_count' => $usedMobileInStockCount,
+                    'in_stock_investment' => round($usedMobileInStockInvestment, 2),
                 ],
                 'attention' => $attention,
                 'recent_activity' => $recentActivities,

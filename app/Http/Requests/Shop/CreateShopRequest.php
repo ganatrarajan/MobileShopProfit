@@ -22,8 +22,13 @@ class CreateShopRequest extends FormRequest
             'address'    => 'required|string',
             'city'       => 'required|string|max:100',
             'state'      => 'required|string|max:100',
-            'pincode'    => 'required|string|max:20',
-            'gst_number' => 'nullable|string|max:50',
+            'pincode'         => 'required|string|max:20',
+            'google_maps_url' => 'nullable|string|max:500',
+            'latitude'        => 'nullable|numeric',
+            'longitude'       => 'nullable|numeric',
+            'upi_id'          => 'nullable|string|max:100',
+            'tagline'         => 'nullable|string|max:255',
+            'gst_number'      => 'nullable|string|max:50',
             'logo'       => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
         ];
     }

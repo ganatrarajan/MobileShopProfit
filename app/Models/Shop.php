@@ -39,6 +39,11 @@ class Shop extends Model
         'city',
         'state',
         'pincode',
+        'google_maps_url',
+        'latitude',
+        'longitude',
+        'upi_id',
+        'tagline',
         'gst_number',
         'logo',
         'currency',
@@ -63,6 +68,8 @@ class Shop extends Model
     ];
 
     protected $casts = [
+        'latitude'                           => 'float',
+        'longitude'                          => 'float',
         'referral_points_balance'            => 'float',
         'referral_enabled_override'          => 'boolean',
         'custom_referral_signup_points'      => 'float',
@@ -77,7 +84,7 @@ class Shop extends Model
         'custom_discount_is_one_time'        => 'boolean',
     ];
 
-    protected $appends = ['logo_url', 'effective_max_staff', 'staff_days_remaining', 'staff_valid_until_formatted'];
+    protected $appends = ['logo_url', 'effective_max_staff', 'staff_days_remaining', 'staff_valid_until', 'staff_valid_until_formatted'];
 
     /**
      * Get the effective max staff / technician logins allowed for this shop.
@@ -98,6 +105,9 @@ class Shop extends Model
         // 2. Fallback to latest subscription plan limit
         $sub = $this->latestSubscription;
         if ($sub) {
+            if ($sub->expiry_date && now()->startOfDay()->gt(Carbon::parse($sub->expiry_date)->endOfDay())) {
+                return 0;
+            }
             if ($sub->status === 'trial') {
                 return 1; // 1 staff account allowed during free trial
             }
@@ -106,7 +116,35 @@ class Shop extends Model
             }
         }
 
+        // 3. Fallback for new accounts without explicit sub (within 30 days of registration)
+        if ($this->created_at && now()->startOfDay()->lte(Carbon::parse($this->created_at)->addDays(30)->endOfDay())) {
+            return 1;
+        }
+
         return 0;
+    }
+
+    /**
+     * Get staff validity expiry date in Y-m-d format.
+     */
+    public function getStaffValidUntilAttribute(): ?string
+    {
+        if ($this->custom_staff_valid_until) {
+            return Carbon::parse($this->custom_staff_valid_until)->format('Y-m-d');
+        }
+
+        $sub = $this->latestSubscription;
+        if ($sub && $sub->expiry_date) {
+            if ($sub->status === 'trial' || ($sub->plan?->max_staff_accounts ?? 0) > 0) {
+                return Carbon::parse($sub->expiry_date)->format('Y-m-d');
+            }
+        }
+
+        if ($this->created_at) {
+            return Carbon::parse($this->created_at)->addDays(30)->format('Y-m-d');
+        }
+
+        return null;
     }
 
     /**
@@ -118,14 +156,9 @@ class Shop extends Model
             return 0;
         }
 
-        if ($this->custom_staff_valid_until) {
-            $exp = Carbon::parse($this->custom_staff_valid_until)->endOfDay();
-            return max(0, (int) ceil(now()->diffInDays($exp, false)));
-        }
-
-        $sub = $this->latestSubscription;
-        if ($sub && $sub->expiry_date) {
-            $exp = Carbon::parse($sub->expiry_date)->endOfDay();
+        $validUntil = $this->staff_valid_until;
+        if ($validUntil) {
+            $exp = Carbon::parse($validUntil)->endOfDay();
             return max(0, (int) ceil(now()->diffInDays($exp, false)));
         }
 
@@ -137,16 +170,8 @@ class Shop extends Model
      */
     public function getStaffValidUntilFormattedAttribute(): ?string
     {
-        if ($this->custom_staff_valid_until) {
-            return Carbon::parse($this->custom_staff_valid_until)->format('d M Y');
-        }
-
-        $sub = $this->latestSubscription;
-        if ($sub && $sub->expiry_date && ($sub->plan?->max_staff_accounts ?? 0) > 0) {
-            return Carbon::parse($sub->expiry_date)->format('d M Y');
-        }
-
-        return null;
+        $dt = $this->staff_valid_until;
+        return $dt ? Carbon::parse($dt)->format('d M Y') : null;
     }
 
     /**
@@ -310,6 +335,20 @@ class Shop extends Model
     public function latestSubscription()
     {
         return $this->hasOne(Subscription::class)->latestOfMany();
+    }
+
+    public function paymentTransactions(): HasMany
+    {
+        return $this->hasMany(PaymentTransaction::class);
+    }
+
+    public function latestPaymentTransaction()
+    {
+        return $this->hasOne(PaymentTransaction::class)->ofMany([
+            'id' => 'max',
+        ], function ($query) {
+            $query->where('status', 'successful');
+        });
     }
 
     public function supportRequests(): HasMany

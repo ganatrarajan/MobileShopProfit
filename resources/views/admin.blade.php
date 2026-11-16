@@ -1162,14 +1162,19 @@
                         <div class="metric-sub">${m.shops.active} Active | ${m.shops.new_month} New This Month</div>
                     </div>
                     <div class="metric-card">
-                        <div class="metric-title">Subscriptions</div>
-                        <div class="metric-value">${m.subscriptions.active}</div>
-                        <div class="metric-sub">${m.subscriptions.trial} Trial | ${m.subscriptions.expired} Expired</div>
+                        <div class="metric-title">Subscriptions & Paid Shops</div>
+                        <div class="metric-value">
+                            <span style="color:#059669; font-weight:800;">${m.subscriptions.paid_shops_count || m.subscriptions.paid_count || m.subscriptions.active}</span>
+                            <span style="font-size:13px; font-weight:700; color:#059669;">Paid Shop${(m.subscriptions.paid_shops_count || m.subscriptions.paid_count) == 1 ? '' : 's'}</span>
+                        </div>
+                        <div class="metric-sub">${m.subscriptions.trial} On Free Trial | ${m.subscriptions.expired} Expired</div>
                     </div>
                     <div class="metric-card">
-                        <div class="metric-title">Total Platform Revenue</div>
-                        <div class="metric-value">₹${m.business.total_revenue.toLocaleString()}</div>
-                        <div class="metric-sub">₹${m.business.revenue_this_month.toLocaleString()} This Month</div>
+                        <div class="metric-title">Total Amount Earned (Revenue)</div>
+                        <div class="metric-value" style="color:#2563eb;">₹${Number(m.business.total_revenue || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                        <div class="metric-sub">
+                            <strong>₹${Number(m.business.revenue_this_month || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong> This Month &bull; <strong>${m.business.successful_tx_count || m.business.paid_count || 0}</strong> Successful Transactions
+                        </div>
                     </div>
                     <div class="metric-card">
                         <div class="metric-title">Platform Repairs & Sales</div>
@@ -1348,6 +1353,8 @@
                                 <th>Contact Number</th>
                                 <th>Registration Date</th>
                                 <th>Subscription</th>
+                                <th>Plan Expiry Date</th>
+                                <th>Last Purchase</th>
                                 <th>Staff Logins</th>
                                 <th>Technicians</th>
                                 <th>Account Status</th>
@@ -1355,10 +1362,16 @@
                             </tr>
                         </thead>
                         <tbody>
-                            ${shops.length === 0 ? `<tr><td colspan="9" style="text-align:center; padding:36px; color:#94a3b8; font-weight:500;">No shops found matching filter criteria.</td></tr>` : ''}
+                            ${shops.length === 0 ? `<tr><td colspan="11" style="text-align:center; padding:36px; color:#94a3b8; font-weight:500;">No shops found matching filter criteria.</td></tr>` : ''}
                             ${shops.map(s => {
                                 const mob = s.phone || s.mobile || (s.user ? (s.user.mobile || s.user.phone) : 'N/A');
                                 const sub = s.latest_subscription ? s.latest_subscription.status : 'trial';
+                                const subExpiry = s.latest_subscription ? s.latest_subscription.expiry_date : null;
+                                const isSubExpired = subExpiry ? (new Date(subExpiry) < new Date()) : false;
+                                const subDaysRemaining = subExpiry ? Math.max(0, Math.ceil((new Date(subExpiry) - new Date()) / (1000 * 60 * 60 * 24))) : 0;
+                                const lastTx = s.latest_payment_transaction;
+                                const lastSub = s.latest_subscription;
+                                const staffExp = s.custom_staff_valid_until || s.staff_valid_until || (s.latest_subscription ? s.latest_subscription.expiry_date : null);
                                 const initial = (s.name || 'S').trim().charAt(0).toUpperCase();
                                 return `
                                 <tr>
@@ -1370,6 +1383,8 @@
                                             <div>
                                                 <div style="font-weight:700; color:#0f172a; font-size:13.5px;">${s.name}</div>
                                                 <div style="font-size:11px; color:#64748b; font-family:monospace;">ID: #${s.id}</div>
+                                                ${s.tagline ? `<div style="font-size:10px; color:#64748b; font-style:italic; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${s.tagline}">"${s.tagline}"</div>` : ''}
+                                                ${s.google_maps_url ? `<a href="${s.google_maps_url}" target="_blank" style="font-size:10.5px; color:#2563eb; display:inline-flex; align-items:center; gap:2px; text-decoration:none; margin-top:2px; font-weight:600;" title="Open Shop Location on Google Maps">📍 Maps Link ↗</a>` : ''}
                                             </div>
                                         </div>
                                     </td>
@@ -1399,17 +1414,67 @@
                                         </div>
                                     </td>
                                     <td>
+                                        <div style="display:flex; flex-direction:column; gap:3px; align-items:flex-start;">
+                                            ${subExpiry ? `
+                                                <div style="font-weight:700; font-size:12.5px; color:${isSubExpired ? '#dc2626' : '#0f172a'}; display:flex; align-items:center; gap:4px;">
+                                                    <span>📅</span> ${new Date(subExpiry).toLocaleDateString()}
+                                                </div>
+                                                <div>
+                                                    ${isSubExpired 
+                                                        ? '<span class="badge badge-inactive" style="font-size:9.5px; padding:2px 6px;">🔴 Expired</span>' 
+                                                        : `<span class="badge ${sub === 'active' ? 'badge-active' : 'badge-trial'}" style="font-size:9.5px; padding:2px 6px;">⏱️ ${subDaysRemaining}d left</span>`
+                                                    }
+                                                </div>
+                                            ` : `
+                                                <span style="color:#94a3b8; font-size:12px;">No Expiry</span>
+                                            `}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style="display:flex; flex-direction:column; gap:3px; align-items:flex-start;">
+                                            ${lastTx ? `
+                                                <div style="display:flex; align-items:center; gap:5px;">
+                                                    <strong style="color:#059669; font-size:13px;">₹${Number(lastTx.amount).toFixed(2)}</strong>
+                                                    <span class="badge badge-active" style="font-size:9px; padding:1px 5px;">PAID</span>
+                                                </div>
+                                                <div style="font-size:11px; color:#334155; font-weight:600; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${lastTx.plan ? lastTx.plan.name : (lastTx.gateway_name || 'Paid Plan')}">
+                                                    ${lastTx.plan ? lastTx.plan.name : (lastTx.gateway_name || 'Paid Plan')}
+                                                </div>
+                                                <div style="font-size:10.5px; color:#64748b;">
+                                                    🕒 ${new Date(lastTx.created_at).toLocaleDateString()} ${new Date(lastTx.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                                                </div>
+                                            ` : (lastSub ? `
+                                                <div style="display:flex; align-items:center; gap:5px;">
+                                                    <strong style="color:${lastSub.payment_status === 'paid' ? '#059669' : '#2563eb'}; font-size:13px;">
+                                                        ${lastSub.payment_status === 'paid' ? `₹${Number(lastSub.plan ? lastSub.plan.price : 0).toFixed(2)}` : '₹0.00'}
+                                                    </strong>
+                                                    <span class="badge ${lastSub.payment_status === 'paid' ? 'badge-active' : 'badge-trial'}" style="font-size:9px; padding:1px 5px;">
+                                                        ${lastSub.payment_status === 'paid' ? 'PAID' : 'FREE TRIAL'}
+                                                    </span>
+                                                </div>
+                                                <div style="font-size:11px; color:#334155; font-weight:600; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${lastSub.plan ? lastSub.plan.name : 'Trial'}">
+                                                    ${lastSub.plan ? lastSub.plan.name : 'Free Trial'}
+                                                </div>
+                                                <div style="font-size:10.5px; color:#64748b;">
+                                                    🕒 ${lastSub.created_at ? new Date(lastSub.created_at).toLocaleDateString() + ' ' + new Date(lastSub.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : new Date(s.created_at).toLocaleDateString()}
+                                                </div>
+                                            ` : `
+                                                <span style="color:#94a3b8; font-size:12px;">No Purchase Yet</span>
+                                            `)}
+                                        </div>
+                                    </td>
+                                    <td>
                                         <div style="display:flex; flex-direction:column; gap:4px;">
                                             <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
                                                 <button type="button" class="badge ${s.staff_logins_count > 0 ? 'badge-blue' : 'badge-trial'}" 
                                                         style="cursor:pointer; border:1px dashed #6366f1; padding:4px 9px; display:inline-flex; align-items:center; gap:5px; font-weight:700;"
-                                                        onclick="openCustomStaffModal(${s.id}, '${s.name.replace(/'/g, "\\'")}', ${s.effective_max_staff || 0}, ${s.custom_max_staff !== null && s.custom_max_staff !== undefined ? s.custom_max_staff : "''"}, '${s.custom_staff_valid_until || ''}', '${(s.custom_staff_note || '').replace(/'/g, "\\'")}', '${s.latest_subscription ? (s.latest_subscription.expiry_date || '') : ''}', '${s.latest_subscription ? s.latest_subscription.status : 'trial'}')"
+                                                        onclick="openCustomStaffModal(${s.id}, '${s.name.replace(/'/g, "\\'")}', ${s.effective_max_staff || 0}, ${s.custom_max_staff !== null && s.custom_max_staff !== undefined ? s.custom_max_staff : "''"}, '${staffExp || ''}', '${(s.custom_staff_note || '').replace(/'/g, "\\'")}', '${s.latest_subscription ? (s.latest_subscription.expiry_date || '') : ''}', '${s.latest_subscription ? s.latest_subscription.status : 'trial'}')"
                                                         title="Click to Increase or Change Staff Logins Limit">
                                                     👥 ${s.staff_logins_count || 0} / ${s.effective_max_staff || 0} Logins
                                                     <span style="font-size:10px; opacity:0.8;">✏️</span>
                                                 </button>
                                             </div>
-                                            ${s.custom_staff_valid_until ? (new Date(s.custom_staff_valid_until) < new Date() ? '<span class="badge badge-inactive" style="font-size:10px; padding:2px 6px;">🔴 Expired</span>' : `<span class="badge badge-purple" style="font-size:10px; padding:2px 6px;">⏱️ Till ${new Date(s.custom_staff_valid_until).toLocaleDateString()}</span>`) : ''}
+                                            ${staffExp ? (new Date(staffExp) < new Date() ? '<span class="badge badge-inactive" style="font-size:10px; padding:2px 6px;">🔴 Expired</span>' : `<span class="badge badge-purple" style="font-size:10px; padding:2px 6px;">⏱️ Till ${new Date(staffExp).toLocaleDateString()}</span>`) : '<span class="badge badge-purple" style="font-size:10px; padding:2px 6px;">⏱️ 30-Day Trial</span>'}
                                         </div>
                                     </td>
                                     <td>
@@ -1432,7 +1497,7 @@
                                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 6v12"/></svg>
                                                 Pricing
                                             </button>
-                                            <button class="action-btn action-btn-indigo" onclick="openCustomStaffModal(${s.id}, '${s.name.replace(/'/g, "\\'")}', ${s.effective_max_staff || 0}, ${s.custom_max_staff !== null && s.custom_max_staff !== undefined ? s.custom_max_staff : "''"}, '${s.custom_staff_valid_until || ''}', '${(s.custom_staff_note || '').replace(/'/g, "\\'")}', '${s.latest_subscription ? (s.latest_subscription.expiry_date || '') : ''}', '${s.latest_subscription ? s.latest_subscription.status : 'trial'}')" title="Increase or Set Staff Logins Limit">
+                                            <button class="action-btn action-btn-indigo" onclick="openCustomStaffModal(${s.id}, '${s.name.replace(/'/g, "\\'")}', ${s.effective_max_staff || 0}, ${s.custom_max_staff !== null && s.custom_max_staff !== undefined ? s.custom_max_staff : "''"}, '${staffExp || ''}', '${(s.custom_staff_note || '').replace(/'/g, "\\'")}', '${s.latest_subscription ? (s.latest_subscription.expiry_date || '') : ''}', '${s.latest_subscription ? s.latest_subscription.status : 'trial'}')" title="Increase or Set Staff Logins Limit">
                                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                                                 Staff Limit
                                             </button>
@@ -1491,9 +1556,13 @@
                     </div>
 
                     <div id="shop-tab-overview">
-                        <p><strong>Shop Name:</strong> ${s.name}</p>
-                        <p><strong>Owner:</strong> ${s.owner_name}</p>
+                        <p><strong>Shop Name:</strong> ${s.name} ${s.tagline ? `<span style="font-size:12px; color:#64748b; font-style:italic;">— "${s.tagline}"</span>` : ''}</p>
+                        <p><strong>Owner:</strong> ${s.owner_name} | <strong>UPI ID:</strong> ${s.upi_id ? `<span class="badge" style="background:#0f172a; color:#38bdf8;">💳 ${s.upi_id}</span>` : '<span style="color:#94a3b8;">Not Set</span>'}</p>
                         <p><strong>Contact Mobile:</strong> ${mob} | <strong>Email:</strong> ${email}</p>
+                        <p><strong>Address:</strong> ${s.address || 'N/A'}, ${s.city || ''}, ${s.state || ''} - ${s.pincode || ''} ${s.google_maps_url ? `<a href="${s.google_maps_url}" target="_blank" style="margin-left:8px; font-weight:700; color:#2563eb; text-decoration:underline;">📍 Open Google Maps Location ↗</a>` : ''}</p>
+                        <p><strong>GSTIN / Tax No:</strong> ${s.gst_number ? `<span class="badge badge-blue" style="font-size:11px; font-weight:700;">🧾 ${s.gst_number}</span>` : '<span style="color:#94a3b8;">Not Registered (Non-GST)</span>'}</p>
+                        <p><strong>Plan Expiry Date:</strong> ${s.latest_subscription && s.latest_subscription.expiry_date ? `<strong style="color:#0f172a;">📅 ${new Date(s.latest_subscription.expiry_date).toLocaleDateString()}</strong> (${new Date(s.latest_subscription.expiry_date) < new Date() ? '<span style="color:#dc2626; font-weight:700;">🔴 Expired</span>' : '<span style="color:#059669; font-weight:700;">🟢 Active</span>'})` : '<span style="color:#94a3b8;">No Plan Linked</span>'}</p>
+                        <p><strong>Last Purchase:</strong> ${s.latest_payment_transaction ? `<strong style="color:#059669; font-size:13px;">₹${Number(s.latest_payment_transaction.amount).toFixed(2)}</strong> (${s.latest_payment_transaction.plan ? s.latest_payment_transaction.plan.name : (s.latest_payment_transaction.gateway_name || 'Paid Plan')}) &bull; 🕒 ${new Date(s.latest_payment_transaction.created_at).toLocaleString()}` : (s.latest_subscription ? `<strong>${s.latest_subscription.payment_status === 'paid' ? '₹' + Number(s.latest_subscription.plan ? s.latest_subscription.plan.price : 0).toFixed(2) : '₹0.00 (Free Trial)'}</strong> (${s.latest_subscription.plan ? s.latest_subscription.plan.name : 'Trial Plan'}) &bull; 🕒 ${new Date(s.latest_subscription.created_at || s.created_at).toLocaleString()}` : '<span style="color:#94a3b8;">No Purchases Yet</span>')}</p>
                         <p><strong>Registration Date:</strong> ${new Date(s.created_at).toLocaleString()}</p>
                         <p><strong>Account Status:</strong> <span class="badge ${s.status === 'active' ? 'badge-active' : 'badge-inactive'}">${s.status}</span></p>
                         <div style="background:#f1f5f9; padding:12px 14px; border-radius:8px; margin:12px 0; border:1px solid #cbd5e1;">
@@ -1504,11 +1573,12 @@
                                     </h4>
                                     <div style="font-size:12px; color:#475569; line-height:1.6;">
                                         <div><strong>Effective Allowed:</strong> <span class="badge badge-active">${s.effective_max_staff || 0} Staff Logins</span></div>
+                                        <div><strong>Staff Validity:</strong> <span class="badge badge-purple">⏱️ Valid Till: ${s.custom_staff_valid_until ? new Date(s.custom_staff_valid_until).toLocaleDateString() : (s.staff_valid_until ? new Date(s.staff_valid_until).toLocaleDateString() : (s.latest_subscription && s.latest_subscription.expiry_date ? new Date(s.latest_subscription.expiry_date).toLocaleDateString() : '30-Day Trial'))}</span></div>
                                         <div><strong>Base Plan Limit:</strong> ${s.latest_subscription && s.latest_subscription.plan ? s.latest_subscription.plan.max_staff_accounts : 0} Staff</div>
                                         <div><strong>Shop Custom Override:</strong> ${s.custom_max_staff !== null && s.custom_max_staff !== undefined ? `<strong style="color:#2563eb;">${s.custom_max_staff} Staff</strong> (Valid until: ${s.custom_staff_valid_until || 'Indefinite'}${s.custom_staff_note ? ' — Note: ' + s.custom_staff_note : ''})` : '<span style="color:#64748b;">None (Follows subscription plan)</span>'}</div>
                                     </div>
                                 </div>
-                                <button type="button" class="btn-sm" style="background:#4f46e5; color:white; border-color:#4f46e5; padding:6px 14px; font-weight:600;" onclick="openCustomStaffModal(${s.id}, '${s.name.replace(/'/g, "\\'")}', ${s.effective_max_staff || 0}, ${s.custom_max_staff !== null && s.custom_max_staff !== undefined ? s.custom_max_staff : "''"}, '${s.custom_staff_valid_until || ''}', '${(s.custom_staff_note || '').replace(/'/g, "\\'")}', '${s.latest_subscription ? (s.latest_subscription.expiry_date || '') : ''}', '${s.latest_subscription ? s.latest_subscription.status : 'trial'}')">
+                                <button type="button" class="btn-sm" style="background:#4f46e5; color:white; border-color:#4f46e5; padding:6px 14px; font-weight:600;" onclick="openCustomStaffModal(${s.id}, '${s.name.replace(/'/g, "\\'")}', ${s.effective_max_staff || 0}, ${s.custom_max_staff !== null && s.custom_max_staff !== undefined ? s.custom_max_staff : "''"}, '${s.staff_valid_until || s.custom_staff_valid_until || ''}', '${(s.custom_staff_note || '').replace(/'/g, "\\'")}', '${s.latest_subscription ? (s.latest_subscription.expiry_date || '') : ''}', '${s.latest_subscription ? s.latest_subscription.status : 'trial'}')">
                                     ⚙️ Set Staff Limit
                                 </button>
                             </div>
@@ -4799,6 +4869,9 @@
                                 <tr><td style="color:#64748b; padding:4px 0;">ID Number:</td><td style="font-family:monospace; font-weight:700; padding:4px 0;">${m.id_proof_number || 'N/A'}</td></tr>
                                 <tr><td style="color:#64748b; padding:4px 0;">Purchase Date:</td><td style="padding:4px 0;">${m.purchase_date ? new Date(m.purchase_date).toLocaleDateString() : 'N/A'}</td></tr>
                                 <tr><td style="color:#64748b; padding:4px 0;">Purchase Price:</td><td style="font-weight:700; padding:4px 0;">₹${Number(m.purchase_price || 0).toLocaleString()}</td></tr>
+                                ${(Number(m.purchase_tax_rate) > 0 || Number(m.purchase_tax_amount) > 0) ? `
+                                <tr><td style="color:#64748b; padding:4px 0;">Purchase GST:</td><td style="font-weight:600; color:#2563eb; padding:4px 0;">₹${Number(m.purchase_tax_amount || 0).toLocaleString()} (${m.purchase_tax_rate}% ${m.purchase_tax_type || 'inclusive'})</td></tr>
+                                ` : ''}
                                 ${Number(m.repair_cost) > 0 ? `<tr><td style="color:#64748b; padding:4px 0;">Repair Cost:</td><td style="font-weight:600; color:#dc2626; padding:4px 0;">+₹${Number(m.repair_cost).toLocaleString()}</td></tr>` : ''}
                                 <tr><td style="color:#64748b; padding:4px 0; border-top:1px dashed #e2e8f0;">Total Cost:</td><td style="font-weight:700; color:#0f172a; padding:4px 0; border-top:1px dashed #e2e8f0;">₹${Number(m.total_cost || m.purchase_price || 0).toLocaleString()}</td></tr>
                             </table>
@@ -4856,8 +4929,11 @@
                                 </table>
                                 <table style="width:100%; font-size:12px; border-collapse:collapse;">
                                     <tr><td style="color:#047857; padding:4px 0;">Selling Price:</td><td style="font-weight:700; font-size:14px; padding:4px 0; color:#0f172a;">₹${Number(m.selling_price || 0).toLocaleString()}</td></tr>
+                                    ${(Number(m.tax_rate) > 0 || Number(m.tax_amount) > 0) ? `
+                                    <tr><td style="color:#047857; padding:4px 0;">Sale GST (${m.tax_rate}% ${m.tax_type || 'inclusive'}):</td><td style="font-weight:700; color:#2563eb; padding:4px 0;">₹${Number(m.tax_amount || 0).toLocaleString()} ${m.is_inter_state ? '(IGST)' : `(CGST: ₹${(Number(m.cgst_amount || 0)).toFixed(2)} | SGST: ₹${(Number(m.sgst_amount || 0)).toFixed(2)})`}</td></tr>
+                                    ` : ''}
                                     <tr><td style="color:#047857; padding:4px 0;">Total Cost:</td><td style="padding:4px 0;">₹${Number(m.total_cost || 0).toLocaleString()}</td></tr>
-                                    <tr><td style="color:#047857; padding:4px 0;">Net Profit:</td><td style="font-weight:800; font-size:15px; color:#059669; padding:4px 0;">+₹${Number(m.profit || 0).toLocaleString()} (${m.profit_percentage || 0}%)</td></tr>
+                                    <tr><td style="color:#047857; padding:4px 0;">Net Profit:</td><td style="font-weight:800; font-size:15px; color:${Number(m.profit || 0) >= 0 ? '#059669' : '#dc2626'}; padding:4px 0;">${Number(m.profit || 0) >= 0 ? '+' : ''}₹${Number(m.profit || 0).toLocaleString()} (${m.profit_percentage || 0}%)</td></tr>
                                     <tr><td style="color:#047857; padding:4px 0;">Warranty:</td><td style="font-weight:600; padding:4px 0;">${m.warranty_days ? m.warranty_days + ' Days' : 'No Warranty'}</td></tr>
                                     ${m.sale_payment_mode ? `<tr><td style="color:#047857; padding:4px 0;">Payment Mode:</td><td style="padding:4px 0;">${m.sale_payment_mode.toUpperCase()}</td></tr>` : ''}
                                 </table>

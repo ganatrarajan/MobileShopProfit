@@ -174,13 +174,38 @@ class SaleController extends Controller
                     $price = (float) $itemData['unit_price'];
                     $itemDiscount = (float) ($itemData['discount'] ?? 0);
                     $itemTax = (float) ($itemData['tax_amount'] ?? 0);
-                    $itemTotal = ($qty * $price) - $itemDiscount + $itemTax;
+                    $itemTaxRate = (float) ($itemData['tax_rate'] ?? 0);
+                    $itemTaxType = $itemData['tax_type'] ?? null;
+
+                    // If item tax rate not explicitly provided, inherit from inventory item if present
+                    if ($itemTaxRate <= 0 && !empty($itemData['inventory_item_id'])) {
+                        $inv = \App\Models\InventoryItem::forShop($user->shop_id)->find($itemData['inventory_item_id']);
+                        if ($inv && (float) $inv->tax_rate > 0) {
+                            $itemTaxRate = (float) $inv->tax_rate;
+                            $itemTaxType = $itemTaxType ?? ($inv->tax_type ?? 'exclusive');
+                        }
+                    }
+                    $itemTaxType = $itemTaxType ?? 'exclusive';
+
+                    if ($itemTax <= 0 && $itemTaxRate > 0) {
+                        $lineTaxable = max(0, ($qty * $price) - $itemDiscount);
+                        if ($itemTaxType === 'inclusive') {
+                            $lineBase = $lineTaxable / (1 + ($itemTaxRate / 100));
+                            $itemTax = round($lineTaxable - $lineBase, 2);
+                        } else {
+                            $itemTax = round($lineTaxable * ($itemTaxRate / 100), 2);
+                        }
+                    }
+
+                    $itemTotal = ($qty * $price) - $itemDiscount + ($itemTaxType === 'inclusive' ? 0 : $itemTax);
 
                     $subtotal += ($qty * $price);
                     $totalItemDiscount += $itemDiscount;
                     $totalItemTax += $itemTax;
 
                     $processedItems[] = array_merge($itemData, [
+                        'tax_rate' => $itemTaxRate,
+                        'tax_type' => $itemTaxType,
                         'discount' => $itemDiscount,
                         'tax_amount' => $itemTax,
                         'total' => max(0, $itemTotal),
@@ -189,11 +214,41 @@ class SaleController extends Controller
 
                 $saleDiscount = (float) ($validated['discount'] ?? 0);
                 $saleTax = (float) ($validated['tax_amount'] ?? 0);
+                $taxRate = (float) ($validated['tax_rate'] ?? 0);
+                $taxType = $validated['tax_type'] ?? 'exclusive';
+                $isInterState = (bool) ($validated['is_inter_state'] ?? false);
+
+                if ($saleTax <= 0 && $taxRate > 0) {
+                    $taxable = max(0, $subtotal - $saleDiscount);
+                    if ($taxType === 'inclusive') {
+                        $taxableBase = $taxable / (1 + ($taxRate / 100));
+                        $saleTax = round($taxable - $taxableBase, 2);
+                    } else {
+                        $saleTax = round($taxable * ($taxRate / 100), 2);
+                    }
+                } elseif ($saleTax <= 0 && $totalItemTax > 0) {
+                    $saleTax = $totalItemTax;
+                    $firstTaxed = collect($processedItems)->first(fn($i) => ($i['tax_rate'] ?? 0) > 0);
+                    if ($firstTaxed) {
+                        $taxRate = (float) $firstTaxed['tax_rate'];
+                        $taxType = $firstTaxed['tax_type'] ?? 'exclusive';
+                    }
+                }
+
+                if ($isInterState) {
+                    $igstAmount = $saleTax;
+                    $cgstAmount = 0;
+                    $sgstAmount = 0;
+                } else {
+                    $cgstAmount = round($saleTax / 2, 2);
+                    $sgstAmount = round($saleTax - $cgstAmount, 2);
+                    $igstAmount = 0;
+                }
 
                 $overallDiscount = $totalItemDiscount + $saleDiscount;
-                $overallTax = $totalItemTax + $saleTax;
+                $overallTax = ($saleTax == $totalItemTax) ? $saleTax : ($totalItemTax + $saleTax);
 
-                $grandTotal = max(0, $subtotal - $overallDiscount + $overallTax);
+                $grandTotal = max(0, $subtotal - $overallDiscount + ($taxType === 'inclusive' ? 0 : $overallTax));
 
                 $sale = Sale::create([
                     'shop_id' => $user->shop_id,
@@ -207,6 +262,12 @@ class SaleController extends Controller
                     'subtotal' => $subtotal,
                     'discount' => $saleDiscount,
                     'tax_amount' => $saleTax,
+                    'tax_rate' => $taxRate,
+                    'tax_type' => $taxType,
+                    'is_inter_state' => $isInterState,
+                    'cgst_amount' => $cgstAmount,
+                    'sgst_amount' => $sgstAmount,
+                    'igst_amount' => $igstAmount,
                     'grand_total' => $grandTotal,
                     'amount_paid' => 0,
                     'amount_due' => $grandTotal,
@@ -245,6 +306,24 @@ class SaleController extends Controller
                             'reference_id' => $sale->id,
                             'notes' => "Sold {$pItem['quantity']} unit(s) via Invoice #{$sale->invoice_number}",
                         ]);
+
+                        // Mark inventory serial as sold
+                        $serialQuery = \App\Models\InventorySerial::forShop($user->shop_id)
+                            ->where('inventory_item_id', $invItem->id)
+                            ->where('status', 'available');
+
+                        if (!empty($pItem['imei_1']) || !empty($pItem['imei_2']) || !empty($pItem['serial_number'])) {
+                            $serialQuery->where(function ($q) use ($pItem) {
+                                if (!empty($pItem['imei_1'])) $q->orWhere('imei1', $pItem['imei_1'])->orWhere('imei2', $pItem['imei_1']);
+                                if (!empty($pItem['imei_2'])) $q->orWhere('imei1', $pItem['imei_2'])->orWhere('imei2', $pItem['imei_2']);
+                                if (!empty($pItem['serial_number'])) $q->orWhere('serial_number', $pItem['serial_number']);
+                            });
+                        }
+
+                        $serialToMark = $serialQuery->first();
+                        if ($serialToMark) {
+                            $serialToMark->update(['status' => 'sold']);
+                        }
                     }
                     $sale->items()->create($pItem);
                 }
@@ -397,12 +476,30 @@ class SaleController extends Controller
         }
 
         DB::transaction(function () use ($saleRecord) {
-            // Restore inventory stock for each sold item before deleting
+            // Restore inventory stock and serials for each sold item before deleting
             foreach ($saleRecord->items as $item) {
                 if ($item->inventory_item_id) {
                     $invItem = \App\Models\InventoryItem::forShop($saleRecord->shop_id)->find($item->inventory_item_id);
                     if ($invItem) {
                         $invItem->increment('current_stock', $item->quantity);
+                    }
+
+                    // Restore serial back to available
+                    $serialQuery = \App\Models\InventorySerial::forShop($saleRecord->shop_id)
+                        ->where('inventory_item_id', $item->inventory_item_id)
+                        ->where('status', 'sold');
+
+                    if (!empty($item->imei_1) || !empty($item->imei_2) || !empty($item->serial_number)) {
+                        $serialQuery->where(function ($q) use ($item) {
+                            if (!empty($item->imei_1)) $q->orWhere('imei1', $item->imei_1)->orWhere('imei2', $item->imei_1);
+                            if (!empty($item->imei_2)) $q->orWhere('imei1', $item->imei_2)->orWhere('imei2', $item->imei_2);
+                            if (!empty($item->serial_number)) $q->orWhere('serial_number', $item->serial_number);
+                        });
+                    }
+
+                    $serialToRestore = $serialQuery->first();
+                    if ($serialToRestore) {
+                        $serialToRestore->update(['status' => 'available']);
                     }
                 }
             }

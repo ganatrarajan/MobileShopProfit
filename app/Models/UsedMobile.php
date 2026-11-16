@@ -56,6 +56,20 @@ class UsedMobile extends Model
         'status',
         'created_by',
         'sold_by',
+        'purchase_tax_rate',
+        'purchase_tax_type',
+        'purchase_tax_amount',
+        'purchase_cgst_amount',
+        'purchase_sgst_amount',
+        'purchase_igst_amount',
+        'purchase_is_inter_state',
+        'tax_rate',
+        'tax_type',
+        'tax_amount',
+        'cgst_amount',
+        'sgst_amount',
+        'igst_amount',
+        'is_inter_state',
     ];
 
     protected $casts = [
@@ -69,6 +83,18 @@ class UsedMobile extends Model
         'selling_price' => 'decimal:2',
         'profit' => 'decimal:2',
         'warranty_days' => 'integer',
+        'purchase_tax_rate' => 'decimal:2',
+        'purchase_tax_amount' => 'decimal:2',
+        'purchase_cgst_amount' => 'decimal:2',
+        'purchase_sgst_amount' => 'decimal:2',
+        'purchase_igst_amount' => 'decimal:2',
+        'purchase_is_inter_state' => 'boolean',
+        'tax_rate' => 'decimal:2',
+        'tax_amount' => 'decimal:2',
+        'cgst_amount' => 'decimal:2',
+        'sgst_amount' => 'decimal:2',
+        'igst_amount' => 'decimal:2',
+        'is_inter_state' => 'boolean',
     ];
 
     protected $appends = [
@@ -157,4 +183,3 @@ class UsedMobile extends Model
         return sprintf('UMS-%06d', $soldCount + 1);
     }
 }
-
