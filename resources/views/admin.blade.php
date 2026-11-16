@@ -440,6 +440,16 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
 
+        .metric-card.clickable {
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+        }
+        .metric-card.clickable:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            border-color: #cbd5e1;
+        }
+
         .metric-title {
             font-size: 12px;
             font-weight: 600;
@@ -1145,6 +1155,35 @@
             `;
         }
 
+        // Standard Date Formatter: DD MonthName YYYY (e.g. 15 Nov 2026, or 10 Oct 2026, 11:24 AM)
+        function formatDate(d, withTime = false) {
+            if (!d) return '—';
+            try {
+                if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d.trim())) {
+                    const [y, m, day] = d.trim().split('-');
+                    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    return day.padStart(2, '0') + ' ' + months[parseInt(m, 10) - 1] + ' ' + y;
+                }
+                const dt = (d instanceof Date) ? d : new Date(d);
+                if (isNaN(dt.getTime())) return String(d);
+                const day = String(dt.getDate()).padStart(2, '0');
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const month = months[dt.getMonth()];
+                const year = dt.getFullYear();
+                if (!withTime) {
+                    return day + ' ' + month + ' ' + year;
+                }
+                let hours = dt.getHours();
+                const minutes = String(dt.getMinutes()).padStart(2, '0');
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                hours = hours % 12;
+                hours = hours ? hours : 12;
+                return day + ' ' + month + ' ' + year + ', ' + hours + ':' + minutes + ' ' + ampm;
+            } catch (_) {
+                return String(d);
+            }
+        }
+
         // 1. DASHBOARD VIEW
         async function loadDashboardView() {
             const content = getContentContainer();
@@ -1156,32 +1195,44 @@
 
             content.innerHTML = `
                 <div class="grid-4" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
-                    <div class="metric-card">
-                        <div class="metric-title">Total Shops</div>
+                    <div class="metric-card clickable" style="border-left:4px solid #3b82f6;" onclick="switchNav('shops')" title="Click to view all shops in Shops Directory">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div class="metric-title">Total Shops</div>
+                            <span style="font-size:11px; background:#dbeafe; color:#1d4ed8; padding:2px 8px; border-radius:12px; font-weight:600;">View Shops →</span>
+                        </div>
                         <div class="metric-value">${m.shops.total}</div>
                         <div class="metric-sub">${m.shops.active} Active | ${m.shops.new_month} New This Month</div>
                     </div>
-                    <div class="metric-card">
-                        <div class="metric-title">Subscriptions & Paid Shops</div>
+                    <div class="metric-card clickable" style="border-left:4px solid #10b981;" onclick="switchNav('billing', 'subscriptions')" title="Click to view subscriptions & plans">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div class="metric-title">Subscriptions & Paid Shops</div>
+                            <span style="font-size:11px; background:#d1fae5; color:#065f46; padding:2px 8px; border-radius:12px; font-weight:600;">View Plans →</span>
+                        </div>
                         <div class="metric-value">
                             <span style="color:#059669; font-weight:800;">${m.subscriptions.paid_shops_count || m.subscriptions.paid_count || m.subscriptions.active}</span>
                             <span style="font-size:13px; font-weight:700; color:#059669;">Paid Shop${(m.subscriptions.paid_shops_count || m.subscriptions.paid_count) == 1 ? '' : 's'}</span>
                         </div>
                         <div class="metric-sub">${m.subscriptions.trial} On Free Trial | ${m.subscriptions.expired} Expired</div>
                     </div>
-                    <div class="metric-card">
-                        <div class="metric-title">Total Amount Earned (Revenue)</div>
+                    <div class="metric-card clickable" style="border-left:4px solid #2563eb;" onclick="switchNav('billing', 'payments')" title="Click to view real payment transactions">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div class="metric-title">Total Amount Earned (Revenue)</div>
+                            <span style="font-size:11px; background:#e0e7ff; color:#3730a3; padding:2px 8px; border-radius:12px; font-weight:600;">Real Payments →</span>
+                        </div>
                         <div class="metric-value" style="color:#2563eb;">₹${Number(m.business.total_revenue || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
                         <div class="metric-sub">
                             <strong>₹${Number(m.business.revenue_this_month || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong> This Month &bull; <strong>${m.business.successful_tx_count || m.business.paid_count || 0}</strong> Successful Transactions
                         </div>
                     </div>
-                    <div class="metric-card">
-                        <div class="metric-title">Platform Repairs & Sales</div>
+                    <div class="metric-card clickable" style="border-left:4px solid #f59e0b;" onclick="switchNav('operations')" title="Click to view shop operations (repairs & sales)">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div class="metric-title">Platform Repairs & Sales</div>
+                            <span style="font-size:11px; background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:12px; font-weight:600;">View Operations →</span>
+                        </div>
                         <div class="metric-value">${m.usage.total_repairs} Repairs</div>
                         <div class="metric-sub">${m.usage.total_sales} Total Sales Recorded</div>
                     </div>
-                    <div class="metric-card" style="border-left:4px solid #10b981; cursor:pointer; transition:all 0.2s; position:relative;" onclick="showAppOpensTodayModal()" title="Click to view list of users who opened mobile app today">
+                    <div class="metric-card clickable" style="border-left:4px solid #10b981; position:relative;" onclick="showAppOpensTodayModal()" title="Click to view list of users who opened mobile app today">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                             <div class="metric-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-2px; margin-right:4px;"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg> App Opens Today</div>
                             <span style="font-size:11px; background:#d1fae5; color:#065f46; padding:2px 8px; border-radius:12px; font-weight:600;">View Users →</span>
@@ -1189,7 +1240,7 @@
                         <div class="metric-value" style="color:#059669;">${m.usage.today_app_opens || 0} Users</div>
                         <div class="metric-sub">Opened mobile app today — click to view list</div>
                     </div>
-                    <div class="metric-card" style="border-left:4px solid #8b5cf6; cursor:pointer; transition:all 0.2s; position:relative;" onclick="switchNav('used-mobiles')" title="Click to view shops using Used Mobile Buy & Sell feature">
+                    <div class="metric-card clickable" style="border-left:4px solid #8b5cf6; position:relative;" onclick="switchNav('used-mobiles')" title="Click to view shops using Used Mobile Buy & Sell feature">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                             <div class="metric-title"><span style="font-size:14px; margin-right:4px;">📱</span> Used Mobiles Feature</div>
                             <span style="font-size:11px; background:#ede9fe; color:#6d28d9; padding:2px 8px; border-radius:12px; font-weight:600;">${m.used_mobiles ? m.used_mobiles.shops_count : 0} Shops Using →</span>
@@ -1220,7 +1271,7 @@
                                     <td><strong>${s.name}</strong></td>
                                     <td>${s.owner_name}</td>
                                     <td>${s.phone || s.mobile || (s.user ? (s.user.mobile || s.user.phone) : 'N/A')}</td>
-                                    <td>${new Date(s.created_at).toLocaleDateString()}</td>
+                                    <td>${formatDate(s.created_at)}</td>
                                     <td><span class="badge ${s.status === 'active' ? 'badge-active' : 'badge-inactive'}">${s.status}</span></td>
                                 </tr>
                             `).join('')}
@@ -1274,7 +1325,7 @@
                     <div style="max-height:420px; overflow-y:auto; display:flex; flex-direction:column; gap:10px; padding-right:4px;">
                         ${users.map(u => {
                             const openTime = u.last_app_opened_at ? new Date(u.last_app_opened_at) : null;
-                            const timeStr = openTime ? openTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Today';
+                            const timeStr = openTime ? formatDate(openTime, true) : 'Today';
                             const shopName = u.shop ? u.shop.name : (u.role === 'super_admin' || u.role === 'admin' ? 'Platform Administrator' : 'Independent Account');
                             const phone = u.mobile || u.phone || '';
                             return `
@@ -1395,7 +1446,7 @@
                                         <div style="font-family:monospace; font-size:13px; color:#475569;">${mob}</div>
                                     </td>
                                     <td>
-                                        <div style="font-size:12.5px; color:#64748b;">${new Date(s.created_at).toLocaleDateString()}</div>
+                                        <div style="font-size:12.5px; color:#64748b;">${formatDate(s.created_at)}</div>
                                     </td>
                                     <td>
                                         <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-start;">
@@ -1417,7 +1468,7 @@
                                         <div style="display:flex; flex-direction:column; gap:3px; align-items:flex-start;">
                                             ${subExpiry ? `
                                                 <div style="font-weight:700; font-size:12.5px; color:${isSubExpired ? '#dc2626' : '#0f172a'}; display:flex; align-items:center; gap:4px;">
-                                                    <span>📅</span> ${new Date(subExpiry).toLocaleDateString()}
+                                                    <span>📅</span> ${formatDate(subExpiry)}
                                                 </div>
                                                 <div>
                                                     ${isSubExpired 
@@ -1441,7 +1492,7 @@
                                                     ${lastTx.plan ? lastTx.plan.name : (lastTx.gateway_name || 'Paid Plan')}
                                                 </div>
                                                 <div style="font-size:10.5px; color:#64748b;">
-                                                    🕒 ${new Date(lastTx.created_at).toLocaleDateString()} ${new Date(lastTx.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                                                    🕒 ${formatDate(lastTx.created_at, true)}
                                                 </div>
                                             ` : (lastSub ? `
                                                 <div style="display:flex; align-items:center; gap:5px;">
@@ -1456,7 +1507,7 @@
                                                     ${lastSub.plan ? lastSub.plan.name : 'Free Trial'}
                                                 </div>
                                                 <div style="font-size:10.5px; color:#64748b;">
-                                                    🕒 ${lastSub.created_at ? new Date(lastSub.created_at).toLocaleDateString() + ' ' + new Date(lastSub.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : new Date(s.created_at).toLocaleDateString()}
+                                                    🕒 ${formatDate(lastSub.created_at || s.created_at, true)}
                                                 </div>
                                             ` : `
                                                 <span style="color:#94a3b8; font-size:12px;">No Purchase Yet</span>
@@ -1474,7 +1525,7 @@
                                                     <span style="font-size:10px; opacity:0.8;">✏️</span>
                                                 </button>
                                             </div>
-                                            ${staffExp ? (new Date(staffExp) < new Date() ? '<span class="badge badge-inactive" style="font-size:10px; padding:2px 6px;">🔴 Expired</span>' : `<span class="badge badge-purple" style="font-size:10px; padding:2px 6px;">⏱️ Till ${new Date(staffExp).toLocaleDateString()}</span>`) : '<span class="badge badge-purple" style="font-size:10px; padding:2px 6px;">⏱️ 30-Day Trial</span>'}
+                                            ${staffExp ? (new Date(staffExp) < new Date() ? '<span class="badge badge-inactive" style="font-size:10px; padding:2px 6px;">🔴 Expired</span>' : `<span class="badge badge-purple" style="font-size:10px; padding:2px 6px;">⏱️ Till ${formatDate(staffExp)}</span>`) : '<span class="badge badge-purple" style="font-size:10px; padding:2px 6px;">⏱️ 30-Day Trial</span>'}
                                         </div>
                                     </td>
                                     <td>
@@ -1561,9 +1612,9 @@
                         <p><strong>Contact Mobile:</strong> ${mob} | <strong>Email:</strong> ${email}</p>
                         <p><strong>Address:</strong> ${s.address || 'N/A'}, ${s.city || ''}, ${s.state || ''} - ${s.pincode || ''} ${s.google_maps_url ? `<a href="${s.google_maps_url}" target="_blank" style="margin-left:8px; font-weight:700; color:#2563eb; text-decoration:underline;">📍 Open Google Maps Location ↗</a>` : ''}</p>
                         <p><strong>GSTIN / Tax No:</strong> ${s.gst_number ? `<span class="badge badge-blue" style="font-size:11px; font-weight:700;">🧾 ${s.gst_number}</span>` : '<span style="color:#94a3b8;">Not Registered (Non-GST)</span>'}</p>
-                        <p><strong>Plan Expiry Date:</strong> ${s.latest_subscription && s.latest_subscription.expiry_date ? `<strong style="color:#0f172a;">📅 ${new Date(s.latest_subscription.expiry_date).toLocaleDateString()}</strong> (${new Date(s.latest_subscription.expiry_date) < new Date() ? '<span style="color:#dc2626; font-weight:700;">🔴 Expired</span>' : '<span style="color:#059669; font-weight:700;">🟢 Active</span>'})` : '<span style="color:#94a3b8;">No Plan Linked</span>'}</p>
-                        <p><strong>Last Purchase:</strong> ${s.latest_payment_transaction ? `<strong style="color:#059669; font-size:13px;">₹${Number(s.latest_payment_transaction.amount).toFixed(2)}</strong> (${s.latest_payment_transaction.plan ? s.latest_payment_transaction.plan.name : (s.latest_payment_transaction.gateway_name || 'Paid Plan')}) &bull; 🕒 ${new Date(s.latest_payment_transaction.created_at).toLocaleString()}` : (s.latest_subscription ? `<strong>${s.latest_subscription.payment_status === 'paid' ? '₹' + Number(s.latest_subscription.plan ? s.latest_subscription.plan.price : 0).toFixed(2) : '₹0.00 (Free Trial)'}</strong> (${s.latest_subscription.plan ? s.latest_subscription.plan.name : 'Trial Plan'}) &bull; 🕒 ${new Date(s.latest_subscription.created_at || s.created_at).toLocaleString()}` : '<span style="color:#94a3b8;">No Purchases Yet</span>')}</p>
-                        <p><strong>Registration Date:</strong> ${new Date(s.created_at).toLocaleString()}</p>
+                        <p><strong>Plan Expiry Date:</strong> ${s.latest_subscription && s.latest_subscription.expiry_date ? `<strong style="color:#0f172a;">📅 ${formatDate(s.latest_subscription.expiry_date)}</strong> (${new Date(s.latest_subscription.expiry_date) < new Date() ? '<span style="color:#dc2626; font-weight:700;">🔴 Expired</span>' : '<span style="color:#059669; font-weight:700;">🟢 Active</span>'})` : '<span style="color:#94a3b8;">No Plan Linked</span>'}</p>
+                        <p><strong>Last Purchase:</strong> ${s.latest_payment_transaction ? `<strong style="color:#059669; font-size:13px;">₹${Number(s.latest_payment_transaction.amount).toFixed(2)}</strong> (${s.latest_payment_transaction.plan ? s.latest_payment_transaction.plan.name : (s.latest_payment_transaction.gateway_name || 'Paid Plan')}) &bull; 🕒 ${formatDate(s.latest_payment_transaction.created_at, true)}` : (s.latest_subscription ? `<strong>${s.latest_subscription.payment_status === 'paid' ? '₹' + Number(s.latest_subscription.plan ? s.latest_subscription.plan.price : 0).toFixed(2) : '₹0.00 (Free Trial)'}</strong> (${s.latest_subscription.plan ? s.latest_subscription.plan.name : 'Trial Plan'}) &bull; 🕒 ${formatDate(s.latest_subscription.created_at || s.created_at, true)}` : '<span style="color:#94a3b8;">No Purchases Yet</span>')}</p>
+                        <p><strong>Registration Date:</strong> ${formatDate(s.created_at, true)}</p>
                         <p><strong>Account Status:</strong> <span class="badge ${s.status === 'active' ? 'badge-active' : 'badge-inactive'}">${s.status}</span></p>
                         <div style="background:#f1f5f9; padding:12px 14px; border-radius:8px; margin:12px 0; border:1px solid #cbd5e1;">
                             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
@@ -1573,7 +1624,7 @@
                                     </h4>
                                     <div style="font-size:12px; color:#475569; line-height:1.6;">
                                         <div><strong>Effective Allowed:</strong> <span class="badge badge-active">${s.effective_max_staff || 0} Staff Logins</span></div>
-                                        <div><strong>Staff Validity:</strong> <span class="badge badge-purple">⏱️ Valid Till: ${s.custom_staff_valid_until ? new Date(s.custom_staff_valid_until).toLocaleDateString() : (s.staff_valid_until ? new Date(s.staff_valid_until).toLocaleDateString() : (s.latest_subscription && s.latest_subscription.expiry_date ? new Date(s.latest_subscription.expiry_date).toLocaleDateString() : '30-Day Trial'))}</span></div>
+                                        <div><strong>Staff Validity:</strong> <span class="badge badge-purple">⏱️ Valid Till: ${s.custom_staff_valid_until ? formatDate(s.custom_staff_valid_until) : (s.staff_valid_until ? formatDate(s.staff_valid_until) : (s.latest_subscription && s.latest_subscription.expiry_date ? formatDate(s.latest_subscription.expiry_date) : '30-Day Trial'))}</span></div>
                                         <div><strong>Base Plan Limit:</strong> ${s.latest_subscription && s.latest_subscription.plan ? s.latest_subscription.plan.max_staff_accounts : 0} Staff</div>
                                         <div><strong>Shop Custom Override:</strong> ${s.custom_max_staff !== null && s.custom_max_staff !== undefined ? `<strong style="color:#2563eb;">${s.custom_max_staff} Staff</strong> (Valid until: ${s.custom_staff_valid_until || 'Indefinite'}${s.custom_staff_note ? ' — Note: ' + s.custom_staff_note : ''})` : '<span style="color:#64748b;">None (Follows subscription plan)</span>'}</div>
                                     </div>
@@ -1641,7 +1692,7 @@
                                     <span>Active Staff Logins: <strong style="color:#2563eb;">${(s.staff || []).filter(x => x.is_active).length}</strong></span> &bull; 
                                     <span>Total Staff: <strong style="color:#0f172a;">${(s.staff || []).length}</strong></span>
                                     ${(s.staff || []).filter(x => x.is_active).length >= (s.effective_max_staff || 0) && (s.effective_max_staff || 0) > 0 ? '<span class="badge badge-inactive">Quota Full</span>' : ''}
-                                    ${s.custom_staff_valid_until ? (new Date(s.custom_staff_valid_until) < new Date() ? '<span class="badge" style="background:#fee2e2; color:#b91c1c; font-weight:700;">🔴 Staff Expired</span>' : `<span class="badge" style="background:#e0e7ff; color:#3730a3; font-weight:700;">⏱️ Valid until ${new Date(s.custom_staff_valid_until).toLocaleDateString()}</span>`) : ''}
+                                    ${s.custom_staff_valid_until ? (new Date(s.custom_staff_valid_until) < new Date() ? '<span class="badge" style="background:#fee2e2; color:#b91c1c; font-weight:700;">🔴 Staff Expired</span>' : `<span class="badge" style="background:#e0e7ff; color:#3730a3; font-weight:700;">⏱️ Valid until ${formatDate(s.custom_staff_valid_until)}</span>`) : ''}
                                 </div>
                             </div>
                             <div style="display:flex; gap:8px;">
@@ -1695,7 +1746,7 @@
                                                 <td style="padding:10px 12px; vertical-align:top;">
                                                     <strong style="color:#0f172a; font-size:13px;">${st.name}</strong>
                                                     <div style="color:#64748b; font-size:11px; margin-top:2px;">💼 ${st.designation || 'Staff'}</div>
-                                                    <div style="color:#94a3b8; font-size:10.5px; margin-top:3px;">Added: ${st.created_at ? new Date(st.created_at).toLocaleDateString() : 'N/A'}</div>
+                                                    <div style="color:#94a3b8; font-size:10.5px; margin-top:3px;">Added: ${st.created_at ? formatDate(st.created_at) : 'N/A'}</div>
                                                 </td>
                                                 <td style="padding:10px 12px; vertical-align:top; white-space:nowrap;">
                                                     <a href="tel:${st.mobile}" style="color:#2563eb; text-decoration:none; font-weight:600;">📱 ${st.mobile || '—'}</a>
@@ -1773,7 +1824,7 @@
                                             <tr style="border-bottom:1px solid #f1f5f9; transition:background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
                                                 <td style="padding:10px 12px; vertical-align:top;">
                                                     <strong style="color:#0f172a; font-size:13px;">${t.name}</strong>
-                                                    <div style="color:#94a3b8; font-size:10.5px; margin-top:3px;">Added: ${t.created_at ? new Date(t.created_at).toLocaleDateString() : 'N/A'}</div>
+                                                    <div style="color:#94a3b8; font-size:10.5px; margin-top:3px;">Added: ${t.created_at ? formatDate(t.created_at) : 'N/A'}</div>
                                                 </td>
                                                 <td style="padding:10px 12px; vertical-align:top; white-space:nowrap;">
                                                     <a href="tel:${t.mobile}" style="color:#2563eb; text-decoration:none; font-weight:600;">📞 ${t.mobile || '—'}</a>
@@ -1827,7 +1878,7 @@
                                             <tr style="border-bottom:1px solid #f1f5f9; transition:background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
                                                 <td style="padding:10px 12px; white-space:nowrap;"><strong style="font-family:monospace; color:#0f172a;">${rs.invoice_number || 'INV-' + rs.id}</strong></td>
                                                 <td style="padding:10px 12px; white-space:nowrap;">${rs.customer ? rs.customer.name : (rs.customer_name || 'Walk-in Customer')}</td>
-                                                <td style="padding:10px 12px; white-space:nowrap; color:#64748b;">${new Date(rs.sale_date || rs.created_at).toLocaleDateString()}</td>
+                                                <td style="padding:10px 12px; white-space:nowrap; color:#64748b;">${formatDate(rs.sale_date || rs.created_at)}</td>
                                                 <td style="padding:10px 12px; text-align:right; white-space:nowrap; font-weight:700; color:#0f172a;">₹${parseFloat(rs.grand_total).toFixed(2)}</td>
                                                 <td style="padding:10px 12px; text-align:center; white-space:nowrap;"><span class="badge ${badgeCls}">${(rs.payment_status || '').toUpperCase()}</span></td>
                                             </tr>
@@ -1907,7 +1958,7 @@
                                 ${s.recent_customers.map(rc => `
                                     <li style="padding:8px 12px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
                                         <span><strong>${rc.name}</strong> (${rc.mobile})</span>
-                                        <span style="color:#64748b; font-size:11px;">Added ${new Date(rc.created_at).toLocaleDateString()}</span>
+                                        <span style="color:#64748b; font-size:11px;">Added ${formatDate(rc.created_at)}</span>
                                     </li>
                                 `).join('')}
                             </ul>
@@ -1987,7 +2038,7 @@
                         <div style="font-size:12px; color:#475569; margin-top:6px; display:flex; flex-wrap:wrap; gap:12px; align-items:center;">
                             <div>Current Effective Limit: <strong style="color:#2563eb; font-size:13px;">${effectiveMax} Logins</strong></div>
                             <div>Status: <strong>${hasCustom ? `<span style="color:#7c3aed;">Custom Override (${currentCustomMax})</span>` : '<span style="color:#64748b;">Plan Default</span>'}</strong></div>
-                            ${subExpiry ? `<div>Plan Expiry: <strong>${new Date(subExpiry).toLocaleDateString()}</strong></div>` : ''}
+                            ${subExpiry ? `<div>Plan Expiry: <strong>${formatDate(subExpiry)}</strong></div>` : ''}
                         </div>
                     </div>
 
@@ -2632,7 +2683,7 @@
                                 const lastOpenBadge = lastOpen
                                     ? (isToday
                                         ? `<span class="badge badge-active" style="background:#dcfce7; color:#15803d; font-weight:600; display:inline-flex; align-items:center; gap:4px;">🟢 Today ${lastOpen.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>`
-                                        : `<span style="font-size:12px; color:#64748b;">${lastOpen.toLocaleDateString()} ${lastOpen.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>`)
+                                        : `<span style="font-size:12px; color:#64748b;">${formatDate(lastOpen, true)}</span>`)
                                     : `<span style="color:#94a3b8; font-size:12px;">Never</span>`;
 
                                 return `
@@ -2642,7 +2693,7 @@
                                     <td>${u.shop ? u.shop.name : 'N/A (Admin)'}</td>
                                     <td><span class="badge badge-resolved">${u.role}</span></td>
                                     <td>${lastOpenBadge}</td>
-                                    <td>${new Date(u.created_at).toLocaleDateString()}</td>
+                                    <td>${formatDate(u.created_at)}</td>
                                 </tr>
                                 `;
                             }).join('')}
@@ -2707,7 +2758,7 @@
                                     <td>${s.plan ? s.plan.name : 'Default Plan'}</td>
                                     <td><span class="badge ${s.status === 'active' ? 'badge-active' : (s.status === 'expired' ? 'badge-inactive' : 'badge-trial')}">${s.status.toUpperCase()}</span></td>
                                     <td><span class="badge ${s.payment_status === 'paid' ? 'badge-active' : 'badge-trial'}">${s.payment_status}</span></td>
-                                    <td>${s.expiry_date ? new Date(s.expiry_date).toLocaleDateString() : 'N/A'}</td>
+                                    <td>${s.expiry_date ? formatDate(s.expiry_date) : 'N/A'}</td>
                                     <td>
                                         <button class="btn-sm" onclick="editSubscription(${s.id}, ${s.plan_id || 1}, '${s.status}', '${s.expiry_date ? s.expiry_date.substring(0, 10) : ''}', '${s.payment_status}')">Manage</button>
                                     </td>
@@ -2830,7 +2881,7 @@
                                     <td><strong style="color:#059669;">₹${cashPaid.toFixed(2)}</strong></td>
                                     <td>${p.payment_method || 'Razorpay'}</td>
                                     <td><span class="badge ${p.status === 'successful' ? 'badge-active' : (p.status === 'failed' ? 'badge-inactive' : 'badge-trial')}">${p.status.toUpperCase()}</span></td>
-                                    <td>${new Date(p.created_at).toLocaleString()}</td>
+                                    <td>${formatDate(p.created_at, true)}</td>
                                 </tr>
                             `;}).join('')}
                         </tbody>
@@ -3410,7 +3461,7 @@
                                     <td><span class="badge badge-trial">${t.type}</span></td>
                                     <td><strong>${t.shop ? t.shop.name : 'Unknown Shop'}</strong></td>
                                     <td>${t.message}</td>
-                                    <td>${new Date(t.created_at).toLocaleDateString()}</td>
+                                    <td>${formatDate(t.created_at)}</td>
                                     <td><span class="badge ${t.status === 'resolved' ? 'badge-resolved' : 'badge-inactive'}">${t.status}</span></td>
                                     <td>
                                         ${t.status !== 'resolved' ? `<button class="btn-sm btn-success-sm" onclick="resolveTicket(${t.id})">Mark Resolved</button>` : '—'}
@@ -3511,7 +3562,7 @@
                                     <td><span class="badge badge-resolved">${l.action}</span></td>
                                     <td>${l.details || '—'}</td>
                                     <td>${l.ip_address || '—'}</td>
-                                    <td>${new Date(l.created_at).toLocaleString()}</td>
+                                    <td>${formatDate(l.created_at, true)}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -3649,7 +3700,7 @@
                                     <td>
                                         <span class="badge ${p.status === 'published' ? 'badge-active' : 'badge-inactive'}">${p.status}</span>
                                     </td>
-                                    <td>${new Date(p.updated_at).toLocaleString()}</td>
+                                    <td>${formatDate(p.updated_at, true)}</td>
                                     <td>
                                         <button class="btn-sm" style="background:#2563eb; color:white; border:none;" onclick="openEditPageModal('${p.slug}')">✏️ Edit Page</button>
                                         <a href="/${p.slug}" target="_blank" class="btn-sm" style="text-decoration:none; margin-left:4px;">🌐 View Live</a>
@@ -3800,7 +3851,7 @@
                                     <td><strong><code style="color:#0284c7;">${s.invoice_number || 'INV-' + s.id}</code></strong></td>
                                     <td>${s.shop ? s.shop.name : 'Shop #' + s.shop_id}</td>
                                     <td><strong>${sCustName}</strong>${sCustMob ? `<br><span style="font-size:12px; color:#64748b;">📞 ${sCustMob}</span>` : ''}</td>
-                                    <td>${new Date(s.sale_date || s.created_at).toLocaleDateString()}</td>
+                                    <td>${formatDate(s.sale_date || s.created_at)}</td>
                                     <td><strong>₹${parseFloat(s.grand_total).toFixed(2)}</strong></td>
                                     <td style="color:#16a34a;">₹${parseFloat(s.amount_paid).toFixed(2)}</td>
                                     <td style="color:${s.amount_due > 0 ? '#dc2626' : '#64748b'};">₹${parseFloat(s.amount_due).toFixed(2)}</td>
@@ -3832,7 +3883,7 @@
                             <strong>Customer:</strong> ${sCustName} (${sCustMob})
                         </div>
                         <div style="text-align:right;">
-                            <strong>Invoice Date:</strong> ${new Date(s.sale_date || s.created_at).toLocaleDateString()}<br>
+                            <strong>Invoice Date:</strong> ${formatDate(s.sale_date || s.created_at)}<br>
                             <strong>Status:</strong> <span class="badge ${s.payment_status === 'paid' ? 'badge-active' : 'badge-trial'}">${(s.payment_status || '').toUpperCase()}</span>
                         </div>
                     </div>
@@ -3959,7 +4010,7 @@
                                     <td>${r.shop ? r.shop.name : 'Shop #' + r.shop_id}</td>
                                     <td><strong>${custName}</strong>${custMobile ? `<br><span style="font-size:11px; color:#64748b;">📞 ${custMobile}</span>` : ''}<br><span style="font-size:11px; color:#2563eb;">📱 ${devInfo}</span></td>
                                     <td>${r.problem_description || '—'}</td>
-                                    <td>${new Date(r.date_received || r.created_at).toLocaleDateString()}</td>
+                                    <td>${formatDate(r.date_received || r.created_at)}</td>
                                     <td><strong>₹${costVal.toFixed(2)}</strong></td>
                                     <td style="color:#16a34a;">₹${parseFloat(r.amount_paid).toFixed(2)}</td>
                                     <td><span class="badge ${isDelivered ? 'badge-active' : 'badge-trial'}">${(r.repair_status || '').toUpperCase()}</span></td>
@@ -4014,9 +4065,9 @@
                         <div>
                             <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:#64748b; margin-bottom:4px;">Shop & Status Details</div>
                             <p style="margin-bottom:2px;"><strong>🏪 Shop:</strong> ${r.shop ? r.shop.name : 'Shop #' + r.shop_id}</p>
-                            <p style="margin-bottom:2px;"><strong>📅 Received Date:</strong> ${new Date(r.date_received || r.created_at).toLocaleDateString()}</p>
-                            ${r.expected_delivery_date ? `<p style="margin-bottom:2px;"><strong>🚚 Expected:</strong> ${new Date(r.expected_delivery_date).toLocaleDateString()}</p>` : ''}
-                            ${r.delivered_date ? `<p style="margin-bottom:2px;"><strong>✅ Delivered:</strong> ${new Date(r.delivered_date).toLocaleString()}</p>` : ''}
+                            <p style="margin-bottom:2px;"><strong>📅 Received Date:</strong> ${formatDate(r.date_received || r.created_at)}</p>
+                            ${r.expected_delivery_date ? `<p style="margin-bottom:2px;"><strong>🚚 Expected:</strong> ${formatDate(r.expected_delivery_date)}</p>` : ''}
+                            ${r.delivered_date ? `<p style="margin-bottom:2px;"><strong>✅ Delivered:</strong> ${formatDate(r.delivered_date, true)}</p>` : ''}
                             <p style="margin-bottom:2px;"><strong>🏷️ Status:</strong> <span class="badge ${(['delivered', 'ready'].includes(r.repair_status)) ? 'badge-active' : 'badge-trial'}">${(r.repair_status || '').toUpperCase()}</span></p>
                             <p style="margin-bottom:2px;"><strong>🧰 Technician:</strong> ${techName}${techPhone ? ` (${techPhone})` : ''}</p>
                         </div>
@@ -4112,7 +4163,7 @@
                                     <td>${c.sales_count || 0}</td>
                                     <td>${c.repairs_count || 0}</td>
                                     <td><strong style="color:#2563eb;">₹${parseFloat(c.total_spent || 0).toFixed(2)}</strong></td>
-                                    <td>${new Date(c.created_at).toLocaleDateString()}</td>
+                                    <td>${formatDate(c.created_at)}</td>
                                     <td><button class="btn-sm" onclick="openCustomerDetails(${c.id})">Customer Profile</button></td>
                                 </tr>
                             `).join('')}
@@ -4152,7 +4203,7 @@
                         ${(c.sales || []).length === 0 ? '<li style="color:#94a3b8;">No sales history.</li>' : ''}
                         ${(c.sales || []).map(s => `
                             <li style="padding:6px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between;">
-                                <span>Invoice #${s.invoice_number || s.id} — ${new Date(s.sale_date || s.created_at).toLocaleDateString()}</span>
+                                <span>Invoice #${s.invoice_number || s.id} — ${formatDate(s.sale_date || s.created_at)}</span>
                                 <strong>₹${parseFloat(s.grand_total).toFixed(2)} (${s.payment_status})</strong>
                             </li>
                         `).join('')}
@@ -4279,7 +4330,7 @@
                         ${(item.stock_movements || []).map(m => `
                             <li style="padding:6px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between;">
                                 <span>${m.movement_type.toUpperCase()} (${m.quantity > 0 ? '+' + m.quantity : m.quantity}) — ${m.reference_type || ''}</span>
-                                <span style="font-size:11px; color:#64748b;">${new Date(m.created_at).toLocaleString()}</span>
+                                <span style="font-size:11px; color:#64748b;">${formatDate(m.created_at, true)}</span>
                             </li>
                         `).join('')}
                     </ul>
@@ -4349,7 +4400,7 @@
                                     <td><strong>${e.title}</strong></td>
                                     <td>${e.shop ? e.shop.name : 'Shop #' + e.shop_id}</td>
                                     <td><span class="badge badge-trial">${e.category ? e.category.name : 'General'}</span></td>
-                                    <td>${new Date(e.expense_date || e.created_at).toLocaleDateString()}</td>
+                                    <td>${formatDate(e.expense_date || e.created_at)}</td>
                                     <td><strong style="color:#dc2626;">₹${parseFloat(e.amount).toFixed(2)}</strong></td>
                                     <td>${e.payment_method || 'Cash'}</td>
                                     <td>${e.reference_number || e.notes || '—'}</td>
@@ -4427,8 +4478,8 @@
                                     <td><strong><code>${w.warranty_number || 'WAR-' + w.id}</code></strong></td>
                                     <td>${w.shop ? w.shop.name : 'Shop #' + w.shop_id}</td>
                                     <td><strong>${wCust}</strong>${wCustMob ? `<br><span style="font-size:11px; color:#64748b;">📞 ${wCustMob}</span>` : ''}<br><span style="font-size:11px; color:#2563eb;">📱 ${wDev}</span></td>
-                                    <td>${new Date(w.warranty_start_date).toLocaleDateString()}</td>
-                                    <td>${new Date(w.warranty_end_date).toLocaleDateString()}</td>
+                                    <td>${formatDate(w.warranty_start_date)}</td>
+                                    <td>${formatDate(w.warranty_end_date)}</td>
                                     <td><span class="badge ${w.status === 'active' ? 'badge-active' : 'badge-inactive'}">${w.status}</span></td>
                                     <td>${(w.claims || []).length} Claims</td>
                                 </tr>
@@ -4606,7 +4657,7 @@
                             ` : ''}
                             ${shops.map(s => {
                                 const m = s.metrics || {};
-                                const lastAct = m.last_activity_at ? new Date(m.last_activity_at).toLocaleDateString([], { day:'numeric', month:'short', year:'numeric' }) : 'N/A';
+                                const lastAct = m.last_activity_at ? formatDate(m.last_activity_at) : 'N/A';
                                 return `
                                 <tr>
                                     <td>
@@ -4738,7 +4789,7 @@
                                 const isSold = m.status === 'sold';
                                 const badgeClass = isSold ? 'badge-active' : 'badge-trial';
                                 const statusLabel = isSold ? 'Sold' : 'In Stock';
-                                const pDate = m.purchase_date ? new Date(m.purchase_date).toLocaleDateString([], { day:'numeric', month:'short', year:'numeric' }) : 'N/A';
+                                const pDate = m.purchase_date ? formatDate(m.purchase_date) : 'N/A';
                                 const shopName = m.shop ? m.shop.name : ('Shop #' + m.shop_id);
                                 return `
                                 <tr>
@@ -4867,7 +4918,7 @@
                                 ${m.seller_address ? `<tr><td style="color:#64748b; padding:4px 0;">Seller Address:</td><td style="padding:4px 0;">${m.seller_address}</td></tr>` : ''}
                                 <tr><td style="color:#64748b; padding:4px 0;">ID Proof Type:</td><td style="font-weight:600; padding:4px 0;">${m.id_proof_type || 'Aadhaar Card'}</td></tr>
                                 <tr><td style="color:#64748b; padding:4px 0;">ID Number:</td><td style="font-family:monospace; font-weight:700; padding:4px 0;">${m.id_proof_number || 'N/A'}</td></tr>
-                                <tr><td style="color:#64748b; padding:4px 0;">Purchase Date:</td><td style="padding:4px 0;">${m.purchase_date ? new Date(m.purchase_date).toLocaleDateString() : 'N/A'}</td></tr>
+                                <tr><td style="color:#64748b; padding:4px 0;">Purchase Date:</td><td style="padding:4px 0;">${m.purchase_date ? formatDate(m.purchase_date) : 'N/A'}</td></tr>
                                 <tr><td style="color:#64748b; padding:4px 0;">Purchase Price:</td><td style="font-weight:700; padding:4px 0;">₹${Number(m.purchase_price || 0).toLocaleString()}</td></tr>
                                 ${(Number(m.purchase_tax_rate) > 0 || Number(m.purchase_tax_amount) > 0) ? `
                                 <tr><td style="color:#64748b; padding:4px 0;">Purchase GST:</td><td style="font-weight:600; color:#2563eb; padding:4px 0;">₹${Number(m.purchase_tax_amount || 0).toLocaleString()} (${m.purchase_tax_rate}% ${m.purchase_tax_type || 'inclusive'})</td></tr>
@@ -4922,7 +4973,7 @@
                             <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:12px;">
                                 <table style="width:100%; font-size:12px; border-collapse:collapse;">
                                     <tr><td style="color:#047857; padding:4px 0;">Invoice #:</td><td style="font-weight:700; padding:4px 0;">${m.sale_invoice_number || 'N/A'}</td></tr>
-                                    <tr><td style="color:#047857; padding:4px 0;">Sale Date:</td><td style="padding:4px 0;">${m.sale_date ? new Date(m.sale_date).toLocaleDateString() : 'N/A'}</td></tr>
+                                    <tr><td style="color:#047857; padding:4px 0;">Sale Date:</td><td style="padding:4px 0;">${m.sale_date ? formatDate(m.sale_date) : 'N/A'}</td></tr>
                                     <tr><td style="color:#047857; padding:4px 0;">Buyer Name:</td><td style="font-weight:700; padding:4px 0;">${m.buyer_name || 'N/A'}</td></tr>
                                     <tr><td style="color:#047857; padding:4px 0;">Buyer Mobile:</td><td style="padding:4px 0;">${m.buyer_phone ? `📞 <a href="tel:${m.buyer_phone}" style="color:#2563eb; text-decoration:none;">${m.buyer_phone}</a>` : 'N/A'}</td></tr>
                                     ${m.buyer_address ? `<tr><td style="color:#047857; padding:4px 0;">Buyer Address:</td><td style="padding:4px 0;">${m.buyer_address}</td></tr>` : ''}
@@ -5479,7 +5530,7 @@
                         </span>
                     </td>
                     <td style="padding:10px; font-weight:700; color:#0f172a;">${item.recipients_count || 0} Users</td>
-                    <td style="padding:10px; font-size:12px; color:#64748b;">${new Date(item.sent_at || item.created_at).toLocaleString()}</td>
+                    <td style="padding:10px; font-size:12px; color:#64748b;">${formatDate(item.sent_at || item.created_at, true)}</td>
                     <td style="padding:10px; text-align:right;">
                         <button onclick="deleteNotificationBroadcast(${item.id})" style="background:#fee2e2; color:#ef4444; border:none; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;">Delete</button>
                     </td>
@@ -5726,7 +5777,7 @@
                                             <td style="font-weight:600; color:#334155;">${parseFloat(tx.balance_after || 0).toFixed(2)} pts</td>
                                             <td>${breakdown}</td>
                                             <td style="font-size:12px; color:#475569;">${tx.description || '-'}</td>
-                                            <td style="font-size:12px; color:#64748b;">${new Date(tx.created_at).toLocaleString()}</td>
+                                            <td style="font-size:12px; color:#64748b;">${formatDate(tx.created_at, true)}</td>
                                         </tr>
                                     `;}).join('')}
                                 </tbody>

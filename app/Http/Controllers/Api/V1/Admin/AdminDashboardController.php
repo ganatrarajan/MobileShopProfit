@@ -37,21 +37,23 @@ class AdminDashboardController extends Controller
         $expiredCount = Subscription::where('status', 'expired')->count();
         $cancelledCount = Subscription::where('status', 'cancelled')->count();
 
-        // 3. Business & Revenue
-        $txTotalRevenue = (float) PaymentTransaction::where('status', 'successful')->sum('amount');
-        $planTotalRevenue = (float) Subscription::join('plans', 'subscriptions.plan_id', '=', 'plans.id')
-            ->where('subscriptions.payment_status', 'paid')
-            ->sum('plans.price');
-        $totalRevenue = max($txTotalRevenue, $planTotalRevenue);
-
-        $txMonthRevenue = (float) PaymentTransaction::where('status', 'successful')
-            ->where('created_at', '>=', $startOfMonth)
-            ->sum('amount');
-        $planMonthRevenue = (float) Subscription::join('plans', 'subscriptions.plan_id', '=', 'plans.id')
-            ->where('subscriptions.payment_status', 'paid')
-            ->where('subscriptions.created_at', '>=', $startOfMonth)
-            ->sum('plans.price');
-        $revenueThisMonth = max($txMonthRevenue, $planMonthRevenue);
+        // 3. Business & Revenue: strictly track actual money paid/earned from real transactions
+        $successfulTxCount = (int) PaymentTransaction::where('status', 'successful')->count();
+        if ($successfulTxCount > 0) {
+            $totalRevenue = (float) PaymentTransaction::where('status', 'successful')->sum('amount');
+            $revenueThisMonth = (float) PaymentTransaction::where('status', 'successful')
+                ->where('created_at', '>=', $startOfMonth)
+                ->sum('amount');
+        } else {
+            // Only if payment_transactions table has no records at all (legacy fallback)
+            $totalRevenue = (float) Subscription::join('plans', 'subscriptions.plan_id', '=', 'plans.id')
+                ->where('subscriptions.payment_status', 'paid')
+                ->sum('plans.price');
+            $revenueThisMonth = (float) Subscription::join('plans', 'subscriptions.plan_id', '=', 'plans.id')
+                ->where('subscriptions.payment_status', 'paid')
+                ->where('subscriptions.created_at', '>=', $startOfMonth)
+                ->sum('plans.price');
+        }
 
         // Paid shops count: count distinct shops that have purchased a paid plan
         $paidShopsCount = max(
