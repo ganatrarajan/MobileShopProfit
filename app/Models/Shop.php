@@ -33,7 +33,6 @@ class Shop extends Model
         'name',
         'owner_name',
         'phone',
-        'mobile',
         'email',
         'address',
         'city',
@@ -394,5 +393,15 @@ class Shop extends Model
     public function referralTransactions(): HasMany
     {
         return $this->hasMany(ReferralPointTransaction::class)->latest();
+    }
+
+    public function getMobileAttribute(): ?string
+    {
+        return $this->attributes['phone'] ?? null;
+    }
+
+    public function setMobileAttribute(?string $value): void
+    {
+        $this->attributes['phone'] = $value;
     }
 }
