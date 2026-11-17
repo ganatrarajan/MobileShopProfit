@@ -108,10 +108,9 @@ class ShopController extends Controller
             return $this->errorResponse('Shop profile not found', 404);
         }
 
-        $shop->update($request->only([
+        $data = $request->only([
             'name',
             'owner_name',
-            'mobile',
             'phone',
             'email',
             'address',
@@ -125,7 +124,23 @@ class ShopController extends Controller
             'tagline',
             'gst_number',
             'currency',
-        ]));
+        ]);
+
+        // Map 'mobile' to database column 'phone' if 'phone' was not provided
+        if (empty($data['phone']) && $request->filled('mobile')) {
+            $data['phone'] = $request->input('mobile');
+        }
+
+        // Guard: filter out null/empty values for core identity attributes so partial updates never overwrite existing shop data
+        $data = array_filter($data, function ($value, $key) {
+            $requiredCore = ['name', 'owner_name', 'phone', 'address', 'city', 'state', 'pincode'];
+            if (in_array($key, $requiredCore, true)) {
+                return $value !== null && trim((string)$value) !== '';
+            }
+            return $value !== null;
+        }, ARRAY_FILTER_USE_BOTH);
+
+        $shop->update($data);
 
         return $this->successResponse(new ShopResource($shop->fresh()), 'Shop profile updated successfully');
     }
