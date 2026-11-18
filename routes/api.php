@@ -104,6 +104,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/shops/{id}', [AdminShopController::class, 'show']);
         Route::post('/shops/{id}/toggle-status', [AdminShopController::class, 'toggleStatus']);
         Route::post('/shops/{id}/staff-limit', [AdminShopController::class, 'updateStaffLimit']);
+        Route::post('/shops/{id}/web-access', [AdminShopController::class, 'updateWebAccess']);
+
         Route::post('/shops/{id}/staff', [AdminShopController::class, 'addStaff']);
         Route::put('/shops/{id}/staff/{staffId}', [AdminShopController::class, 'updateStaff']);
         Route::delete('/shops/{id}/staff/{staffId}', [AdminShopController::class, 'deleteStaff']);

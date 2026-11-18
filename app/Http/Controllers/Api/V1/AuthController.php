@@ -337,12 +337,26 @@ class AuthController extends Controller
      */
     public function login(LoginRequest $request): JsonResponse
     {
-        $loginInput = $request->login;
+        $loginInput = trim((string) $request->login);
 
         // Determine if login input is email or mobile number
-        $fieldType = filter_var($loginInput, FILTER_VALIDATE_EMAIL) ? 'email' : 'mobile';
+        if (filter_var($loginInput, FILTER_VALIDATE_EMAIL)) {
+            $user = User::where('email', $loginInput)->first();
+        } else {
+            $cleanDigits = preg_replace('/\D/', '', $loginInput);
+            $tenDigit = strlen($cleanDigits) >= 10 ? substr($cleanDigits, -10) : $cleanDigits;
 
-        $user = User::where($fieldType, $loginInput)->first();
+            $user = User::where(function ($q) use ($loginInput, $tenDigit) {
+                $q->where('mobile', $loginInput)
+                  ->orWhere('phone', $loginInput);
+                if (!empty($tenDigit)) {
+                    $q->orWhere('mobile', $tenDigit)
+                      ->orWhere('phone', $tenDigit)
+                      ->orWhere('mobile', 'like', "%{$tenDigit}")
+                      ->orWhere('phone', 'like', "%{$tenDigit}");
+                }
+            })->first();
+        }
 
         if (! $user || ! Hash::check($request->password, $user->password)) {
             return $this->errorResponse('Invalid mobile/email or password', 401);
@@ -354,6 +368,37 @@ class AuthController extends Controller
                 return $this->errorResponse('Your shop account has been deactivated. Please contact support.', 403);
             }
         }
+
+        // Enforce Web Portal access control when logging in via web portal
+        if ($request->input('login_source') === 'web' || $request->header('X-Login-Source') === 'web') {
+            if ($user->role !== 'owner') {
+                return $this->errorResponse('Web portal access is available for shop owners only. Staff members please use the mobile app.', 403);
+            }
+
+            $shop = $user->shop;
+            if (!$shop) {
+                return $this->errorResponse('No shop account found associated with this user.', 404);
+            }
+
+            // 1. Check if admin has enabled web portal for this shop (Default is OFF)
+            if (!$shop->is_web_enabled) {
+                return $this->errorResponse('Web portal access is currently not enabled for your shop. Please contact admin to activate web portal access for your account.', 403);
+            }
+
+            // 2. Check if custom web access validity has expired
+            if ($shop->web_valid_until && now()->startOfDay()->gt(\Carbon\Carbon::parse($shop->web_valid_until)->endOfDay())) {
+                $webExpFormatted = \Carbon\Carbon::parse($shop->web_valid_until)->format('d M Y');
+                return $this->errorResponse("Your web portal access expired on {$webExpFormatted}. Please contact admin to renew or extend your web access.", 403);
+            }
+
+            // 3. Also check if general shop subscription plan has expired
+            $latestSub = $shop->latestSubscription;
+            if ($latestSub && $latestSub->expiry_date && now()->startOfDay()->gt(\Carbon\Carbon::parse($latestSub->expiry_date)->endOfDay())) {
+                $subExpFormatted = \Carbon\Carbon::parse($latestSub->expiry_date)->format('d M Y');
+                return $this->errorResponse("Your shop subscription expired on {$subExpFormatted}. Please renew your plan or contact admin to continue.", 403);
+            }
+        }
+
 
         // Check if staff / technician account is active and staff validity is not expired
         if (in_array($user->role, ['staff', 'technician'])) {

@@ -58,6 +58,25 @@ class PurchaseController extends Controller
             $query->where('payment_status', $request->input('payment_status'));
         }
 
+        // Filter by Period presets
+        if ($request->filled('period') && $request->input('period') !== 'all_time') {
+            $period = $request->input('period');
+            $now = \Carbon\Carbon::now();
+            if ($period === 'today') {
+                $query->whereDate('purchase_date', $now->toDateString());
+            } elseif ($period === 'yesterday') {
+                $query->whereDate('purchase_date', $now->copy()->subDay()->toDateString());
+            } elseif ($period === 'this_week') {
+                $query->whereBetween('purchase_date', [$now->copy()->startOfWeek()->toDateString(), $now->copy()->endOfWeek()->toDateString()]);
+            } elseif ($period === 'this_month') {
+                $query->whereBetween('purchase_date', [$now->copy()->startOfMonth()->toDateString(), $now->copy()->endOfMonth()->toDateString()]);
+            } elseif ($period === 'last_month') {
+                $query->whereBetween('purchase_date', [$now->copy()->subMonth()->startOfMonth()->toDateString(), $now->copy()->subMonth()->endOfMonth()->toDateString()]);
+            } elseif ($period === 'this_year') {
+                $query->whereBetween('purchase_date', [$now->copy()->startOfYear()->toDateString(), $now->copy()->endOfYear()->toDateString()]);
+            }
+        }
+
         // Date range filters
         if ($request->filled('date_from')) {
             $query->whereDate('purchase_date', '>=', $request->input('date_from'));

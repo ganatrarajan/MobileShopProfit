@@ -35,6 +35,10 @@ class ReportController extends Controller
                 $start = Carbon::today();
                 $end = Carbon::today()->endOfDay();
                 break;
+            case 'yesterday':
+                $start = Carbon::yesterday();
+                $end = Carbon::yesterday()->endOfDay();
+                break;
             case 'this_week':
                 $start = Carbon::now()->startOfWeek();
                 $end = Carbon::now()->endOfWeek();

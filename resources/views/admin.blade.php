@@ -662,6 +662,18 @@
             color: #3730a3;
         }
 
+        .action-btn-blue {
+            background: #eff6ff;
+            border-color: #bfdbfe;
+            color: #1d4ed8;
+        }
+        .action-btn-blue:hover {
+            background: #dbeafe;
+            border-color: #93c5fd;
+            color: #1e40af;
+        }
+
+
         .action-btn-danger {
             background: #fef2f2;
             border-color: #fecaca;
@@ -1407,13 +1419,15 @@
                                 <th>Plan Expiry Date</th>
                                 <th>Last Purchase</th>
                                 <th>Staff Logins</th>
+                                <th>Web Portal</th>
                                 <th>Technicians</th>
                                 <th>Account Status</th>
                                 <th style="text-align:right;">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${shops.length === 0 ? `<tr><td colspan="11" style="text-align:center; padding:36px; color:#94a3b8; font-weight:500;">No shops found matching filter criteria.</td></tr>` : ''}
+                            ${shops.length === 0 ? `<tr><td colspan="12" style="text-align:center; padding:36px; color:#94a3b8; font-weight:500;">No shops found matching filter criteria.</td></tr>` : ''}
+
                             ${shops.map(s => {
                                 const mob = s.phone || s.mobile || (s.user ? (s.user.mobile || s.user.phone) : 'N/A');
                                 const sub = s.latest_subscription ? s.latest_subscription.status : 'trial';
@@ -1529,6 +1543,20 @@
                                         </div>
                                     </td>
                                     <td>
+                                        <div style="display:flex; flex-direction:column; gap:4px;">
+                                            <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+                                                <button type="button" class="badge ${s.is_web_enabled ? (s.web_valid_until && new Date(s.web_valid_until) < new Date() ? 'badge-inactive' : 'badge-active') : 'badge-inactive'}" 
+                                                        style="cursor:pointer; border:1px dashed ${s.is_web_enabled ? '#10b981' : '#94a3b8'}; padding:4px 9px; display:inline-flex; align-items:center; gap:5px; font-weight:700;"
+                                                        onclick="openWebAccessModal(${s.id}, '${s.name.replace(/'/g, "\\'")}', ${s.is_web_enabled ? 1 : 0}, '${s.web_valid_until || ''}', '${(s.web_access_note || '').replace(/'/g, "\\'")}', '${s.latest_subscription ? (s.latest_subscription.expiry_date || '') : ''}')"
+                                                        title="Click to Configure Web Portal Access">
+                                                    🌐 ${s.is_web_enabled ? 'ON' : 'OFF'}
+                                                    <span style="font-size:10px; opacity:0.8;">✏️</span>
+                                                </button>
+                                            </div>
+                                            ${s.is_web_enabled ? (s.web_valid_until ? (new Date(s.web_valid_until) < new Date() ? '<span class="badge badge-inactive" style="font-size:10px; padding:2px 6px;">🔴 Expired</span>' : `<span class="badge badge-purple" style="font-size:10px; padding:2px 6px;">⏱️ Till ${formatDate(s.web_valid_until)}</span>`) : '<span class="badge badge-active" style="font-size:10px; padding:2px 6px;">♾️ Lifetime</span>') : '<span style="font-size:10px; color:#94a3b8;">Default No Web</span>'}
+                                        </div>
+                                    </td>
+                                    <td>
                                         <span class="badge" style="background:#f8fafc; color:#475569; font-weight:600; border:1px solid #cbd5e1; padding:4px 9px; display:inline-flex; align-items:center; gap:5px;" title="Repair technicians in shop directory (No Login)">
                                             🧰 ${s.technicians_count || 0} Techs
                                         </span>
@@ -1552,11 +1580,16 @@
                                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                                                 Staff Limit
                                             </button>
+                                            <button class="action-btn action-btn-blue" onclick="openWebAccessModal(${s.id}, '${s.name.replace(/'/g, "\\'")}', ${s.is_web_enabled ? 1 : 0}, '${s.web_valid_until || ''}', '${(s.web_access_note || '').replace(/'/g, "\\'")}', '${s.latest_subscription ? (s.latest_subscription.expiry_date || '') : ''}')" title="Configure Web Portal Access">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                                                Web Access
+                                            </button>
                                             <button class="action-btn ${s.status === 'active' ? 'action-btn-danger' : 'action-btn-success'}" onclick="toggleShopStatus(${s.id}, '${s.status === 'active' ? 'deactivated' : 'active'}')" title="${s.status === 'active' ? 'Deactivate Shop' : 'Activate Shop'}">
                                                 ${s.status === 'active' ? 'Deactivate' : 'Activate'}
                                             </button>
                                         </div>
                                     </td>
+
                                 </tr>
                                 `;
                             }).join('')}
@@ -1634,6 +1667,25 @@
                                 </button>
                             </div>
                         </div>
+
+                        <div style="background:#eff6ff; padding:12px 14px; border-radius:8px; margin:12px 0; border:1px solid #bfdbfe;">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
+                                <div style="flex:1; min-width:240px;">
+                                    <h4 style="margin:0 0 4px 0; font-size:13px; color:#1e40af; display:flex; align-items:center; gap:6px;">
+                                        <span>🌐</span> Web Portal Access (Desktop Login)
+                                    </h4>
+                                    <div style="font-size:12px; color:#1d4ed8; line-height:1.6;">
+                                        <div><strong>Status:</strong> ${s.is_web_enabled ? '<span class="badge badge-active" style="background:#2563eb;">ENABLED</span>' : '<span class="badge badge-inactive">DISABLED (DEFAULT)</span>'}</div>
+                                        <div><strong>Web Expiry:</strong> ${s.is_web_enabled ? (s.web_valid_until ? (new Date(s.web_valid_until) < new Date() ? '<span class="badge badge-inactive">🔴 Expired</span>' : `<span class="badge badge-purple">⏱️ Valid Till: ${formatDate(s.web_valid_until)}</span>`) : '<span class="badge badge-active">♾️ Lifetime / Indefinite</span>') : '<span style="color:#64748b;">No Web Access</span>'}</div>
+                                        <div><strong>Admin Note:</strong> ${s.web_access_note || '<span style="color:#64748b;">None</span>'}</div>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn-sm" style="background:#2563eb; color:white; border-color:#2563eb; padding:6px 14px; font-weight:600;" onclick="openWebAccessModal(${s.id}, '${s.name.replace(/'/g, "\\'")}', ${s.is_web_enabled ? 1 : 0}, '${s.web_valid_until || ''}', '${(s.web_access_note || '').replace(/'/g, "\\'")}', '${s.latest_subscription ? (s.latest_subscription.expiry_date || '') : ''}')">
+                                    ⚙️ Configure Web Access
+                                </button>
+                            </div>
+                        </div>
+
 
                         <div style="background:#ecfdf5; padding:12px 14px; border-radius:8px; margin:12px 0; border:1px solid #a7f3d0;">
                             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
@@ -2162,6 +2214,99 @@
                 alert(res.message || 'Failed to clear override');
             }
         }
+
+        // ==================== WEB PORTAL ACCESS MANAGEMENT ====================
+        function openWebAccessModal(shopId, shopName, isWebEnabled = 0, currentValidUntil = '', currentNote = '', subExpiry = '') {
+            const isEnabled = Boolean(Number(isWebEnabled));
+            const subExpFormatted = subExpiry ? new Date(subExpiry).toISOString().split('T')[0] : '';
+            const validUntilFormatted = currentValidUntil ? new Date(currentValidUntil).toISOString().split('T')[0] : '';
+
+            openModal(`🌐 Web Portal Access — ${shopName}`, `
+                <form onsubmit="saveShopWebAccess(event, ${shopId})">
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px; margin-bottom:14px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                            <div>
+                                <strong style="font-size:14px; color:#0f172a;">${shopName}</strong>
+                                <span style="font-size:11px; color:#64748b; margin-left:4px;">(Shop #${shopId})</span>
+                            </div>
+                            <span class="badge ${isEnabled ? 'badge-active' : 'badge-inactive'}">
+                                ${isEnabled ? 'WEB ENABLED' : 'WEB DISABLED (DEFAULT)'}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:16px;">
+                        <label style="font-weight:700; color:#1e293b; display:block; margin-bottom:6px;">Web Portal Access Permission</label>
+                        <select id="shop-web-enabled" class="form-control" style="font-weight:700; font-size:14px;">
+                            <option value="1" ${isEnabled ? 'selected' : ''}>✅ ENABLED — Allow Shop Owner to Log In on Web Portal</option>
+                            <option value="0" ${!isEnabled ? 'selected' : ''}>⛔ DISABLED — Block Web Login (Default)</option>
+                        </select>
+                        <small style="color:#64748b; font-size:11.5px; margin-top:4px; display:block;">
+                            When Disabled, the shop owner sees: <em>"Web portal access is currently not enabled for your shop. Please contact admin..."</em>
+                        </small>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:16px;">
+                        <label style="font-weight:700; color:#1e293b; display:block; margin-bottom:6px;">Web Access Valid Until (Expiry Date)</label>
+                        <input type="date" id="shop-web-valid-until" class="form-control" value="${validUntilFormatted}">
+                        
+                        <div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;">
+                            ${subExpFormatted ? `<button type="button" class="btn-sm" style="font-size:11px; padding:3px 8px;" onclick="document.getElementById('shop-web-valid-until').value='${subExpFormatted}'">🔄 Match Subscription Expiry (${formatDate(subExpFormatted)})</button>` : ''}
+                            <button type="button" class="btn-sm" style="font-size:11px; padding:3px 8px;" onclick="setWebDateFromDays(30)">+30 Days</button>
+                            <button type="button" class="btn-sm" style="font-size:11px; padding:3px 8px;" onclick="setWebDateFromDays(90)">+3 Months</button>
+                            <button type="button" class="btn-sm" style="font-size:11px; padding:3px 8px;" onclick="setWebDateFromDays(365)">+1 Year</button>
+                            <button type="button" class="btn-sm" style="font-size:11px; padding:3px 8px;" onclick="document.getElementById('shop-web-valid-until').value=''">No Expiry (Lifetime)</button>
+                        </div>
+                        <small style="color:#64748b; font-size:11.5px; margin-top:4px; display:block;">
+                            Leave blank for indefinite/lifetime. When this date passes, web access automatically locks with an expiration message!
+                        </small>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:18px;">
+                        <label style="font-weight:700; color:#1e293b; display:block; margin-bottom:6px;">Admin Note / Remarks</label>
+                        <input type="text" id="shop-web-note" class="form-control" value="${currentNote || ''}" placeholder="e.g. VIP shop owner, Premium plan web trial, Paid ₹500 addon">
+                    </div>
+
+                    <div style="display:flex; gap:10px; flex-wrap:wrap; border-top:1px solid #e2e8f0; padding-top:14px;">
+                        <button type="submit" class="btn-primary" style="flex:2; padding:10px 18px; font-weight:700;">💾 Save Web Access</button>
+                        <button type="button" class="btn-sm" style="padding:10px 14px;" onclick="closeModal()">Cancel</button>
+                    </div>
+                </form>
+            `);
+        }
+
+        function setWebDateFromDays(days) {
+            const d = new Date();
+            d.setDate(d.getDate() + days);
+            const el = document.getElementById('shop-web-valid-until');
+            if (el) el.value = d.toISOString().split('T')[0];
+        }
+
+        async function saveShopWebAccess(e, shopId) {
+            e.preventDefault();
+            const isEnabled = document.getElementById('shop-web-enabled').value === '1';
+            const dateVal = document.getElementById('shop-web-valid-until').value.trim();
+            const noteVal = document.getElementById('shop-web-note').value.trim();
+
+            const body = {
+                is_web_enabled: isEnabled ? 1 : 0,
+                web_valid_until: dateVal !== '' ? dateVal : null,
+                web_access_note: noteVal !== '' ? noteVal : null,
+            };
+
+            const res = await apiFetch(`/shops/${shopId}/web-access`, 'POST', body);
+            if (res && res.success) {
+                alert('Shop web portal access updated successfully!');
+                closeModal();
+                loadShopsView();
+                if (document.getElementById('shop-tab-overview')) {
+                    openShopDetails(shopId);
+                }
+            } else {
+                alert(res?.message || 'Failed to update web portal access');
+            }
+        }
+
 
         function openAdminAddStaffModal(shopId, shopName) {
             openModal(`➕ Add Staff Member — ${shopName}`, `

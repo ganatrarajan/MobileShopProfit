@@ -70,6 +70,25 @@ class SaleController extends Controller
             $query->where('customer_id', $request->input('customer_id'));
         }
 
+        // Filter by Period presets
+        if ($request->filled('period') && $request->input('period') !== 'all_time') {
+            $period = $request->input('period');
+            $now = \Carbon\Carbon::now();
+            if ($period === 'today') {
+                $query->whereDate('sale_date', $now->toDateString());
+            } elseif ($period === 'yesterday') {
+                $query->whereDate('sale_date', $now->copy()->subDay()->toDateString());
+            } elseif ($period === 'this_week') {
+                $query->whereBetween('sale_date', [$now->copy()->startOfWeek()->toDateString(), $now->copy()->endOfWeek()->toDateString()]);
+            } elseif ($period === 'this_month') {
+                $query->whereBetween('sale_date', [$now->copy()->startOfMonth()->toDateString(), $now->copy()->endOfMonth()->toDateString()]);
+            } elseif ($period === 'last_month') {
+                $query->whereBetween('sale_date', [$now->copy()->subMonth()->startOfMonth()->toDateString(), $now->copy()->subMonth()->endOfMonth()->toDateString()]);
+            } elseif ($period === 'this_year') {
+                $query->whereBetween('sale_date', [$now->copy()->startOfYear()->toDateString(), $now->copy()->endOfYear()->toDateString()]);
+            }
+        }
+
         if ($request->filled('date_from')) {
             $query->whereDate('sale_date', '>=', $request->input('date_from'));
         }
@@ -78,6 +97,16 @@ class SaleController extends Controller
             $query->whereDate('sale_date', '<=', $request->input('date_to'));
         }
 
+        $summaryQuery = clone $query;
+        $summary = [
+            'total_billed' => (float) (clone $summaryQuery)->sum('grand_total'),
+            'total_paid' => (float) (clone $summaryQuery)->sum('amount_paid'),
+            'total_due' => (float) (clone $summaryQuery)->sum('amount_due'),
+            'total_profit' => $user->role === 'owner' ? (float) (clone $summaryQuery)->sum('net_profit') : 0.0,
+            'total_cost' => $user->role === 'owner' ? (float) (clone $summaryQuery)->sum('total_cost') : 0.0,
+            'total_count' => (int) (clone $summaryQuery)->count(),
+        ];
+
         $sales = $query->orderBy('sale_date', 'desc')
             ->orderBy('id', 'desc')
             ->paginate($request->input('per_page', 15));
@@ -85,6 +114,7 @@ class SaleController extends Controller
         return response()->json([
             'success' => true,
             'data' => SaleResource::collection($sales),
+            'summary' => $summary,
             'meta' => [
                 'current_page' => $sales->currentPage(),
                 'last_page' => $sales->lastPage(),
@@ -432,6 +462,9 @@ class SaleController extends Controller
         }
 
         $validated = $request->validate([
+            'customer_name' => ['nullable', 'string', 'max:255'],
+            'customer_mobile' => ['nullable', 'string', 'max:50'],
+            'sale_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 

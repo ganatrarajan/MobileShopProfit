@@ -44,12 +44,21 @@ class DashboardController extends Controller
         if ($period === 'today') {
             $startDate = $now->copy()->startOfDay();
             $endDate = $now->copy()->endOfDay();
+        } elseif ($period === 'yesterday') {
+            $startDate = $now->copy()->subDay()->startOfDay();
+            $endDate = $now->copy()->subDay()->endOfDay();
         } elseif ($period === 'this_week') {
             $startDate = $now->copy()->startOfWeek();
             $endDate = $now->copy()->endOfWeek();
         } elseif ($period === 'last_month') {
             $startDate = $now->copy()->subMonth()->startOfMonth();
-            $endDate = $now->copy()->endOfMonth();
+            $endDate = $now->copy()->subMonth()->endOfMonth();
+        } elseif ($period === 'this_year') {
+            $startDate = $now->copy()->startOfYear();
+            $endDate = $now->copy()->endOfYear();
+        } elseif ($period === 'all_time') {
+            $startDate = Carbon::create(2020, 1, 1)->startOfDay();
+            $endDate = $now->copy()->endOfDay();
         } elseif ($period === 'custom' && $request->filled('start_date') && $request->filled('end_date')) {
             $startDate = Carbon::parse($request->input('start_date'))->startOfDay();
             $endDate = Carbon::parse($request->input('end_date'))->endOfDay();

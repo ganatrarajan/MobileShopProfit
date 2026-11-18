@@ -62,10 +62,17 @@
                 <a href="{{ route('home') }}#features" class="hover:text-indigo-400 transition-colors">Features</a>
                 <a href="{{ route('home') }}#pricing" class="hover:text-indigo-400 transition-colors">Pricing</a>
                 <a href="{{ route('contact') }}" class="hover:text-indigo-400 transition-colors">Contact</a>
+                <a href="/portal/login" class="text-indigo-400 hover:text-indigo-300 font-semibold transition-colors flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
+                    Owner Web Login
+                </a>
             </nav>
 
             <!-- CTA Buttons & Mobile Toggle -->
             <div class="flex items-center gap-3">
+                <a href="/portal/login" class="hidden sm:inline-flex items-center justify-center px-3.5 py-2 rounded-xl font-semibold text-xs text-indigo-200 border border-indigo-500/30 hover:bg-indigo-950/50 transition-all">
+                    Portal Login
+                </a>
                 <a href="{{ $settings['android_app_url'] ?? $settings['app_update_url'] ?? 'https://play.google.com/store/apps/details?id=com.repairehub' }}" target="_blank" class="inline-flex items-center justify-center px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl font-semibold text-xs sm:text-sm text-white bg-gradient-to-r from-indigo-600 to-emerald-500 hover:from-indigo-500 hover:to-emerald-400 shadow-lg shadow-indigo-500/25 transition-all">
                     Download App
                 </a>
@@ -81,6 +88,7 @@
             <a href="{{ route('home') }}#features" class="block hover:text-indigo-400">Features</a>
             <a href="{{ route('home') }}#pricing" class="block hover:text-indigo-400">Pricing</a>
             <a href="{{ route('contact') }}" class="block hover:text-indigo-400">Contact Support</a>
+            <a href="/portal/login" class="block text-indigo-400 font-semibold">Shop Owner Web Login →</a>
         </div>
     </header>
 

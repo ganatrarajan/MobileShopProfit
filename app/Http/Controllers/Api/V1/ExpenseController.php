@@ -46,6 +46,25 @@ class ExpenseController extends Controller
             $query->where('category_id', $request->input('category_id'));
         }
 
+        // Filter by Period presets
+        if ($request->filled('period') && $request->input('period') !== 'all_time') {
+            $period = $request->input('period');
+            $now = \Carbon\Carbon::now();
+            if ($period === 'today') {
+                $query->whereDate('expense_date', $now->toDateString());
+            } elseif ($period === 'yesterday') {
+                $query->whereDate('expense_date', $now->copy()->subDay()->toDateString());
+            } elseif ($period === 'this_week') {
+                $query->whereBetween('expense_date', [$now->copy()->startOfWeek()->toDateString(), $now->copy()->endOfWeek()->toDateString()]);
+            } elseif ($period === 'this_month') {
+                $query->whereBetween('expense_date', [$now->copy()->startOfMonth()->toDateString(), $now->copy()->endOfMonth()->toDateString()]);
+            } elseif ($period === 'last_month') {
+                $query->whereBetween('expense_date', [$now->copy()->subMonth()->startOfMonth()->toDateString(), $now->copy()->subMonth()->endOfMonth()->toDateString()]);
+            } elseif ($period === 'this_year') {
+                $query->whereBetween('expense_date', [$now->copy()->startOfYear()->toDateString(), $now->copy()->endOfYear()->toDateString()]);
+            }
+        }
+
         // Date range filters
         if ($request->filled('date_from')) {
             $query->whereDate('expense_date', '>=', $request->input('date_from'));
