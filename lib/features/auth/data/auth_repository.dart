@@ -304,42 +304,105 @@ class AuthRepository {
     String? upiId,
     String? tagline,
   }) async {
-    final shopName = (name != null && name.trim().isNotEmpty) ? name.trim() : 'My Mobile Shop';
-    final shopOwner = (ownerName != null && ownerName.trim().isNotEmpty) ? ownerName.trim() : 'Shop Owner';
-    final shopMobile = (mobile != null && mobile.trim().isNotEmpty) ? mobile.trim() : '9999999999';
-    final shopAddress = (address != null && address.trim().isNotEmpty) ? address.trim() : 'Main Market';
-    final shopCity = (city != null && city.trim().isNotEmpty) ? city.trim() : 'City';
-    final shopState = (state != null && state.trim().isNotEmpty) ? state.trim() : 'State';
-    final shopPincode = (pincode != null && pincode.trim().isNotEmpty) ? pincode.trim() : '360001';
+    final currentShop = await _authStorage.getShop() ?? {};
+
+    // Prioritize passed value, then existing stored value (never fallback to dummy static strings)
+    final shopName = (name != null && name.trim().isNotEmpty)
+        ? name.trim()
+        : (currentShop['name']?.toString().trim());
+
+    final shopOwner = (ownerName != null && ownerName.trim().isNotEmpty)
+        ? ownerName.trim()
+        : (currentShop['owner_name']?.toString().trim());
+
+    final shopMobile = (mobile != null && mobile.trim().isNotEmpty)
+        ? mobile.trim()
+        : (phone != null && phone.trim().isNotEmpty)
+            ? phone.trim()
+            : (currentShop['phone']?.toString().trim() ?? currentShop['mobile']?.toString().trim());
+
+    final shopPhone = (phone != null && phone.trim().isNotEmpty)
+        ? phone.trim()
+        : shopMobile;
+
+    final shopEmail = (email != null && email.trim().isNotEmpty)
+        ? email.trim()
+        : (currentShop['email']?.toString().trim());
+
+    final shopAddress = (address != null && address.trim().isNotEmpty)
+        ? address.trim()
+        : (currentShop['address']?.toString().trim());
+
+    final shopCity = (city != null && city.trim().isNotEmpty)
+        ? city.trim()
+        : (currentShop['city']?.toString().trim());
+
+    final shopState = (state != null && state.trim().isNotEmpty)
+        ? state.trim()
+        : (currentShop['state']?.toString().trim());
+
+    final shopPincode = (pincode != null && pincode.trim().isNotEmpty)
+        ? pincode.trim()
+        : (currentShop['pincode']?.toString().trim());
+
+    final shopMapsUrl = (googleMapsUrl != null && googleMapsUrl.trim().isNotEmpty)
+        ? googleMapsUrl.trim()
+        : (currentShop['google_maps_url']?.toString().trim());
+
+    final shopLat = latitude ?? (currentShop['latitude'] != null ? double.tryParse(currentShop['latitude'].toString()) : null);
+    final shopLng = longitude ?? (currentShop['longitude'] != null ? double.tryParse(currentShop['longitude'].toString()) : null);
+
+    final shopUpiId = (upiId != null && upiId.trim().isNotEmpty)
+        ? upiId.trim()
+        : (currentShop['upi_id']?.toString().trim());
+
+    final shopTagline = (tagline != null && tagline.trim().isNotEmpty)
+        ? tagline.trim()
+        : (currentShop['tagline']?.toString().trim());
+
+    final shopGst = (gstNumber != null && gstNumber.trim().isNotEmpty)
+        ? gstNumber.trim()
+        : (currentShop['gst_number']?.toString().trim() ?? currentShop['gstin']?.toString().trim());
+
+    final body = <String, dynamic>{};
+    if (shopName != null && shopName.isNotEmpty) body['name'] = shopName;
+    if (shopOwner != null && shopOwner.isNotEmpty) body['owner_name'] = shopOwner;
+    if (shopMobile != null && shopMobile.isNotEmpty) {
+      body['mobile'] = shopMobile;
+      body['phone'] = shopPhone ?? shopMobile;
+    }
+    if (shopEmail != null && shopEmail.isNotEmpty) body['email'] = shopEmail;
+    if (shopAddress != null && shopAddress.isNotEmpty) body['address'] = shopAddress;
+    if (shopCity != null && shopCity.isNotEmpty) body['city'] = shopCity;
+    if (shopState != null && shopState.isNotEmpty) body['state'] = shopState;
+    if (shopPincode != null && shopPincode.isNotEmpty) body['pincode'] = shopPincode;
+    if (shopMapsUrl != null && shopMapsUrl.isNotEmpty) body['google_maps_url'] = shopMapsUrl;
+    if (shopLat != null) body['latitude'] = shopLat;
+    if (shopLng != null) body['longitude'] = shopLng;
+    if (shopUpiId != null && shopUpiId.isNotEmpty) body['upi_id'] = shopUpiId;
+    if (shopTagline != null && shopTagline.isNotEmpty) body['tagline'] = shopTagline;
+    if (shopGst != null && shopGst.isNotEmpty) body['gst_number'] = shopGst;
 
     final response = await _apiClient.put(
       ApiEndpoints.shop,
-      body: {
-        'name': shopName,
-        'owner_name': shopOwner,
-        'phone': (phone != null && phone.trim().isNotEmpty) ? phone.trim() : shopMobile,
-        'email': email,
-        'address': shopAddress,
-        'city': shopCity,
-        'state': shopState,
-        'pincode': shopPincode,
-        'google_maps_url': googleMapsUrl,
-        'latitude': latitude,
-        'longitude': longitude,
-        'upi_id': upiId,
-        'tagline': tagline,
-        'gst_number': gstNumber,
-      },
+      body: body,
     );
 
     if (response.success && response.data != null) {
       final user = await _authStorage.getUser();
       final token = await _authStorage.getToken();
       if (user != null && token != null) {
+        final current = await _authStorage.getShop() ?? {};
+        final Map<String, dynamic> merged = Map<String, dynamic>.from(current);
+        if (response.data is Map<String, dynamic>) {
+          merged.addAll(response.data as Map<String, dynamic>);
+        } else if (response.data is Map) {
+          merged.addAll(Map<String, dynamic>.from(response.data as Map));
+        }
         await _authStorage.saveSession(
           token: token,
           user: user,
-          shop: response.data,
+          shop: merged,
         );
       }
     }

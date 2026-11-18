@@ -263,8 +263,16 @@ class _DigitalVisitingCardScreenState extends State<DigitalVisitingCardScreen> {
       final lng = position.longitude;
       final mapsUrl = 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
 
-      // Save to backend and local storage
+      // Save to backend and local storage (passing current shop info to preserve all attributes)
       await _authRepository.updateShop(
+        name: _shop['name']?.toString(),
+        ownerName: _shop['owner_name']?.toString(),
+        phone: _shop['phone']?.toString() ?? _shop['mobile']?.toString(),
+        mobile: _shop['mobile']?.toString() ?? _shop['phone']?.toString(),
+        address: _shop['address']?.toString(),
+        city: _shop['city']?.toString(),
+        state: _shop['state']?.toString(),
+        pincode: _shop['pincode']?.toString(),
         googleMapsUrl: mapsUrl,
         latitude: lat,
         longitude: lng,
