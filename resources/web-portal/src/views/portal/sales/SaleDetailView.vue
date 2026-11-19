@@ -30,8 +30,9 @@
       </div>
 
       <div class="flex flex-wrap items-center gap-2">
-        <!-- WhatsApp Share -->
+        <!-- WhatsApp Share (Only if mobile number exists) -->
         <button
+          v-if="getCustomerPhone(sale)"
           @click="openWhatsAppModal"
           class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-[#25D366] text-white hover:bg-[#20ba5a] shadow-sm transition shadow-green-500/20 cursor-pointer"
         >
@@ -584,6 +585,7 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { useToastStore } from '@/stores/toast';
 import { saleApi, shopApi } from '@/api/endpoints';
+import { formatDate } from '@/utils/date';
 import WhatsAppIcon from '@/components/common/WhatsAppIcon.vue';
 import SearchableSelect from '@/components/common/SearchableSelect.vue';
 
@@ -766,17 +768,6 @@ function triggerPrint() {
 function formatAmount(val) {
   if (val === undefined || val === null || isNaN(val)) return '0.00';
   return Number(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function formatDate(val) {
-  if (!val) return '-';
-  try {
-    const d = new Date(val);
-    if (isNaN(d.getTime())) return String(val).substring(0, 10);
-    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-  } catch {
-    return String(val).substring(0, 10);
-  }
 }
 
 onMounted(() => {

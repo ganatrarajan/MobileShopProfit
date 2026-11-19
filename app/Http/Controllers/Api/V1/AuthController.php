@@ -390,13 +390,6 @@ class AuthController extends Controller
                 $webExpFormatted = \Carbon\Carbon::parse($shop->web_valid_until)->format('d M Y');
                 return $this->errorResponse("Your web portal access expired on {$webExpFormatted}. Please contact admin to renew or extend your web access.", 403);
             }
-
-            // 3. Also check if general shop subscription plan has expired
-            $latestSub = $shop->latestSubscription;
-            if ($latestSub && $latestSub->expiry_date && now()->startOfDay()->gt(\Carbon\Carbon::parse($latestSub->expiry_date)->endOfDay())) {
-                $subExpFormatted = \Carbon\Carbon::parse($latestSub->expiry_date)->format('d M Y');
-                return $this->errorResponse("Your shop subscription expired on {$subExpFormatted}. Please renew your plan or contact admin to continue.", 403);
-            }
         }
 
 
@@ -848,6 +841,25 @@ class AuthController extends Controller
         $user->tokens()->delete();
 
         return $this->successResponse(null, 'Password reset successfully. Please log in with your new password.');
+    }
+
+    /**
+     * Check if current session token is still active and valid.
+     * If user logged in from another device/browser, token was revoked and 401 is returned.
+     */
+    public function sessionCheck(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user) {
+            return $this->errorResponse('Unauthenticated', 401);
+        }
+
+        return $this->successResponse([
+            'valid'     => true,
+            'user_id'   => $user->id,
+            'role'      => $user->role,
+            'timestamp' => now()->timestamp,
+        ], 'Session is active');
     }
 
     /**

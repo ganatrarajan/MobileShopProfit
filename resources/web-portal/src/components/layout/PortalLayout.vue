@@ -46,13 +46,13 @@
         </div>
       </div>
 
-      <!-- Navigation Links Matching Mobile App -->
-      <nav class="flex-1 px-3 py-3 space-y-1 overflow-y-auto custom-scrollbar">
-        <!-- 1. Dashboard -->
+      <!-- Navigation: Option 2 Ultra Compact Main Menu & Submenus -->
+      <nav class="flex-1 px-3 py-3 space-y-1.5 overflow-y-auto custom-scrollbar">
+        <!-- 1. Dashboard (Direct Link) -->
         <router-link
           to="/"
           @click="sidebarOpen = false"
-          class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all group"
+          class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all group"
           :class="[isRouteActive('/') ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 font-bold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200']"
         >
           <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -61,23 +61,23 @@
           <span class="flex-1">Dashboard</span>
         </router-link>
 
-        <!-- 2. Repairs (Accordion: Directory & Create) -->
+        <!-- 2. Counter Operations (Accordion: Repairs, Sales, Used Mobiles) -->
         <div class="rounded-xl overflow-hidden transition-all">
           <button
             type="button"
-            @click="toggleGroup('repairs')"
-            class="w-full flex items-center justify-between px-3 py-2 text-xs font-bold rounded-xl transition-all select-none cursor-pointer"
-            :class="isGroupActive(['/repairs']) ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/70 dark:bg-indigo-950/40' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/50'"
+            @click="toggleGroup('operations')"
+            class="w-full flex items-center justify-between px-3 py-2.5 text-xs font-bold rounded-xl transition-all select-none cursor-pointer"
+            :class="isGroupActive(['/repairs', '/sales', '/used-mobiles']) ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-950/40 shadow-xs' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/50'"
           >
-            <div class="flex items-center gap-2.5">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            <div class="flex items-center gap-2.5 min-w-0">
+              <svg class="w-4 h-4 flex-shrink-0 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
-              <span>Repairs</span>
+              <span class="truncate">Counter Operations</span>
             </div>
             <svg
-              class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200"
-              :class="{ 'rotate-180': openGroups.repairs }"
+              class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200 flex-shrink-0"
+              :class="{ 'rotate-180': openGroups.operations }"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -85,81 +85,47 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
             </svg>
           </button>
-          <div v-show="openGroups.repairs" class="pl-7 pr-2 py-1 space-y-1 transition-all">
+          <div v-show="openGroups.operations" class="border-l-2 border-indigo-200 dark:border-indigo-900/60 ml-4 pl-3 py-1 space-y-1 transition-all my-1">
             <router-link
               to="/repairs"
               @click="sidebarOpen = false"
-              class="block px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+              class="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
               :class="isRouteActive('/repairs') && !isRouteActive('/repairs/new') ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800/40'"
             >
-              Repair Orders Directory
+              <span>Repair Orders</span>
+              <span class="text-[10px] opacity-70">Jobs</span>
             </router-link>
             <router-link
               to="/repairs/new"
               @click="sidebarOpen = false"
-              class="block px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-              :class="isRouteActive('/repairs/new') ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800/40'"
+              class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+              :class="isRouteActive('/repairs/new') ? 'bg-emerald-600 !text-white font-semibold' : ''"
             >
-              + Create New Repair
+              <span class="font-bold">+</span>
+              <span>New Repair Ticket</span>
             </router-link>
-          </div>
-        </div>
-
-        <!-- 3. Technicians (Direct link) -->
-        <router-link
-          to="/technicians"
-          @click="sidebarOpen = false"
-          class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all group"
-          :class="[isRouteActive('/technicians') ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 font-bold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200']"
-        >
-          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
-          <span class="flex-1">Technicians</span>
-        </router-link>
-
-        <!-- 4. Staff Members (Direct link) -->
-        <router-link
-          to="/staff"
-          @click="sidebarOpen = false"
-          class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all group"
-          :class="[isRouteActive('/staff') ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 font-bold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200']"
-        >
-          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
-          <span class="flex-1">Staff Members</span>
-        </router-link>
-
-        <!-- 5. Used Mobiles (Buy & Sell) (Accordion: Inventory, Buy, Sell) -->
-        <div class="rounded-xl overflow-hidden transition-all">
-          <button
-            type="button"
-            @click="toggleGroup('usedMobiles')"
-            class="w-full flex items-center justify-between px-3 py-2 text-xs font-bold rounded-xl transition-all select-none cursor-pointer"
-            :class="isGroupActive(['/used-mobiles']) ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/70 dark:bg-indigo-950/40' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/50'"
-          >
-            <div class="flex items-center gap-2.5">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-              </svg>
-              <span>Used Mobiles (Buy/Sell)</span>
-            </div>
-            <svg
-              class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200"
-              :class="{ 'rotate-180': openGroups.usedMobiles }"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+            <router-link
+              to="/sales"
+              @click="sidebarOpen = false"
+              class="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+              :class="isRouteActive('/sales') && !isRouteActive('/sales/new') ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800/40'"
             >
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          <div v-show="openGroups.usedMobiles" class="pl-7 pr-2 py-1 space-y-1 transition-all">
+              <span>Sales & Invoices</span>
+              <span class="text-[10px] opacity-70">Bills</span>
+            </router-link>
+            <router-link
+              to="/sales/new"
+              @click="sidebarOpen = false"
+              class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+              :class="isRouteActive('/sales/new') ? 'bg-emerald-600 !text-white font-semibold' : ''"
+            >
+              <span class="font-bold">+</span>
+              <span>New Sale / POS Counter</span>
+            </router-link>
             <router-link
               to="/used-mobiles"
               @click="sidebarOpen = false"
-              class="block px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+              class="block px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
               :class="isRouteActive('/used-mobiles') && !route.query.action ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800/40'"
             >
               Used Mobiles Inventory
@@ -167,39 +133,39 @@
             <router-link
               to="/used-mobiles?action=buy"
               @click="sidebarOpen = false"
-              class="block px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-              :class="route.query.action === 'buy' ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800/40'"
+              class="block px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+              :class="route.query.action === 'buy' ? 'bg-amber-600 !text-white font-semibold' : ''"
             >
               + Buy Used Mobile
             </router-link>
             <router-link
               to="/used-mobiles?action=sell"
               @click="sidebarOpen = false"
-              class="block px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-              :class="route.query.action === 'sell' ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800/40'"
+              class="block px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
+              :class="route.query.action === 'sell' ? 'bg-indigo-600 !text-white font-semibold' : ''"
             >
               Sell Used Mobile
             </router-link>
           </div>
         </div>
 
-        <!-- 6. Sales & Invoices (Accordion: Invoices & Create) -->
+        <!-- 3. Stock & Procurement (Accordion: Inventory, Purchases) -->
         <div class="rounded-xl overflow-hidden transition-all">
           <button
             type="button"
-            @click="toggleGroup('sales')"
-            class="w-full flex items-center justify-between px-3 py-2 text-xs font-bold rounded-xl transition-all select-none cursor-pointer"
-            :class="isGroupActive(['/sales']) ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/70 dark:bg-indigo-950/40' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/50'"
+            @click="toggleGroup('stock')"
+            class="w-full flex items-center justify-between px-3 py-2.5 text-xs font-bold rounded-xl transition-all select-none cursor-pointer"
+            :class="isGroupActive(['/inventory', '/purchases']) ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-950/40 shadow-xs' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/50'"
           >
-            <div class="flex items-center gap-2.5">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+            <div class="flex items-center gap-2.5 min-w-0">
+              <svg class="w-4 h-4 flex-shrink-0 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
               </svg>
-              <span>Sales & Invoices</span>
+              <span class="truncate">Stock & Purchasing</span>
             </div>
             <svg
-              class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200"
-              :class="{ 'rotate-180': openGroups.sales }"
+              class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200 flex-shrink-0"
+              :class="{ 'rotate-180': openGroups.stock }"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -207,130 +173,174 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
             </svg>
           </button>
-          <div v-show="openGroups.sales" class="pl-7 pr-2 py-1 space-y-1 transition-all">
+          <div v-show="openGroups.stock" class="border-l-2 border-indigo-200 dark:border-indigo-900/60 ml-4 pl-3 py-1 space-y-1 transition-all my-1">
             <router-link
-              to="/sales"
+              to="/inventory"
               @click="sidebarOpen = false"
-              class="block px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-              :class="isRouteActive('/sales') && !isRouteActive('/sales/new') ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800/40'"
+              class="block px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+              :class="isRouteActive('/inventory') ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800/40'"
             >
-              Sales Invoices
+              Shop Inventory Stock
             </router-link>
             <router-link
-              to="/sales/new"
+              to="/purchases"
               @click="sidebarOpen = false"
-              class="block px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-              :class="isRouteActive('/sales/new') ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800/40'"
+              class="block px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+              :class="isRouteActive('/purchases') ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800/40'"
             >
-              + Create New Sale / POS
+              Purchases & Vendors
             </router-link>
           </div>
         </div>
 
-        <!-- 7. Purchases & Vendors (Direct link) -->
-        <router-link
-          to="/purchases"
-          @click="sidebarOpen = false"
-          class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all group"
-          :class="[isRouteActive('/purchases') ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 font-bold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200']"
-        >
-          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
-          <span class="flex-1">Purchases & Vendors</span>
-        </router-link>
+        <!-- 4. Customers & Warranties (Accordion: Customers, Warranties) -->
+        <div class="rounded-xl overflow-hidden transition-all">
+          <button
+            type="button"
+            @click="toggleGroup('customers')"
+            class="w-full flex items-center justify-between px-3 py-2.5 text-xs font-bold rounded-xl transition-all select-none cursor-pointer"
+            :class="isGroupActive(['/customers', '/warranties']) ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-950/40 shadow-xs' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/50'"
+          >
+            <div class="flex items-center gap-2.5 min-w-0">
+              <svg class="w-4 h-4 flex-shrink-0 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              <span class="truncate">Customers & After-Sales</span>
+            </div>
+            <svg
+              class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200 flex-shrink-0"
+              :class="{ 'rotate-180': openGroups.customers }"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          <div v-show="openGroups.customers" class="border-l-2 border-indigo-200 dark:border-indigo-900/60 ml-4 pl-3 py-1 space-y-1 transition-all my-1">
+            <router-link
+              to="/customers"
+              @click="sidebarOpen = false"
+              class="block px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+              :class="isRouteActive('/customers') ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800/40'"
+            >
+              Customer Accounts & Khata
+            </router-link>
+            <router-link
+              to="/warranties"
+              @click="sidebarOpen = false"
+              class="block px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+              :class="isRouteActive('/warranties') ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800/40'"
+            >
+              Warranties & Guarantees
+            </router-link>
+          </div>
+        </div>
 
-        <!-- 8. Inventory (Direct link) -->
-        <router-link
-          to="/inventory"
-          @click="sidebarOpen = false"
-          class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all group"
-          :class="[isRouteActive('/inventory') ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 font-bold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200']"
-        >
-          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-          </svg>
-          <span class="flex-1">Inventory</span>
-        </router-link>
+        <!-- 5. Team Management (Accordion: Staff, Technicians) -->
+        <div class="rounded-xl overflow-hidden transition-all">
+          <button
+            type="button"
+            @click="toggleGroup('team')"
+            class="w-full flex items-center justify-between px-3 py-2.5 text-xs font-bold rounded-xl transition-all select-none cursor-pointer"
+            :class="isGroupActive(['/staff', '/technicians']) ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-950/40 shadow-xs' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/50'"
+          >
+            <div class="flex items-center gap-2.5 min-w-0">
+              <svg class="w-4 h-4 flex-shrink-0 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
+              </svg>
+              <span class="truncate">Team & Staff</span>
+            </div>
+            <svg
+              class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200 flex-shrink-0"
+              :class="{ 'rotate-180': openGroups.team }"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          <div v-show="openGroups.team" class="border-l-2 border-indigo-200 dark:border-indigo-900/60 ml-4 pl-3 py-1 space-y-1 transition-all my-1">
+            <router-link
+              to="/staff"
+              @click="sidebarOpen = false"
+              class="block px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+              :class="isRouteActive('/staff') ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800/40'"
+            >
+              Staff Members (App Logins)
+            </router-link>
+            <router-link
+              to="/technicians"
+              @click="sidebarOpen = false"
+              class="block px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+              :class="isRouteActive('/technicians') ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800/40'"
+            >
+              Repair Technicians
+            </router-link>
+          </div>
+        </div>
 
-        <!-- 9. Customers (Direct link) -->
-        <router-link
-          to="/customers"
-          @click="sidebarOpen = false"
-          class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all group"
-          :class="[isRouteActive('/customers') ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 font-bold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200']"
-        >
-          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-          </svg>
-          <span class="flex-1">Customers</span>
-        </router-link>
-
-        <!-- 10. Warranties (Direct link) -->
-        <router-link
-          to="/warranties"
-          @click="sidebarOpen = false"
-          class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all group"
-          :class="[isRouteActive('/warranties') ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 font-bold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200']"
-        >
-          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-          </svg>
-          <span class="flex-1">Warranties</span>
-        </router-link>
-
-        <!-- 11. Expenses (Direct link) -->
-        <router-link
-          to="/expenses"
-          @click="sidebarOpen = false"
-          class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all group"
-          :class="[isRouteActive('/expenses') ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 font-bold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200']"
-        >
-          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
-          <span class="flex-1">Expenses</span>
-        </router-link>
-
-        <!-- 12. Reports Hub (Direct link) -->
-        <router-link
-          to="/reports"
-          @click="sidebarOpen = false"
-          class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all group"
-          :class="[isRouteActive('/reports') ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 font-bold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200']"
-        >
-          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-          </svg>
-          <span class="flex-1">Reports Hub</span>
-        </router-link>
-
-        <!-- 13. Subscription & Billing (Direct link) -->
-        <router-link
-          to="/subscription"
-          @click="sidebarOpen = false"
-          class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all group"
-          :class="[isRouteActive('/subscription') ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 font-bold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200']"
-        >
-          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-          </svg>
-          <span class="flex-1">Subscription & Billing</span>
-        </router-link>
-
-        <!-- 14. Settings (Direct link) -->
-        <router-link
-          to="/settings"
-          @click="sidebarOpen = false"
-          class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all group"
-          :class="[isRouteActive('/settings') ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 font-bold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200']"
-        >
-          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          <span class="flex-1">Settings</span>
-        </router-link>
+        <!-- 6. Accounts & Administration (Accordion: Expenses, Reports, Subscription, Settings) -->
+        <div class="rounded-xl overflow-hidden transition-all">
+          <button
+            type="button"
+            @click="toggleGroup('admin')"
+            class="w-full flex items-center justify-between px-3 py-2.5 text-xs font-bold rounded-xl transition-all select-none cursor-pointer"
+            :class="isGroupActive(['/expenses', '/reports', '/subscription', '/settings']) ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-950/40 shadow-xs' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/50'"
+          >
+            <div class="flex items-center gap-2.5 min-w-0">
+              <svg class="w-4 h-4 flex-shrink-0 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <span class="truncate">Accounts & Settings</span>
+            </div>
+            <svg
+              class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200 flex-shrink-0"
+              :class="{ 'rotate-180': openGroups.admin }"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          <div v-show="openGroups.admin" class="border-l-2 border-indigo-200 dark:border-indigo-900/60 ml-4 pl-3 py-1 space-y-1 transition-all my-1">
+            <router-link
+              to="/expenses"
+              @click="sidebarOpen = false"
+              class="block px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+              :class="isRouteActive('/expenses') ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800/40'"
+            >
+              Shop Expenses (Kharcha)
+            </router-link>
+            <router-link
+              to="/reports"
+              @click="sidebarOpen = false"
+              class="block px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+              :class="isRouteActive('/reports') ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800/40'"
+            >
+              Reports & Profit Hub
+            </router-link>
+            <router-link
+              to="/subscription"
+              @click="sidebarOpen = false"
+              class="block px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+              :class="isRouteActive('/subscription') ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800/40'"
+            >
+              Subscription & Billing
+            </router-link>
+            <router-link
+              to="/settings"
+              @click="sidebarOpen = false"
+              class="block px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+              :class="isRouteActive('/settings') ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800/40'"
+            >
+              Shop Profile & Settings
+            </router-link>
+          </div>
+        </div>
       </nav>
 
       <!-- Bottom User Profile Footer -->
@@ -477,9 +487,11 @@ let modalObserver = null;
 
 // Collapsible slider accordion open states (Single active accordion: opening one closes others)
 const openGroups = reactive({
-  repairs: false,
-  usedMobiles: false,
-  sales: false,
+  operations: false,
+  stock: false,
+  customers: false,
+  team: false,
+  admin: false,
 });
 
 function toggleGroup(key) {
@@ -499,9 +511,11 @@ function isGroupActive(paths) {
 // Auto expand accordion if current route belongs to an accordion group
 function autoExpandGroup() {
   let target = null;
-  if (isGroupActive(['/repairs'])) target = 'repairs';
-  else if (isGroupActive(['/used-mobiles'])) target = 'usedMobiles';
-  else if (isGroupActive(['/sales'])) target = 'sales';
+  if (isGroupActive(['/repairs', '/sales', '/used-mobiles'])) target = 'operations';
+  else if (isGroupActive(['/inventory', '/purchases'])) target = 'stock';
+  else if (isGroupActive(['/customers', '/warranties'])) target = 'customers';
+  else if (isGroupActive(['/staff', '/technicians'])) target = 'team';
+  else if (isGroupActive(['/expenses', '/reports', '/subscription', '/settings'])) target = 'admin';
 
   Object.keys(openGroups).forEach((k) => {
     openGroups[k] = (k === target);

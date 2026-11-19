@@ -57,6 +57,35 @@
       <!-- Welcome Back Subhead -->
       <h3 class="text-lg font-bold text-slate-800 dark:text-white text-center mb-5">Welcome Back</h3>
 
+      <!-- Session Notice Alert (Inactivity or Concurrent Login Notice) -->
+      <div
+        v-if="sessionAlert"
+        :class="[
+          'mb-5 p-3.5 rounded-xl text-xs font-semibold flex items-start gap-2.5 transition-all border',
+          sessionAlert.type === 'concurrent'
+            ? 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300'
+            : 'bg-indigo-500/10 border-indigo-500/30 text-indigo-700 dark:text-indigo-300'
+        ]"
+      >
+        <span class="text-base leading-none">
+          {{ sessionAlert.type === 'concurrent' ? '🔒' : '⏱️' }}
+        </span>
+        <div class="flex-1 leading-relaxed">
+          <strong class="block mb-0.5">
+            {{ sessionAlert.type === 'concurrent' ? 'Single Session Policy' : 'Session Expired' }}
+          </strong>
+          <span>{{ sessionAlert.message }}</span>
+        </div>
+        <button
+          type="button"
+          @click="sessionAlert = null"
+          class="opacity-60 hover:opacity-100 font-bold ml-1 cursor-pointer"
+          title="Dismiss"
+        >
+          ✕
+        </button>
+      </div>
+
       <!-- Error Alert (Exact ERP Style: Rose border + icon + text) -->
       <div
         v-if="error"
@@ -213,12 +242,34 @@ const form = reactive({
 
 const showPassword = ref(false);
 const error = ref('');
+const sessionAlert = ref(null);
 const loading = ref(false);
 const isDark = ref(false);
 
 onMounted(() => {
   // Sync Dark/Light state with documentElement class
   isDark.value = document.documentElement.classList.contains('dark');
+
+  // Check for session notices (Inactivity timeout or Concurrent login from another device)
+  try {
+    const rawNotice = sessionStorage.getItem('portal_auth_notice');
+    if (rawNotice) {
+      sessionAlert.value = JSON.parse(rawNotice);
+      sessionStorage.removeItem('portal_auth_notice');
+    } else if (route.query.reason === 'inactivity') {
+      sessionAlert.value = {
+        type: 'inactivity',
+        message: 'You have been automatically logged out due to 30 minutes of inactivity. Please enter your credentials to resume.'
+      };
+    } else if (route.query.reason === 'concurrent') {
+      sessionAlert.value = {
+        type: 'concurrent',
+        message: 'You have been logged out because this account was logged into from another browser or device. Only one active login is permitted at a time.'
+      };
+    }
+  } catch {
+    // ignore
+  }
 });
 
 function toggleTheme() {
@@ -235,6 +286,7 @@ function toggleTheme() {
 
 async function handleLogin() {
   error.value = '';
+  sessionAlert.value = null;
   loading.value = true;
 
   const inputVal = form.login.trim();

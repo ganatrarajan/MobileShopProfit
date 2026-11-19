@@ -124,7 +124,24 @@ class UsedMobileController extends Controller
         $totalProfitEarned = (clone $soldQuery)->sum('profit');
 
         $perPage = min((int) $request->input('per_page', 20), 1000);
-        $paginated = $query->orderByDesc('id')->paginate($perPage);
+        $sort = $request->input('sort', 'newest');
+        switch ($sort) {
+            case 'oldest':
+                $query->orderBy('id', 'asc');
+                break;
+            case 'price_high':
+                $query->orderBy('purchase_price', 'desc');
+                break;
+            case 'price_low':
+                $query->orderBy('purchase_price', 'asc');
+                break;
+            case 'newest':
+            default:
+                $query->orderByDesc('id');
+                break;
+        }
+
+        $paginated = $query->paginate($perPage);
 
         return response()->json([
             'success' => true,

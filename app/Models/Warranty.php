@@ -77,6 +77,27 @@ class Warranty extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function getWarrantyStartDateAttribute($value)
+    {
+        if ($value) {
+            return Carbon::parse($value);
+        }
+        return $this->created_at ? Carbon::parse($this->created_at) : null;
+    }
+
+    public function getWarrantyEndDateAttribute($value)
+    {
+        if ($value) {
+            return Carbon::parse($value);
+        }
+        $start = $this->warranty_start_date ?: $this->created_at;
+        if ($start) {
+            $days = $this->duration_days ?: 30;
+            return Carbon::parse($start)->addDays($days);
+        }
+        return null;
+    }
+
     /**
      * Dynamically compute current warranty status based on current date.
      */

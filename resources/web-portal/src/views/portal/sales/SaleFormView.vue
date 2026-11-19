@@ -96,8 +96,8 @@
           </button>
         </div>
 
-        <!-- Customer Search & Walk-in Input -->
-        <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Customer Search & Walk-in Inputs -->
+        <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
             <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Search Registered Customer
@@ -148,11 +148,24 @@
               class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-semibold"
             />
           </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Walk-in Mobile No. (For WhatsApp Bill)
+            </label>
+            <input
+              v-model="form.customer_phone"
+              type="tel"
+              maxlength="10"
+              placeholder="10-digit mobile number"
+              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-semibold font-mono"
+            />
+          </div>
         </div>
       </div>
 
       <!-- 2. Product Items & Inventory Selector Table -->
-      <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
+      <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4 overflow-visible">
         <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3">
           <div class="flex items-center gap-2">
             <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold">
@@ -164,18 +177,30 @@
             </div>
           </div>
 
-          <button
-            type="button"
-            @click="addItemRow"
-            class="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/40 px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800"
-          >
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-            + Add Row
-          </button>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              @click="openScannerModal(null)"
+              class="text-xs font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 px-3 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800 transition cursor-pointer shadow-sm"
+              title="Scan barcode or IMEI sticker to add to cart"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
+              <span>📷 Scan Barcode / IMEI</span>
+            </button>
+
+            <button
+              type="button"
+              @click="addItemRow"
+              class="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/40 px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              + Add Row
+            </button>
+          </div>
         </div>
 
-        <!-- Items Table -->
-        <div class="overflow-x-auto">
+        <!-- Items Table: overflow-visible so dropdown menu floats smoothly without artificial empty space -->
+        <div class="overflow-visible">
           <table class="w-full text-xs">
             <thead>
               <tr class="text-slate-400 uppercase font-semibold border-b border-slate-200 dark:border-slate-700 text-left">
@@ -188,29 +213,117 @@
             </thead>
             <tbody class="divide-y divide-slate-100 dark:divide-slate-700/60 font-medium">
               <tr v-for="(item, idx) in form.items" :key="idx">
-                <td class="py-3 pr-2">
-                  <div class="space-y-1.5">
-                    <!-- Searchable Dropdown to pick from inventory -->
-                    <SearchableSelect
-                      v-model="item.inventory_item_id"
-                      :options="inventoryOptions"
-                      @change="(val) => onInventoryOptionChange(item, val)"
-                      placeholder="-- Pick from Shop Inventory (Optional) --"
-                      searchPlaceholder="Search product by name, brand, SKU..."
-                      minWidth="100%"
-                      popoverMinWidth="100%"
-                      popoverMaxWidth="500px"
-                      :fullWidth="true"
-                    />
+                <td class="py-3 pr-2 align-top">
+                  <!-- Case 1: An inventory product is selected -> Clean single chip, NO duplicate input! -->
+                  <div
+                    v-if="item.inventory_item_id"
+                    class="flex items-center justify-between p-2.5 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/80 transition"
+                  >
+                    <div class="min-w-0 pr-2">
+                      <div class="flex items-center gap-2">
+                        <span class="text-base shrink-0">📦</span>
+                        <span class="font-bold text-slate-900 dark:text-white truncate text-xs">{{ item.item_name }}</span>
+                        <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 shrink-0">
+                          Stock: {{ item.stock ?? getInventoryStock(item.inventory_item_id) }}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      @click="unlinkInventoryItem(item)"
+                      class="text-[11px] font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 px-2 py-1 rounded-lg transition shrink-0 cursor-pointer flex items-center gap-1"
+                      title="Clear inventory item link to change or enter custom item"
+                    >
+                      <span>✕ Change</span>
+                    </button>
+                  </div>
 
-                    <!-- Item Name input -->
-                    <input
-                      v-model="item.item_name"
-                      type="text"
-                      placeholder="e.g. 65W SuperVOOC Charger, Tempered Glass"
-                      required
-                      class="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold"
-                    />
+                  <!-- Case 2: No inventory selected -> Single input with search dropdown like Customer Search -->
+                  <div v-else class="relative">
+                    <div class="relative">
+                      <input
+                        v-model="item.item_name"
+                        @focus="openItemDropdown(idx)"
+                        type="text"
+                        placeholder="Search inventory or type custom item..."
+                        required
+                        class="w-full pl-8 pr-7 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100 placeholder-slate-400"
+                      />
+                      <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      <button
+                        v-if="item.item_name"
+                        type="button"
+                        @click="item.item_name = ''"
+                        class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs cursor-pointer p-0.5"
+                      >
+                        ✕
+                      </button>
+                      <button
+                        v-else
+                        type="button"
+                        @click="openScannerModal(idx)"
+                        class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 text-xs cursor-pointer p-1"
+                        title="Scan barcode or IMEI for this row"
+                      >
+                        📷
+                      </button>
+                    </div>
+
+                    <!-- Invisible Backdrop to close dropdown on click outside -->
+                    <div
+                      v-if="activeItemDropdownIndex === idx"
+                      @click="activeItemDropdownIndex = null"
+                      class="fixed inset-0 z-30"
+                    ></div>
+
+                    <!-- Dropdown List with Stock and Price (like Image 3 & Image 4) -->
+                    <div
+                      v-if="activeItemDropdownIndex === idx"
+                      class="absolute left-0 top-full mt-1.5 w-[380px] sm:w-[480px] max-w-[90vw] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl z-40 max-h-64 overflow-y-auto custom-scroll divide-y divide-slate-100 dark:divide-slate-700/60 animate-in fade-in zoom-in-95"
+                    >
+                      <!-- Sticky Header -->
+                      <div class="px-3.5 py-2 bg-slate-50 dark:bg-slate-900/70 text-[11px] font-bold text-slate-400 flex items-center justify-between sticky top-0 z-10 backdrop-blur-xs">
+                        <span>Shop Inventory Stock ({{ getMatchingInventory(item.item_name).length }})</span>
+                        <span class="text-[10px] text-indigo-500 font-semibold">Click item to select</span>
+                      </div>
+
+                      <!-- Inventory items -->
+                      <div
+                        v-for="inv in getMatchingInventory(item.item_name)"
+                        :key="inv.id"
+                        @click="selectInventoryItem(item, inv)"
+                        class="p-2.5 hover:bg-indigo-50/80 dark:hover:bg-indigo-950/40 cursor-pointer flex items-center justify-between transition text-xs select-none"
+                      >
+                        <div class="min-w-0 pr-3">
+                          <p class="font-bold text-slate-800 dark:text-slate-100 truncate text-xs">{{ inv.name }}</p>
+                          <div class="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
+                            <span
+                              :class="Number(inv.current_stock ?? 0) > 0 ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : 'text-rose-500 font-semibold'"
+                            >
+                              Stock: {{ inv.current_stock ?? 0 }}
+                            </span>
+                            <span v-if="inv.brand" class="truncate">• {{ inv.brand }}</span>
+                            <span v-if="inv.category?.name || inv.category" class="truncate">• {{ inv.category?.name || inv.category }}</span>
+                          </div>
+                        </div>
+                        <div class="flex items-center gap-2.5 shrink-0">
+                          <span class="font-bold text-slate-900 dark:text-white font-mono text-xs">
+                            ₹{{ formatAmount(inv.selling_price) }}
+                          </span>
+                          <span class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800/80 px-2 py-0.5 rounded-lg hover:bg-indigo-600 hover:text-white transition">
+                            Select
+                          </span>
+                        </div>
+                      </div>
+
+                      <!-- No matching inventory -->
+                      <div v-if="getMatchingInventory(item.item_name).length === 0" class="p-3.5 text-center text-xs text-slate-400">
+                        <p class="font-medium text-slate-600 dark:text-slate-300">No inventory item matches "{{ item.item_name }}"</p>
+                        <p class="text-[11px] text-slate-400 mt-0.5">You can keep this as a custom line item or clear to view inventory</p>
+                      </div>
+                    </div>
                   </div>
                 </td>
 
@@ -277,16 +390,50 @@
             </div>
 
             <div>
-              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Amount Paid Now (₹)
-              </label>
+              <div class="flex items-center justify-between mb-1">
+                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Amount Paid Now (₹)
+                </label>
+                <!-- Quick Full Paid Action -->
+                <div class="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    @click="setFullPaid"
+                    class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 px-2 py-0.5 rounded-lg border border-emerald-200 dark:border-emerald-800 transition cursor-pointer flex items-center gap-1 shadow-xs"
+                    title="Auto-fill total amount as paid"
+                  >
+                    <span>⚡ Full Paid</span>
+                    <span v-if="grandTotal > 0" class="font-mono text-[10px] opacity-80">(₹{{ formatAmount(grandTotal) }})</span>
+                  </button>
+                  <button
+                    type="button"
+                    @click="setZeroPaid"
+                    class="text-[10px] font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 px-1.5 py-0.5 rounded-lg transition cursor-pointer"
+                    title="Set paid amount to 0 (Due / Udhar)"
+                  >
+                    ₹0
+                  </button>
+                </div>
+              </div>
               <input
                 v-model.number="form.payment_amount"
                 type="number"
                 step="0.01"
                 min="0"
-                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-emerald-600 font-mono"
+                :max="grandTotal"
+                class="w-full px-3.5 py-2.5 rounded-xl border bg-slate-50 dark:bg-slate-900 text-xs font-bold font-mono transition-colors"
+                :class="[
+                  Number(form.payment_amount || 0) > Number(grandTotal)
+                    ? 'border-rose-500 text-rose-600 focus:ring-rose-500 bg-rose-50/40 dark:bg-rose-950/20'
+                    : 'border-slate-200 dark:border-slate-700 text-emerald-600 focus:ring-emerald-500'
+                ]"
               />
+              <p
+                v-if="Number(form.payment_amount || 0) > Number(grandTotal)"
+                class="text-[11px] text-rose-500 font-bold mt-1 flex items-center gap-1"
+              >
+                <span>⚠️ Paid amount cannot exceed bill amount of ₹{{ formatAmount(grandTotal) }}</span>
+              </p>
             </div>
           </div>
 
@@ -415,6 +562,16 @@
         </form>
       </div>
     </div>
+
+    <!-- Barcode & IMEI Scanner Modal -->
+    <BarcodeScannerModal
+      :is-open="scannerOpen"
+      :title="scannerTitle"
+      :initial-mode="scannerInitialMode"
+      @close="scannerOpen = false"
+      @scan="handleScannedSaleItem"
+      @box-result="handleBoxResult"
+    />
   </div>
 </template>
 
@@ -422,11 +579,14 @@
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToastStore } from '@/stores/toast';
+import { useFilterStore } from '@/stores/filter';
 import { saleApi, customerApi, inventoryApi } from '@/api/endpoints';
 import SearchableSelect from '@/components/common/SearchableSelect.vue';
+import BarcodeScannerModal from '@/components/common/BarcodeScannerModal.vue';
 
 const router = useRouter();
 const toast = useToastStore();
+const filterStore = useFilterStore();
 
 const customerSearchContainer = ref(null);
 
@@ -449,6 +609,101 @@ const errorMsg = ref('');
 // Lists
 const customers = ref([]);
 const inventoryList = ref([]);
+
+// Barcode & IMEI Scanner State
+const scannerOpen = ref(false);
+const scannerTitle = ref('Scan Barcode or IMEI');
+const scannerInitialMode = ref('camera');
+const scannerTargetIndex = ref(null);
+
+function openScannerModal(targetIdx = null) {
+  scannerTargetIndex.value = targetIdx;
+  scannerTitle.value = targetIdx !== null ? 'Scan Item for Row' : 'Scan Product Barcode or IMEI';
+  scannerInitialMode.value = 'camera';
+  scannerOpen.value = true;
+}
+
+async function handleScannedSaleItem(code) {
+  if (!code) return;
+  const clean = code.trim();
+  scannerOpen.value = false;
+
+  // 1. Search in memory inventoryList (by SKU, barcode, or serialized IMEIs)
+  let found = inventoryList.value.find(inv => {
+    if (inv.sku && inv.sku.toLowerCase() === clean.toLowerCase()) return true;
+    if (inv.barcode && inv.barcode.toLowerCase() === clean.toLowerCase()) return true;
+    if (Array.isArray(inv.serials)) {
+      return inv.serials.some(s =>
+        (s.imei1 && s.imei1.toLowerCase() === clean.toLowerCase()) ||
+        (s.imei2 && s.imei2.toLowerCase() === clean.toLowerCase()) ||
+        (s.serial_number && s.serial_number.toLowerCase() === clean.toLowerCase())
+      );
+    }
+    return false;
+  });
+
+  // 2. If not found in memory, query API
+  if (!found) {
+    try {
+      const res = await inventoryApi.list({ search: clean, per_page: 5 });
+      const results = res.data?.data?.data || res.data?.data || [];
+      if (results.length > 0) {
+        found = results[0];
+      }
+    } catch (_) {}
+  }
+
+  if (found) {
+    if (scannerTargetIndex.value !== null && form.items[scannerTargetIndex.value]) {
+      selectInventoryItem(form.items[scannerTargetIndex.value], found);
+    } else {
+      // Check if first row is untouched
+      if (form.items.length === 1 && !form.items[0].inventory_item_id && !form.items[0].item_name) {
+        selectInventoryItem(form.items[0], found);
+      } else {
+        // If already in list and not serialized, increment qty
+        const existing = form.items.find(it => it.inventory_item_id === found.id);
+        if (existing && found.item_type !== 'mobile') {
+          existing.quantity = Number(existing.quantity || 1) + 1;
+          toast.success(`Incremented quantity for ${found.name}!`, 'Item Updated');
+          return;
+        }
+        form.items.push({
+          inventory_item_id: found.id,
+          item_name: found.name,
+          quantity: 1,
+          unit_price: Number(found.selling_price || 0),
+          stock: Number(found.current_stock ?? 0),
+        });
+      }
+    }
+    toast.success(`Added "${found.name}" (₹${found.selling_price || 0})`, 'Item Scanned');
+  } else {
+    // Fallback: put scanned code as item description
+    if (scannerTargetIndex.value !== null && form.items[scannerTargetIndex.value]) {
+      form.items[scannerTargetIndex.value].item_name = clean;
+    } else if (form.items.length === 1 && !form.items[0].inventory_item_id && !form.items[0].item_name) {
+      form.items[0].item_name = clean;
+    } else {
+      form.items.push({
+        inventory_item_id: null,
+        item_name: clean,
+        quantity: 1,
+        unit_price: 0,
+        stock: null,
+      });
+    }
+    toast.info(`Scanned code "${clean}" added. Please specify price.`, 'Scanned');
+  }
+}
+
+function handleBoxResult(res) {
+  if (res.imei1) {
+    handleScannedSaleItem(res.imei1);
+  } else if (res.serialNumber) {
+    handleScannedSaleItem(res.serialNumber);
+  }
+}
 
 // Customer selection
 const customerSearchQuery = ref('');
@@ -502,50 +757,65 @@ const dueAmount = computed(() => {
   return due > 0 ? due : 0;
 });
 
+function setFullPaid() {
+  form.payment_amount = Number(grandTotal.value) || 0;
+}
+
+function setZeroPaid() {
+  form.payment_amount = 0;
+}
+
+// Active dropdown row index for inventory picker
+const activeItemDropdownIndex = ref(null);
+
+function openItemDropdown(idx) {
+  activeItemDropdownIndex.value = idx;
+}
+
+function getMatchingInventory(query) {
+  const q = String(query || '').trim().toLowerCase();
+  if (!q) return inventoryList.value.slice(0, 15);
+  return inventoryList.value.filter(inv => {
+    const name = (inv.name || '').toLowerCase();
+    const brand = (inv.brand || '').toLowerCase();
+    const sku = (inv.sku || '').toLowerCase();
+    const cat = (inv.category?.name || inv.category || '').toLowerCase();
+    return name.includes(q) || brand.includes(q) || sku.includes(q) || cat.includes(q);
+  }).slice(0, 20);
+}
+
+function selectInventoryItem(item, inv) {
+  item.inventory_item_id = inv.id;
+  item.item_name = inv.name;
+  item.unit_price = Number(inv.selling_price || 0);
+  item.stock = Number(inv.current_stock ?? 0);
+  activeItemDropdownIndex.value = null;
+}
+
+function unlinkInventoryItem(item) {
+  item.inventory_item_id = null;
+  item.stock = null;
+  const idx = form.items.indexOf(item);
+  if (idx !== -1) {
+    activeItemDropdownIndex.value = idx;
+  }
+}
+
+function getInventoryStock(id) {
+  if (!id) return 0;
+  const found = inventoryList.value.find(i => i.id === id);
+  return found ? (found.current_stock ?? 0) : 0;
+}
+
 function addItemRow() {
-  form.items.push({ inventory_item_id: null, item_name: '', quantity: 1, unit_price: 0 });
+  form.items.push({ inventory_item_id: null, item_name: '', quantity: 1, unit_price: 0, stock: null });
+  activeItemDropdownIndex.value = form.items.length - 1;
 }
 
 function removeItemRow(index) {
   form.items.splice(index, 1);
-}
-
-const inventoryOptions = computed(() => {
-  return [
-    {
-      value: null,
-      label: '-- Custom Item / Manual Entry --',
-      icon: '✍️',
-    },
-    ...inventoryList.value.map(inv => ({
-      value: inv.id,
-      label: inv.name,
-      stock: Number(inv.current_stock ?? 0),
-      price: Number(inv.selling_price || 0),
-      brand: inv.brand || '',
-      sku: inv.sku || '',
-      item: inv,
-    }))
-  ];
-});
-
-function onInventoryOptionChange(item, selectedId) {
-  item.inventory_item_id = selectedId;
-  if (!selectedId) {
-    return;
-  }
-  const found = inventoryList.value.find(i => i.id === selectedId);
-  if (found) {
-    item.item_name = found.name;
-    item.unit_price = Number(found.selling_price || 0);
-  }
-}
-
-function onInventoryItemSelected(item) {
-  const found = inventoryList.value.find(i => i.id === item.inventory_item_id);
-  if (found) {
-    item.item_name = found.name;
-    item.unit_price = Number(found.selling_price || 0);
+  if (activeItemDropdownIndex.value === index) {
+    activeItemDropdownIndex.value = null;
   }
 }
 
@@ -612,6 +882,17 @@ async function submitSale() {
     return;
   }
 
+  // Strict Validation: Paid amount cannot be greater than the Grand Total
+  const paid = Number(form.payment_amount ?? 0);
+  const total = Number(grandTotal.value);
+  if (paid > total) {
+    const msg = `Paid amount (₹${formatAmount(paid)}) cannot exceed the total bill amount (₹${formatAmount(total)}).`;
+    errorMsg.value = msg;
+    toast.error(msg, 'Invalid Paid Amount');
+    submitting.value = false;
+    return;
+  }
+
   try {
     const payload = {
       customer_id: form.customer_id || null,
@@ -619,7 +900,7 @@ async function submitSale() {
       customer_mobile: form.customer_phone || null,
       sale_type: form.customer_id ? 'regular' : 'quick',
       discount: Number(form.discount || 0),
-      payment_amount: Number(form.payment_amount || grandTotal.value),
+      payment_amount: paid,
       payment_method: form.payment_method === 'credit' ? 'other' : (form.payment_method || 'cash'),
       notes: form.notes || null,
       items: form.items.map(it => ({
@@ -635,11 +916,10 @@ async function submitSale() {
     const saleId = res.data?.data?.id || res.data?.id;
     const invNo = res.data?.data?.invoice_number || res.data?.invoice_number || ('INV-' + saleId);
     toast.success(`Sale invoice #${invNo} generated successfully!`, 'Invoice Created');
-    if (saleId) {
-      router.push(`/sales/${saleId}`);
-    } else {
-      router.push('/sales');
-    }
+
+    // Automatically set period filter to 'today' and redirect to Sales Listing
+    filterStore.setPeriod('today');
+    router.push('/sales');
   } catch (err) {
     const msg = err.response?.data?.message || 'Failed to complete sale. Check inputs.';
     errorMsg.value = msg;

@@ -31,12 +31,37 @@ class CustomerController extends Controller
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('mobile', 'like', "%{$search}%");
+                  ->orWhere('mobile', 'like', "%{$search}%")
+                  ->orWhere('alternate_mobile', 'like', "%{$search}%")
+                  ->orWhere('city', 'like', "%{$search}%")
+                  ->orWhere('address', 'like', "%{$search}%");
             });
         }
 
-        $customers = $query->orderBy('name', 'asc')
-            ->paginate($request->input('per_page', 15));
+        $query->withCount(['repairs', 'sales', 'devices'])
+            ->withSum('sales as sales_total', 'grand_total')
+            ->withSum('sales as sales_due', 'amount_due')
+            ->withSum('repairs as repairs_total', 'final_cost')
+            ->withSum('repairs as repairs_due', 'amount_due');
+
+        $sort = $request->input('sort', 'newest');
+        switch ($sort) {
+            case 'oldest':
+                $query->orderBy('created_at', 'asc')->orderBy('id', 'asc');
+                break;
+            case 'name_asc':
+                $query->orderBy('name', 'asc');
+                break;
+            case 'name_desc':
+                $query->orderBy('name', 'desc');
+                break;
+            case 'newest':
+            default:
+                $query->orderBy('created_at', 'desc')->orderBy('id', 'desc');
+                break;
+        }
+
+        $customers = $query->paginate($request->input('per_page', 15));
 
         return response()->json([
             'success' => true,
@@ -98,6 +123,14 @@ class CustomerController extends Controller
         if ($customer->shop_id !== $shopId) {
             return $this->errorResponse('Unauthorized access to customer record.', 403);
         }
+
+        $customer->loadCount(['repairs', 'sales', 'devices']);
+        $customer->load([
+            'repairs' => fn($q) => $q->latest()->take(50),
+            'sales' => fn($q) => $q->latest()->take(50),
+            'devices' => fn($q) => $q->latest()->take(50),
+            'warranties' => fn($q) => $q->latest()->take(50),
+        ]);
 
         return $this->successResponse(new CustomerResource($customer), 'Customer details retrieved successfully');
     }

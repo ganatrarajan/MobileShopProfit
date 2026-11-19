@@ -3540,9 +3540,9 @@
             const tickets = pageData.data || [];
 
             content.innerHTML = `
-                <div class="card-table" style="padding:24px; margin-bottom:24px; max-width:850px;">
-                    <h3 style="font-size:18px; font-weight:700; margin-bottom:6px;">💬 Mobile App Support Contact Settings</h3>
-                    <p style="font-size:13px; color:#64748b; margin-bottom:16px;">Configure official support email, helpline phone number, and working hours displayed in the Mobile App Settings dialog.</p>
+                <div class="card-table" style="padding:24px; margin-bottom:24px; max-width:920px;">
+                    <h3 style="font-size:18px; font-weight:700; margin-bottom:6px;">💬 Official Support & Contact Settings</h3>
+                    <p style="font-size:13px; color:#64748b; margin-bottom:16px;">Configure official support email, phone helpline, WhatsApp number, and working hours displayed across the Mobile App and Web Portal.</p>
                     <form onsubmit="saveSupportContactInfo(event)" style="display:flex; flex-direction:column; gap:14px;">
                         <div style="display:flex; gap:16px; flex-wrap:wrap;">
                             <div class="form-group" style="flex:1; min-width:240px;">
@@ -3550,8 +3550,12 @@
                                 <input type="email" id="support_email" class="form-control" required placeholder="support@mobileprofits.com">
                             </div>
                             <div class="form-group" style="flex:1; min-width:240px;">
-                                <label style="font-size:12px; font-weight:600; color:#475569;">Support Helpline Number</label>
+                                <label style="font-size:12px; font-weight:600; color:#475569;">Support Helpline Phone</label>
                                 <input type="text" id="support_phone" class="form-control" required placeholder="+91 98765 43210">
+                            </div>
+                            <div class="form-group" style="flex:1; min-width:240px;">
+                                <label style="font-size:12px; font-weight:600; color:#475569;">Official WhatsApp Number</label>
+                                <input type="text" id="support_whatsapp" class="form-control" placeholder="+91 98765 43210">
                             </div>
                         </div>
                         <div class="form-group">
@@ -3636,19 +3640,22 @@
                 const info = res.data;
                 if (document.getElementById('support_email')) document.getElementById('support_email').value = info.support_email || '';
                 if (document.getElementById('support_phone')) document.getElementById('support_phone').value = info.support_phone || '';
+                if (document.getElementById('support_whatsapp')) document.getElementById('support_whatsapp').value = info.whatsapp_number || info.support_phone || '';
                 if (document.getElementById('support_hours')) document.getElementById('support_hours').value = info.support_hours || '';
             }
         }
 
         async function saveSupportContactInfo(e) {
             e.preventDefault();
-            const email = document.getElementById('support_email').value;
-            const phone = document.getElementById('support_phone').value;
-            const hours = document.getElementById('support_hours').value;
+            const email = document.getElementById('support_email').value.trim();
+            const phone = document.getElementById('support_phone').value.trim();
+            const whatsapp = document.getElementById('support_whatsapp') ? document.getElementById('support_whatsapp').value.trim() : phone;
+            const hours = document.getElementById('support_hours').value.trim();
 
             const res = await apiFetch('/support/contact-info', 'POST', {
                 support_email: email,
                 support_phone: phone,
+                whatsapp_number: whatsapp,
                 support_hours: hours
             });
 

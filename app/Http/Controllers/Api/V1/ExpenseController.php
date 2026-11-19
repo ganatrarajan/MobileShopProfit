@@ -77,9 +77,24 @@ class ExpenseController extends Controller
         $totalSum = (float) (clone $query)->sum('amount');
 
         $perPage = (int) $request->input('per_page', 15);
-        $expenses = $query->orderBy('expense_date', 'desc')
-            ->orderBy('id', 'desc')
-            ->paginate($perPage);
+        $sort = $request->input('sort', 'newest');
+        switch ($sort) {
+            case 'oldest':
+                $query->orderBy('expense_date', 'asc')->orderBy('id', 'asc');
+                break;
+            case 'amount_high':
+                $query->orderBy('amount', 'desc');
+                break;
+            case 'amount_low':
+                $query->orderBy('amount', 'asc');
+                break;
+            case 'newest':
+            default:
+                $query->orderBy('expense_date', 'desc')->orderBy('id', 'desc');
+                break;
+        }
+
+        $expenses = $query->paginate($perPage);
 
         return response()->json([
             'success' => true,

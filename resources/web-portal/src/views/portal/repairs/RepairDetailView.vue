@@ -1283,6 +1283,7 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useToastStore } from '@/stores/toast';
 import { repairApi, warrantyApi, technicianApi } from '@/api/endpoints';
+import { formatDate } from '@/utils/date';
 import SearchableSelect from '@/components/common/SearchableSelect.vue';
 import WhatsAppIcon from '@/components/common/WhatsAppIcon.vue';
 
@@ -1648,17 +1649,6 @@ async function deleteRepair() {
 function formatAmount(val) {
   if (val === undefined || val === null || isNaN(val)) return '0.00';
   return Number(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function formatDate(val) {
-  if (!val) return '-';
-  try {
-    const d = new Date(val);
-    if (isNaN(d.getTime())) return String(val).substring(0, 10);
-    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-  } catch {
-    return String(val).substring(0, 10);
-  }
 }
 
 function getCustomerMobile(r) {

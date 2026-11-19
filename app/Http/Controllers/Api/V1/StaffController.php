@@ -101,7 +101,24 @@ class StaffController extends Controller
             }
         }
 
-        $staffList = $query->orderBy('name', 'asc')->get();
+        $sort = $request->input('sort', 'newest');
+        switch ($sort) {
+            case 'oldest':
+                $query->orderBy('created_at', 'asc')->orderBy('id', 'asc');
+                break;
+            case 'name_asc':
+                $query->orderBy('name', 'asc');
+                break;
+            case 'name_desc':
+                $query->orderBy('name', 'desc');
+                break;
+            case 'newest':
+            default:
+                $query->orderBy('created_at', 'desc')->orderBy('id', 'desc');
+                break;
+        }
+
+        $staffList = $query->get();
 
         $shop = Shop::with('latestSubscription.plan')->find($shopId);
         $maxStaff = $shop ? $shop->effective_max_staff : 0;

@@ -101,8 +101,21 @@ class RepairController extends Controller
             $query->whereDate('date_received', '<=', $request->input('date_to'));
         }
 
-        $repairs = $query->orderBy('id', 'desc')
-            ->paginate($request->input('per_page', 15));
+        $sort = $request->input('sort', 'newest');
+        switch ($sort) {
+            case 'oldest':
+                $query->orderBy('id', 'asc');
+                break;
+            case 'cost_high':
+                $query->orderBy('final_cost', 'desc');
+                break;
+            case 'newest':
+            default:
+                $query->orderBy('id', 'desc');
+                break;
+        }
+
+        $repairs = $query->paginate($request->input('per_page', 15));
 
         return response()->json([
             'success' => true,

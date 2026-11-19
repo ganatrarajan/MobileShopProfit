@@ -115,8 +115,18 @@
           minWidth="140px"
         />
 
+        <!-- Sort Filter -->
+        <SearchableSelect
+          v-model="sortBy"
+          :options="sortOptions"
+          @change="onFilterChange"
+          placeholder="Sort By"
+          minWidth="145px"
+          prefixIcon="↕️"
+        />
+
         <button
-          v-if="searchQuery || selectedStatus || filterStore.selectedPeriod !== 'this_month'"
+          v-if="searchQuery || selectedStatus || filterStore.selectedPeriod !== 'this_month' || sortBy !== 'newest'"
           @click="resetFilters"
           type="button"
           class="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold transition-all cursor-pointer"
@@ -369,6 +379,7 @@ import { repairApi } from '@/api/endpoints';
 import PaginationBar from '@/components/common/PaginationBar.vue';
 import SearchableSelect from '@/components/common/SearchableSelect.vue';
 import WhatsAppIcon from '@/components/common/WhatsAppIcon.vue';
+import { formatDate } from '@/utils/date';
 
 const route = useRoute();
 const filterStore = useFilterStore();
@@ -378,6 +389,12 @@ const repairs = ref([]);
 const loading = ref(false);
 const searchQuery = ref(route.query.search || '');
 const selectedStatus = ref(route.query.status || '');
+const sortBy = ref('newest');
+const sortOptions = [
+  { value: 'newest', label: 'Newest First (Recent)' },
+  { value: 'oldest', label: 'Oldest First' },
+  { value: 'cost_high', label: 'Cost / Amount (High to Low)' },
+];
 const currentPage = ref(1);
 const totalPages = ref(1);
 const totalCount = ref(0);
@@ -407,6 +424,7 @@ function debounceSearch() {
 function resetFilters() {
   searchQuery.value = '';
   selectedStatus.value = '';
+  sortBy.value = 'newest';
   filterStore.setPeriod('this_month');
   currentPage.value = 1;
   fetchRepairs();
@@ -429,6 +447,7 @@ async function fetchRepairs() {
       status: selectedStatus.value || undefined,
       repair_status: selectedStatus.value || undefined,
       period: periodVal !== 'all_time' ? periodVal : undefined,
+      sort: sortBy.value || 'newest',
     });
     const payload = res.data?.data;
     if (payload?.data) {
@@ -587,11 +606,6 @@ function formatAmount(amt) {
   return (Number(amt) || 0).toLocaleString('en-IN');
 }
 
-function formatDate(d) {
-  if (!d) return '-';
-  const date = new Date(d);
-  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-}
 
 function confirmDeleteRepair(repair) {
   repairToDelete.value = repair;

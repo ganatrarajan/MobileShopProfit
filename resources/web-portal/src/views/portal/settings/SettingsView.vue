@@ -93,26 +93,105 @@
         <button
           type="submit"
           :disabled="saving"
-          class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm shadow-md shadow-indigo-600/20 disabled:opacity-50 transition"
+          class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm shadow-md shadow-indigo-600/20 disabled:opacity-50 transition cursor-pointer"
         >
           {{ saving ? 'Saving Changes...' : 'Save Settings' }}
         </button>
       </div>
     </form>
+
+    <!-- Official Support & Helpline Details (from Admin Panel SystemSetting) -->
+    <div class="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200/80 dark:border-slate-800/80 p-6 shadow-sm space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div>
+          <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">
+            Official Care & Helpline
+          </span>
+          <h3 class="font-bold text-slate-900 dark:text-white mt-1">Platform Admin Support Information</h3>
+        </div>
+        <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">
+          ⏱️ {{ adminContact.support_hours }}
+        </span>
+      </div>
+
+      <p class="text-xs text-slate-500 dark:text-slate-400">
+        For plan renewal, shop license expansion, or assistance, reach out directly to the official admin support team:
+      </p>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <!-- WhatsApp -->
+        <a
+          :href="`https://wa.me/${cleanPhone(adminContact.whatsapp_number)}?text=${encodeURIComponent('Hello Admin, I need support with my shop account on MyRepairHub')}`"
+          target="_blank"
+          class="flex items-center gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 hover:border-emerald-500/50 dark:hover:border-emerald-500/50 hover:bg-emerald-50/20 transition group"
+        >
+          <div class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
+            <WhatsAppIcon sizeClass="w-5 h-5 text-emerald-600" />
+          </div>
+          <div class="min-w-0">
+            <p class="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">Official WhatsApp</p>
+            <p class="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 transition truncate">{{ adminContact.whatsapp_number }}</p>
+          </div>
+        </a>
+
+        <!-- Phone Helpline -->
+        <a
+          :href="`tel:${cleanPhone(adminContact.support_phone)}`"
+          class="flex items-center gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 hover:border-indigo-500/50 dark:hover:border-indigo-500/50 hover:bg-indigo-50/20 transition group"
+        >
+          <div class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+          </div>
+          <div class="min-w-0">
+            <p class="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">Help Helpline</p>
+            <p class="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 transition truncate">{{ adminContact.support_phone }}</p>
+          </div>
+        </a>
+
+        <!-- Support Email -->
+        <a
+          :href="`mailto:${adminContact.support_email}`"
+          class="flex items-center gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 hover:border-purple-500/50 dark:hover:border-purple-500/50 hover:bg-purple-50/20 transition group"
+        >
+          <div class="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+          </div>
+          <div class="min-w-0">
+            <p class="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">Email Address</p>
+            <p class="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-purple-600 transition truncate">{{ adminContact.support_email }}</p>
+          </div>
+        </a>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
-import { shopApi } from '@/api/endpoints';
+import { shopApi, supportApi } from '@/api/endpoints';
 import { useAuthStore } from '@/stores/auth';
 import { useToastStore } from '@/stores/toast';
+import WhatsAppIcon from '@/components/common/WhatsAppIcon.vue';
 
 const authStore = useAuthStore();
 const toast = useToastStore();
 const saving = ref(false);
 const successMsg = ref('');
 const errorMsg = ref('');
+
+const adminContact = reactive({
+  support_phone: '+91 98765 43210',
+  whatsapp_number: '+91 98765 43210',
+  support_email: 'support@mobileprofits1.com',
+  support_hours: 'Mon - Sat: 9:00 AM - 8:00 PM IST',
+});
+
+function cleanPhone(phone) {
+  if (!phone) return '919876543210';
+  const digits = String(phone).replace(/\D/g, '');
+  if (digits.length === 10) return `91${digits}`;
+  return digits;
+}
 
 const form = reactive({
   name: '',
@@ -127,6 +206,21 @@ const form = reactive({
   state: '',
   pincode: '',
 });
+
+async function loadAdminContact() {
+  try {
+    const res = await supportApi.contactInfo();
+    const info = res.data?.data;
+    if (info) {
+      if (info.support_phone) adminContact.support_phone = info.support_phone;
+      if (info.whatsapp_number) adminContact.whatsapp_number = info.whatsapp_number;
+      if (info.support_email) adminContact.support_email = info.support_email;
+      if (info.support_hours) adminContact.support_hours = info.support_hours;
+    }
+  } catch (err) {
+    console.error('Failed to load support contact info:', err);
+  }
+}
 
 async function loadShop() {
   try {
@@ -173,5 +267,6 @@ async function saveShop() {
 
 onMounted(() => {
   loadShop();
+  loadAdminContact();
 });
 </script>

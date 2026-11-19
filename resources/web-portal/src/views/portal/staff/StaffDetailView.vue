@@ -538,6 +538,7 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { staffApi } from '@/api/endpoints';
+import { formatDate } from '@/utils/date';
 import { useToastStore } from '@/stores/toast';
 import { useAuthStore } from '@/stores/auth';
 import WhatsAppIcon from '@/components/common/WhatsAppIcon.vue';
@@ -603,17 +604,6 @@ function formatAmount(val) {
   return Number(val).toLocaleString('en-IN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  });
-}
-
-function formatDate(dateStr) {
-  if (!dateStr) return '-';
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return dateStr;
-  return d.toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
   });
 }
 

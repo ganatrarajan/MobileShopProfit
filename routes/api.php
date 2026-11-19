@@ -222,6 +222,7 @@ Route::prefix('v1')->group(function () {
 
         // Auth User Profile & Password Change
         Route::get('/auth/me', [AuthController::class, 'me']);
+        Route::get('/auth/session-check', [AuthController::class, 'sessionCheck']);
         Route::post('/auth/update-profile', [AuthController::class, 'updateProfile']);
         Route::post('/auth/profile/send-otp', [AuthController::class, 'sendProfileUpdateOtp'])->middleware('throttle:10,1');
         Route::post('/auth/profile/verify-otp', [AuthController::class, 'verifyProfileUpdateOtp'])->middleware('throttle:10,1');
@@ -339,6 +340,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/reports/payments', [ReportController::class, 'payments']);
         Route::get('/reports/customers', [ReportController::class, 'customers']);
         Route::get('/reports/warranties', [ReportController::class, 'warranties']);
+        Route::get('/reports/export', [ReportController::class, 'export']);
     });
 });
 

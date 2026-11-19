@@ -4,6 +4,7 @@ import api from './index';
 export const authApi = {
   login: (data) => api.post('/auth/login', data),
   me: () => api.get('/auth/me'),
+  sessionCheck: () => api.get('/auth/session-check'),
   updateProfile: (data) => api.post('/auth/update-profile', data),
   changePassword: (data) => api.post('/auth/change-password', data),
   logout: () => api.post('/auth/logout'),
@@ -113,9 +114,12 @@ export const warrantyApi = {
   get: (id) => api.get(`/warranties/${id}`),
   create: (data) => api.post('/warranties', data),
   update: (id, data) => api.put(`/warranties/${id}`, data),
-  delete: (id) => api.post(`/warranties/${id}/delete`),
+  delete: (id) => api.delete(`/warranties/${id}`),
   getClaims: (id) => api.get(`/warranties/${id}/claims`),
   addClaim: (id, data) => api.post(`/warranties/${id}/claims`, data),
+  allClaims: (params) => api.get('/warranty-claims', { params }),
+  updateClaim: (claimId, data) => api.put(`/warranty-claims/${claimId}`, data),
+  deleteClaim: (claimId) => api.delete(`/warranty-claims/${claimId}`),
 };
 
 // ── Used Mobiles ──
@@ -163,6 +167,7 @@ export const reportApi = {
   payments: (params) => api.get('/reports/payments', { params }),
   customers: (params) => api.get('/reports/customers', { params }),
   warranties: (params) => api.get('/reports/warranties', { params }),
+  export: (params) => api.get('/reports/export', { params, responseType: 'blob' }),
 };
 
 // ── Subscription ──
@@ -177,6 +182,8 @@ export const deviceApi = {
   list: (params) => api.get('/devices', { params }),
   listForCustomer: (customerId) => api.get(`/customers/${customerId}/devices`),
   createForCustomer: (customerId, data) => api.post(`/customers/${customerId}/devices`, data),
+  update: (id, data) => api.put(`/devices/${id}`, data),
+  delete: (id) => api.delete(`/devices/${id}`),
   search: (params) => api.get('/devices/search', { params }),
   brands: () => api.get('/device-brands'),
   models: (params) => api.get('/device-models', { params }),

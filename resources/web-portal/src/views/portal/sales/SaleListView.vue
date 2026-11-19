@@ -119,9 +119,20 @@
             minWidth="160px"
           />
 
+          <!-- Sort Dropdown -->
+          <SearchableSelect
+            v-model="sortBy"
+            :options="sortOptions"
+            @change="onSortChange"
+            placeholder="Sort Sales"
+            searchPlaceholder="Search sort..."
+            minWidth="150px"
+            prefixIcon="↕️"
+          />
+
           <!-- Reset Button -->
           <button
-            v-if="searchQuery || selectedPaymentStatus || selectedSaleType !== 'all' || filterStore.selectedPeriod !== 'this_month'"
+            v-if="searchQuery || selectedPaymentStatus || selectedSaleType !== 'all' || filterStore.selectedPeriod !== 'this_month' || sortBy !== 'newest'"
             @click="resetFilters"
             type="button"
             class="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
@@ -174,7 +185,7 @@
             <tr class="border-b border-slate-100 dark:border-slate-800/80 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-50/60 dark:bg-slate-900/40">
               <th class="py-3.5 px-4 pl-6">Invoice # & Date</th>
               <th class="py-3.5 px-4">Customer</th>
-              <th class="py-3.5 px-4">Items Summary</th>
+              <th class="py-3.5 px-4">Items & Quantity</th>
               <th class="py-3.5 px-4">Bill & Outstanding</th>
               <th class="py-3.5 px-4">Cost & Net Profit</th>
               <th class="py-3.5 px-4">Status</th>
@@ -236,14 +247,18 @@
                 </div>
               </td>
 
-              <!-- Items Summary -->
+              <!-- Items Summary & Quantity -->
               <td class="py-3.5 px-4">
                 <div class="flex items-center gap-1.5">
-                  <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700/50">
-                    {{ getItemsCount(sale) }} items
+                  <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60">
+                    <span>📦</span>
+                    <span>{{ getTotalSaleQuantity(sale) }} Qty</span>
+                  </span>
+                  <span v-if="sale.items && sale.items.length > 1" class="text-[10.5px] text-slate-400 font-semibold">
+                    ({{ sale.items.length }} line items)
                   </span>
                 </div>
-                <p class="text-[11px] text-slate-400 truncate max-w-[200px] mt-0.5" :title="getItemsPreview(sale)">
+                <p class="text-[11.5px] font-medium text-slate-800 dark:text-slate-200 truncate max-w-[240px] mt-1" :title="getItemsPreview(sale)">
                   {{ getItemsPreview(sale) }}
                 </p>
               </td>
@@ -315,8 +330,9 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
                   </button>
 
-                  <!-- WhatsApp Bill -->
+                  <!-- WhatsApp Bill (Only if mobile number exists) -->
                   <button
+                    v-if="getCustomerPhone(sale)"
                     @click="openWhatsAppModal(sale)"
                     class="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition cursor-pointer"
                     title="Send WhatsApp Bill"
@@ -332,15 +348,6 @@
                   >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                   </router-link>
-
-                  <!-- Edit Sale Info -->
-                  <button
-                    @click="openEditSaleModal(sale)"
-                    class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800 transition cursor-pointer"
-                    title="Edit Customer / Notes"
-                  >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                  </button>
 
                   <!-- Delete -->
                   <button
@@ -483,90 +490,6 @@
       </div>
     </div>
 
-    <!-- Edit Sale Modal (Scroll-Safe, Non-Cutoff) -->
-    <div
-      v-if="editModalOpen"
-      class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-5"
-      @wheel.stop
-    >
-      <div class="bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800/80 rounded-3xl w-full max-w-md shadow-2xl flex flex-col max-h-[85vh] overflow-hidden animate-in fade-in zoom-in-95">
-        <!-- Pinned Header -->
-        <div class="p-5 sm:p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-slate-900/50">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-            </div>
-            <div>
-              <h3 class="text-base font-bold text-slate-900 dark:text-white">Edit Invoice Details</h3>
-              <p class="text-xs text-slate-400">#{{ editingSale?.invoice_number || editingSale?.id }}</p>
-            </div>
-          </div>
-          <button @click="editModalOpen = false" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">✕</button>
-        </div>
-
-        <!-- Scrollable Body -->
-        <div class="overflow-y-auto custom-scroll flex-1 p-5 sm:p-6 space-y-4 pb-8">
-          <div>
-            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Customer Name</label>
-            <input
-              v-model="editForm.customer_name"
-              type="text"
-              placeholder="e.g. Rahul Sharma"
-              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 font-semibold text-xs"
-            />
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Customer Mobile</label>
-            <input
-              v-model="editForm.customer_mobile"
-              type="tel"
-              placeholder="10-digit mobile number"
-              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 font-semibold text-xs font-mono"
-            />
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Sale Date</label>
-            <input
-              v-model="editForm.sale_date"
-              type="date"
-              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 font-semibold text-xs"
-            />
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Invoice Notes / Remarks</label>
-            <textarea
-              v-model="editForm.notes"
-              rows="3"
-              placeholder="Additional comments or warranty notes"
-              class="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-semibold leading-relaxed"
-            ></textarea>
-          </div>
-        </div>
-
-        <!-- Pinned Footer -->
-        <div class="p-5 sm:p-6 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5 shrink-0 bg-slate-50/50 dark:bg-slate-900/50">
-          <button
-            @click="editModalOpen = false"
-            type="button"
-            class="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-          >
-            Cancel
-          </button>
-          <button
-            @click="submitEditSale"
-            :disabled="editing"
-            class="px-5 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 disabled:opacity-50 transition flex items-center gap-1.5"
-          >
-            <svg v-if="editing" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
-            {{ editing ? 'Saving...' : 'Update Details' }}
-          </button>
-        </div>
-      </div>
-    </div>
-
     <!-- WhatsApp Share Modal (Scroll-Safe, Non-Cutoff) -->
     <div
       v-if="whatsAppModalOpen"
@@ -662,6 +585,7 @@ import { saleApi } from '@/api/endpoints';
 import PaginationBar from '@/components/common/PaginationBar.vue';
 import SearchableSelect from '@/components/common/SearchableSelect.vue';
 import WhatsAppIcon from '@/components/common/WhatsAppIcon.vue';
+import { formatDate } from '@/utils/date';
 
 const filterStore = useFilterStore();
 const toast = useToastStore();
@@ -671,6 +595,14 @@ const paymentStatusOptions = [
   { value: 'paid', label: 'Paid Full' },
   { value: 'partial', label: 'Partially Paid' },
   { value: 'unpaid', label: 'Unpaid / Due' },
+];
+
+const sortBy = ref('newest');
+const sortOptions = [
+  { value: 'newest', label: 'Newest First (Recent)' },
+  { value: 'oldest', label: 'Oldest First' },
+  { value: 'amount_high', label: 'Amount (High to Low)' },
+  { value: 'amount_low', label: 'Amount (Low to High)' },
 ];
 
 const paymentMethodOptions = [
@@ -736,16 +668,6 @@ const collectForm = reactive({
   notes: '',
 });
 
-const editModalOpen = ref(false);
-const editingSale = ref(null);
-const editing = ref(false);
-const editForm = reactive({
-  customer_name: '',
-  customer_mobile: '',
-  sale_date: '',
-  notes: '',
-});
-
 const whatsAppModalOpen = ref(false);
 const activeWhatsAppSale = ref(null);
 const whatsAppMessageText = ref('');
@@ -769,6 +691,11 @@ function onStatusChange() {
   fetchSales();
 }
 
+function onSortChange() {
+  currentPage.value = 1;
+  fetchSales();
+}
+
 function setPaymentStatus(val) {
   selectedPaymentStatus.value = val;
   currentPage.value = 1;
@@ -785,6 +712,7 @@ function resetFilters() {
   searchQuery.value = '';
   selectedPaymentStatus.value = '';
   selectedSaleType.value = 'all';
+  sortBy.value = 'newest';
   filterStore.setPeriod('this_month');
   currentPage.value = 1;
   fetchSales();
@@ -801,6 +729,7 @@ async function fetchSales() {
       payment_status: selectedPaymentStatus.value || undefined,
       sale_type: selectedSaleType.value !== 'all' ? selectedSaleType.value : undefined,
       period: periodVal !== 'all_time' ? periodVal : undefined,
+      sort: sortBy.value || 'newest',
     });
 
     const dataPayload = res.data?.data;
@@ -866,17 +795,27 @@ function getCustomerPhone(sale) {
   return sale.customer?.mobile || sale.customer?.phone || sale.customer_mobile || sale.customer_phone || '';
 }
 
-function getItemsCount(sale) {
+function getTotalSaleQuantity(sale) {
   if (!sale) return 0;
-  if (Array.isArray(sale.items)) return sale.items.length;
-  return Number(sale.items_count || 1);
+  if (Array.isArray(sale.items) && sale.items.length > 0) {
+    return sale.items.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
+  }
+  return Number(sale.total_quantity || sale.quantity || sale.items_count || 1);
+}
+
+function getItemsCount(sale) {
+  return getTotalSaleQuantity(sale);
 }
 
 function getItemsPreview(sale) {
   if (!sale || !Array.isArray(sale.items) || sale.items.length === 0) {
     return 'Retail POS Bill';
   }
-  return sale.items.map(i => i.product_name || i.item_name || 'Item').join(', ');
+  return sale.items.map(i => {
+    const qty = Number(i.quantity) || 1;
+    const name = i.product_name || i.item_name || 'Item';
+    return `${name} (x${qty})`;
+  }).join(', ');
 }
 
 function getPaymentStatusLabel(status) {
@@ -909,16 +848,6 @@ function formatAmount(amt) {
   return (Number(amt) || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 }
 
-function formatDate(d) {
-  if (!d) return '-';
-  try {
-    const date = new Date(d);
-    if (isNaN(date.getTime())) return String(d).substring(0, 10);
-    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  } catch {
-    return String(d).substring(0, 10);
-  }
-}
 
 // Collect Payment Actions
 function openCollectPaymentModal(sale) {
@@ -952,37 +881,6 @@ async function submitCollectPayment() {
     toast.error(msg, 'Payment Failed');
   } finally {
     collecting.value = false;
-  }
-}
-
-// Edit Sale Actions
-function openEditSaleModal(sale) {
-  editingSale.value = sale;
-  editForm.customer_name = sale.customer_name || sale.customer?.name || '';
-  editForm.customer_mobile = sale.customer_mobile || sale.customer?.mobile || '';
-  editForm.sale_date = sale.sale_date ? sale.sale_date.substring(0, 10) : (sale.created_at ? sale.created_at.substring(0, 10) : '');
-  editForm.notes = sale.notes || '';
-  editModalOpen.value = true;
-}
-
-async function submitEditSale() {
-  if (!editingSale.value) return;
-  editing.value = true;
-  try {
-    await saleApi.update(editingSale.value.id, {
-      customer_name: editForm.customer_name || undefined,
-      customer_mobile: editForm.customer_mobile || undefined,
-      sale_date: editForm.sale_date || undefined,
-      notes: editForm.notes,
-    });
-    editModalOpen.value = false;
-    toast.success('Sale invoice details updated.', 'Invoice Updated');
-    fetchSales();
-  } catch (err) {
-    const msg = err.response?.data?.message || 'Failed to update invoice.';
-    toast.error(msg, 'Update Failed');
-  } finally {
-    editing.value = false;
   }
 }
 

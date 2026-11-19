@@ -278,7 +278,7 @@
                 <span>👤</span>
                 <span>Seller & Intake Info</span>
               </h3>
-              <span class="font-mono text-xs text-slate-400">Date: {{ mobile.purchase_date || 'N/A' }}</span>
+              <span class="font-mono text-xs text-slate-400">Date: {{ formatDate(mobile.purchase_date || mobile.created_at) }}</span>
             </div>
 
             <div class="flex items-center justify-between">
@@ -321,7 +321,7 @@
                 <span>🛒</span>
                 <span>Sold Customer Information</span>
               </h3>
-              <span class="font-mono text-xs text-emerald-600 dark:text-emerald-400">Sold: {{ mobile.sale_date || 'N/A' }}</span>
+              <span class="font-mono text-xs text-emerald-600 dark:text-emerald-400">Sold: {{ formatDate(mobile.sale_date || mobile.updated_at) }}</span>
             </div>
 
             <div class="flex items-center justify-between">
@@ -524,6 +524,434 @@
         </form>
       </div>
     </div>
+
+    <!-- EDIT USED MOBILE MODAL -->
+    <div
+      v-if="editModalOpen"
+      class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 overflow-y-auto flex items-center justify-center p-3 sm:p-5"
+      @wheel.stop
+    >
+      <div class="relative bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800/80 rounded-3xl w-full max-w-2xl shadow-2xl max-h-[calc(100vh-2.5rem)] my-auto flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <!-- Header -->
+        <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800/80 flex justify-between items-center bg-indigo-50/50 dark:bg-indigo-950/30 shrink-0">
+          <div>
+            <h3 class="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span>✏️</span>
+              <span>Edit Pre-Owned Mobile</span>
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">{{ mobile?.brand }} {{ mobile?.model }} • Reference #{{ mobile?.purchase_order_number || mobile?.id }}</p>
+          </div>
+          <button @click="editModalOpen = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">✕</button>
+        </div>
+
+        <form @submit.prevent="executeEdit" class="flex flex-col flex-1 overflow-hidden min-h-0">
+          <div class="p-6 space-y-4 overflow-y-auto custom-scroll flex-1 pb-8">
+            <!-- 1. Device Brand & Model -->
+            <div class="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-900/40 border border-slate-200/80 dark:border-slate-800/80 space-y-3">
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                📱 Device Brand & Model <span class="text-rose-500">*</span>
+              </label>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <!-- Brand Searchable Select -->
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Brand *</label>
+                  <SearchableSelect
+                    v-model="editForm.brand"
+                    :options="catalogBrands"
+                    placeholder="Select or type brand..."
+                    searchPlaceholder="Search mobile brands..."
+                    :allowCustom="true"
+                    :clearable="true"
+                    :fullWidth="true"
+                    direction="down"
+                    @change="onEditBrandSelected"
+                  />
+                </div>
+
+                <!-- Model Searchable Select -->
+                <div>
+                  <div class="flex items-center justify-between mb-1">
+                    <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400">Model *</label>
+                    <span v-if="loadingModels" class="text-[10px] text-indigo-600 font-semibold animate-pulse">Loading...</span>
+                    <span v-else-if="catalogModels.length" class="text-[10px] text-slate-400 font-medium">({{ catalogModels.length }} models)</span>
+                  </div>
+                  <SearchableSelect
+                    v-model="editForm.model"
+                    :options="catalogModels"
+                    :placeholder="catalogModels.length ? `Select or type model (${catalogModels.length} available)...` : 'Select or type model...'"
+                    searchPlaceholder="Search mobile models..."
+                    :allowCustom="true"
+                    :clearable="true"
+                    :fullWidth="true"
+                    direction="down"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. Device Hardware Specs (RAM, Storage, Color, Battery Health) -->
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">RAM</label>
+                <SearchableSelect
+                  v-model="editForm.ram"
+                  :options="ramOptions"
+                  placeholder="Select RAM"
+                  searchPlaceholder="Search or enter RAM..."
+                  :allowCustom="true"
+                  :fullWidth="true"
+                  direction="down"
+                />
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Storage</label>
+                <SearchableSelect
+                  v-model="editForm.storage"
+                  :options="storageOptions"
+                  placeholder="Select Storage"
+                  searchPlaceholder="Search or enter Storage..."
+                  :allowCustom="true"
+                  :fullWidth="true"
+                  direction="down"
+                />
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Color / Variant</label>
+                <input
+                  v-model="editForm.color"
+                  type="text"
+                  placeholder="e.g. Space Grey"
+                  class="w-full px-3 py-2 text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100"
+                />
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Battery Health (%)</label>
+                <input
+                  v-model.number="editForm.battery_health"
+                  type="number"
+                  min="1"
+                  max="100"
+                  placeholder="e.g. 88"
+                  class="w-full px-3 py-2 text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100"
+                />
+              </div>
+            </div>
+
+            <!-- 3. Identifiers: IMEI 1, IMEI 2, Serial Number -->
+            <div class="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-900/40 border border-slate-200/80 dark:border-slate-800/80 space-y-2">
+              <div class="flex items-center justify-between">
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  🏷️ Serial & IMEI Identifiers
+                </label>
+                <button
+                  type="button"
+                  @click="openEditScanner('box', 'Auto-Scan Phone Box Sticker', 'box')"
+                  class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer"
+                  title="Scan phone box sticker"
+                >
+                  <span>⚡</span> Auto-Scan Box
+                </button>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <!-- IMEI 1 (Optional, matching mobile app) -->
+                <div>
+                  <div class="flex items-center justify-between mb-1">
+                    <label class="text-[10px] font-bold uppercase text-slate-500">IMEI 1 (Optional)</label>
+                    <button
+                      type="button"
+                      @click="openEditScanner('imei1', 'Scan Primary IMEI 1', 'camera')"
+                      class="text-[10px] font-bold text-indigo-600 hover:underline cursor-pointer"
+                    >
+                      📷 Scan
+                    </button>
+                  </div>
+                  <div class="relative">
+                    <input
+                      v-model="editForm.imei1"
+                      type="text"
+                      maxlength="16"
+                      placeholder="15-digit IMEI (Optional)"
+                      class="w-full pl-3 pr-7 py-2 text-xs font-mono font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100"
+                    />
+                    <button
+                      type="button"
+                      @click="openEditScanner('imei1', 'Scan Primary IMEI 1', 'camera')"
+                      class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 cursor-pointer"
+                    >
+                      📷
+                    </button>
+                  </div>
+                </div>
+
+                <!-- IMEI 2 -->
+                <div>
+                  <div class="flex items-center justify-between mb-1">
+                    <label class="text-[10px] font-bold uppercase text-slate-500">IMEI 2 (Optional)</label>
+                    <button
+                      type="button"
+                      @click="openEditScanner('imei2', 'Scan Secondary IMEI 2', 'camera')"
+                      class="text-[10px] font-bold text-indigo-600 hover:underline cursor-pointer"
+                    >
+                      📷 Scan
+                    </button>
+                  </div>
+                  <div class="relative">
+                    <input
+                      v-model="editForm.imei2"
+                      type="text"
+                      maxlength="16"
+                      placeholder="Secondary IMEI"
+                      class="w-full pl-3 pr-7 py-2 text-xs font-mono font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100"
+                    />
+                    <button
+                      type="button"
+                      @click="openEditScanner('imei2', 'Scan Secondary IMEI 2', 'camera')"
+                      class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 cursor-pointer"
+                    >
+                      📷
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Serial Number -->
+                <div>
+                  <div class="flex items-center justify-between mb-1">
+                    <label class="text-[10px] font-bold uppercase text-slate-500">Serial #</label>
+                    <button
+                      type="button"
+                      @click="openEditScanner('serial_number', 'Scan Device Serial Number', 'camera')"
+                      class="text-[10px] font-bold text-indigo-600 hover:underline cursor-pointer"
+                    >
+                      📷 Scan
+                    </button>
+                  </div>
+                  <div class="relative">
+                    <input
+                      v-model="editForm.serial_number"
+                      type="text"
+                      placeholder="Device Serial Number"
+                      class="w-full pl-3 pr-7 py-2 text-xs font-mono font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100"
+                    />
+                    <button
+                      type="button"
+                      @click="openEditScanner('serial_number', 'Scan Device Serial Number', 'camera')"
+                      class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 cursor-pointer"
+                    >
+                      📷
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 4. Condition & Pricing -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Physical Condition</label>
+                <SearchableSelect
+                  v-model="editForm.device_condition"
+                  :options="conditionOptions"
+                  placeholder="Select Condition"
+                  minWidth="100%"
+                  :searchable="false"
+                />
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Expected Resale Price (₹)</label>
+                <input
+                  v-model.number="editForm.expected_selling_price"
+                  type="number"
+                  step="1"
+                  min="0"
+                  placeholder="e.g. 15000"
+                  class="w-full px-3 py-2 text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100"
+                />
+              </div>
+            </div>
+
+            <!-- Accessories Chips -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Accessories Included</label>
+              <div class="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  v-for="acc in availableAccessories"
+                  :key="acc"
+                  @click="toggleEditAccessory(acc)"
+                  :class="editForm.accessories_included.includes(acc)
+                    ? 'bg-emerald-600 text-white font-bold shadow-xs'
+                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:bg-slate-100'"
+                  class="px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer"
+                >
+                  {{ editForm.accessories_included.includes(acc) ? '✓ ' : '+ ' }}{{ acc }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Condition Notes -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Defects & Condition Notes</label>
+              <textarea
+                v-model="editForm.condition_notes"
+                rows="2"
+                placeholder="e.g. Minor scratches on bezel, 100% genuine display, camera working perfectly"
+                class="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100"
+              ></textarea>
+            </div>
+
+            <!-- 5. Purchase Financials -->
+            <div class="p-3.5 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 space-y-3">
+              <label class="block text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                💰 Purchase Financials
+              </label>
+
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Purchase Date *</label>
+                  <input
+                    v-model="editForm.purchase_date"
+                    type="date"
+                    required
+                    class="w-full px-3 py-2 text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Purchase Price (₹) *</label>
+                  <input
+                    v-model.number="editForm.purchase_price"
+                    type="number"
+                    step="1"
+                    min="0"
+                    required
+                    class="w-full px-3 py-2 text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Payment Mode</label>
+                  <SearchableSelect
+                    v-model="editForm.payment_mode"
+                    :options="paymentModeOptions"
+                    placeholder="Payment Mode"
+                    minWidth="100%"
+                    :searchable="false"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Purchase Notes</label>
+                <input
+                  v-model="editForm.purchase_notes"
+                  type="text"
+                  placeholder="Notes from initial purchase..."
+                  class="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100"
+                />
+              </div>
+            </div>
+
+            <!-- 6. Seller Details -->
+            <div class="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-900/40 border border-slate-200/80 dark:border-slate-800/80 space-y-3">
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                👤 Seller Profile
+              </label>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Seller Name *</label>
+                  <input
+                    v-model="editForm.seller_name"
+                    type="text"
+                    required
+                    placeholder="Full name"
+                    class="w-full px-3 py-2 text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Seller Phone *</label>
+                  <input
+                    v-model="editForm.seller_phone"
+                    type="tel"
+                    maxlength="10"
+                    required
+                    placeholder="10-digit mobile"
+                    class="w-full px-3 py-2 text-xs font-mono font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Seller Address</label>
+                <input
+                  v-model="editForm.seller_address"
+                  type="text"
+                  placeholder="Full residence or shop address"
+                  class="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100"
+                />
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Govt ID Type</label>
+                  <SearchableSelect
+                    v-model="editForm.id_proof_type"
+                    :options="idProofOptions"
+                    placeholder="Select ID Proof"
+                    minWidth="100%"
+                    :searchable="false"
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">ID Number</label>
+                  <input
+                    v-model="editForm.id_proof_number"
+                    type="text"
+                    placeholder="e.g. 5621 8892 1104"
+                    class="w-full px-3 py-2 text-xs font-mono font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pinned Footer -->
+          <div class="px-6 py-3.5 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/30 flex justify-end gap-2 shrink-0">
+            <button
+              type="button"
+              @click="editModalOpen = false"
+              class="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              :disabled="submittingEdit"
+              class="px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl shadow-md shadow-indigo-600/20 disabled:opacity-50 transition cursor-pointer"
+            >
+              {{ submittingEdit ? 'Saving Changes...' : 'Save Device Profile' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Barcode Scanner Modal for Edit -->
+    <BarcodeScannerModal
+      :isOpen="editScannerOpen"
+      :title="editScannerTitle"
+      :initialMode="editScannerMode"
+      @close="editScannerOpen = false"
+      @scanned="onEditBarcodeScanned"
+    />
   </div>
 </template>
 
@@ -531,9 +959,11 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useToastStore } from '@/stores/toast';
-import { usedMobileApi } from '@/api/endpoints';
+import { usedMobileApi, deviceApi } from '@/api/endpoints';
 import SearchableSelect from '@/components/common/SearchableSelect.vue';
 import WhatsAppIcon from '@/components/common/WhatsAppIcon.vue';
+import BarcodeScannerModal from '@/components/common/BarcodeScannerModal.vue';
+import { formatDate, toInputDate } from '@/utils/date';
 
 const route = useRoute();
 const router = useRouter();
@@ -545,6 +975,63 @@ const submitting = ref(false);
 
 const sellModalOpen = ref(false);
 const repairModalOpen = ref(false);
+const editModalOpen = ref(false);
+const submittingEdit = ref(false);
+
+// Scanner state for edit modal
+const editScannerOpen = ref(false);
+const editScannerTitle = ref('Scan Barcode or IMEI');
+const editScannerMode = ref('camera');
+const editScannerTarget = ref('imei1');
+
+const catalogBrands = ref([]);
+const catalogModels = ref([]);
+const loadingModels = ref(false);
+
+const ramOptions = [
+  '2 GB',
+  '3 GB',
+  '4 GB',
+  '6 GB',
+  '8 GB',
+  '12 GB',
+  '16 GB',
+  '24 GB',
+  '32 GB',
+];
+
+const storageOptions = [
+  '16 GB',
+  '32 GB',
+  '64 GB',
+  '128 GB',
+  '256 GB',
+  '512 GB',
+  '1 TB',
+];
+
+const conditionOptions = [
+  { value: 'mint', label: 'Mint (Like New)' },
+  { value: 'good', label: 'Good (Minor Scratches)' },
+  { value: 'fair', label: 'Fair (Noticeable Wear)' },
+  { value: 'damaged', label: 'Damaged (Needs Repair)' },
+];
+
+const idProofOptions = [
+  { value: 'Aadhaar Card', label: 'Aadhaar Card' },
+  { value: 'PAN Card', label: 'PAN Card' },
+  { value: 'Driving License', label: 'Driving License' },
+  { value: 'Voter ID', label: 'Voter ID' },
+  { value: 'Passport', label: 'Passport' },
+];
+
+const availableAccessories = [
+  'Original Box',
+  'Fast Charger',
+  'Original Bill / Invoice',
+  'Earphones',
+  'Back Case',
+];
 
 const paymentModeOptions = [
   { value: 'Cash', label: 'Cash', icon: '💵' },
@@ -577,6 +1064,176 @@ const repairForm = reactive({
   repair_cost: 0,
   repair_details: '',
 });
+
+const editForm = reactive({
+  seller_name: '',
+  seller_phone: '',
+  seller_address: '',
+  id_proof_type: 'Aadhaar Card',
+  id_proof_number: '',
+  brand: '',
+  model: '',
+  ram: '',
+  storage: '',
+  color: '',
+  battery_health: null,
+  imei1: '',
+  imei2: '',
+  serial_number: '',
+  device_condition: 'good',
+  condition_notes: '',
+  accessories_included: [],
+  purchase_date: '',
+  purchase_price: 0,
+  payment_mode: 'Cash',
+  expected_selling_price: 0,
+  purchase_notes: '',
+});
+
+async function fetchCatalogBrands() {
+  try {
+    const res = await deviceApi.brands();
+    if (res.data?.data && Array.isArray(res.data.data)) {
+      catalogBrands.value = res.data.data;
+    }
+  } catch (_) {}
+}
+
+async function fetchModelsForBrand(brand) {
+  if (!brand || brand.trim().length < 2) {
+    catalogModels.value = [];
+    return;
+  }
+  loadingModels.value = true;
+  try {
+    const res = await deviceApi.models({ brand: brand.trim() });
+    if (res.data?.data && Array.isArray(res.data.data)) {
+      catalogModels.value = res.data.data;
+    }
+  } catch (_) {
+    catalogModels.value = [];
+  } finally {
+    loadingModels.value = false;
+  }
+}
+
+async function onEditBrandSelected(brand) {
+  if (brand && typeof brand === 'string') {
+    editForm.brand = brand;
+  }
+  if (!editForm.brand) {
+    catalogModels.value = [];
+    return;
+  }
+  await fetchModelsForBrand(editForm.brand);
+}
+
+function toggleEditAccessory(acc) {
+  const idx = editForm.accessories_included.indexOf(acc);
+  if (idx > -1) {
+    editForm.accessories_included.splice(idx, 1);
+  } else {
+    editForm.accessories_included.push(acc);
+  }
+}
+
+function openEditScanner(target, title, mode = 'camera') {
+  editScannerTarget.value = target;
+  editScannerTitle.value = title;
+  editScannerMode.value = mode;
+  editScannerOpen.value = true;
+}
+
+function onEditBarcodeScanned(val) {
+  editScannerOpen.value = false;
+  if (!val) return;
+
+  if (editScannerTarget.value === 'box' && typeof val === 'object') {
+    if (val.imei1) editForm.imei1 = val.imei1;
+    if (val.imei2) editForm.imei2 = val.imei2;
+    if (val.serial) editForm.serial_number = val.serial;
+    toast.success('Extracted identifiers from box sticker', 'Box Scanned');
+    return;
+  }
+
+  const clean = String(val).trim().toUpperCase();
+  if (editScannerTarget.value === 'imei1') {
+    editForm.imei1 = clean.replace(/[^0-9]/g, '').slice(0, 15);
+    toast.success(`IMEI 1: ${editForm.imei1}`, 'Scanned');
+  } else if (editScannerTarget.value === 'imei2') {
+    editForm.imei2 = clean.replace(/[^0-9]/g, '').slice(0, 15);
+    toast.success(`IMEI 2: ${editForm.imei2}`, 'Scanned');
+  } else if (editScannerTarget.value === 'serial_number') {
+    editForm.serial_number = clean;
+    toast.success(`Serial #: ${editForm.serial_number}`, 'Scanned');
+  }
+}
+
+async function openEditModal() {
+  if (!mobile.value) return;
+  const m = mobile.value;
+
+  let accList = [];
+  if (Array.isArray(m.accessories_included)) {
+    accList = [...m.accessories_included];
+  } else if (typeof m.accessories_included === 'string') {
+    try {
+      const parsed = JSON.parse(m.accessories_included);
+      if (Array.isArray(parsed)) accList = parsed;
+    } catch (_) {
+      accList = m.accessories_included.split(',').map(s => s.trim()).filter(Boolean);
+    }
+  }
+
+  Object.assign(editForm, {
+    seller_name: m.seller_name || '',
+    seller_phone: m.seller_phone || '',
+    seller_address: m.seller_address || '',
+    id_proof_type: m.id_proof_type || 'Aadhaar Card',
+    id_proof_number: m.id_proof_number || '',
+    brand: m.brand || '',
+    model: m.model || '',
+    ram: m.ram || '',
+    storage: m.storage || '',
+    color: m.color || '',
+    battery_health: m.battery_health ? Number(m.battery_health) : null,
+    imei1: m.imei1 || m.imei || '',
+    imei2: m.imei2 || '',
+    serial_number: m.serial_number || '',
+    device_condition: m.device_condition || 'good',
+    condition_notes: m.condition_notes || '',
+    accessories_included: accList,
+    purchase_date: toInputDate(m.purchase_date || m.created_at, true),
+    purchase_price: Number(m.purchase_price || 0),
+    payment_mode: m.payment_mode || 'Cash',
+    expected_selling_price: Number(m.expected_selling_price || m.selling_price || 0),
+    purchase_notes: m.purchase_notes || '',
+  });
+
+  if (editForm.brand) {
+    fetchModelsForBrand(editForm.brand);
+  }
+  editModalOpen.value = true;
+}
+
+async function executeEdit() {
+  submittingEdit.value = true;
+  try {
+    const payload = { ...editForm };
+    if (!payload.battery_health) delete payload.battery_health;
+    const res = await usedMobileApi.update(mobile.value.id, payload);
+    if (res.data?.success) {
+      toast.success('Pre-owned mobile details updated successfully!', 'Saved');
+      editModalOpen.value = false;
+      await fetchMobileDetails();
+    }
+  } catch (err) {
+    const msg = err.response?.data?.message || 'Failed to update device details';
+    toast.error(msg, 'Update Failed');
+  } finally {
+    submittingEdit.value = false;
+  }
+}
 
 async function fetchMobileDetails() {
   loading.value = true;
@@ -636,9 +1293,9 @@ function shareOnWhatsApp() {
   const isSold = m.status === 'sold';
   let msg = '';
   if (isSold) {
-    msg = `*Pre-owned Device Sale Invoice*\n\n📱 *Device:* ${m.brand} ${m.model}\n🔢 *IMEI:* ${m.imei1 || m.imei || 'N/A'}\n👤 *Customer:* ${m.buyer_name || 'Customer'}\n💰 *Price:* ₹${formatNumber(m.selling_price)}\n🛡️ *Warranty:* ${m.warranty_days ? `${m.warranty_days} Days Testing Warranty` : 'No Warranty'}\n📅 *Date:* ${m.sale_date || 'N/A'}\n\nThank you for purchasing from our store!`;
+    msg = `*Pre-owned Device Sale Invoice*\n\n📱 *Device:* ${m.brand} ${m.model}\n🔢 *IMEI:* ${m.imei1 || m.imei || 'N/A'}\n👤 *Customer:* ${m.buyer_name || 'Customer'}\n💰 *Price:* ₹${formatNumber(m.selling_price)}\n🛡️ *Warranty:* ${m.warranty_days ? `${m.warranty_days} Days Testing Warranty` : 'No Warranty'}\n📅 *Date:* ${formatDate(m.sale_date)}\n\nThank you for purchasing from our store!`;
   } else {
-    msg = `*Used Mobile Intake Record*\n\n📱 *Device:* ${m.brand} ${m.model}\n🔢 *IMEI:* ${m.imei1 || m.imei || 'N/A'}\n👤 *Seller:* ${m.seller_name}\n💰 *Purchase Price:* ₹${formatNumber(m.purchase_price)}\n📅 *Date:* ${m.purchase_date || 'N/A'}`;
+    msg = `*Used Mobile Intake Record*\n\n📱 *Device:* ${m.brand} ${m.model}\n🔢 *IMEI:* ${m.imei1 || m.imei || 'N/A'}\n👤 *Seller:* ${m.seller_name}\n💰 *Purchase Price:* ₹${formatNumber(m.purchase_price)}\n📅 *Date:* ${formatDate(m.purchase_date)}`;
   }
   const url = `https://wa.me/91${cleanPhone(phone)}?text=${encodeURIComponent(msg)}`;
   window.open(url, '_blank');
@@ -651,7 +1308,7 @@ function openSellModal() {
     buyer_phone: '',
     buyer_address: '',
     selling_price: Number(mobile.value.expected_selling_price || mobile.value.selling_price || mobile.value.total_cost || 0),
-    sale_date: new Date().toISOString().slice(0, 10),
+    sale_date: toInputDate(new Date()),
     sale_payment_mode: 'Cash',
     warranty_days: 15,
     sale_notes: '',
@@ -711,5 +1368,6 @@ async function confirmDelete() {
 
 onMounted(() => {
   fetchMobileDetails();
+  fetchCatalogBrands();
 });
 </script>

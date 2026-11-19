@@ -93,9 +93,24 @@ class PurchaseController extends Controller
         $totalOutstanding = (float) $allPurchases->sum('outstanding_amount');
 
         $perPage = (int) $request->input('per_page', 15);
-        $purchases = $query->orderBy('purchase_date', 'desc')
-            ->orderBy('id', 'desc')
-            ->paginate($perPage);
+        $sort = $request->input('sort', 'newest');
+        switch ($sort) {
+            case 'oldest':
+                $query->orderBy('purchase_date', 'asc')->orderBy('id', 'asc');
+                break;
+            case 'amount_high':
+                $query->orderBy('grand_total', 'desc');
+                break;
+            case 'amount_low':
+                $query->orderBy('grand_total', 'asc');
+                break;
+            case 'newest':
+            default:
+                $query->orderBy('purchase_date', 'desc')->orderBy('id', 'desc');
+                break;
+        }
+
+        $purchases = $query->paginate($perPage);
 
         return response()->json([
             'success' => true,

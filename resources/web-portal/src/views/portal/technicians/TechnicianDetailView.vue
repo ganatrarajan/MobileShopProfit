@@ -579,6 +579,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { technicianApi } from '@/api/endpoints';
+import { formatDate } from '@/utils/date';
 import { useToastStore } from '@/stores/toast';
 import SearchableSelect from '@/components/common/SearchableSelect.vue';
 import WhatsAppIcon from '@/components/common/WhatsAppIcon.vue';
@@ -629,13 +630,6 @@ const cleanedPhone = computed(() => {
 
 function formatAmount(amt) {
   return (Number(amt) || 0).toLocaleString('en-IN');
-}
-
-function formatDate(d) {
-  if (!d) return '-';
-  const date = new Date(d);
-  if (isNaN(date.getTime())) return '-';
-  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function getDeviceName(job) {

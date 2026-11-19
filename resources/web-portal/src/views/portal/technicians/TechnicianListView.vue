@@ -138,8 +138,16 @@
           minWidth="140px"
         />
 
+        <SearchableSelect
+          v-model="sortBy"
+          :options="sortOptions"
+          placeholder="Sort By"
+          minWidth="140px"
+          prefixIcon="↕️"
+        />
+
         <button
-          v-if="search || selectedStatus !== 'all'"
+          v-if="search || selectedStatus !== 'all' || sortBy !== 'newest'"
           @click="resetFilters"
           type="button"
           class="px-3 py-2 text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition cursor-pointer"
@@ -195,8 +203,9 @@
                     >
                       {{ t.name }}
                     </router-link>
-                    <p class="text-[11px] text-slate-400">
-                      {{ t.specialization || 'General Specialist' }}
+                    <p class="text-[11px] text-slate-400 flex items-center gap-1.5 flex-wrap">
+                      <span>{{ t.specialization || 'General Specialist' }}</span>
+                      <span v-if="t.created_at">• 📅 {{ formatDate(t.created_at) }}</span>
                     </p>
                   </div>
                 </div>
@@ -550,12 +559,13 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { technicianApi } from '@/api/endpoints';
 import { useToastStore } from '@/stores/toast';
 import PaginationBar from '@/components/common/PaginationBar.vue';
 import SearchableSelect from '@/components/common/SearchableSelect.vue';
 import WhatsAppIcon from '@/components/common/WhatsAppIcon.vue';
+import { formatDate, toInputDate } from '@/utils/date';
 
 const toast = useToastStore();
 
@@ -563,6 +573,13 @@ const technicians = ref([]);
 const loading = ref(false);
 const search = ref('');
 const selectedStatus = ref('all');
+const sortBy = ref('newest');
+const sortOptions = [
+  { value: 'newest', label: 'Newest First (Recent)' },
+  { value: 'oldest', label: 'Oldest First' },
+  { value: 'name_asc', label: 'Name (A to Z)' },
+  { value: 'name_desc', label: 'Name (Z to A)' },
+];
 const currentPage = ref(1);
 const perPage = ref(10);
 
@@ -591,7 +608,7 @@ const targetTech = ref(null);
 const submittingQuickPay = ref(false);
 const quickPayForm = reactive({
   amount: 0,
-  payment_date: new Date().toISOString().split('T')[0],
+  payment_date: toInputDate(new Date()),
   payment_method: 'cash',
   notes: '',
 });
@@ -664,6 +681,11 @@ const paginatedTechnicians = computed(() => {
   return filteredTechnicians.value.slice(start, start + perPage.value);
 });
 
+watch([search, selectedStatus, sortBy], () => {
+  currentPage.value = 1;
+  fetchTechnicians();
+});
+
 function onPageChange(page) {
   currentPage.value = page;
 }
@@ -671,13 +693,15 @@ function onPageChange(page) {
 function resetFilters() {
   search.value = '';
   selectedStatus.value = 'all';
+  sortBy.value = 'newest';
   currentPage.value = 1;
+  fetchTechnicians();
 }
 
 async function fetchTechnicians() {
   loading.value = true;
   try {
-    const res = await technicianApi.list();
+    const res = await technicianApi.list({ sort: sortBy.value || 'newest' });
     const data = res.data?.data || res.data || [];
     technicians.value = Array.isArray(data) ? data : (data.data || []);
     if (res.data?.summary) {
@@ -744,7 +768,7 @@ function openQuickPayModal(t) {
   const payable = Number(t.workload?.total_payable) || 0;
   Object.assign(quickPayForm, {
     amount: payable > 0 ? payable : '',
-    payment_date: new Date().toISOString().split('T')[0],
+    payment_date: toInputDate(new Date()),
     payment_method: 'cash',
     notes: '',
   });

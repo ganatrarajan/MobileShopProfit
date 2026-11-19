@@ -809,14 +809,13 @@
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Estimated / Final Bill (₹) <span class="text-rose-500">*</span>
+              Estimated / Final Bill (₹) (Optional)
             </label>
             <input
               v-model.number="form.estimated_cost"
               type="number"
               step="0.01"
               min="0"
-              required
               class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
             />
           </div>

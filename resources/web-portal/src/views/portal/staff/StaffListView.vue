@@ -110,13 +110,25 @@
       </div>
 
       <!-- Status Filter -->
-      <div class="w-full sm:w-56 shrink-0">
+      <div class="w-full sm:w-48 shrink-0">
         <SearchableSelect
           v-model="statusFilter"
           :options="statusOptions"
           placeholder="Filter Status"
           :searchable="false"
           :fullWidth="true"
+        />
+      </div>
+
+      <!-- Sort Filter -->
+      <div class="w-full sm:w-48 shrink-0">
+        <SearchableSelect
+          v-model="sortBy"
+          :options="sortOptions"
+          placeholder="Sort By"
+          :searchable="false"
+          :fullWidth="true"
+          prefixIcon="↕️"
         />
       </div>
     </div>
@@ -289,7 +301,7 @@
                     {{ s.salary ? `₹${Number(s.salary).toLocaleString('en-IN')}/mo` : '—' }}
                   </div>
                   <div class="text-[11px] text-slate-400 mt-0.5">
-                    {{ s.joining_date ? `Joined: ${s.joining_date}` : 'Date not set' }}
+                    📅 Joined: {{ formatDate(s.joining_date || s.created_at) }}
                   </div>
                 </div>
               </td>
@@ -683,12 +695,13 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { useToastStore } from '@/stores/toast';
 import { staffApi } from '@/api/endpoints';
 import PaginationBar from '@/components/common/PaginationBar.vue';
 import SearchableSelect from '@/components/common/SearchableSelect.vue';
 import WhatsAppIcon from '@/components/common/WhatsAppIcon.vue';
+import { formatDate } from '@/utils/date';
 
 const toast = useToastStore();
 
@@ -700,6 +713,13 @@ const editingStaffId = ref(null);
 const saving = ref(false);
 const search = ref('');
 const statusFilter = ref('all');
+const sortBy = ref('newest');
+const sortOptions = [
+  { value: 'newest', label: 'Newest First (Recent)' },
+  { value: 'oldest', label: 'Oldest First' },
+  { value: 'name_asc', label: 'Name (A to Z)' },
+  { value: 'name_desc', label: 'Name (Z to A)' },
+];
 const showPasswordInModal = ref(false);
 const selectedPreset = ref('');
 
@@ -771,7 +791,7 @@ const form = reactive({
 async function fetchStaff() {
   loading.value = true;
   try {
-    const res = await staffApi.list();
+    const res = await staffApi.list({ sort: sortBy.value || 'newest' });
     if (res.data?.success) {
       staffList.value = res.data.data || [];
       summaryData.value = res.data.summary || {};
@@ -995,6 +1015,11 @@ const totalPages = computed(() => Math.max(1, Math.ceil(filteredStaff.value.leng
 const paginatedStaff = computed(() => {
   const start = (currentPage.value - 1) * perPage.value;
   return filteredStaff.value.slice(start, start + perPage.value);
+});
+
+watch([search, statusFilter, sortBy], () => {
+  currentPage.value = 1;
+  fetchStaff();
 });
 
 function onPageChange(page) {

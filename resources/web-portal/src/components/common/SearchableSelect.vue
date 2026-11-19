@@ -27,20 +27,38 @@
           </slot>
         </span>
 
-        <!-- Selected Label -->
-        <span class="truncate font-medium">
+        <!-- Selected Label / Placeholder -->
+        <span
+          class="truncate"
+          :class="selectedLabel ? 'font-semibold text-slate-800 dark:text-slate-100' : 'font-normal text-slate-400 dark:text-slate-500'"
+        >
           {{ selectedLabel || placeholder }}
         </span>
       </div>
 
-      <!-- Chevron Icon with 180deg flip -->
-      <svg
-        class="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-transform duration-200 shrink-0"
-        :class="{ 'rotate-180 text-indigo-600 dark:text-indigo-400': isOpen }"
-        fill="none" stroke="currentColor" viewBox="0 0 24 24"
-      >
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-      </svg>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <!-- Clear button (if clearable) -->
+        <button
+          v-if="clearable && modelValue"
+          @click.stop="clearSelection"
+          type="button"
+          class="p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-md shrink-0 cursor-pointer"
+          title="Clear selection"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
+        <!-- Chevron Icon with 180deg flip -->
+        <svg
+          class="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-transform duration-200 shrink-0"
+          :class="{ 'rotate-180 text-indigo-600 dark:text-indigo-400': isOpen }"
+          fill="none" stroke="currentColor" viewBox="0 0 24 24"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+      </div>
     </button>
 
     <!-- Dropdown Popover Menu -->
@@ -73,6 +91,7 @@
           :placeholder="searchPlaceholder || 'Search options...'"
           class="w-full pl-9 pr-7 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs font-medium text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           @keydown.esc="closeDropdown"
+          @keydown.enter.prevent="handleEnterKey"
           @click.stop
         />
         <button
@@ -83,6 +102,21 @@
         >
           ✕
         </button>
+      </div>
+
+      <!-- Custom Value Quick Option (if allowCustom is enabled and user typed something not matching an exact option) -->
+      <div
+        v-if="allowCustom && searchQuery.trim() && !hasExactMatch"
+        @click="selectCustomOption(searchQuery.trim())"
+        class="px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer transition flex items-center justify-between gap-2 border border-dashed border-indigo-300 dark:border-indigo-700 bg-indigo-50/80 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60"
+      >
+        <div class="flex items-center gap-2 truncate">
+          <svg class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
+          </svg>
+          <span class="truncate">Use "<strong>{{ searchQuery.trim() }}</strong>"</span>
+        </div>
+        <span class="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-indigo-200/60 dark:bg-indigo-800/60 text-indigo-800 dark:text-indigo-200 shrink-0">Custom</span>
       </div>
 
       <!-- Options List with Adaptive Dynamic Height -->
@@ -150,12 +184,84 @@
           </svg>
         </div>
 
-        <!-- Empty Results -->
+        <!-- Empty Results with Manual Add Prompt -->
         <div
           v-if="filteredOptions.length === 0"
-          class="py-4 text-center text-xs text-slate-400 dark:text-slate-500"
+          class="py-4 px-3 text-center space-y-2.5"
         >
-          No matching options found.
+          <div class="text-xs text-slate-400 dark:text-slate-500">
+            <span v-if="searchQuery.trim()">No options matching "<strong>{{ searchQuery.trim() }}</strong>"</span>
+            <span v-else>No options available.</span>
+          </div>
+
+          <button
+            v-if="allowCustom && searchQuery.trim()"
+            type="button"
+            @click.stop="selectCustomOption(searchQuery.trim())"
+            class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition cursor-pointer"
+          >
+            <span>➕</span>
+            <span>Use "{{ searchQuery.trim() }}" Manually</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Dedicated Manual Entry Footer / Bar -->
+      <div
+        v-if="allowCustom"
+        class="pt-2 px-1 border-t border-slate-100 dark:border-slate-800/80"
+        @click.stop
+      >
+        <!-- State 1: Collapsed Button -->
+        <div
+          v-if="!isManualInputActive"
+          @click="startManualEntry"
+          class="px-2 py-1.5 rounded-xl flex items-center justify-between text-xs text-indigo-600 dark:text-indigo-400 font-semibold hover:bg-indigo-50 dark:hover:bg-indigo-950/40 cursor-pointer transition select-none"
+        >
+          <div class="flex items-center gap-1.5 truncate">
+            <span>✏️</span>
+            <span class="truncate">Not in list? Enter manually</span>
+          </div>
+          <span class="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/50 shrink-0">
+            + Manual
+          </span>
+        </div>
+
+        <!-- State 2: Expanded Inline Input -->
+        <div
+          v-else
+          class="p-2 bg-indigo-50/70 dark:bg-indigo-950/40 rounded-xl border border-indigo-200 dark:border-indigo-800/60 space-y-2 animate-in fade-in"
+        >
+          <div class="flex items-center justify-between">
+            <label class="text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
+              Enter Custom / Manual Value
+            </label>
+            <button
+              type="button"
+              @click="isManualInputActive = false"
+              class="text-[10px] font-bold text-slate-400 hover:text-slate-600 cursor-pointer"
+            >
+              ✕ Cancel
+            </button>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <input
+              ref="manualInputFieldRef"
+              v-model="manualInputValue"
+              type="text"
+              placeholder="Type custom name/spec..."
+              class="w-full px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              @keydown.enter.prevent="submitManualInput"
+            />
+            <button
+              type="button"
+              @click="submitManualInput"
+              :disabled="!manualInputValue.trim()"
+              class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold text-xs rounded-lg transition shadow-xs cursor-pointer shrink-0"
+            >
+              Add
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -210,6 +316,18 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  allowCustom: {
+    type: Boolean,
+    default: true,
+  },
+  clearable: {
+    type: Boolean,
+    default: false,
+  },
+  direction: {
+    type: String,
+    default: 'down', // 'down' | 'up' | 'auto'
+  },
   disabled: {
     type: Boolean,
     default: false,
@@ -225,6 +343,27 @@ const containerRef = ref(null);
 const openUpwards = ref(false);
 const availableSpaceAbove = ref(300);
 const availableSpaceBelow = ref(300);
+
+// Manual Entry Inline State
+const isManualInputActive = ref(false);
+const manualInputValue = ref('');
+const manualInputFieldRef = ref(null);
+
+function startManualEntry() {
+  isManualInputActive.value = true;
+  manualInputValue.value = searchQuery.value || '';
+  nextTick(() => {
+    manualInputFieldRef.value?.focus();
+  });
+}
+
+function submitManualInput() {
+  const val = manualInputValue.value.trim();
+  if (!val) return;
+  selectCustomOption(val);
+  isManualInputActive.value = false;
+  manualInputValue.value = '';
+}
 
 const isFullWidth = computed(() => {
   return props.fullWidth || props.minWidth === '100%' || props.minWidth === 'w-full';
@@ -259,17 +398,27 @@ const selectedOption = computed(() => {
 
 const selectedLabel = computed(() => {
   if (selectedOption.value) return getOptionLabel(selectedOption.value);
+  if (props.allowCustom && props.modelValue) return String(props.modelValue);
   return '';
 });
 
+const hasExactMatch = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase();
+  if (!q) return false;
+  return props.options.some((opt) => getOptionLabel(opt).trim().toLowerCase() === q);
+});
+
 const filteredOptions = computed(() => {
-  if (!searchQuery.value) return props.options;
-  const q = searchQuery.value.toLowerCase().trim();
-  return props.options.filter((opt) => {
-    const label = getOptionLabel(opt).toLowerCase();
-    const extra = (opt.brand || opt.sku || opt.category || (opt.price ? String(opt.price) : '')).toLowerCase();
-    return label.includes(q) || extra.includes(q);
-  });
+  let list = props.options;
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase().trim();
+    list = list.filter((opt) => {
+      const label = getOptionLabel(opt).toLowerCase();
+      const extra = (opt.brand || opt.sku || opt.category || (opt.price ? String(opt.price) : '')).toLowerCase();
+      return label.includes(q) || extra.includes(q);
+    });
+  }
+  return list.slice(0, 100);
 });
 
 const isNearRightEdge = ref(false);
@@ -283,64 +432,29 @@ function calculatePlacement() {
   const rect = containerRef.value.getBoundingClientRect();
   isNearRightEdge.value = (window.innerWidth - rect.right) < 260;
 
+  if (props.direction === 'down') {
+    openUpwards.value = false;
+    return;
+  }
+  if (props.direction === 'up') {
+    openUpwards.value = true;
+    return;
+  }
+
+  // If 'auto', only open upwards if very close to screen bottom and more room above
   const viewportBelow = window.innerHeight - rect.bottom;
   const viewportAbove = rect.top;
 
-  // Search upward to find nearest scrollable container or modal dialog
-  let parent = containerRef.value.parentElement;
-  let containerRect = null;
-  while (parent && parent !== document.body && parent !== document.documentElement) {
-    const style = window.getComputedStyle(parent);
-    const overflowY = style.overflowY;
-    const overflowX = style.overflowX;
-    const isScrollable =
-      overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'hidden' ||
-      overflowX === 'auto' || overflowX === 'scroll' || overflowX === 'hidden';
-
-    const isModalOrDialog =
-      (parent.hasAttribute('role') && parent.getAttribute('role') === 'dialog') ||
-      parent.classList.contains('overflow-y-auto') ||
-      parent.classList.contains('overflow-hidden') ||
-      parent.classList.contains('modal') ||
-      parent.classList.contains('shadow-2xl') ||
-      parent.classList.contains('fixed');
-
-    if (isScrollable && (isModalOrDialog || parent.clientHeight < window.innerHeight - 50)) {
-      containerRect = parent.getBoundingClientRect();
-      break;
-    }
-    parent = parent.parentElement;
-  }
-
-  let spaceBelow = viewportBelow;
-  let spaceAbove = viewportAbove;
-
-  if (containerRect) {
-    const containerBelow = containerRect.bottom - rect.bottom;
-    const containerAbove = rect.top - containerRect.top;
-    spaceBelow = Math.min(viewportBelow, containerBelow);
-    spaceAbove = Math.min(viewportAbove, containerAbove);
-  }
-
-  availableSpaceBelow.value = spaceBelow;
-  availableSpaceAbove.value = spaceAbove;
-
-  // If available space below is less than 240px and there is more space above, open upwards!
-  if (spaceBelow < 240 && spaceAbove > 140) {
+  if (viewportBelow < 160 && viewportAbove > 200) {
     openUpwards.value = true;
-  } else if (spaceBelow < 180) {
-    openUpwards.value = spaceAbove > spaceBelow;
   } else {
     openUpwards.value = false;
   }
 }
 
 const optionsMaxHeightStyle = computed(() => {
-  const maxSpace = openUpwards.value ? availableSpaceAbove.value : availableSpaceBelow.value;
-  const allowance = isSearchable.value ? 70 : 30;
-  const calculatedHeight = Math.max(100, Math.min(220, maxSpace - allowance));
   return {
-    maxHeight: `${calculatedHeight}px`
+    maxHeight: '260px'
   };
 });
 
@@ -363,6 +477,8 @@ function toggleDropdown() {
 function closeDropdown() {
   isOpen.value = false;
   searchQuery.value = '';
+  isManualInputActive.value = false;
+  manualInputValue.value = '';
 }
 
 function selectOption(opt) {
@@ -370,6 +486,44 @@ function selectOption(opt) {
   emit('update:modelValue', val);
   emit('change', val);
   closeDropdown();
+}
+
+function selectCustomOption(val) {
+  emit('update:modelValue', val);
+  emit('change', val);
+  closeDropdown();
+}
+
+function clearSelection() {
+  emit('update:modelValue', '');
+  emit('change', '');
+}
+
+function handleEnterKey() {
+  const q = searchQuery.value.trim();
+  if (!q) return;
+
+  const exact = props.options.find(
+    (opt) => getOptionLabel(opt).trim().toLowerCase() === q.toLowerCase()
+  );
+  if (exact) {
+    selectOption(exact);
+    return;
+  }
+
+  if (filteredOptions.value.length === 1) {
+    selectOption(filteredOptions.value[0]);
+    return;
+  }
+
+  if (props.allowCustom) {
+    selectCustomOption(q);
+    return;
+  }
+
+  if (filteredOptions.value.length > 0) {
+    selectOption(filteredOptions.value[0]);
+  }
 }
 
 function handleDocumentClick(e) {

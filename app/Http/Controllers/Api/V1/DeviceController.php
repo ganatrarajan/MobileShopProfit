@@ -263,10 +263,7 @@ class DeviceController extends Controller
     }
 
     /**
-     * Get unique device brands from storage/app/public/device/devices.json
-     */
-    /**
-     * Get unique device brands from storage/app/public/device/devices.json
+     * Get unique device brands directly from storage/app/public/device/devices.json
      */
     public function getBrands(Request $request): JsonResponse
     {
@@ -280,7 +277,7 @@ class DeviceController extends Controller
             ], 404);
         }
 
-        $brands = \Illuminate\Support\Facades\Cache::remember('device_brands_list_v2', 86400, function () use ($jsonPath) {
+        $brands = \Illuminate\Support\Facades\Cache::remember('device_brands_list_raw_json_v1', 86400, function () use ($jsonPath) {
             $content = \Illuminate\Support\Facades\File::get($jsonPath);
             $devices = json_decode($content, true) ?? [];
 
@@ -291,8 +288,16 @@ class DeviceController extends Controller
                 }
             }
 
-            sort($brandList);
-            return array_values(array_unique($brandList));
+            $uniqueMap = [];
+            foreach ($brandList as $b) {
+                $lower = strtolower($b);
+                if (! isset($uniqueMap[$lower])) {
+                    $uniqueMap[$lower] = $b;
+                }
+            }
+            $result = array_values($uniqueMap);
+            sort($result, SORT_NATURAL | SORT_FLAG_CASE);
+            return $result;
         });
 
         return response()->json([
@@ -303,11 +308,11 @@ class DeviceController extends Controller
     }
 
     /**
-     * Get device models for a specific brand from storage/app/public/device/devices.json
+     * Get device models for a specific brand directly from storage/app/public/device/devices.json
      */
     public function getModels(Request $request): JsonResponse
     {
-        $brandName = $request->query('brand');
+        $brandName = trim((string) $request->query('brand'));
 
         if (! $brandName) {
             return response()->json([
@@ -318,7 +323,6 @@ class DeviceController extends Controller
         }
 
         $jsonPath = storage_path('app/public/device/devices.json');
-
         if (! \Illuminate\Support\Facades\File::exists($jsonPath)) {
             return response()->json([
                 'success' => false,
@@ -327,15 +331,15 @@ class DeviceController extends Controller
             ], 404);
         }
 
-        $cacheKey = 'device_models_v2_' . md5(strtolower(trim($brandName)));
+        $cacheKey = 'device_models_raw_json_v1_' . md5(strtolower($brandName));
 
-        $models = \Illuminate\Support\Facades\Cache::remember($cacheKey, 86400, function () use ($jsonPath, $brandName) {
+        $models = \Illuminate\Support\Facades\Cache::remember($cacheKey, 86400, function () use ($brandName, $jsonPath) {
             $content = \Illuminate\Support\Facades\File::get($jsonPath);
             $devices = json_decode($content, true) ?? [];
 
             $modelList = [];
             foreach ($devices as $key => $item) {
-                if (is_array($item) && ! empty($item['brand']) && strcasecmp(trim($item['brand']), trim($brandName)) === 0) {
+                if (is_array($item) && ! empty($item['brand']) && strcasecmp(trim($item['brand']), $brandName) === 0) {
                     $modelVal = ! empty($item['name']) ? $item['name'] : (! empty($item['model']) ? $item['model'] : $key);
                     if (! empty($modelVal)) {
                         $modelList[] = trim($modelVal);
@@ -343,8 +347,9 @@ class DeviceController extends Controller
                 }
             }
 
-            sort($modelList);
-            return array_values(array_unique($modelList));
+            $modelList = array_values(array_unique($modelList));
+            sort($modelList, SORT_NATURAL | SORT_FLAG_CASE);
+            return $modelList;
         });
 
         return response()->json([

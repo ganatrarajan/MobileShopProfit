@@ -79,13 +79,13 @@ class SaleController extends Controller
             } elseif ($period === 'yesterday') {
                 $query->whereDate('sale_date', $now->copy()->subDay()->toDateString());
             } elseif ($period === 'this_week') {
-                $query->whereBetween('sale_date', [$now->copy()->startOfWeek()->toDateString(), $now->copy()->endOfWeek()->toDateString()]);
+                $query->whereBetween('sale_date', [$now->copy()->startOfWeek()->startOfDay(), $now->copy()->endOfWeek()->endOfDay()]);
             } elseif ($period === 'this_month') {
-                $query->whereBetween('sale_date', [$now->copy()->startOfMonth()->toDateString(), $now->copy()->endOfMonth()->toDateString()]);
+                $query->whereBetween('sale_date', [$now->copy()->startOfMonth()->startOfDay(), $now->copy()->endOfMonth()->endOfDay()]);
             } elseif ($period === 'last_month') {
-                $query->whereBetween('sale_date', [$now->copy()->subMonth()->startOfMonth()->toDateString(), $now->copy()->subMonth()->endOfMonth()->toDateString()]);
+                $query->whereBetween('sale_date', [$now->copy()->subMonth()->startOfMonth()->startOfDay(), $now->copy()->subMonth()->endOfMonth()->endOfDay()]);
             } elseif ($period === 'this_year') {
-                $query->whereBetween('sale_date', [$now->copy()->startOfYear()->toDateString(), $now->copy()->endOfYear()->toDateString()]);
+                $query->whereBetween('sale_date', [$now->copy()->startOfYear()->startOfDay(), $now->copy()->endOfYear()->endOfDay()]);
             }
         }
 
@@ -98,18 +98,48 @@ class SaleController extends Controller
         }
 
         $summaryQuery = clone $query;
+        $totalBilled = (float) (clone $summaryQuery)->sum('grand_total');
+        $totalPaid = (float) (clone $summaryQuery)->sum('amount_paid');
+        $totalDue = (float) (clone $summaryQuery)->sum('amount_due');
+        $totalCount = (int) (clone $summaryQuery)->count();
+
+        $totalProfit = 0.0;
+        $totalCost = 0.0;
+        if ($user->role === 'owner') {
+            $salesForSummary = (clone $summaryQuery)->with(['items.inventoryItem'])->get();
+            foreach ($salesForSummary as $s) {
+                $totalProfit += (float) $s->net_profit;
+                $totalCost += (float) $s->total_cost;
+            }
+        }
+
         $summary = [
-            'total_billed' => (float) (clone $summaryQuery)->sum('grand_total'),
-            'total_paid' => (float) (clone $summaryQuery)->sum('amount_paid'),
-            'total_due' => (float) (clone $summaryQuery)->sum('amount_due'),
-            'total_profit' => $user->role === 'owner' ? (float) (clone $summaryQuery)->sum('net_profit') : 0.0,
-            'total_cost' => $user->role === 'owner' ? (float) (clone $summaryQuery)->sum('total_cost') : 0.0,
-            'total_count' => (int) (clone $summaryQuery)->count(),
+            'total_billed' => round($totalBilled, 2),
+            'total_paid' => round($totalPaid, 2),
+            'total_due' => round($totalDue, 2),
+            'total_profit' => round($totalProfit, 2),
+            'total_cost' => round($totalCost, 2),
+            'total_count' => $totalCount,
         ];
 
-        $sales = $query->orderBy('sale_date', 'desc')
-            ->orderBy('id', 'desc')
-            ->paginate($request->input('per_page', 15));
+        $sort = $request->input('sort', 'newest');
+        switch ($sort) {
+            case 'oldest':
+                $query->orderBy('sale_date', 'asc')->orderBy('id', 'asc');
+                break;
+            case 'amount_high':
+                $query->orderBy('grand_total', 'desc');
+                break;
+            case 'amount_low':
+                $query->orderBy('grand_total', 'asc');
+                break;
+            case 'newest':
+            default:
+                $query->orderBy('sale_date', 'desc')->orderBy('id', 'desc');
+                break;
+        }
+
+        $sales = $query->paginate($request->input('per_page', 15));
 
         return response()->json([
             'success' => true,
@@ -280,6 +310,12 @@ class SaleController extends Controller
 
                 $grandTotal = max(0, $subtotal - $overallDiscount + ($taxType === 'inclusive' ? 0 : $overallTax));
 
+                // Validation: Payment amount cannot exceed the bill grand total
+                $initialPayment = (float) ($validated['payment_amount'] ?? 0);
+                if ($initialPayment > (float) $grandTotal) {
+                    throw new \Exception("Paid amount (₹" . number_format($initialPayment, 2) . ") cannot exceed the total bill amount (₹" . number_format($grandTotal, 2) . ").");
+                }
+
                 $sale = Sale::create([
                     'shop_id' => $user->shop_id,
                     'sale_type' => $validated['sale_type'] ?? 'regular',
@@ -418,8 +454,8 @@ class SaleController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to create sale invoice: ' . $e->getMessage(),
-            ], 500);
+                'message' => $e->getMessage(),
+            ], 422);
         }
     }
 

@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { isSessionExpiredDueToInactivity, terminateSession } from '@/services/sessionManager';
 
 // ── Auth Views ──
 import LoginView from '@/views/auth/LoginView.vue';
@@ -161,9 +162,24 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore();
 
-  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next({ name: 'login', query: { redirect: to.fullPath } });
+  if (to.meta.requiresAuth) {
+    if (!authStore.isAuthenticated) {
+      return next({ name: 'login', query: { redirect: to.fullPath } });
+    }
+    // Check if 30 minutes of inactivity elapsed
+    if (isSessionExpiredDueToInactivity()) {
+      terminateSession(
+        'inactivity',
+        'You have been automatically logged out due to 30 minutes of inactivity. Please sign in again.'
+      );
+      return next({ name: 'login', query: { reason: 'inactivity' } });
+    }
+    next();
   } else if (to.meta.guest && authStore.isAuthenticated) {
+    if (isSessionExpiredDueToInactivity()) {
+      terminateSession('inactivity');
+      return next();
+    }
     next({ name: 'dashboard' });
   } else {
     next();

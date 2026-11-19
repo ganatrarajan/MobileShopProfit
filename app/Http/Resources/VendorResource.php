@@ -22,6 +22,7 @@ class VendorResource extends JsonResource
             'total_paid' => round($this->total_paid, 2),
             'outstanding_amount' => round($this->outstanding_amount, 2),
             'purchases_count' => $this->whenCounted('purchases', $this->purchases_count),
+            'purchases' => PurchaseResource::collection($this->whenLoaded('purchases')),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

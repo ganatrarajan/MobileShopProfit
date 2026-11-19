@@ -105,15 +105,26 @@
             v-model="search"
             type="text"
             placeholder="Search brand, model, IMEI, serial, seller or buyer..."
-            class="w-full pl-10 pr-4 py-2 text-sm bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-slate-800 dark:text-slate-100 placeholder-slate-400"
+            class="w-full pl-10 pr-28 py-2 text-sm bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-slate-800 dark:text-slate-100 placeholder-slate-400"
           />
-          <button
-            v-if="search"
-            @click="search = ''"
-            class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs cursor-pointer"
-          >
-            ✕
-          </button>
+          <div class="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+            <button
+              v-if="search"
+              @click="search = ''"
+              class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs cursor-pointer p-1"
+            >
+              ✕
+            </button>
+            <button
+              type="button"
+              @click="openScanner('search', 'Scan IMEI or Barcode to Search', 'camera')"
+              class="px-2.5 py-1 text-[11px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 dark:hover:bg-purple-900 rounded-lg transition cursor-pointer flex items-center gap-1"
+              title="Scan IMEI or Barcode to search"
+            >
+              <span>📷</span>
+              <span>Scan</span>
+            </button>
+          </div>
         </div>
 
         <!-- Status Filter Dropdown -->
@@ -135,6 +146,18 @@
             placeholder="Filter Period"
             :searchable="false"
             :fullWidth="true"
+          />
+        </div>
+
+        <!-- Sort Filter Dropdown -->
+        <div class="w-full md:w-48 shrink-0">
+          <SearchableSelect
+            v-model="sortFilter"
+            :options="sortOptions"
+            placeholder="Sort Devices"
+            :searchable="false"
+            :fullWidth="true"
+            prefixIcon="↕️"
           />
         </div>
       </div>
@@ -251,7 +274,7 @@
                     </a>
                   </div>
                   <div class="text-[10px] text-slate-400 mt-0.5">
-                    {{ m.purchase_date || 'Date N/A' }}
+                    📅 {{ formatDate(m.purchase_date || m.created_at) }}
                   </div>
                 </div>
               </td>
@@ -343,6 +366,18 @@
                     </svg>
                   </router-link>
 
+                  <!-- Edit Profile -->
+                  <router-link
+                    v-if="m.status !== 'sold'"
+                    :to="`/used-mobiles/${m.id}`"
+                    class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition cursor-pointer"
+                    title="Edit Phone Profile"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </router-link>
+
                   <!-- Delete -->
                   <button
                     @click="confirmDeleteMobile(m)"
@@ -372,10 +407,10 @@
     <!-- MODAL 1: BUY SECOND-HAND PHONE (INTAKE) -->
     <div
       v-if="showBuyModal"
-      class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-5"
+      class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 overflow-y-auto flex items-center justify-center p-3 sm:p-5"
       @wheel.stop
     >
-      <div class="relative bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800/80 rounded-3xl w-full max-w-2xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div class="relative bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800/80 rounded-3xl w-full max-w-2xl shadow-2xl max-h-[calc(100vh-2.5rem)] my-auto flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         <!-- Pinned Header -->
         <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800/80 flex justify-between items-center bg-purple-50/50 dark:bg-purple-950/30 shrink-0">
           <div>
@@ -390,114 +425,179 @@
 
         <form @submit.prevent="saveUsedPhone" class="flex flex-col flex-1 overflow-hidden min-h-0">
           <div class="p-6 space-y-4 overflow-y-auto custom-scroll flex-1 pb-8">
-            <!-- Brand Quick Selection -->
-            <div>
-              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-                Brand <span class="text-rose-500">*</span>
-              </label>
-              <div class="flex flex-wrap gap-1.5 mb-2">
-                <button
-                  type="button"
-                  v-for="b in popularBrands"
-                  :key="b"
-                  @click="buyForm.brand = b"
-                  :class="buyForm.brand.toLowerCase() === b.toLowerCase()
-                    ? 'bg-purple-600 text-white font-bold'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'"
-                  class="px-2.5 py-1 rounded-xl text-xs font-semibold transition cursor-pointer"
-                >
-                  {{ b }}
-                </button>
-              </div>
-              <input
-                v-model="buyForm.brand"
-                type="text"
-                class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-purple-500 text-slate-900 dark:text-slate-100"
-                placeholder="Or type brand name (e.g. Apple, OnePlus)"
-                required
-              />
-            </div>
-
-            <!-- Model & Color -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-                  Model Name <span class="text-rose-500">*</span>
+            <!-- Device Brand & Model -->
+            <div class="p-3.5 rounded-2xl bg-purple-50/40 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/40 space-y-3">
+              <div class="flex items-center justify-between">
+                <label class="block text-xs font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300">
+                  📱 Device Brand & Model <span class="text-rose-500">*</span>
                 </label>
-                <input
-                  v-model="buyForm.model"
-                  type="text"
-                  class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-purple-500 text-slate-900 dark:text-slate-100"
-                  placeholder="e.g. iPhone 13, Galaxy S21"
-                  required
-                />
+                <span class="text-[10px] text-purple-600 dark:text-purple-400 font-medium">Select brand to load dynamic models</span>
               </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <!-- Brand Searchable Select -->
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Brand *</label>
+                  <SearchableSelect
+                    v-model="buyForm.brand"
+                    :options="catalogBrands"
+                    placeholder="Select or type brand..."
+                    searchPlaceholder="Search mobile brands..."
+                    :allowCustom="true"
+                    :clearable="true"
+                    :fullWidth="true"
+                    direction="down"
+                    @change="onBrandSelected"
+                  />
+                </div>
+
+                <!-- Model Searchable Select -->
+                <div>
+                  <div class="flex items-center justify-between mb-1">
+                    <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400">Model *</label>
+                    <span v-if="loadingModels" class="text-[10px] text-purple-600 font-semibold animate-pulse">Loading...</span>
+                    <span v-else-if="catalogModels.length" class="text-[10px] text-slate-400 font-medium">({{ catalogModels.length }} models)</span>
+                  </div>
+                  <SearchableSelect
+                    v-model="buyForm.model"
+                    :options="catalogModels"
+                    :placeholder="catalogModels.length ? `Select or type model (${catalogModels.length} available)...` : 'Select or type model...'"
+                    searchPlaceholder="Search mobile models..."
+                    :allowCustom="true"
+                    :clearable="true"
+                    :fullWidth="true"
+                    direction="down"
+                  />
+                </div>
+              </div>
+
+              <!-- Color / Variant -->
               <div>
-                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                   Color / Variant
                 </label>
                 <input
                   v-model="buyForm.color"
                   type="text"
-                  class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-purple-500 text-slate-900 dark:text-slate-100"
-                  placeholder="e.g. Midnight Black, Starlight"
+                  class="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-purple-500 text-slate-900 dark:text-slate-100 font-semibold"
+                  placeholder="e.g. Midnight Black, Sierra Blue"
                 />
               </div>
             </div>
 
             <!-- IMEI 1 & IMEI 2 / Serial -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-                  IMEI 1 (15 digits)
-                </label>
-                <input
-                  v-model="buyForm.imei1"
-                  type="text"
-                  maxlength="18"
-                  class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-purple-500 text-slate-900 dark:text-slate-100 font-mono"
-                  placeholder="e.g. 864201948102931"
-                />
+            <div class="p-3.5 rounded-2xl bg-purple-50/40 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/40 space-y-3">
+              <div class="flex items-center justify-between pb-1 border-b border-purple-100 dark:border-purple-900/40">
+                <span class="text-xs font-bold text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
+                  <span>🏷️</span> Device Identifiers (IMEI & Serial)
+                </span>
+                <button
+                  type="button"
+                  @click="openScanner('box', 'Auto-Scan Phone Box Sticker', 'box')"
+                  class="px-2.5 py-1 text-[11px] font-bold text-white bg-purple-600 hover:bg-purple-500 rounded-lg shadow-sm transition cursor-pointer flex items-center gap-1"
+                >
+                  <span>⚡</span> Auto-Scan Box
+                </button>
               </div>
-              <div>
-                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-                  IMEI 2 or Serial Number (Optional)
-                </label>
-                <input
-                  v-model="buyForm.imei2"
-                  type="text"
-                  class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-purple-500 text-slate-900 dark:text-slate-100 font-mono"
-                  placeholder="Second IMEI or Serial Number"
-                />
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <div class="flex items-center justify-between mb-1">
+                    <label class="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                      IMEI 1 (15 digits)
+                    </label>
+                    <button
+                      type="button"
+                      @click="openScanner('imei1', 'Scan Primary IMEI 1', 'camera')"
+                      class="text-[10px] font-bold text-purple-600 hover:text-purple-700 flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <span>📷</span> Scan
+                    </button>
+                  </div>
+                  <div class="relative">
+                    <input
+                      v-model="buyForm.imei1"
+                      type="text"
+                      maxlength="18"
+                      class="w-full pl-3 pr-8 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-purple-500 text-slate-900 dark:text-slate-100 font-mono font-bold"
+                      placeholder="e.g. 864201948102931"
+                    />
+                    <button
+                      type="button"
+                      @click="openScanner('imei1', 'Scan Primary IMEI 1', 'camera')"
+                      class="absolute inset-y-1 right-1 px-2 flex items-center text-slate-400 hover:text-purple-600 cursor-pointer"
+                    >
+                      📷
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="flex items-center justify-between mb-1">
+                    <label class="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                      IMEI 2 or Serial Number (Optional)
+                    </label>
+                    <button
+                      type="button"
+                      @click="openScanner('imei2', 'Scan Secondary IMEI 2 / Serial', 'camera')"
+                      class="text-[10px] font-bold text-purple-600 hover:text-purple-700 flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <span>📷</span> Scan
+                    </button>
+                  </div>
+                  <div class="relative">
+                    <input
+                      v-model="buyForm.imei2"
+                      type="text"
+                      class="w-full pl-3 pr-8 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-purple-500 text-slate-900 dark:text-slate-100 font-mono font-bold"
+                      placeholder="Second IMEI or Serial"
+                    />
+                    <button
+                      type="button"
+                      @click="openScanner('imei2', 'Scan Secondary IMEI 2 / Serial', 'camera')"
+                      class="absolute inset-y-1 right-1 px-2 flex items-center text-slate-400 hover:text-purple-600 cursor-pointer"
+                    >
+                      📷
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
             <!-- RAM & Storage & Battery -->
-            <div class="grid grid-cols-3 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">RAM</label>
-                <input
+                <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">RAM</label>
+                <SearchableSelect
                   v-model="buyForm.ram"
-                  type="text"
-                  class="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl"
-                  placeholder="e.g. 6GB, 8GB"
+                  :options="ramOptions"
+                  placeholder="Select RAM"
+                  searchPlaceholder="Search or enter RAM..."
+                  :allowCustom="true"
+                  :clearable="true"
+                  :fullWidth="true"
+                  direction="down"
                 />
               </div>
               <div>
-                <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Storage</label>
-                <input
+                <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Storage</label>
+                <SearchableSelect
                   v-model="buyForm.storage"
-                  type="text"
-                  class="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl"
-                  placeholder="e.g. 128GB, 256GB"
+                  :options="storageOptions"
+                  placeholder="Select Storage"
+                  searchPlaceholder="Search or enter Storage..."
+                  :allowCustom="true"
+                  :clearable="true"
+                  :fullWidth="true"
+                  direction="down"
                 />
               </div>
               <div>
-                <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Battery %</label>
+                <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Battery Health %</label>
                 <input
                   v-model="buyForm.battery_health"
                   type="text"
-                  class="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl"
+                  class="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-purple-500 text-slate-900 dark:text-slate-100 font-semibold"
                   placeholder="e.g. 88%"
                 />
               </div>
@@ -690,10 +790,10 @@
     <!-- MODAL 2: SELL USED PHONE -->
     <div
       v-if="sellModalOpen"
-      class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-5"
+      class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 overflow-y-auto flex items-center justify-center p-3 sm:p-5"
       @wheel.stop
     >
-      <div class="relative bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800/80 rounded-3xl w-full max-w-lg shadow-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div class="relative bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800/80 rounded-3xl w-full max-w-lg shadow-2xl max-h-[calc(100vh-2.5rem)] my-auto flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800/80 flex justify-between items-center bg-emerald-50/50 dark:bg-emerald-950/30 shrink-0">
           <div>
             <h3 class="font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -811,10 +911,10 @@
     <!-- MODAL 3: ADD REPAIR EXPENSE -->
     <div
       v-if="repairModalOpen"
-      class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-5"
+      class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 overflow-y-auto flex items-center justify-center p-3 sm:p-5"
       @wheel.stop
     >
-      <div class="relative bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800/80 rounded-3xl w-full max-w-md shadow-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div class="relative bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800/80 rounded-3xl w-full max-w-md shadow-2xl max-h-[calc(100vh-2.5rem)] my-auto flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800/80 flex justify-between items-center bg-indigo-50/50 dark:bg-indigo-950/30 shrink-0">
           <div>
             <h3 class="font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -913,6 +1013,16 @@
         </div>
       </div>
     </div>
+
+    <!-- Barcode & IMEI Scanner Modal -->
+    <BarcodeScannerModal
+      :is-open="scannerOpen"
+      :title="scannerTitle"
+      :initial-mode="scannerInitialMode"
+      @close="scannerOpen = false"
+      @scan="handleScanResult"
+      @box-result="handleBoxResult"
+    />
   </div>
 </template>
 
@@ -920,10 +1030,12 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useToastStore } from '@/stores/toast';
-import { usedMobileApi } from '@/api/endpoints';
+import { usedMobileApi, deviceApi } from '@/api/endpoints';
 import PaginationBar from '@/components/common/PaginationBar.vue';
 import SearchableSelect from '@/components/common/SearchableSelect.vue';
 import WhatsAppIcon from '@/components/common/WhatsAppIcon.vue';
+import BarcodeScannerModal from '@/components/common/BarcodeScannerModal.vue';
+import { formatDate, toInputDate } from '@/utils/date';
 
 const route = useRoute();
 const router = useRouter();
@@ -935,7 +1047,58 @@ const loading = ref(false);
 const search = ref('');
 const statusFilter = ref('');
 const periodFilter = ref('this_month');
+const sortFilter = ref('newest');
+const sortOptions = [
+  { value: 'newest', label: 'Newest First (Recent)' },
+  { value: 'oldest', label: 'Oldest First' },
+  { value: 'price_high', label: 'Price (High to Low)' },
+  { value: 'price_low', label: 'Price (Low to High)' },
+];
 const selectedBrand = ref('all');
+
+// Barcode & IMEI Scanner State
+const scannerOpen = ref(false);
+const scannerTitle = ref('Scan Barcode or IMEI');
+const scannerInitialMode = ref('camera');
+const scannerTarget = ref('');
+
+function openScanner(target, title = 'Scan Barcode or IMEI', mode = 'camera') {
+  scannerTarget.value = target;
+  scannerTitle.value = title;
+  scannerInitialMode.value = mode;
+  scannerOpen.value = true;
+}
+
+function cleanCode(raw) {
+  if (!raw) return '';
+  return raw.replace(/^(s\/n|sn|serial|imei1|imei2|imei|p\/n|pn)[:\s-]+/i, '').trim();
+}
+
+function handleScanResult(code) {
+  if (!code) return;
+  const clean = cleanCode(code);
+  if (scannerTarget.value === 'imei1') {
+    buyForm.imei1 = clean;
+    toast.success(`Scanned IMEI 1: ${clean}`, 'Scanned');
+  } else if (scannerTarget.value === 'imei2') {
+    buyForm.imei2 = clean;
+    toast.success(`Scanned IMEI 2 / Serial: ${clean}`, 'Scanned');
+  } else if (scannerTarget.value === 'search') {
+    search.value = clean;
+    toast.success(`Searching for: ${clean}`, 'Scanned');
+  }
+  scannerOpen.value = false;
+}
+
+function handleBoxResult(res) {
+  if (scannerTarget.value === 'box') {
+    if (res.imei1) buyForm.imei1 = res.imei1;
+    if (res.imei2) buyForm.imei2 = res.imei2;
+    else if (res.serialNumber) buyForm.imei2 = res.serialNumber;
+    toast.success('Extracted identifiers from box sticker!', 'Auto-Scan Success');
+  }
+  scannerOpen.value = false;
+}
 
 const showBuyModal = ref(false);
 const saving = ref(false);
@@ -957,7 +1120,68 @@ const deleting = ref(false);
 const currentPage = ref(1);
 const perPage = ref(15);
 
-const popularBrands = ['Apple', 'Samsung', 'Vivo', 'Oppo', 'Realme', 'OnePlus', 'Xiaomi', 'Motorola'];
+const catalogBrands = ref([]);
+const catalogModels = ref([]);
+const loadingModels = ref(false);
+
+const ramOptions = [
+  '2 GB',
+  '3 GB',
+  '4 GB',
+  '6 GB',
+  '8 GB',
+  '12 GB',
+  '16 GB',
+  '24 GB',
+];
+
+const storageOptions = [
+  '32 GB',
+  '64 GB',
+  '128 GB',
+  '256 GB',
+  '512 GB',
+  '1 TB',
+];
+
+async function fetchCatalogBrands() {
+  try {
+    const res = await deviceApi.brands();
+    if (res.data?.data && Array.isArray(res.data.data)) {
+      catalogBrands.value = res.data.data;
+    }
+  } catch (_) {}
+}
+
+async function fetchModelsForBrand(brand) {
+  if (!brand || brand.trim().length < 2) {
+    catalogModels.value = [];
+    return;
+  }
+  loadingModels.value = true;
+  try {
+    const res = await deviceApi.models({ brand: brand.trim() });
+    catalogModels.value = res.data?.data || res.data || [];
+  } catch {
+    catalogModels.value = [];
+  } finally {
+    loadingModels.value = false;
+  }
+}
+
+function onBrandSelected(brand) {
+  if (brand && typeof brand === 'string') {
+    buyForm.brand = brand;
+  }
+  fetchModelsForBrand(buyForm.brand);
+}
+
+function setBuyBrand(b) {
+  buyForm.brand = b;
+  buyForm.model = '';
+  fetchModelsForBrand(b);
+}
+
 const availableAccessories = ['Original Box', 'Charger & Cable', 'Bill / Invoice', 'Earphones'];
 
 const statusOptions = [
@@ -1025,7 +1249,7 @@ const buyForm = reactive({
   purchase_price: '',
   repair_cost: 0,
   expected_selling_price: '',
-  purchase_date: new Date().toISOString().slice(0, 10),
+  purchase_date: toInputDate(new Date()),
   payment_mode: 'Cash',
 });
 
@@ -1034,7 +1258,7 @@ const sellForm = reactive({
   buyer_phone: '',
   buyer_address: '',
   selling_price: 0,
-  sale_date: new Date().toISOString().slice(0, 10),
+  sale_date: toInputDate(new Date()),
   sale_payment_mode: 'Cash',
   warranty_days: 15,
   sale_notes: '',
@@ -1050,6 +1274,7 @@ async function fetchMobiles() {
   try {
     const res = await usedMobileApi.list({
       status: statusFilter.value || undefined,
+      sort: sortFilter.value || 'newest',
     });
     if (res.data?.success) {
       mobiles.value = res.data.data || [];
@@ -1065,6 +1290,11 @@ async function fetchMobiles() {
     loading.value = false;
   }
 }
+
+watch([statusFilter, sortFilter], () => {
+  currentPage.value = 1;
+  fetchMobiles();
+});
 
 const summaryStats = computed(() => {
   const inStockList = mobiles.value.filter(m => m.status !== 'sold');
@@ -1146,6 +1376,10 @@ const paginatedMobiles = computed(() => {
   return filteredMobiles.value.slice(start, start + perPage.value);
 });
 
+watch([search, statusFilter, selectedBrand, periodFilter], () => {
+  currentPage.value = 1;
+});
+
 function onPageChange(page) {
   currentPage.value = page;
 }
@@ -1200,9 +1434,10 @@ function openBuyModal() {
     purchase_price: '',
     repair_cost: 0,
     expected_selling_price: '',
-    purchase_date: new Date().toISOString().slice(0, 10),
+    purchase_date: toInputDate(new Date()),
     payment_mode: 'Cash',
   });
+  fetchModelsForBrand(buyForm.brand);
   showBuyModal.value = true;
 }
 
@@ -1243,7 +1478,7 @@ function openSellModal(m) {
     buyer_phone: '',
     buyer_address: '',
     selling_price: Number(m.expected_selling_price || m.selling_price || m.total_cost || m.purchase_price || 0),
-    sale_date: new Date().toISOString().slice(0, 10),
+    sale_date: toInputDate(new Date()),
     sale_payment_mode: 'Cash',
     warranty_days: 15,
     sale_notes: '',
@@ -1387,6 +1622,7 @@ watch(() => route.query.action, (newAction) => {
 });
 
 onMounted(async () => {
+  fetchCatalogBrands();
   await fetchMobiles();
   handleRouteAction();
 });
