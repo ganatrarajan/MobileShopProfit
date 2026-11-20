@@ -39,11 +39,24 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Phone / Mobile <span class="text-rose-500">*</span></label>
-            <input v-model="form.phone" type="tel" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100" required />
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+              Shop Contact Number (Bills, Card & WhatsApp) <span class="text-rose-500">*</span>
+            </label>
+            <input v-model="form.phone" type="tel" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100" required placeholder="Shop public phone" />
+            <p class="text-[10px] text-slate-400 mt-1">Printed on all customer invoices, digital visiting card & WhatsApp. No OTP needed.</p>
           </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+              Owner Login Mobile
+            </label>
+            <input v-model="form.owner_mobile" type="tel" disabled class="w-full px-3 py-2 text-sm bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-500 dark:text-slate-400 cursor-not-allowed" />
+            <p class="text-[10px] text-slate-400 mt-1">Used strictly for account login authentication and security OTP verification.</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Email Address</label>
             <input v-model="form.email" type="email" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100" />
@@ -197,6 +210,7 @@ const form = reactive({
   name: '',
   owner_name: '',
   phone: '',
+  owner_mobile: '',
   email: '',
   gst_number: '',
   upi_id: '',
@@ -230,7 +244,8 @@ async function loadShop() {
       Object.assign(form, {
         name: data.name || '',
         owner_name: data.owner_name || '',
-        phone: data.phone || data.mobile || '',
+        phone: data.phone || data.shop_phone || data.mobile || '',
+        owner_mobile: data.owner_mobile || data.user?.mobile || '',
         email: data.email || '',
         gst_number: data.gst_number || '',
         upi_id: data.upi_id || '',

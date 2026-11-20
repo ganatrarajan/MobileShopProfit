@@ -938,9 +938,27 @@
 
           <!-- Terms -->
           <div>
-            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-              Warranty Terms
-            </label>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                Warranty Terms
+              </label>
+              <span class="text-[10px] text-slate-400 font-medium">Click to auto-fill:</span>
+            </div>
+            <!-- Quick preset chips -->
+            <div class="flex flex-wrap gap-1.5 mb-2">
+              <button
+                type="button"
+                v-for="preset in warrantyPresets"
+                :key="preset.label"
+                @click="createForm.warranty_terms = preset.text"
+                class="px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition cursor-pointer"
+                :class="createForm.warranty_terms === preset.text
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                  : 'bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200/60 dark:border-indigo-800/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/50'"
+              >
+                {{ preset.label }}
+              </button>
+            </div>
             <textarea
               v-model="createForm.warranty_terms"
               rows="2"
@@ -1149,6 +1167,29 @@ const updateClaimForm = reactive({
 
 const detailModalOpen = ref(false);
 const selectedWarranty = ref(null);
+
+const warrantyPresets = [
+  {
+    label: 'Service Center Warranty',
+    text: 'Official Brand Service Center Warranty. Customer can claim directly at authorized service center with invoice.',
+  },
+  {
+    label: 'Shop Testing Warranty',
+    text: 'Shop Testing Warranty. Covers hardware & manufacturing defects. Physical and liquid damage void.',
+  },
+  {
+    label: 'Display & Touch Only',
+    text: 'Covers screen and touch failure only. Glass crack, black spot, lines, drop or liquid damage strictly void.',
+  },
+  {
+    label: 'Parts Replaced Only',
+    text: 'Covers repair & replaced parts only. Physical damage, water ingress, or unauthorized opening voids warranty.',
+  },
+  {
+    label: 'Full Device Warranty',
+    text: 'Comprehensive device warranty covering internal components. Excludes physical drop and liquid exposure.',
+  },
+];
 
 const createWarrantyModalOpen = ref(false);
 const savingNewWarranty = ref(false);

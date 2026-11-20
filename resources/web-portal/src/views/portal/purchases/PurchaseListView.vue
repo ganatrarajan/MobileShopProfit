@@ -606,12 +606,7 @@
               <label class="block font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
                 Purchase Bill Date <span class="text-rose-500">*</span>
               </label>
-              <input
-                v-model="purchaseForm.purchase_date"
-                type="date"
-                required
-                class="w-full px-3.5 py-2 text-xs font-semibold bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white"
-              />
+              <DatePicker v-model="purchaseForm.purchase_date" required />
             </div>
           </div>
 
@@ -1162,11 +1157,7 @@
               <label class="block font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
                 Payment Date
               </label>
-              <input
-                v-model="paymentForm.payment_date"
-                type="date"
-                class="w-full px-3.5 py-2 text-xs font-semibold bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl"
-              />
+              <DatePicker v-model="paymentForm.payment_date" />
             </div>
           </div>
 
@@ -1462,6 +1453,7 @@ import PaginationBar from '@/components/common/PaginationBar.vue';
 import SearchableSelect from '@/components/common/SearchableSelect.vue';
 import WhatsAppIcon from '@/components/common/WhatsAppIcon.vue';
 import BarcodeScannerModal from '@/components/common/BarcodeScannerModal.vue';
+import DatePicker from '@/components/common/DatePicker.vue';
 import { formatDate, toInputDate } from '@/utils/date';
 
 const toast = useToastStore();

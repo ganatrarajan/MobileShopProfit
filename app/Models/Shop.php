@@ -67,6 +67,8 @@ class Shop extends Model
         'is_web_enabled',
         'web_valid_until',
         'web_access_note',
+        'last_mobile_login_at',
+        'last_web_login_at',
     ];
 
     protected $casts = [
@@ -86,10 +88,13 @@ class Shop extends Model
         'custom_discount_is_one_time'        => 'boolean',
         'is_web_enabled'                     => 'boolean',
         'web_valid_until'                    => 'date:Y-m-d',
+        'last_mobile_login_at'               => 'datetime',
+        'last_web_login_at'                  => 'datetime',
     ];
 
     protected $appends = [
         'logo_url',
+        'owner_mobile',
         'effective_max_staff',
         'staff_days_remaining',
         'staff_valid_until',
@@ -450,6 +455,11 @@ class Shop extends Model
     public function getMobileAttribute(): ?string
     {
         return $this->attributes['phone'] ?? null;
+    }
+
+    public function getOwnerMobileAttribute(): ?string
+    {
+        return $this->user?->mobile;
     }
 
     public function setMobileAttribute(?string $value): void

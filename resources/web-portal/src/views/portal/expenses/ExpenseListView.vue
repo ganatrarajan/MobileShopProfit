@@ -323,12 +323,7 @@
               <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
                 Expense Date <span class="text-rose-500">*</span>
               </label>
-              <input
-                v-model="form.expense_date"
-                type="date"
-                class="w-full px-3 py-2 text-xs font-medium bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100"
-                required
-              />
+              <DatePicker v-model="form.expense_date" required />
             </div>
           </div>
 
@@ -513,6 +508,7 @@ import { useToastStore } from '@/stores/toast';
 import { expenseApi, expenseCategoryApi } from '@/api/endpoints';
 import PaginationBar from '@/components/common/PaginationBar.vue';
 import SearchableSelect from '@/components/common/SearchableSelect.vue';
+import DatePicker from '@/components/common/DatePicker.vue';
 import { formatDate, toInputDate } from '@/utils/date';
 
 const filterStore = useFilterStore();

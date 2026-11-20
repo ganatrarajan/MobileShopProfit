@@ -17,6 +17,7 @@ class AdminPlanController extends Controller
     public function index(): JsonResponse
     {
         $plans = Plan::withCount('subscriptions')
+            ->orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END")
             ->orderBy('sort_order', 'asc')
             ->orderBy('price', 'asc')
             ->get();
@@ -67,14 +68,19 @@ class AdminPlanController extends Controller
             'sort_order'         => 'nullable|integer|min:0',
         ]);
 
+        $slug = Str::slug($request->name . '-' . $request->billing_period);
+        if (Plan::where('slug', $slug)->where('id', '!=', $plan->id)->exists()) {
+            $slug .= '-' . $plan->id;
+        }
+
         $plan->update([
             'name'               => $request->name,
-            'slug'               => Str::slug($request->name . '-' . $request->billing_period),
+            'slug'               => $slug,
             'price'              => $request->price,
             'billing_period'     => $request->billing_period,
             'max_staff_accounts' => $request->has('max_staff_accounts') ? (int) $request->max_staff_accounts : $plan->max_staff_accounts,
             'status'             => $request->status,
-            'sort_order'         => $request->sort_order ?? $plan->sort_order,
+            'sort_order'         => $request->has('sort_order') ? (int) $request->sort_order : $plan->sort_order,
         ]);
 
         Cache::forget('public_plans_list');

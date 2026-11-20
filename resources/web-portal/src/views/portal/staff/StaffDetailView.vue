@@ -452,11 +452,7 @@
               <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
                 Joining Date
               </label>
-              <input
-                v-model="editForm.joining_date"
-                type="date"
-                class="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100"
-              />
+              <DatePicker v-model="editForm.joining_date" />
             </div>
             <div>
               <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
@@ -542,6 +538,7 @@ import { formatDate } from '@/utils/date';
 import { useToastStore } from '@/stores/toast';
 import { useAuthStore } from '@/stores/auth';
 import WhatsAppIcon from '@/components/common/WhatsAppIcon.vue';
+import DatePicker from '@/components/common/DatePicker.vue';
 
 const route = useRoute();
 const router = useRouter();

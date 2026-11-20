@@ -570,6 +570,7 @@ class DashboardController extends Controller
                     'total_sales' => round($usedMobileSales, 2),
                     'total_cost' => round($usedMobileCost, 2),
                     'total_profit' => round($usedMobileProfit, 2),
+                    'profit_margin' => $usedMobileSales > 0 && $usedMobileProfit > 0 ? round(($usedMobileProfit / $usedMobileSales) * 100, 1) : 0,
                     'in_stock_count' => $usedMobileInStockCount,
                     'in_stock_investment' => round($usedMobileInStockInvestment, 2),
                 ],

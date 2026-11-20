@@ -45,7 +45,9 @@ class SubscriptionController extends Controller
             $expiryDate = $startDate->copy()->addDays($trialDays);
 
             if (!$subscription) {
-                $defaultPlan = Plan::where('slug', 'monthly')->first() ?? Plan::first();
+                $defaultPlan = Plan::where('status', 'active')->where('slug', 'monthly')->first() 
+                    ?? Plan::where('status', 'active')->orderBy('sort_order', 'asc')->first() 
+                    ?? Plan::first();
                 $subscription = Subscription::create([
                     'shop_id'        => $user->shop_id,
                     'plan_id'        => $defaultPlan ? $defaultPlan->id : null,

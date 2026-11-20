@@ -98,6 +98,7 @@ Route::prefix('v1')->group(function () {
         // Admin Dashboard Overview
         Route::get('/dashboard', [AdminDashboardController::class, 'index']);
         Route::get('/dashboard/app-opens-today', [AdminDashboardController::class, 'appOpensTodayUsers']);
+        Route::get('/dashboard/web-logins-today', [AdminDashboardController::class, 'webLoginsTodayUsers']);
 
         // Admin Shop Management
         Route::get('/shops', [AdminShopController::class, 'index']);
@@ -241,6 +242,7 @@ Route::prefix('v1')->group(function () {
 
         // Refer & Earn (Dynamic per-shop config, wallet & passbook)
         Route::get('/referrals/summary', [ReferralController::class, 'summary']);
+        Route::get('/referrals/shops/{shopId}/payments', [ReferralController::class, 'referredShopPayments']);
 
         // Support Requests (App Submissions)
         Route::get('/support/contact-info', [AdminSupportController::class, 'getContactInfo']);
@@ -312,6 +314,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/used-mobiles/stats', [UsedMobileController::class, 'stats']);
         Route::post('/used-mobiles/{id}/repair-expense', [UsedMobileController::class, 'addRepairExpense']);
         Route::post('/used-mobiles/{id}/sell', [UsedMobileController::class, 'sell']);
+        Route::post('/used-mobiles/{id}/payments', [UsedMobileController::class, 'addPayment']);
         Route::apiResource('used-mobiles', UsedMobileController::class);
 
         // Expense Management

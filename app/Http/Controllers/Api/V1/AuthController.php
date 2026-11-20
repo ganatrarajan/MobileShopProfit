@@ -77,7 +77,7 @@ class AuthController extends Controller
             }
 
             // 4. Issue Sanctum Bearer Token
-            $token = $user->createToken('auth_token')->plainTextToken;
+            $token = $user->createToken($this->resolveTokenName($request))->plainTextToken;
 
             return $this->successResponse([
                 'token' => $token,
@@ -137,7 +137,7 @@ class AuthController extends Controller
                     $shop->refresh();
                 }
 
-                $token = $user->createToken('auth_token')->plainTextToken;
+                $token = $user->createToken($this->resolveTokenName($request))->plainTextToken;
 
                 return $this->successResponse([
                     'otp_skipped' => true,
@@ -269,7 +269,7 @@ class AuthController extends Controller
             }
 
             // 4. Issue Sanctum Bearer Token
-            $token = $user->createToken('auth_token')->plainTextToken;
+            $token = $user->createToken($this->resolveTokenName($request))->plainTextToken;
 
             // Delete pending registration after successful creation
             $pending->delete();
@@ -413,10 +413,38 @@ class AuthController extends Controller
             }
         }
 
-        // Revoke all previous tokens for this user to enforce single active device session
-        $user->tokens()->delete();
+        // Differentiate login platform: Web Portal vs Mobile Application
+        // Allows 1 Mobile App + 1 Web Portal session simultaneously.
+        // Enforces: Max 1 active mobile session AND max 1 active web session per account.
+        $isWeb = $request->input('login_source') === 'web'
+            || strtolower((string)$request->header('X-Client-Type')) === 'web'
+            || $request->input('client_type') === 'web';
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $tokenName = $isWeb ? 'web_session' : 'mobile_session';
+
+        if ($isWeb) {
+            // Revoke ONLY existing web session tokens for this user -> keeps mobile app logged in!
+            $user->tokens()->where('name', 'web_session')->delete();
+            $user->update(['last_web_login_at' => now()]);
+            if ($user->shop) {
+                $user->shop->update(['last_web_login_at' => now()]);
+            }
+        } else {
+            // Revoke ONLY existing mobile session tokens for this user -> keeps web portal logged in!
+            // Also cleans up legacy 'auth_token' tokens
+            $user->tokens()->where(function ($q) {
+                $q->where('name', 'mobile_session')->orWhere('name', 'auth_token');
+            })->delete();
+            $user->update([
+                'last_mobile_login_at' => now(),
+                'last_app_opened_at'   => now(),
+            ]);
+            if ($user->shop) {
+                $user->shop->update(['last_mobile_login_at' => now()]);
+            }
+        }
+
+        $token = $user->createToken($tokenName)->plainTextToken;
 
         return $this->successResponse([
             'token' => $token,
@@ -432,7 +460,26 @@ class AuthController extends Controller
     {
         $user = $request->user();
         if ($user) {
-            $user->update(['last_app_opened_at' => now()]);
+            $isWeb = $request->input('login_source') === 'web'
+                || strtolower((string)$request->header('X-Client-Type')) === 'web'
+                || $request->input('client_type') === 'web'
+                || ($user->currentAccessToken() && $user->currentAccessToken()->name === 'web_session');
+
+            if ($isWeb) {
+                $user->update(['last_web_login_at' => now()]);
+                if ($user->shop) {
+                    $user->shop->update(['last_web_login_at' => now()]);
+                }
+            } else {
+                $user->update([
+                    'last_mobile_login_at' => now(),
+                    'last_app_opened_at'   => now(),
+                ]);
+                if ($user->shop) {
+                    $user->shop->update(['last_mobile_login_at' => now()]);
+                }
+            }
+
             $user->load('shop');
 
             // Enforce staff expiry on active session
@@ -462,7 +509,13 @@ class AuthController extends Controller
     {
         $user = $request->user();
         if ($user) {
-            $user->update(['last_app_opened_at' => now()]);
+            $user->update([
+                'last_mobile_login_at' => now(),
+                'last_app_opened_at'   => now(),
+            ]);
+            if ($user->shop) {
+                $user->shop->update(['last_mobile_login_at' => now()]);
+            }
 
             if (in_array($user->role, ['staff', 'technician'])) {
                 $shop = $user->shop;
@@ -854,6 +907,14 @@ class AuthController extends Controller
             return $this->errorResponse('Unauthenticated', 401);
         }
 
+        $isWeb = ($user->currentAccessToken() && $user->currentAccessToken()->name === 'web_session');
+        if ($isWeb) {
+            $user->update(['last_web_login_at' => now()]);
+            if ($user->shop) {
+                $user->shop->update(['last_web_login_at' => now()]);
+            }
+        }
+
         return $this->successResponse([
             'valid'     => true,
             'user_id'   => $user->id,
@@ -893,6 +954,18 @@ class AuthController extends Controller
         ]);
 
         return $this->successResponse(null, 'Password updated successfully');
+    }
+
+    /**
+     * Determine token name based on client platform (web vs mobile).
+     */
+    private function resolveTokenName(Request $request): string
+    {
+        $isWeb = $request->input('login_source') === 'web'
+            || strtolower((string) $request->header('X-Client-Type')) === 'web'
+            || $request->input('client_type') === 'web';
+
+        return $isWeb ? 'web_session' : 'mobile_session';
     }
 }
 

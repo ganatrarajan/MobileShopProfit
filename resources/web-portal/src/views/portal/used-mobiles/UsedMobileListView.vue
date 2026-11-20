@@ -24,7 +24,7 @@
     </div>
 
     <!-- Top KPI Summary Cards -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
       <!-- In-Stock Showroom -->
       <div class="bg-white dark:bg-[#111827] rounded-2xl p-4 border border-slate-200/80 dark:border-slate-800/80 shadow-xs flex items-center gap-3.5">
         <div class="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-100 dark:border-indigo-900/40">
@@ -55,6 +55,27 @@
           </div>
           <p class="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold truncate">
             ₹{{ formatNumber(summaryStats.totalSaleRevenue) }} revenue
+          </p>
+        </div>
+      </div>
+
+      <!-- Payment Due (Partial Payments) -->
+      <div
+        @click="statusFilter = 'due'"
+        class="bg-white dark:bg-[#111827] rounded-2xl p-4 border border-slate-200/80 dark:border-slate-800/80 shadow-xs flex items-center gap-3.5 cursor-pointer hover:border-amber-400/80 transition group"
+        title="Click to filter phones with payment due"
+      >
+        <div class="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-100 dark:border-amber-900/40 group-hover:scale-105 transition">
+          <span class="text-xl">⏳</span>
+        </div>
+        <div class="min-w-0">
+          <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Payment Due</p>
+          <div class="flex items-baseline gap-1 mt-0.5">
+            <h3 class="text-xl font-black text-amber-600 dark:text-amber-400">{{ summaryStats.dueCount }}</h3>
+            <span class="text-xs font-bold text-slate-400">Pending</span>
+          </div>
+          <p class="text-[11px] text-amber-700 dark:text-amber-400 font-semibold truncate">
+            ₹{{ formatNumber(summaryStats.totalDueAmount) }} due
           </p>
         </div>
       </div>
@@ -307,6 +328,9 @@
                   <div v-if="m.buyer_name" class="text-[10px] text-slate-400 mt-0.5 truncate max-w-[120px]">
                     To: {{ m.buyer_name }}
                   </div>
+                  <div v-if="Number(m.amount_due || 0) > 0" class="text-[10px] text-amber-600 dark:text-amber-400 font-bold mt-0.5">
+                    Due: ₹{{ formatNumber(m.amount_due) }}
+                  </div>
                 </div>
                 <div v-else class="text-xs">
                   <span v-if="m.expected_selling_price" class="text-slate-600 dark:text-slate-400">
@@ -318,14 +342,30 @@
 
               <!-- Status -->
               <td class="py-3.5 px-4">
+                <template v-if="m.status === 'sold'">
+                  <div v-if="Number(m.amount_due || 0) > 0" class="space-y-1">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900/40">
+                      <span class="w-1.5 h-1.5 rounded-full mr-1.5 bg-amber-500 animate-pulse"></span>
+                      <span>Due: ₹{{ formatNumber(m.amount_due) }}</span>
+                    </span>
+                    <div class="text-[10px] text-slate-400 font-medium">
+                      Paid: ₹{{ formatNumber(m.amount_paid || 0) }}
+                    </div>
+                  </div>
+                  <span
+                    v-else
+                    class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/40"
+                  >
+                    <span class="w-1.5 h-1.5 rounded-full mr-1.5 bg-emerald-500"></span>
+                    <span>Sold (Paid)</span>
+                  </span>
+                </template>
                 <span
-                  :class="m.status === 'sold'
-                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/40'
-                    : 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-900/40'"
-                  class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold capitalize border"
+                  v-else
+                  class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-900/40"
                 >
-                  <span class="w-1.5 h-1.5 rounded-full mr-1.5" :class="m.status === 'sold' ? 'bg-emerald-500' : 'bg-indigo-500 animate-pulse'"></span>
-                  <span>{{ m.status === 'sold' ? 'Sold' : 'In Stock' }}</span>
+                  <span class="w-1.5 h-1.5 rounded-full mr-1.5 bg-indigo-500 animate-pulse"></span>
+                  <span>In Stock</span>
                 </span>
               </td>
 
@@ -341,6 +381,17 @@
                     title="Sell this device"
                   >
                     <span>Sell</span>
+                  </button>
+
+                  <!-- Collect Due Button -->
+                  <button
+                    v-if="m.status === 'sold' && Number(m.amount_due || 0) > 0"
+                    @click="openCollectModal(m)"
+                    type="button"
+                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white shadow-xs transition cursor-pointer"
+                    title="Collect pending balance"
+                  >
+                    <span>Collect Due</span>
                   </button>
 
                   <!-- Quick Add Repair Expense -->
@@ -744,12 +795,7 @@
                   <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
                     Purchase Date <span class="text-rose-500">*</span>
                   </label>
-                  <input
-                    v-model="buyForm.purchase_date"
-                    type="date"
-                    class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-purple-500 text-slate-900 dark:text-slate-100"
-                    required
-                  />
+                  <DatePicker v-model="buyForm.purchase_date" required />
                 </div>
                 <div>
                   <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
@@ -857,7 +903,7 @@
               </div>
               <div>
                 <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Sale Date <span class="text-rose-500">*</span></label>
-                <input v-model="sellForm.sale_date" type="date" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100" required />
+                <DatePicker v-model="sellForm.sale_date" required />
               </div>
             </div>
 
@@ -1014,6 +1060,88 @@
       </div>
     </div>
 
+    <!-- MODAL 5: COLLECT DUE PAYMENT -->
+    <div
+      v-if="collectModalOpen"
+      class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-5"
+      @wheel.stop
+    >
+      <div class="relative bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800/80 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800/80 flex justify-between items-center bg-amber-50/50 dark:bg-amber-950/30">
+          <div>
+            <h3 class="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+              Collect Due Payment
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">
+              {{ mobileToCollect?.brand }} {{ mobileToCollect?.model }} &bull; Remaining Due: ₹{{ formatNumber(mobileToCollect?.amount_due || 0) }}
+            </p>
+          </div>
+          <button @click="collectModalOpen = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">✕</button>
+        </div>
+
+        <form @submit.prevent="executeCollectPayment" class="p-6 space-y-4 text-xs">
+          <div>
+            <label class="block font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+              Payment Amount (₹) <span class="text-rose-500">*</span>
+            </label>
+            <input
+              v-model.number="collectPaymentForm.amount"
+              type="number"
+              step="1"
+              min="1"
+              :max="mobileToCollect?.amount_due || 9999999"
+              class="w-full px-3 py-2 text-base font-black bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-amber-500 text-slate-900 dark:text-slate-100"
+              required
+            />
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Payment Mode</label>
+              <SearchableSelect
+                v-model="collectPaymentForm.payment_mode"
+                :options="paymentModeOptions"
+                placeholder="Select Mode"
+                minWidth="100%"
+              />
+            </div>
+            <div>
+              <label class="block font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Date</label>
+              <DatePicker v-model="collectPaymentForm.payment_date" required />
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Payment Note (Optional)</label>
+            <input
+              v-model="collectPaymentForm.notes"
+              type="text"
+              placeholder="e.g. Received via GPay / Cash"
+              class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-amber-500 text-slate-900 dark:text-slate-100"
+            />
+          </div>
+
+          <div class="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex justify-end gap-2">
+            <button
+              type="button"
+              @click="collectModalOpen = false"
+              class="px-4 py-2 font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              :disabled="submittingCollect"
+              class="px-5 py-2 font-bold text-white bg-amber-600 hover:bg-amber-500 rounded-xl shadow-md shadow-amber-600/20 disabled:opacity-50 transition cursor-pointer"
+            >
+              {{ submittingCollect ? 'Saving...' : 'Record Payment' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- Barcode & IMEI Scanner Modal -->
     <BarcodeScannerModal
       :is-open="scannerOpen"
@@ -1035,6 +1163,7 @@ import PaginationBar from '@/components/common/PaginationBar.vue';
 import SearchableSelect from '@/components/common/SearchableSelect.vue';
 import WhatsAppIcon from '@/components/common/WhatsAppIcon.vue';
 import BarcodeScannerModal from '@/components/common/BarcodeScannerModal.vue';
+import DatePicker from '@/components/common/DatePicker.vue';
 import { formatDate, toInputDate } from '@/utils/date';
 
 const route = useRoute();
@@ -1188,6 +1317,7 @@ const statusOptions = [
   { value: '', label: 'All Inventory' },
   { value: 'in_stock', label: 'Showroom Stock (In Stock)' },
   { value: 'sold', label: 'Sold Phones' },
+  { value: 'due', label: 'Payment Due (Partially Paid)' },
 ];
 
 const periodOptions = [
@@ -1299,6 +1429,7 @@ watch([statusFilter, sortFilter], () => {
 const summaryStats = computed(() => {
   const inStockList = mobiles.value.filter(m => m.status !== 'sold');
   const soldList = mobiles.value.filter(m => m.status === 'sold');
+  const dueList = mobiles.value.filter(m => m.status === 'sold' && (Number(m.amount_due || 0) > 0 || m.payment_status === 'partially_paid' || m.payment_status === 'due'));
 
   const inStockCount = summaryData.value?.in_stock_count ?? inStockList.length;
   const inStockInvestment = summaryData.value?.in_stock_investment ?? inStockList.reduce((sum, m) => sum + Number(m.total_cost || m.purchase_price || 0), 0);
@@ -1314,6 +1445,9 @@ const summaryStats = computed(() => {
 
   const margin = totalSaleRevenue > 0 ? Math.round((totalProfit / totalSaleRevenue) * 100) : 0;
 
+  const dueCount = summaryData.value?.due_count ?? dueList.length;
+  const totalDueAmount = summaryData.value?.total_due_amount ?? dueList.reduce((sum, m) => sum + Number(m.amount_due || 0), 0);
+
   const totalPurchasedCount = summaryData.value?.total_purchased_count ?? mobiles.value.length;
   const totalPurchasedAmount = summaryData.value?.total_purchased_amount ?? mobiles.value.reduce((sum, m) => sum + Number(m.purchase_price || 0), 0);
 
@@ -1324,6 +1458,8 @@ const summaryStats = computed(() => {
     totalSaleRevenue,
     totalProfit,
     margin,
+    dueCount,
+    totalDueAmount,
     totalPurchasedCount,
     totalPurchasedAmount,
   };
@@ -1344,7 +1480,11 @@ const filteredMobiles = computed(() => {
   let list = mobiles.value;
 
   if (statusFilter.value) {
-    list = list.filter(m => m.status === statusFilter.value);
+    if (statusFilter.value === 'due') {
+      list = list.filter(m => (Number(m.amount_due || 0) > 0 || m.payment_status === 'partially_paid' || m.payment_status === 'due'));
+    } else {
+      list = list.filter(m => m.status === statusFilter.value);
+    }
   }
 
   if (selectedBrand.value !== 'all') {
@@ -1595,6 +1735,48 @@ async function executeDeleteMobile() {
     toast.error(msg, 'Delete Failed');
   } finally {
     deleting.value = false;
+  }
+}
+
+const collectModalOpen = ref(false);
+const mobileToCollect = ref(null);
+const submittingCollect = ref(false);
+const collectPaymentForm = reactive({
+  amount: 0,
+  payment_mode: 'Cash',
+  notes: '',
+  payment_date: toInputDate(new Date()),
+});
+
+function openCollectModal(m) {
+  mobileToCollect.value = m;
+  Object.assign(collectPaymentForm, {
+    amount: Number(m.amount_due || 0),
+    payment_mode: 'Cash',
+    notes: '',
+    payment_date: toInputDate(new Date()),
+  });
+  collectModalOpen.value = true;
+}
+
+async function executeCollectPayment() {
+  if (!mobileToCollect.value) return;
+  if (!collectPaymentForm.amount || collectPaymentForm.amount <= 0) {
+    toast.error('Please enter a valid payment amount.', 'Invalid Amount');
+    return;
+  }
+  submittingCollect.value = true;
+  try {
+    await usedMobileApi.addPayment(mobileToCollect.value.id, collectPaymentForm);
+    toast.success('Payment recorded successfully!', 'Payment Received');
+    collectModalOpen.value = false;
+    mobileToCollect.value = null;
+    fetchMobiles();
+  } catch (err) {
+    const msg = err.response?.data?.message || 'Failed to record payment.';
+    toast.error(msg, 'Payment Failed');
+  } finally {
+    submittingCollect.value = false;
   }
 }
 

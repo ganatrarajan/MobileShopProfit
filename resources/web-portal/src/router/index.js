@@ -139,6 +139,11 @@ const routes = [
         name: 'subscription',
         component: () => import('@/views/portal/subscription/SubscriptionView.vue'),
       },
+      {
+        path: 'referral',
+        name: 'referral',
+        component: () => import('@/views/portal/referral/ReferralView.vue'),
+      },
     ],
   },
 

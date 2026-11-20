@@ -132,6 +132,7 @@ export const usedMobileApi = {
   stats: () => api.get('/used-mobiles/stats'),
   addRepairExpense: (id, data) => api.post(`/used-mobiles/${id}/repair-expense`, data),
   sell: (id, data) => api.post(`/used-mobiles/${id}/sell`, data),
+  addPayment: (id, data) => api.post(`/used-mobiles/${id}/payments`, data),
 };
 
 // ── Technicians ──
@@ -192,6 +193,7 @@ export const deviceApi = {
 // ── Referrals ──
 export const referralApi = {
   summary: () => api.get('/referrals/summary'),
+  getShopPayments: (shopId) => api.get(`/referrals/shops/${shopId}/payments`),
 };
 
 // ── Profit Intelligence ──

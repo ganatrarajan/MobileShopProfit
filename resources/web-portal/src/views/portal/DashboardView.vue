@@ -505,7 +505,12 @@
                 </p>
               </div>
               <div>
-                <p class="text-[11px] text-slate-400">Total Profit</p>
+                <div class="flex items-center gap-1">
+                  <span class="text-[11px] text-slate-400">Total Profit</span>
+                  <span v-if="usedMobileProfitMargin > 0" class="px-1.5 py-0.2 rounded text-[9px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                    {{ usedMobileProfitMargin }}%
+                  </span>
+                </div>
                 <p class="text-xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums mt-0.5">
                   {{ showProfits ? `₹${formatAmount(usedMobileStats.total_profit || 0)}` : '••••' }}
                 </p>
@@ -882,6 +887,16 @@ const repairStats = computed(() => {
 
 const usedMobileStats = computed(() => {
   return dashboardData.value?.data?.used_mobiles || dashboardData.value?.used_mobiles || {};
+});
+
+const usedMobileProfitMargin = computed(() => {
+  const stats = usedMobileStats.value;
+  if (stats.profit_margin !== undefined && stats.profit_margin !== null) {
+    return Number(stats.profit_margin);
+  }
+  const sales = Number(stats.total_sales || 0);
+  const profit = Number(stats.total_profit || 0);
+  return sales > 0 && profit > 0 ? Math.round((profit / sales) * 100) : 0;
 });
 
 const purchaseStats = computed(() => {

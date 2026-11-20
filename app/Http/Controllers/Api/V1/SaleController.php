@@ -63,7 +63,20 @@ class SaleController extends Controller
         }
 
         if ($request->filled('payment_status') && $request->input('payment_status') !== 'all') {
-            $query->where('payment_status', $request->input('payment_status'));
+            $paymentStatus = $request->input('payment_status');
+            if ($paymentStatus === 'due' || $paymentStatus === 'unpaid') {
+                $query->where(function ($q) {
+                    $q->where('payment_status', 'due')
+                      ->orWhere('payment_status', 'partially_paid')
+                      ->orWhere('amount_due', '>', 0);
+                });
+            } elseif ($paymentStatus === 'partial' || $paymentStatus === 'partially_paid') {
+                $query->where('payment_status', 'partially_paid');
+            } elseif ($paymentStatus === 'paid') {
+                $query->where('payment_status', 'paid');
+            } else {
+                $query->where('payment_status', $paymentStatus);
+            }
         }
 
         if ($request->filled('customer_id')) {

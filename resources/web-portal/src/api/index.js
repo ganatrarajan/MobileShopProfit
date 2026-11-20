@@ -5,6 +5,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
+    'X-Client-Type': 'web',
   },
 });
 
@@ -42,7 +43,7 @@ api.interceptors.response.use(
             'portal_auth_notice',
             JSON.stringify({
               type: 'concurrent',
-              message: 'Your session has ended because this account was logged in from another device or browser. Only 1 active login is permitted.',
+              message: 'Your session has ended because this account was logged into from another web browser. Only 1 active web session is allowed at a time.',
             })
           );
         }

@@ -498,9 +498,9 @@
           </div>
 
           <!-- Device Conditions -->
-          <div v-if="parseChecklist(repair.device_condition).length > 0">
+          <div v-if="parseChecklist(repair.device_condition).length > 0 || repair.condition_notes">
             <p class="text-xs text-slate-400 font-semibold uppercase mb-2">Device Physical Condition</p>
-            <div class="flex flex-wrap gap-1.5">
+            <div v-if="parseChecklist(repair.device_condition).length > 0" class="flex flex-wrap gap-1.5">
               <span
                 v-for="cond in parseChecklist(repair.device_condition)"
                 :key="cond"
@@ -509,15 +509,15 @@
                 ⚠️ {{ cond }}
               </span>
             </div>
-            <p v-if="repair.condition_notes" class="text-xs text-slate-500 mt-2 italic">
-              Note: {{ repair.condition_notes }}
+            <p v-if="repair.condition_notes" class="text-xs text-slate-700 dark:text-slate-300 mt-2 bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-lg border border-slate-200 dark:border-slate-800">
+              <span class="font-bold text-slate-500">Condition Note:</span> {{ repair.condition_notes }}
             </p>
           </div>
 
           <!-- Accessories Received -->
-          <div v-if="parseChecklist(repair.accessories_received).length > 0">
+          <div v-if="parseChecklist(repair.accessories_received).length > 0 || repair.accessories_notes">
             <p class="text-xs text-slate-400 font-semibold uppercase mb-2">Accessories Received</p>
-            <div class="flex flex-wrap gap-1.5">
+            <div v-if="parseChecklist(repair.accessories_received).length > 0" class="flex flex-wrap gap-1.5">
               <span
                 v-for="acc in parseChecklist(repair.accessories_received)"
                 :key="acc"
@@ -526,20 +526,26 @@
                 📦 {{ acc }}
               </span>
             </div>
-            <p v-if="repair.accessories_notes" class="text-xs text-slate-500 mt-2 italic">
-              Note: {{ repair.accessories_notes }}
+            <p v-if="repair.accessories_notes" class="text-xs text-slate-700 dark:text-slate-300 mt-2 bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-lg border border-slate-200 dark:border-slate-800">
+              <span class="font-bold text-slate-500">Accessories Note:</span> {{ repair.accessories_notes }}
             </p>
           </div>
 
           <!-- Customer / Internal Notes -->
           <div v-if="repair.customer_notes || repair.internal_notes" class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-            <div v-if="repair.customer_notes" class="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl text-xs">
-              <p class="text-slate-400 font-bold uppercase mb-1">Customer Notes</p>
-              <p class="text-slate-700 dark:text-slate-300">{{ repair.customer_notes }}</p>
+            <div v-if="repair.customer_notes" class="p-3.5 bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50 rounded-xl text-xs space-y-1.5 shadow-2xs">
+              <p class="text-blue-700 dark:text-blue-300 font-bold uppercase tracking-wide flex items-center gap-1.5">
+                <span>📝</span>
+                <span>Customer Notes</span>
+              </p>
+              <p class="text-slate-800 dark:text-slate-200 text-xs leading-relaxed whitespace-pre-line font-medium">{{ repair.customer_notes }}</p>
             </div>
-            <div v-if="repair.internal_notes" class="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl text-xs">
-              <p class="text-slate-400 font-bold uppercase mb-1">Internal Shop Notes</p>
-              <p class="text-slate-700 dark:text-slate-300">{{ repair.internal_notes }}</p>
+            <div v-if="repair.internal_notes" class="p-3.5 bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-xl text-xs space-y-1.5 shadow-2xs">
+              <p class="text-amber-700 dark:text-amber-300 font-bold uppercase tracking-wide flex items-center gap-1.5">
+                <span>🔒</span>
+                <span>Internal Shop Notes (Private)</span>
+              </p>
+              <p class="text-slate-800 dark:text-slate-200 text-xs leading-relaxed whitespace-pre-line font-medium">{{ repair.internal_notes }}</p>
             </div>
           </div>
         </div>
@@ -607,6 +613,7 @@
                 <tr class="text-slate-400 uppercase font-semibold border-b border-slate-100 dark:border-slate-700 text-left">
                   <th class="py-2">Part Name</th>
                   <th class="py-2 text-center">Qty</th>
+                  <th class="py-2 text-right">Charged Price</th>
                   <th class="py-2 text-right">Selling Price</th>
                   <th class="py-2 text-right">Subtotal</th>
                   <th v-if="repair.repair_status !== 'delivered'" class="py-2 text-right">Action</th>
@@ -757,239 +764,295 @@
     <!-- ───────────────────────────────────────────────────────────── -->
 
     <!-- 1. Collect Payment Modal -->
-    <div v-if="showPaymentModal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-sm animate-fade-in" @wheel.stop>
-      <div class="bg-white dark:bg-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4 max-h-[85vh] flex flex-col overflow-hidden">
-        <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3">
-          <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+    <div v-if="showPaymentModal" class="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm animate-fade-in overscroll-contain">
+      <div class="min-h-full flex items-center justify-center p-3 sm:p-5">
+        <div class="relative bg-white dark:bg-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4 my-auto">
+          <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+              </div>
+              <h3 class="font-bold text-slate-900 dark:text-white text-base">Collect Payment</h3>
             </div>
-            <h3 class="font-bold text-slate-900 dark:text-white text-base">Collect Payment</h3>
+            <button @click="showPaymentModal = false" class="text-slate-400 hover:text-slate-600">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
           </div>
-          <button @click="showPaymentModal = false" class="text-slate-400 hover:text-slate-600">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-          </button>
+
+          <form @submit.prevent="submitCollectPayment" class="space-y-4 text-xs">
+            <div>
+              <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Payment Amount (₹) <span class="text-rose-500">*</span>
+              </label>
+              <input
+                v-model.number="paymentForm.amount"
+                type="number"
+                step="0.01"
+                min="0.01"
+                :max="amountDue"
+                required
+                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
+              />
+              <p class="text-[11px] text-slate-400 mt-1">Remaining Balance: ₹{{ formatAmount(amountDue) }}</p>
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Payment Method</label>
+              <SearchableSelect
+                v-model="paymentForm.payment_method"
+                :options="repairPaymentOptions"
+                placeholder="Select Method"
+                minWidth="100%"
+              />
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Notes / Transaction Ref</label>
+              <input
+                v-model="paymentForm.notes"
+                type="text"
+                placeholder="e.g. GPay ref #123456"
+                class="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs"
+              />
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                @click="showPaymentModal = false"
+                class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                :disabled="paymentSubmitting"
+                class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold shadow-md shadow-emerald-500/20"
+              >
+                {{ paymentSubmitting ? 'Recording...' : 'Save Payment' }}
+              </button>
+            </div>
+          </form>
         </div>
-
-        <form @submit.prevent="submitCollectPayment" class="space-y-4 text-xs">
-          <div>
-            <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Payment Amount (₹) <span class="text-rose-500">*</span>
-            </label>
-            <input
-              v-model.number="paymentForm.amount"
-              type="number"
-              step="0.01"
-              min="0.01"
-              :max="amountDue"
-              required
-              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
-            />
-            <p class="text-[11px] text-slate-400 mt-1">Remaining Balance: ₹{{ formatAmount(amountDue) }}</p>
-          </div>
-
-          <div>
-            <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Payment Method</label>
-            <SearchableSelect
-              v-model="paymentForm.payment_method"
-              :options="repairPaymentOptions"
-              placeholder="Select Method"
-              minWidth="100%"
-            />
-          </div>
-
-          <div>
-            <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Notes / Transaction Ref</label>
-            <input
-              v-model="paymentForm.notes"
-              type="text"
-              placeholder="e.g. GPay ref #123456"
-              class="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs"
-            />
-          </div>
-
-          <div class="flex items-center justify-end gap-2 pt-2">
-            <button
-              type="button"
-              @click="showPaymentModal = false"
-              class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              :disabled="paymentSubmitting"
-              class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold shadow-md shadow-emerald-500/20"
-            >
-              {{ paymentSubmitting ? 'Recording...' : 'Save Payment' }}
-            </button>
-          </div>
-        </form>
       </div>
     </div>
 
     <!-- 2. Add Part Modal -->
-    <div v-if="showAddPartModal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-sm animate-fade-in" @wheel.stop>
-      <div class="bg-white dark:bg-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4 max-h-[85vh] flex flex-col overflow-hidden">
-        <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3">
-          <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    <div v-if="showAddPartModal" class="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm animate-fade-in overscroll-contain">
+      <div class="min-h-full flex items-center justify-center p-3 sm:p-5">
+        <div class="relative bg-white dark:bg-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4 my-auto">
+          <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              </div>
+              <h3 class="font-bold text-slate-900 dark:text-white text-base">Add Spare Part</h3>
             </div>
-            <h3 class="font-bold text-slate-900 dark:text-white text-base">Add Spare Part</h3>
+            <button @click="showAddPartModal = false" class="text-slate-400 hover:text-slate-600">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
           </div>
-          <button @click="showAddPartModal = false" class="text-slate-400 hover:text-slate-600">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-          </button>
+
+          <form @submit.prevent="submitAddPart" class="space-y-4 text-xs">
+            <div>
+              <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Part Name <span class="text-rose-500">*</span>
+              </label>
+              <input
+                v-model="partForm.part_name"
+                type="text"
+                placeholder="e.g. Display Combo, Battery, Charging Ribbon"
+                required
+                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-semibold focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Quantity</label>
+                <input
+                  v-model.number="partForm.quantity"
+                  type="number"
+                  min="1"
+                  required
+                  class="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-semibold"
+                />
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Charged Price (₹)</label>
+                <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Selling Price (₹)</label>
+                <input
+                  v-model.number="partForm.selling_price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  required
+                  class="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-900 dark:text-white"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Notes</label>
+              <input
+                v-model="partForm.notes"
+                type="text"
+                placeholder="Warranty details or supplier name"
+                class="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs"
+              />
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                @click="showAddPartModal = false"
+                class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                :disabled="partSubmitting"
+                class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold shadow-md shadow-indigo-500/20"
+              >
+                {{ partSubmitting ? 'Adding...' : 'Add Part' }}
+              </button>
+            </div>
+          </form>
         </div>
-
-        <form @submit.prevent="submitAddPart" class="space-y-4 text-xs">
-          <div>
-            <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Part Name <span class="text-rose-500">*</span>
-            </label>
-            <input
-              v-model="partForm.part_name"
-              type="text"
-              placeholder="e.g. Display Combo, Battery, Charging Ribbon"
-              required
-              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-semibold focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Quantity</label>
-              <input
-                v-model.number="partForm.quantity"
-                type="number"
-                min="1"
-                required
-                class="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-semibold"
-              />
-            </div>
-            <div>
-              <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Selling Price (₹)</label>
-              <input
-                v-model.number="partForm.selling_price"
-                type="number"
-                step="0.01"
-                min="0"
-                required
-                class="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-900 dark:text-white"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Cost Price (₹) (Shop cost)</label>
-            <input
-              v-model.number="partForm.cost_price"
-              type="number"
-              step="0.01"
-              min="0"
-              class="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs"
-            />
-          </div>
-
-          <div>
-            <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Notes</label>
-            <input
-              v-model="partForm.notes"
-              type="text"
-              placeholder="Warranty details or supplier name"
-              class="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs"
-            />
-          </div>
-
-          <div class="flex items-center justify-end gap-2 pt-2">
-            <button
-              type="button"
-              @click="showAddPartModal = false"
-              class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              :disabled="partSubmitting"
-              class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold shadow-md shadow-indigo-500/20"
-            >
-              {{ partSubmitting ? 'Adding...' : 'Add Part' }}
-            </button>
-          </div>
-        </form>
       </div>
     </div>
 
     <!-- 3. Add Warranty Modal -->
-    <div v-if="showAddWarrantyModal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-sm animate-fade-in" @wheel.stop>
-      <div class="bg-white dark:bg-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4 max-h-[85vh] flex flex-col overflow-hidden">
-        <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3">
-          <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+    <div v-if="showAddWarrantyModal" class="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm animate-fade-in overscroll-contain">
+      <div class="min-h-full flex items-center justify-center p-3 sm:p-5">
+        <div class="relative bg-white dark:bg-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4 my-auto">
+          <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+              </div>
+              <h3 class="font-bold text-slate-900 dark:text-white text-base">Add Repair Warranty</h3>
             </div>
-            <h3 class="font-bold text-slate-900 dark:text-white text-base">Add Repair Warranty</h3>
+            <button @click="showAddWarrantyModal = false" class="text-slate-400 hover:text-slate-600">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
           </div>
-          <button @click="showAddWarrantyModal = false" class="text-slate-400 hover:text-slate-600">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-          </button>
-        </div>
 
-        <form @submit.prevent="submitAddWarranty" class="space-y-4 text-xs">
-          <div>
-            <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Warranty Duration</label>
-            <div class="grid grid-cols-4 gap-2">
+          <form @submit.prevent="submitAddWarranty" class="space-y-4 text-xs">
+            <div>
+              <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Warranty Duration</label>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  v-for="d in presetDurations"
+                  :key="d.days"
+                  @click="selectPresetDuration(d.days)"
+                  :class="[
+                    'py-2 px-3 rounded-xl text-xs font-bold border transition cursor-pointer',
+                    !isCustomDuration && warrantyForm.duration_days === d.days
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                      : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  ]"
+                >
+                  {{ d.label }}
+                </button>
+                <button
+                  type="button"
+                  @click="selectCustomDuration"
+                  :class="[
+                    'py-2 px-3 rounded-xl text-xs font-bold border transition cursor-pointer',
+                    isCustomDuration
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                      : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  ]"
+                >
+                  Custom
+                </button>
+              </div>
+
+              <!-- Custom Duration in Days Input -->
+              <div v-if="isCustomDuration" class="mt-2.5">
+                <label class="block font-semibold text-slate-600 dark:text-slate-400 text-[11px] mb-1">
+                  Custom Duration (in Days) *
+                </label>
+                <div class="relative max-w-xs">
+                  <input
+                    type="number"
+                    v-model.number="customDurationDays"
+                    @input="onCustomDurationChange"
+                    min="1"
+                    max="3650"
+                    placeholder="Enter number of days (e.g. 45)"
+                    class="w-full pl-3.5 pr-12 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs text-slate-900 dark:text-white focus:outline-emerald-600"
+                    required
+                  />
+                  <span class="absolute right-3.5 top-2 text-[11px] font-semibold text-slate-400">Days</span>
+                </div>
+              </div>
+
+              <!-- Date Preview Ribbon -->
+              <div class="mt-2.5 p-2.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/40 flex items-center justify-between text-xs">
+                <span class="text-amber-800 dark:text-amber-300 font-semibold">
+                  Coverage: {{ warrantyForm.duration_days }} Days
+                </span>
+                <span class="text-amber-700 dark:text-amber-400 font-bold">
+                  Valid Until {{ warrantyValidUntilDate }}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="block font-semibold text-slate-700 dark:text-slate-300">Warranty Terms & Conditions</label>
+                <span class="text-[10px] text-slate-400 font-medium">Click to auto-fill:</span>
+              </div>
+              <!-- Quick preset chips -->
+              <div class="flex flex-wrap gap-1.5 mb-2">
+                <button
+                  type="button"
+                  v-for="preset in warrantyPresets"
+                  :key="preset.label"
+                  @click="warrantyForm.warranty_terms = preset.text"
+                  class="px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition cursor-pointer"
+                  :class="warrantyForm.warranty_terms === preset.text
+                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                    : 'bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200/60 dark:border-emerald-800/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/50'"
+                >
+                  {{ preset.label }}
+                </button>
+              </div>
+              <textarea
+                v-model="warrantyForm.warranty_terms"
+                rows="3"
+                class="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs"
+                placeholder="e.g. Covers touch failure only. Physical and liquid damage not covered."
+              ></textarea>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-2">
               <button
                 type="button"
-                v-for="d in [30, 90, 180, 365]"
-                :key="d"
-                @click="warrantyForm.duration_days = d"
-                :class="[
-                  'py-2 rounded-xl text-xs font-bold border transition',
-                  warrantyForm.duration_days === d
-                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                    : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
-                ]"
+                @click="showAddWarrantyModal = false"
+                class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold"
               >
-                {{ d < 365 ? d + ' Days' : '1 Year' }}
+                Cancel
+              </button>
+              <button
+                type="submit"
+                :disabled="warrantySubmitting"
+                class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold shadow-md shadow-emerald-500/20"
+              >
+                {{ warrantySubmitting ? 'Creating...' : 'Activate Warranty' }}
               </button>
             </div>
-          </div>
-
-          <div>
-            <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Warranty Terms & Conditions</label>
-            <textarea
-              v-model="warrantyForm.warranty_terms"
-              rows="3"
-              class="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs"
-              placeholder="e.g. Covers touch failure only. Physical and liquid damage not covered."
-            ></textarea>
-          </div>
-
-          <div class="flex items-center justify-end gap-2 pt-2">
-            <button
-              type="button"
-              @click="showAddWarrantyModal = false"
-              class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              :disabled="warrantySubmitting"
-              class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold shadow-md shadow-emerald-500/20"
-            >
-              {{ warrantySubmitting ? 'Creating...' : 'Activate Warranty' }}
-            </button>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
 
     <!-- 4. Delivery Blocked Warning Modal (Amount Due > 0) -->
-    <div v-if="showDeliveryWarningModal" class="fixed inset-0 z-50 overflow-y-auto flex min-h-full items-center justify-center p-4 py-6 sm:py-10 bg-black/60 backdrop-blur-sm animate-fade-in" @wheel.stop>
+    <div v-if="showDeliveryWarningModal" class="fixed inset-0 z-50 overflow-y-auto flex min-h-full items-center justify-center p-4 py-6 sm:py-10 bg-black/60 backdrop-blur-sm animate-fade-in overscroll-contain">
       <div class="bg-white dark:bg-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-red-200 dark:border-red-900/60 space-y-4">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-2xl bg-red-100 dark:bg-red-950/60 text-red-600 flex items-center justify-center">
@@ -1024,53 +1087,55 @@
     </div>
 
     <!-- 5. WhatsApp Message Modal -->
-    <div v-if="showWhatsAppModal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-sm animate-fade-in" @wheel.stop>
-      <div class="bg-white dark:bg-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4 max-h-[85vh] flex flex-col overflow-hidden">
-        <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3">
-          <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center font-bold">
-              <WhatsAppIcon sizeClass="w-4 h-4 text-white" />
+    <div v-if="showWhatsAppModal" class="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm animate-fade-in overscroll-contain">
+      <div class="min-h-full flex items-center justify-center p-3 sm:p-5">
+        <div class="relative bg-white dark:bg-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4 my-auto">
+          <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center font-bold">
+                <WhatsAppIcon sizeClass="w-4 h-4 text-white" />
+              </div>
+              <h3 class="font-bold text-slate-900 dark:text-white text-base">Send WhatsApp Ticket Update</h3>
             </div>
-            <h3 class="font-bold text-slate-900 dark:text-white text-base">Send WhatsApp Ticket Update</h3>
-          </div>
-          <button @click="showWhatsAppModal = false" class="text-slate-400 hover:text-slate-600">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-          </button>
-        </div>
-
-        <div class="space-y-3 text-xs">
-          <div>
-            <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Customer Mobile</label>
-            <input
-              :value="getCustomerMobile(repair)"
-              readonly
-              class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-900 font-mono text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-            />
-          </div>
-
-          <div>
-            <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Message Preview</label>
-            <textarea
-              v-model="whatsAppMessageText"
-              rows="6"
-              class="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-mono text-xs leading-relaxed"
-            ></textarea>
-          </div>
-
-          <div class="flex items-center justify-end gap-2 pt-2">
-            <button
-              @click="showWhatsAppModal = false"
-              class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold"
-            >
-              Cancel
+            <button @click="showWhatsAppModal = false" class="text-slate-400 hover:text-slate-600">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
-            <button
-              @click="sendWhatsAppMessage"
-              class="px-5 py-2 rounded-xl bg-[#25D366] hover:bg-[#20ba5a] text-white font-bold shadow-md shadow-green-500/20 flex items-center gap-1.5 cursor-pointer"
-            >
-              <WhatsAppIcon sizeClass="w-4 h-4 text-white" />
-              <span>Open in WhatsApp</span>
-            </button>
+          </div>
+
+          <div class="space-y-3 text-xs">
+            <div>
+              <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Customer Mobile</label>
+              <input
+                :value="getCustomerMobile(repair)"
+                readonly
+                class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-900 font-mono text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+              />
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Message Preview</label>
+              <textarea
+                v-model="whatsAppMessageText"
+                rows="6"
+                class="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-mono text-xs leading-relaxed"
+              ></textarea>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-2">
+              <button
+                @click="showWhatsAppModal = false"
+                class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                @click="sendWhatsAppMessage"
+                class="px-5 py-2 rounded-xl bg-[#25D366] hover:bg-[#20ba5a] text-white font-bold shadow-md shadow-green-500/20 flex items-center gap-1.5 cursor-pointer"
+              >
+                <WhatsAppIcon sizeClass="w-4 h-4 text-white" />
+                <span>Open in WhatsApp</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1183,7 +1248,7 @@
     </div>
 
     <!-- 7. Confirm Delete Repair Modal -->
-    <div v-if="showDeleteModal" class="fixed inset-0 z-50 overflow-y-auto flex min-h-full items-center justify-center p-4 py-6 sm:py-10 bg-black/60 backdrop-blur-sm animate-fade-in" @wheel.stop>
+    <div v-if="showDeleteModal" class="fixed inset-0 z-50 overflow-y-auto flex min-h-full items-center justify-center p-4 py-6 sm:py-10 bg-black/60 backdrop-blur-sm animate-fade-in overscroll-contain">
       <div class="bg-white dark:bg-slate-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center font-bold">
@@ -1219,60 +1284,63 @@
     <!-- 8. Reassign Technician Modal -->
     <div
       v-if="showReassignTechModal"
-      class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-xs"
-      @wheel.stop
+      class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs overscroll-contain"
     >
-      <div class="relative bg-white dark:bg-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4 max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-        <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3 shrink-0">
-          <div>
-            <h3 class="font-bold text-slate-900 dark:text-white text-base">Reassign Technician</h3>
-            <p class="text-xs text-slate-400">Update technician assignment and labour payout</p>
+      <div class="min-h-full flex items-center justify-center p-3 sm:p-5">
+        <div class="relative bg-white dark:bg-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4 my-auto animate-in fade-in zoom-in-95 duration-150">
+          <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3 shrink-0">
+            <div>
+              <h3 class="font-bold text-slate-900 dark:text-white text-base">Reassign Technician</h3>
+              <p class="text-xs text-slate-400">Update technician assignment and labour payout</p>
+            </div>
+            <button @click="showReassignTechModal = false" class="text-slate-400 hover:text-slate-600 cursor-pointer">✕</button>
           </div>
-          <button @click="showReassignTechModal = false" class="text-slate-400 hover:text-slate-600 cursor-pointer">✕</button>
+
+          <form @submit.prevent="submitReassignTech" class="space-y-4 text-xs">
+            <div>
+              <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Select Technician</label>
+              <select
+                v-model="reassignForm.technician_id"
+                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+              >
+                <option :value="null">-- Unassigned / In-house --</option>
+                <option v-for="t in allTechnicians" :key="t.id" :value="t.id">
+                  {{ t.name }}{{ t.specialization ? ' • ' + t.specialization : '' }}
+                </option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Technician Labour / Fee (₹)
+              </label>
+              <input
+                v-model.number="reassignForm.technician_earning"
+                type="number"
+                step="0.01"
+                min="0"
+                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-semibold"
+              />
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+              <button
+                type="button"
+                @click="showReassignTechModal = false"
+                class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                :disabled="reassignSubmitting"
+                class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold cursor-pointer"
+              >
+                {{ reassignSubmitting ? 'Updating...' : 'Save Assignment' }}
+              </button>
+            </div>
+          </form>
         </div>
-
-        <form @submit.prevent="submitReassignTech" class="space-y-4 text-xs">
-          <div>
-            <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Select Technician</label>
-            <SearchableSelect
-              v-model="reassignForm.technician_id"
-              :options="reassignTechnicianOptions"
-              placeholder="-- Select Technician --"
-              searchPlaceholder="Search technician..."
-              minWidth="100%"
-            />
-          </div>
-
-          <div>
-            <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Technician Labour / Fee (₹)
-            </label>
-            <input
-              v-model.number="reassignForm.technician_earning"
-              type="number"
-              step="0.01"
-              min="0"
-              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-semibold"
-            />
-          </div>
-
-          <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
-            <button
-              type="button"
-              @click="showReassignTechModal = false"
-              class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              :disabled="reassignSubmitting"
-              class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold cursor-pointer"
-            >
-              {{ reassignSubmitting ? 'Updating...' : 'Save Assignment' }}
-            </button>
-          </div>
-        </form>
       </div>
     </div>
   </div>
@@ -1366,6 +1434,65 @@ const partForm = ref({
   cost_price: 0,
   selling_price: 0,
   notes: '',
+});
+
+const warrantyPresets = [
+  {
+    label: 'Service Center Warranty',
+    text: 'Official Brand Service Center Warranty. Customer can claim directly at authorized service center with invoice.',
+  },
+  {
+    label: 'Shop Testing Warranty',
+    text: 'Shop Testing Warranty. Covers hardware & manufacturing defects. Physical and liquid damage void.',
+  },
+  {
+    label: 'Display & Touch Only',
+    text: 'Covers screen and touch failure only. Glass crack, black spot, lines, drop or liquid damage strictly void.',
+  },
+  {
+    label: 'Parts Replaced Only',
+    text: 'Covers repair & replaced parts only. Physical damage, water ingress, or unauthorized opening voids warranty.',
+  },
+  {
+    label: 'Full Device Warranty',
+    text: 'Comprehensive device warranty covering internal components. Excludes physical drop and liquid exposure.',
+  },
+];
+
+const presetDurations = [
+  { label: '7 Days', days: 7 },
+  { label: '15 Days', days: 15 },
+  { label: '30 Days', days: 30 },
+  { label: '90 Days', days: 90 },
+  { label: '180 Days', days: 180 },
+  { label: '1 Year', days: 365 },
+];
+
+const isCustomDuration = ref(false);
+const customDurationDays = ref(30);
+
+function selectPresetDuration(days) {
+  isCustomDuration.value = false;
+  warrantyForm.value.duration_days = days;
+}
+
+function selectCustomDuration() {
+  isCustomDuration.value = true;
+  if (!customDurationDays.value) {
+    customDurationDays.value = 45;
+  }
+  warrantyForm.value.duration_days = Number(customDurationDays.value) || 30;
+}
+
+function onCustomDurationChange() {
+  warrantyForm.value.duration_days = Number(customDurationDays.value) || 1;
+}
+
+const warrantyValidUntilDate = computed(() => {
+  const days = Number(warrantyForm.value.duration_days) || 30;
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 });
 
 const warrantyForm = ref({

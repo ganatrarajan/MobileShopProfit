@@ -686,15 +686,11 @@
               </button>
             </div>
 
-            <!-- Stylish Date Input with Calendar Icon -->
-            <div class="relative">
-              <input
-                v-model="form.expected_delivery_date"
-                type="date"
-                class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-semibold focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-              />
-              <svg class="w-4 h-4 text-indigo-600 dark:text-indigo-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-            </div>
+            <!-- Custom DatePicker Component -->
+            <DatePicker
+              v-model="form.expected_delivery_date"
+              placeholder="Select expected handover date..."
+            />
 
             <!-- Stylish Formatted Date Display -->
             <p v-if="form.expected_delivery_date" class="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 pt-0.5">
@@ -935,14 +931,46 @@
               v-model="warrantyDuration"
               class="w-full px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold cursor-pointer"
             >
-              <option :value="30">30 Days</option>
+              <option :value="7">7 Days</option>
+              <option :value="15">15 Days</option>
+              <option :value="30">30 Days (1 Month)</option>
               <option :value="90">90 Days (3 Months)</option>
               <option :value="180">180 Days (6 Months)</option>
               <option :value="365">365 Days (1 Year)</option>
+              <option value="custom">Custom Days</option>
             </select>
+            <div v-if="warrantyDuration === 'custom'" class="mt-2 relative">
+              <input
+                type="number"
+                v-model.number="customWarrantyDuration"
+                min="1"
+                max="3650"
+                placeholder="Enter days (e.g. 45)"
+                class="w-full pl-3.5 pr-12 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+              />
+              <span class="absolute right-3.5 top-2 text-[11px] font-semibold text-slate-400">Days</span>
+            </div>
           </div>
           <div>
-            <label class="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">Warranty Terms Note</label>
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">Warranty Terms Note</label>
+              <span class="text-[10px] text-slate-400 font-medium">Click to auto-fill:</span>
+            </div>
+            <!-- Quick preset chips -->
+            <div class="flex flex-wrap gap-1.5 mb-2">
+              <button
+                type="button"
+                v-for="preset in warrantyPresets"
+                :key="preset.label"
+                @click="warrantyTerms = preset.text"
+                class="px-2 py-0.5 rounded-lg text-[10px] font-semibold border transition cursor-pointer"
+                :class="warrantyTerms === preset.text
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                  : 'bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200/60 dark:border-emerald-800/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/50'"
+              >
+                {{ preset.label }}
+              </button>
+            </div>
             <input
               v-model="warrantyTerms"
               type="text"
@@ -1682,6 +1710,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useToastStore } from '@/stores/toast';
 import { repairApi, customerApi, deviceApi, technicianApi, warrantyApi } from '@/api/endpoints';
 import SearchableSelect from '@/components/common/SearchableSelect.vue';
+import DatePicker from '@/components/common/DatePicker.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -1895,9 +1924,33 @@ function isDateSelected(days) {
   return form.expected_delivery_date === `${year}-${month}-${day}`;
 }
 
+const warrantyPresets = [
+  {
+    label: 'Service Center Warranty',
+    text: 'Official Brand Service Center Warranty. Customer can claim directly at authorized service center with invoice.',
+  },
+  {
+    label: 'Shop Testing Warranty',
+    text: 'Shop Testing Warranty. Covers hardware & manufacturing defects. Physical and liquid damage void.',
+  },
+  {
+    label: 'Display & Touch Only',
+    text: 'Covers screen and touch failure only. Glass crack, black spot, lines, drop or liquid damage strictly void.',
+  },
+  {
+    label: 'Parts Replaced Only',
+    text: 'Covers repair & replaced parts only. Physical damage, water ingress, or unauthorized opening voids warranty.',
+  },
+  {
+    label: 'Full Device Warranty',
+    text: 'Comprehensive device warranty covering internal components. Excludes physical drop and liquid exposure.',
+  },
+];
+
 // Warranty On Create
 const addWarranty = ref(false);
 const warrantyDuration = ref(180);
+const customWarrantyDuration = ref(30);
 const warrantyTerms = ref('Covers screen & touch replacement. Water and physical damage void.');
 
 // Quick Customer Modal
@@ -2437,7 +2490,7 @@ async function submitRepair() {
             customer_id: form.customer_id,
             device_id: form.device_id,
             warranty_type: 'repair',
-            duration_days: warrantyDuration.value,
+            duration_days: warrantyDuration.value === 'custom' ? (Number(customWarrantyDuration.value) || 30) : Number(warrantyDuration.value),
             warranty_terms: warrantyTerms.value,
           });
         } catch (wErr) {

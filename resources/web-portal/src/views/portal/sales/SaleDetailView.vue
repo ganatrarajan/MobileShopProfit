@@ -230,7 +230,7 @@
       <!-- Financial Totals & Owner Margin Section -->
       <div class="border-t border-slate-200 dark:border-slate-800 pt-5 flex flex-col md:flex-row justify-between gap-6">
         <!-- Left: Net Profit & Margin Card (For Shop Owner) -->
-        <div class="flex-1 p-4 rounded-2xl bg-teal-50/60 dark:bg-teal-950/30 border border-teal-200/80 dark:border-teal-800/80 space-y-2.5">
+        <div class="flex-1 p-4 rounded-2xl bg-teal-50/60 dark:bg-teal-950/30 border border-teal-200/80 dark:border-teal-800/80 space-y-2.5 no-print">
           <div class="flex items-center justify-between">
             <span class="text-xs font-bold text-teal-900 dark:text-teal-300 uppercase tracking-wide">Owner Profit Ledger</span>
             <span v-if="Number(sale.profit_margin_percent || 0) > 0" class="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-600 text-white">
@@ -394,11 +394,7 @@
 
           <div>
             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Payment Date</label>
-            <input
-              v-model="paymentDate"
-              type="date"
-              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 font-semibold text-xs"
-            />
+            <DatePicker v-model="paymentDate" />
           </div>
 
           <div>
@@ -486,11 +482,7 @@
 
           <div>
             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Sale Date</label>
-            <input
-              v-model="editForm.sale_date"
-              type="date"
-              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-semibold"
-            />
+            <DatePicker v-model="editForm.sale_date" />
           </div>
 
           <div>
@@ -588,6 +580,7 @@ import { saleApi, shopApi } from '@/api/endpoints';
 import { formatDate } from '@/utils/date';
 import WhatsAppIcon from '@/components/common/WhatsAppIcon.vue';
 import SearchableSelect from '@/components/common/SearchableSelect.vue';
+import DatePicker from '@/components/common/DatePicker.vue';
 
 const toast = useToastStore();
 const route = useRoute();

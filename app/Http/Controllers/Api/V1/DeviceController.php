@@ -131,7 +131,9 @@ class DeviceController extends Controller
     public function indexGlobal(Request $request): JsonResponse
     {
         $shopId = $request->user()->shop_id;
-        $query = Device::where('shop_id', $shopId)->with('customer');
+        $query = Device::where('shop_id', $shopId)
+            ->with('customer')
+            ->withCount(['repairs', 'sales', 'warranties']);
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
@@ -147,7 +149,7 @@ class DeviceController extends Controller
             });
         }
 
-        $devices = $query->orderBy('created_at', 'desc')->paginate($request->input('per_page', 15));
+        $devices = $query->orderBy('created_at', 'desc')->paginate($request->input('per_page', 25));
 
         return response()->json([
             'success' => true,
@@ -172,8 +174,15 @@ class DeviceController extends Controller
             return $this->errorResponse('Unauthorized access to device record.', 403);
         }
 
+        $device->load([
+            'customer',
+            'repairs' => fn($q) => $q->orderBy('created_at', 'desc')->with('technician'),
+            'sales' => fn($q) => $q->orderBy('sale_date', 'desc'),
+            'warranties' => fn($q) => $q->orderBy('created_at', 'desc'),
+        ])->loadCount(['repairs', 'sales', 'warranties']);
+
         return $this->successResponse(
-            new DeviceResource($device->load('customer')),
+            new DeviceResource($device),
             'Device details retrieved successfully'
         );
     }

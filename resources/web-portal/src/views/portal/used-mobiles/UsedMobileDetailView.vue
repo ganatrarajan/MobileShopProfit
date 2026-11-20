@@ -340,16 +340,78 @@
               </a>
             </div>
 
-            <div class="grid grid-cols-2 gap-3 text-xs">
-              <div class="p-2.5 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40">
+            <!-- Payment Badges & Summary -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs">
+              <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200/80 dark:border-slate-800">
                 <span class="text-slate-400 block font-semibold">Selling Amount</span>
-                <span class="font-black text-emerald-600 dark:text-emerald-400 text-sm">₹{{ formatNumber(mobile.selling_price) }}</span>
+                <span class="font-black text-slate-800 dark:text-slate-100 text-sm">₹{{ formatNumber(mobile.selling_price) }}</span>
               </div>
               <div class="p-2.5 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40">
-                <span class="text-slate-400 block font-semibold">Warranty Given</span>
-                <span class="font-bold text-slate-800 dark:text-slate-200">
-                  {{ mobile.warranty_days ? `${mobile.warranty_days} Days Testing Warranty` : 'No Warranty' }}
+                <span class="text-slate-400 block font-semibold">Amount Paid</span>
+                <span class="font-black text-emerald-600 dark:text-emerald-400 text-sm">₹{{ formatNumber(mobile.amount_paid != null ? mobile.amount_paid : mobile.selling_price) }}</span>
+              </div>
+              <div
+                class="p-2.5 rounded-xl border col-span-2 sm:col-span-1"
+                :class="Number(mobile.amount_due || 0) > 0
+                  ? 'bg-rose-50/70 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900'
+                  : 'bg-slate-50 dark:bg-slate-900/50 border-slate-200/80 dark:border-slate-800'"
+              >
+                <div class="flex items-center justify-between">
+                  <div>
+                    <span class="text-slate-400 block font-semibold">Balance Due</span>
+                    <span class="font-black text-sm" :class="Number(mobile.amount_due || 0) > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500'">
+                      ₹{{ formatNumber(mobile.amount_due || 0) }}
+                    </span>
+                  </div>
+                  <button
+                    v-if="Number(mobile.amount_due || 0) > 0"
+                    type="button"
+                    @click="openCollectPaymentModal"
+                    class="px-2.5 py-1 text-[11px] font-bold text-white bg-rose-600 hover:bg-rose-500 rounded-lg shadow-xs transition cursor-pointer"
+                  >
+                    + Collect
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Payment Status & Warranty Strip -->
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs">
+              <div class="flex items-center gap-1.5">
+                <span class="text-slate-400 font-semibold">Payment:</span>
+                <span
+                  class="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider"
+                  :class="{
+                    'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300': (mobile.payment_status || 'paid') === 'paid',
+                    'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300': mobile.payment_status === 'partially_paid',
+                    'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300': mobile.payment_status === 'due',
+                  }"
+                >
+                  {{ (mobile.payment_status || 'paid').replace('_', ' ') }}
                 </span>
+                <span class="text-slate-400">• Mode: <strong class="text-slate-700 dark:text-slate-300">{{ mobile.sale_payment_mode || 'Cash' }}</strong></span>
+              </div>
+              <div class="text-slate-500 dark:text-slate-400">
+                🛡️ <strong>{{ mobile.warranty_days ? `${mobile.warranty_days} Days Testing Warranty` : 'No Warranty' }}</strong>
+              </div>
+            </div>
+
+            <!-- Payment Installments History -->
+            <div v-if="mobile.payments && mobile.payments.length" class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
+              <div class="flex items-center justify-between">
+                <h4 class="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  Payment History ({{ mobile.payments.length }})
+                </h4>
+              </div>
+              <div class="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                <div v-for="p in mobile.payments" :key="p.id" class="py-1.5 flex items-center justify-between">
+                  <div>
+                    <span class="font-semibold text-slate-800 dark:text-slate-200">{{ formatDate(p.payment_date || p.created_at) }}</span>
+                    <span class="text-slate-400 ml-2">({{ p.payment_mode }})</span>
+                    <span v-if="p.notes" class="text-slate-400 ml-1.5 text-[11px]">• {{ p.notes }}</span>
+                  </div>
+                  <span class="font-bold text-emerald-600 dark:text-emerald-400">+₹{{ formatNumber(p.amount) }}</span>
+                </div>
               </div>
             </div>
 
@@ -400,7 +462,61 @@
               </div>
               <div>
                 <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Sale Date <span class="text-rose-500">*</span></label>
-                <input v-model="sellForm.sale_date" type="date" class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100" required />
+                <DatePicker v-model="sellForm.sale_date" required />
+              </div>
+            </div>
+
+            <!-- Payment Type Option: Full vs Partial -->
+            <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200/80 dark:border-slate-800 space-y-2.5">
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Payment Option</label>
+              <div class="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  @click="sellForm.is_partial = false; sellForm.amount_paid = sellForm.selling_price"
+                  class="py-2 px-3 rounded-xl text-xs font-bold border transition cursor-pointer"
+                  :class="!sellForm.is_partial
+                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50'"
+                >
+                  Full Payment (Paid)
+                </button>
+                <button
+                  type="button"
+                  @click="sellForm.is_partial = true; if (!sellForm.amount_paid || sellForm.amount_paid >= sellForm.selling_price) sellForm.amount_paid = 0"
+                  class="py-2 px-3 rounded-xl text-xs font-bold border transition cursor-pointer"
+                  :class="sellForm.is_partial
+                    ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50'"
+                >
+                  Partial / Due Payment
+                </button>
+              </div>
+
+              <!-- Partial Payment Input -->
+              <div v-if="sellForm.is_partial" class="pt-1.5 space-y-2">
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                      Amount Paid Now (₹)
+                    </label>
+                    <input
+                      v-model.number="sellForm.amount_paid"
+                      type="number"
+                      step="1"
+                      min="0"
+                      :max="sellForm.selling_price"
+                      class="w-full px-3 py-2 text-sm font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-amber-500 text-slate-900 dark:text-slate-100"
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                      Remaining Balance Due (₹)
+                    </label>
+                    <div class="w-full px-3 py-2 text-sm font-black text-rose-600 dark:text-rose-400 bg-rose-50/70 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-xl flex items-center">
+                      ₹{{ formatNumber(Math.max(0, (sellForm.selling_price || 0) - (sellForm.amount_paid || 0))) }}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -445,6 +561,86 @@
               class="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-md shadow-emerald-600/20 disabled:opacity-50 transition cursor-pointer"
             >
               {{ submitting ? 'Recording Sale...' : 'Confirm Sale' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- COLLECT DUE PAYMENT MODAL -->
+    <div
+      v-if="collectPaymentModalOpen"
+      class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-5"
+      @wheel.stop
+    >
+      <div class="relative bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800/80 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800/80 flex justify-between items-center bg-rose-50/50 dark:bg-rose-950/30">
+          <div>
+            <h3 class="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+              Collect Due Payment
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">Remaining Balance: ₹{{ formatNumber(mobile?.amount_due || 0) }}</p>
+          </div>
+          <button @click="collectPaymentModalOpen = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">✕</button>
+        </div>
+
+        <form @submit.prevent="executeCollectPayment" class="p-6 space-y-4 text-xs">
+          <div>
+            <label class="block font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+              Payment Amount (₹) <span class="text-rose-500">*</span>
+            </label>
+            <input
+              v-model.number="collectPaymentForm.amount"
+              type="number"
+              step="1"
+              min="1"
+              :max="mobile?.amount_due || 9999999"
+              class="w-full px-3 py-2 text-base font-black bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-rose-500 text-slate-900 dark:text-slate-100"
+              required
+            />
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Payment Mode</label>
+              <SearchableSelect
+                v-model="collectPaymentForm.payment_mode"
+                :options="paymentModeOptions"
+                placeholder="Select Mode"
+                minWidth="100%"
+              />
+            </div>
+            <div>
+              <label class="block font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Date</label>
+              <DatePicker v-model="collectPaymentForm.payment_date" required />
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Payment Note (Optional)</label>
+            <input
+              v-model="collectPaymentForm.notes"
+              type="text"
+              placeholder="e.g. GPay / Cash received by Rahul"
+              class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-rose-500 text-slate-900 dark:text-slate-100"
+            />
+          </div>
+
+          <div class="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex justify-end gap-2">
+            <button
+              type="button"
+              @click="collectPaymentModalOpen = false"
+              class="px-4 py-2 font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              :disabled="submitting"
+              class="px-5 py-2 font-bold text-white bg-rose-600 hover:bg-rose-500 rounded-xl shadow-md shadow-rose-600/20 disabled:opacity-50 transition cursor-pointer"
+            >
+              {{ submitting ? 'Saving...' : 'Record Payment' }}
             </button>
           </div>
         </form>
@@ -963,6 +1159,7 @@ import { usedMobileApi, deviceApi } from '@/api/endpoints';
 import SearchableSelect from '@/components/common/SearchableSelect.vue';
 import WhatsAppIcon from '@/components/common/WhatsAppIcon.vue';
 import BarcodeScannerModal from '@/components/common/BarcodeScannerModal.vue';
+import DatePicker from '@/components/common/DatePicker.vue';
 import { formatDate, toInputDate } from '@/utils/date';
 
 const route = useRoute();
@@ -1054,10 +1251,20 @@ const sellForm = reactive({
   buyer_phone: '',
   buyer_address: '',
   selling_price: 0,
+  is_partial: false,
+  amount_paid: 0,
   sale_date: new Date().toISOString().slice(0, 10),
   sale_payment_mode: 'Cash',
   warranty_days: 15,
   sale_notes: '',
+});
+
+const collectPaymentModalOpen = ref(false);
+const collectPaymentForm = reactive({
+  amount: 0,
+  payment_mode: 'Cash',
+  notes: '',
+  payment_date: new Date().toISOString().slice(0, 10),
 });
 
 const repairForm = reactive({
@@ -1303,11 +1510,14 @@ function shareOnWhatsApp() {
 
 function openSellModal() {
   if (!mobile.value) return;
+  const price = Number(mobile.value.expected_selling_price || mobile.value.selling_price || mobile.value.total_cost || 0);
   Object.assign(sellForm, {
     buyer_name: '',
     buyer_phone: '',
     buyer_address: '',
-    selling_price: Number(mobile.value.expected_selling_price || mobile.value.selling_price || mobile.value.total_cost || 0),
+    selling_price: price,
+    is_partial: false,
+    amount_paid: price,
     sale_date: toInputDate(new Date()),
     sale_payment_mode: 'Cash',
     warranty_days: 15,
@@ -1319,13 +1529,47 @@ function openSellModal() {
 async function executeSell() {
   submitting.value = true;
   try {
-    await usedMobileApi.sell(mobile.value.id, sellForm);
+    const payload = { ...sellForm };
+    if (!payload.is_partial) {
+      payload.amount_paid = payload.selling_price;
+    }
+    await usedMobileApi.sell(mobile.value.id, payload);
     toast.success(`${mobile.value.brand} ${mobile.value.model} marked as SOLD!`, 'Sale Complete');
     sellModalOpen.value = false;
     fetchMobileDetails();
   } catch (err) {
     const msg = err.response?.data?.message || 'Failed to record sale';
     toast.error(msg, 'Sale Failed');
+  } finally {
+    submitting.value = false;
+  }
+}
+
+function openCollectPaymentModal() {
+  if (!mobile.value) return;
+  Object.assign(collectPaymentForm, {
+    amount: Number(mobile.value.amount_due || 0),
+    payment_mode: 'Cash',
+    notes: '',
+    payment_date: toInputDate(new Date()),
+  });
+  collectPaymentModalOpen.value = true;
+}
+
+async function executeCollectPayment() {
+  if (!collectPaymentForm.amount || collectPaymentForm.amount <= 0) {
+    toast.error('Please enter a valid payment amount.', 'Invalid Amount');
+    return;
+  }
+  submitting.value = true;
+  try {
+    await usedMobileApi.addPayment(mobile.value.id, collectPaymentForm);
+    toast.success('Payment recorded successfully!', 'Payment Received');
+    collectPaymentModalOpen.value = false;
+    fetchMobileDetails();
+  } catch (err) {
+    const msg = err.response?.data?.message || 'Failed to record payment.';
+    toast.error(msg, 'Payment Failed');
   } finally {
     submitting.value = false;
   }

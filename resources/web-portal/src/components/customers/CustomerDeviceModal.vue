@@ -295,11 +295,7 @@
             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
               Purchase Date (Optional)
             </label>
-            <input
-              v-model="form.purchase_date"
-              type="date"
-              class="w-full px-3.5 py-2.5 text-xs font-semibold bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:focus:border-indigo-400 text-slate-900 dark:text-white"
-            />
+            <DatePicker v-model="form.purchase_date" />
           </div>
         </div>
 
@@ -355,6 +351,7 @@ import { deviceApi } from '@/api/endpoints';
 import { useToastStore } from '@/stores/toast';
 import SearchableSelect from '@/components/common/SearchableSelect.vue';
 import BarcodeScannerModal from '@/components/common/BarcodeScannerModal.vue';
+import DatePicker from '@/components/common/DatePicker.vue';
 import { toInputDate } from '@/utils/date';
 
 const props = defineProps({

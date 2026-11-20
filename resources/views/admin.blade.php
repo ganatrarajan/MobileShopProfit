@@ -1124,6 +1124,16 @@
             return await res.json();
         }
 
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
         let _searchDebounceTimer = null;
         function debounceSearch(fn) {
             if (_searchDebounceTimer) clearTimeout(_searchDebounceTimer);
@@ -1250,7 +1260,15 @@
                             <span style="font-size:11px; background:#d1fae5; color:#065f46; padding:2px 8px; border-radius:12px; font-weight:600;">View Users →</span>
                         </div>
                         <div class="metric-value" style="color:#059669;">${m.usage.today_app_opens || 0} Users</div>
-                        <div class="metric-sub">Opened mobile app today — click to view list</div>
+                        <div class="metric-sub">${m.usage.today_mobile_shops || 0} Shops opened mobile app today</div>
+                    </div>
+                    <div class="metric-card clickable" style="border-left:4px solid #3b82f6; position:relative;" onclick="showWebLoginsTodayModal()" title="Click to view list of users who logged into web portal today">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div class="metric-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-2px; margin-right:4px;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Web Logins Today</div>
+                            <span style="font-size:11px; background:#dbeafe; color:#1d4ed8; padding:2px 8px; border-radius:12px; font-weight:600;">View Users →</span>
+                        </div>
+                        <div class="metric-value" style="color:#2563eb;">${m.usage.today_web_logins || 0} Users</div>
+                        <div class="metric-sub">${m.usage.today_web_shops || 0} Shops logged into web portal today</div>
                     </div>
                     <div class="metric-card clickable" style="border-left:4px solid #8b5cf6; position:relative;" onclick="switchNav('used-mobiles')" title="Click to view shops using Used Mobile Buy & Sell feature">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -1369,6 +1387,80 @@
             document.getElementById('modal-body').innerHTML = html;
         }
 
+        async function showWebLoginsTodayModal() {
+            openModal('🌐 Web Portal Logins Today', `
+                <div style="text-align:center; padding:32px 16px; color:#64748b;">
+                    <div style="font-size:32px; margin-bottom:8px;">⏳</div>
+                    <div>Loading users who logged into the web portal today...</div>
+                </div>
+            `);
+
+            const data = await apiFetch('/dashboard/web-logins-today');
+            if (!data || !data.success) {
+                document.getElementById('modal-body').innerHTML = '<div style="color:#dc2626; padding:20px; text-align:center;">Failed to load today\'s active web users.</div>';
+                return;
+            }
+
+            const users = data.data || [];
+            if (users.length === 0) {
+                document.getElementById('modal-body').innerHTML = `
+                    <div style="text-align:center; padding:32px 16px;">
+                        <div style="font-size:40px; margin-bottom:8px;">🌐</div>
+                        <h4 style="font-size:15px; font-weight:700; color:#1e293b; margin-bottom:4px;">No Web Logins Yet Today</h4>
+                        <p style="font-size:13px; color:#64748b; margin-bottom:16px;">No users have logged into or interacted with the web portal today yet.</p>
+                        <button class="btn-sm" onclick="closeModal(); switchNav('users');">Browse All Users</button>
+                    </div>
+                `;
+                return;
+            }
+
+            const html = `
+                <div style="font-size:13px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid #e2e8f0;">
+                        <div>
+                            <span style="font-weight:700; font-size:14px; color:#0f172a;">${users.length} Active Web User${users.length === 1 ? '' : 's'} Today</span>
+                            <div style="font-size:12px; color:#64748b;">Sorted by most recently logged in on web</div>
+                        </div>
+                        <button class="btn-sm" style="background:#2563eb; color:white; border:none; padding:6px 12px;" onclick="closeModal(); switchNav('users'); setTimeout(() => loadUsersView(1, '', '', 'web_today'), 60);">
+                            Full Users Table →
+                        </button>
+                    </div>
+
+                    <div style="max-height:420px; overflow-y:auto; display:flex; flex-direction:column; gap:10px; padding-right:4px;">
+                        ${users.map(u => {
+                            const loginTime = u.last_web_login_at ? new Date(u.last_web_login_at) : null;
+                            const timeStr = loginTime ? formatDate(loginTime, true) : 'Today';
+                            const shopName = u.shop ? u.shop.name : (u.role === 'super_admin' || u.role === 'admin' ? 'Platform Administrator' : 'Independent Account');
+                            const phone = u.mobile || u.phone || '';
+                            return `
+                                <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px;">
+                                    <div style="flex:1; min-width:0;">
+                                        <div style="font-weight:700; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                                            ${u.name}
+                                            <span class="badge ${u.role === 'owner' ? 'badge-active' : 'badge-trial'}" style="font-size:10px; text-transform:uppercase;">${u.role}</span>
+                                        </div>
+                                        <div style="font-size:12px; color:#475569; margin-top:4px;">
+                                            🏪 <strong>${shopName}</strong>
+                                        </div>
+                                        <div style="font-size:12px; color:#64748b; margin-top:2px;">
+                                            ${phone ? `📞 <a href="tel:${phone}" style="color:#2563eb; text-decoration:none; font-weight:500;">${phone}</a>` : '<span style="color:#94a3b8;">No phone</span>'}
+                                            ${u.email ? `<span style="margin-left:8px;">✉️ ${u.email}</span>` : ''}
+                                        </div>
+                                    </div>
+                                    <div style="text-align:right; margin-left:14px; flex-shrink:0;">
+                                        <span style="display:inline-block; background:#dbeafe; color:#1d4ed8; font-size:11px; font-weight:600; padding:4px 10px; border-radius:14px; border:1px solid #bfdbfe;">
+                                            🌐 ${timeStr}
+                                        </span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+            document.getElementById('modal-body').innerHTML = html;
+        }
+
         // 2. SHOPS VIEW
         async function loadShopsView(page = 1, search = '', status = '', subStatus = '') {
             const content = getContentContainer();
@@ -1415,6 +1507,8 @@
                                 <th>Owner Name</th>
                                 <th>Contact Number</th>
                                 <th>Registration Date</th>
+                                <th>📱 Last Mobile Login</th>
+                                <th>🌐 Last Web Login</th>
                                 <th>Subscription</th>
                                 <th>Plan Expiry Date</th>
                                 <th>Last Purchase</th>
@@ -1426,7 +1520,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            ${shops.length === 0 ? `<tr><td colspan="12" style="text-align:center; padding:36px; color:#94a3b8; font-weight:500;">No shops found matching filter criteria.</td></tr>` : ''}
+                            ${shops.length === 0 ? `<tr><td colspan="14" style="text-align:center; padding:36px; color:#94a3b8; font-weight:500;">No shops found matching filter criteria.</td></tr>` : ''}
 
                             ${shops.map(s => {
                                 const mob = s.phone || s.mobile || (s.user ? (s.user.mobile || s.user.phone) : 'N/A');
@@ -1461,6 +1555,22 @@
                                     </td>
                                     <td>
                                         <div style="font-size:12.5px; color:#64748b;">${formatDate(s.created_at)}</div>
+                                    </td>
+                                    <td>
+                                        <div style="font-size:12px;">
+                                            ${(s.last_mobile_login_at || (s.user && (s.user.last_mobile_login_at || s.user.last_app_opened_at)))
+                                                ? `<div style="color:#0f172a; font-weight:700;">📱 ${formatDate(s.last_mobile_login_at || s.user.last_mobile_login_at || s.user.last_app_opened_at, true)}</div>`
+                                                : '<span style="color:#94a3b8; font-style:italic;">Never</span>'
+                                            }
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style="font-size:12px;">
+                                            ${(s.last_web_login_at || (s.user && s.user.last_web_login_at))
+                                                ? `<div style="color:#2563eb; font-weight:700;">🌐 ${formatDate(s.last_web_login_at || s.user.last_web_login_at, true)}</div>`
+                                                : '<span style="color:#94a3b8; font-style:italic;">Never</span>'
+                                            }
+                                        </div>
                                     </td>
                                     <td>
                                         <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-start;">
@@ -1648,6 +1758,7 @@
                         <p><strong>Plan Expiry Date:</strong> ${s.latest_subscription && s.latest_subscription.expiry_date ? `<strong style="color:#0f172a;">📅 ${formatDate(s.latest_subscription.expiry_date)}</strong> (${new Date(s.latest_subscription.expiry_date) < new Date() ? '<span style="color:#dc2626; font-weight:700;">🔴 Expired</span>' : '<span style="color:#059669; font-weight:700;">🟢 Active</span>'})` : '<span style="color:#94a3b8;">No Plan Linked</span>'}</p>
                         <p><strong>Last Purchase:</strong> ${s.latest_payment_transaction ? `<strong style="color:#059669; font-size:13px;">₹${Number(s.latest_payment_transaction.amount).toFixed(2)}</strong> (${s.latest_payment_transaction.plan ? s.latest_payment_transaction.plan.name : (s.latest_payment_transaction.gateway_name || 'Paid Plan')}) &bull; 🕒 ${formatDate(s.latest_payment_transaction.created_at, true)}` : (s.latest_subscription ? `<strong>${s.latest_subscription.payment_status === 'paid' ? '₹' + Number(s.latest_subscription.plan ? s.latest_subscription.plan.price : 0).toFixed(2) : '₹0.00 (Free Trial)'}</strong> (${s.latest_subscription.plan ? s.latest_subscription.plan.name : 'Trial Plan'}) &bull; 🕒 ${formatDate(s.latest_subscription.created_at || s.created_at, true)}` : '<span style="color:#94a3b8;">No Purchases Yet</span>')}</p>
                         <p><strong>Registration Date:</strong> ${formatDate(s.created_at, true)}</p>
+                        <p><strong>📱 Last Mobile App Login:</strong> ${(s.last_mobile_login_at || (s.user && s.user.last_app_opened_at)) ? `<strong style="color:#0f172a;">${formatDate(s.last_mobile_login_at || s.user.last_app_opened_at, true)}</strong>` : '<span style="color:#94a3b8;">Never</span>'} | <strong>🌐 Last Web Portal Login:</strong> ${(s.last_web_login_at || (s.user && s.user.last_web_login_at)) ? `<strong style="color:#2563eb;">${formatDate(s.last_web_login_at || s.user.last_web_login_at, true)}</strong>` : '<span style="color:#94a3b8;">Never</span>'}</p>
                         <p><strong>Account Status:</strong> <span class="badge ${s.status === 'active' ? 'badge-active' : 'badge-inactive'}">${s.status}</span></p>
                         <div style="background:#f1f5f9; padding:12px 14px; border-radius:8px; margin:12px 0; border:1px solid #cbd5e1;">
                             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
@@ -2802,8 +2913,9 @@
                             </select>
                             <select class="filter-select" onchange="loadUsersView(1, '${search}', '${role}', this.value)">
                                 <option value="">App Activity: All Users</option>
-                                <option value="today" ${openedFilter === 'today' ? 'selected' : ''}>🟢 Opened App Today</option>
-                                <option value="never" ${openedFilter === 'never' ? 'selected' : ''}>Never Opened App</option>
+                                <option value="today" ${openedFilter === 'today' ? 'selected' : ''}>🟢 Opened Mobile App Today</option>
+                                <option value="web_today" ${openedFilter === 'web_today' ? 'selected' : ''}>🌐 Logged in Web Today</option>
+                                <option value="never" ${openedFilter === 'never' ? 'selected' : ''}>Never Logged In</option>
                             </select>
                             ${(search || role || openedFilter) ? `<button class="btn-sm" style="background:#e2e8f0; color:#334155;" onclick="loadUsersView(1, '', '', '')">Clear Filters</button>` : ''}
                         </div>
@@ -2816,19 +2928,28 @@
                                 <th>Mobile / Email</th>
                                 <th>Associated Shop</th>
                                 <th>User Role</th>
-                                <th>Last Mobile App Open</th>
+                                <th>📱 Mobile Login / Open</th>
+                                <th>🌐 Web Login</th>
                                 <th>Registered Date</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${users.length === 0 ? `<tr><td colspan="6" style="text-align:center; padding:30px; color:#94a3b8;">No users found matching filter criteria.</td></tr>` : ''}
+                            ${users.length === 0 ? `<tr><td colspan="7" style="text-align:center; padding:30px; color:#94a3b8;">No users found matching filter criteria.</td></tr>` : ''}
                             ${users.map(u => {
-                                const lastOpen = u.last_app_opened_at ? new Date(u.last_app_opened_at) : null;
-                                const isToday = lastOpen && (new Date().toDateString() === lastOpen.toDateString());
+                                const lastOpen = (u.last_mobile_login_at || u.last_app_opened_at) ? new Date(u.last_mobile_login_at || u.last_app_opened_at) : null;
+                                const isOpenToday = lastOpen && (new Date().toDateString() === lastOpen.toDateString());
                                 const lastOpenBadge = lastOpen
-                                    ? (isToday
+                                    ? (isOpenToday
                                         ? `<span class="badge badge-active" style="background:#dcfce7; color:#15803d; font-weight:600; display:inline-flex; align-items:center; gap:4px;">🟢 Today ${lastOpen.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>`
                                         : `<span style="font-size:12px; color:#64748b;">${formatDate(lastOpen, true)}</span>`)
+                                    : `<span style="color:#94a3b8; font-size:12px;">Never</span>`;
+
+                                const lastWeb = u.last_web_login_at ? new Date(u.last_web_login_at) : null;
+                                const isWebToday = lastWeb && (new Date().toDateString() === lastWeb.toDateString());
+                                const lastWebBadge = lastWeb
+                                    ? (isWebToday
+                                        ? `<span class="badge badge-active" style="background:#dbeafe; color:#1d4ed8; font-weight:600; display:inline-flex; align-items:center; gap:4px;">🌐 Today ${lastWeb.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>`
+                                        : `<span style="font-size:12px; color:#2563eb; font-weight:500;">${formatDate(lastWeb, true)}</span>`)
                                     : `<span style="color:#94a3b8; font-size:12px;">Never</span>`;
 
                                 return `
@@ -2838,6 +2959,7 @@
                                     <td>${u.shop ? u.shop.name : 'N/A (Admin)'}</td>
                                     <td><span class="badge badge-resolved">${u.role}</span></td>
                                     <td>${lastOpenBadge}</td>
+                                    <td>${lastWebBadge}</td>
                                     <td>${formatDate(u.created_at)}</td>
                                 </tr>
                                 `;
@@ -3047,6 +3169,7 @@
 
             if (!plansRes || !plansRes.success) return;
             let plans = plansRes.data || [];
+            window._adminPlansCache = plans;
             const currentDailyRate = (rateRes && rateRes.data && rateRes.data.staff_price_per_day !== undefined)
                 ? parseFloat(rateRes.data.staff_price_per_day).toFixed(2)
                 : '2.00';
@@ -3112,22 +3235,32 @@
                                 <th>Plan Name</th>
                                 <th>Price</th>
                                 <th>Billing Cycle</th>
+                                <th>Staff / Devices</th>
                                 <th>Sort Order</th>
                                 <th>Status</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${plans.length === 0 ? `<tr><td colspan="6" style="text-align:center; padding:30px; color:#94a3b8;">No plans found matching filter criteria.</td></tr>` : ''}
+                            ${plans.length === 0 ? `<tr><td colspan="7" style="text-align:center; padding:30px; color:#94a3b8;">No plans found matching filter criteria.</td></tr>` : ''}
                             ${plans.map(p => `
                                 <tr>
-                                    <td><strong>${p.name}</strong></td>
+                                    <td><strong>${escapeHtml(p.name)}</strong></td>
                                     <td><strong>₹${parseFloat(p.price).toFixed(2)}</strong></td>
-                                    <td>${p.billing_period}</td>
-                                    <td>${p.sort_order || 0}</td>
+                                    <td><span style="background:#f1f5f9; padding:3px 8px; border-radius:4px; font-size:12px; font-weight:600;">${p.billing_period}</span></td>
+                                    <td>
+                                        <span class="badge" style="${(p.max_staff_accounts > 0) ? 'background:#e0e7ff; color:#4338ca;' : 'background:#f1f5f9; color:#64748b;'}">
+                                            ${p.max_staff_accounts > 0 ? `👥 ${p.max_staff_accounts} Staff / Device(s)` : '👤 Solo (0 Staff)'}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div style="display:inline-flex; align-items:center; gap:4px;">
+                                            <input type="number" min="0" value="${p.sort_order || 0}" style="width:55px; padding:4px 6px; text-align:center; border:1px solid #cbd5e1; border-radius:6px; font-weight:700;" onchange="quickUpdatePlanSort(${p.id}, this.value)" title="Change sort order number">
+                                        </div>
+                                    </td>
                                     <td><span class="badge ${p.status === 'active' ? 'badge-active' : 'badge-inactive'}">${p.status}</span></td>
                                     <td>
-                                        <button class="btn-sm" onclick="editPlanModal(${p.id}, '${p.name.replace(/'/g, "\'")}', ${p.price}, '${p.billing_period}', ${p.sort_order || 0}, '${p.status}', ${p.max_staff_accounts || 0})">Edit</button>
+                                        <button class="btn-sm" onclick="openEditPlanModal(${p.id})">Edit</button>
                                         <button class="btn-sm ${p.status === 'active' ? 'btn-danger-sm' : 'btn-success-sm'}" onclick="togglePlanStatus(${p.id})">
                                             ${p.status === 'active' ? 'Disable' : 'Enable'}
                                         </button>
@@ -3338,40 +3471,42 @@
             }
         }
 
-        function editPlanModal(id, name, price, period, sort, status, maxStaff = 0) {
+        function openEditPlanModal(id) {
+            const p = (window._adminPlansCache || []).find(x => x.id === id);
+            if (!p) return;
             openModal('Edit Subscription Plan', `
-                <form onsubmit="savePlanUpdate(event, ${id})">
+                <form onsubmit="savePlanUpdate(event, ${p.id})">
                     <div class="form-group">
                         <label>Plan Name</label>
-                        <input type="text" id="edit-plan-name" class="form-control" value="${name}" required>
+                        <input type="text" id="edit-plan-name" class="form-control" value="${escapeHtml(p.name)}" required>
                     </div>
                     <div class="form-group">
                         <label>Price (INR)</label>
-                        <input type="number" step="0.01" id="edit-plan-price" class="form-control" value="${price}" required>
+                        <input type="number" step="0.01" id="edit-plan-price" class="form-control" value="${p.price}" required>
                     </div>
                     <div class="form-group">
                         <label>Billing Period</label>
                         <select id="edit-plan-period" class="form-control">
-                            <option value="monthly" ${period === 'monthly' ? 'selected' : ''}>Monthly</option>
-                            <option value="3_months" ${period === '3_months' ? 'selected' : ''}>3 Months</option>
-                            <option value="6_months" ${period === '6_months' ? 'selected' : ''}>6 Months</option>
-                            <option value="annual" ${period === 'annual' ? 'selected' : ''}>Annual (12 Months)</option>
+                            <option value="monthly" ${p.billing_period === 'monthly' ? 'selected' : ''}>Monthly</option>
+                            <option value="3_months" ${p.billing_period === '3_months' ? 'selected' : ''}>3 Months</option>
+                            <option value="6_months" ${p.billing_period === '6_months' ? 'selected' : ''}>6 Months</option>
+                            <option value="annual" ${p.billing_period === 'annual' ? 'selected' : ''}>Annual (12 Months)</option>
                         </select>
                     </div>
                     <div class="form-group">
                         <label>Max Staff Logins Included (Technicians Free)</label>
-                        <input type="number" id="edit-plan-max-staff" class="form-control" value="${maxStaff}" min="0">
-                        <small style="color:#64748b; font-size:11px;">0 = Solo Owner only, 1 = 1 Staff login, 2 = 2 Staff logins. Technicians are unlimited & free.</small>
+                        <input type="number" id="edit-plan-max-staff" class="form-control" value="${p.max_staff_accounts || 0}" min="0">
+                        <small style="color:#64748b; font-size:11px;">0 = Solo Owner only, 1 = 1 Staff login / device, 2 = 2 Staff logins. Technicians are unlimited & free.</small>
                     </div>
                     <div class="form-group">
-                        <label>Sort Order</label>
-                        <input type="number" id="edit-plan-sort" class="form-control" value="${sort}">
+                        <label>Sort Order (Lower number appears higher, e.g. 1, 2, 3)</label>
+                        <input type="number" id="edit-plan-sort" class="form-control" value="${p.sort_order || 0}" min="0">
                     </div>
                     <div class="form-group">
                         <label>Status</label>
                         <select id="edit-plan-status" class="form-control">
-                            <option value="active" ${status === 'active' ? 'selected' : ''}>Active</option>
-                            <option value="inactive" ${status === 'inactive' ? 'selected' : ''}>Inactive</option>
+                            <option value="active" ${p.status === 'active' ? 'selected' : ''}>Active</option>
+                            <option value="inactive" ${p.status === 'inactive' ? 'selected' : ''}>Inactive</option>
                         </select>
                     </div>
                     <div style="margin-top:20px; display:flex; gap:10px;">
@@ -3380,6 +3515,30 @@
                     </div>
                 </form>
             `);
+        }
+
+        function editPlanModal(id, name, price, period, sort, status, maxStaff = 0) {
+            openEditPlanModal(id);
+        }
+
+        async function quickUpdatePlanSort(id, newSort) {
+            const p = (window._adminPlansCache || []).find(x => x.id === id);
+            if (!p) return;
+            const sortVal = parseInt(newSort) || 0;
+            const body = {
+                name: p.name,
+                price: parseFloat(p.price),
+                billing_period: p.billing_period,
+                max_staff_accounts: parseInt(p.max_staff_accounts) || 0,
+                sort_order: sortVal,
+                status: p.status,
+            };
+            const res = await apiFetch(`/plans/${id}`, 'PUT', body);
+            if (res && res.success) {
+                loadPlansView();
+            } else {
+                alert(res.message || 'Failed to update sort order');
+            }
         }
 
         async function savePlanUpdate(e, id) {

@@ -4,7 +4,6 @@
     class="fixed inset-0 z-[999999] overflow-y-auto flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150"
     @click.self="cancel"
     @keydown.esc="cancel"
-    @wheel.stop
   >
     <div
       class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4 animate-in zoom-in-95 duration-150"

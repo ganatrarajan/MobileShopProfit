@@ -74,7 +74,6 @@
         minWidth: isFullWidth ? '100%' : (popoverMinWidth || '200px'),
         maxWidth: popoverMaxWidth || (isFullWidth ? '100%' : '380px')
       }"
-      @wheel.stop
     >
       <!-- Search Input (if searchable) -->
       <div v-if="isSearchable" class="relative px-0.5 pt-0.5 pb-1">
@@ -123,7 +122,6 @@
       <div
         class="overflow-y-auto space-y-1 pr-1 custom-scroll"
         :style="optionsMaxHeightStyle"
-        @wheel.stop
       >
         <div
           v-for="opt in filteredOptions"
@@ -326,7 +324,7 @@ const props = defineProps({
   },
   direction: {
     type: String,
-    default: 'down', // 'down' | 'up' | 'auto'
+    default: 'auto', // 'down' | 'up' | 'auto'
   },
   disabled: {
     type: Boolean,
@@ -441,11 +439,11 @@ function calculatePlacement() {
     return;
   }
 
-  // If 'auto', only open upwards if very close to screen bottom and more room above
+  // If 'auto', only open upwards if not enough room below and more room above
   const viewportBelow = window.innerHeight - rect.bottom;
   const viewportAbove = rect.top;
 
-  if (viewportBelow < 160 && viewportAbove > 200) {
+  if (viewportBelow < 280 && viewportAbove > viewportBelow) {
     openUpwards.value = true;
   } else {
     openUpwards.value = false;

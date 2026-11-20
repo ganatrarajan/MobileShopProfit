@@ -526,11 +526,7 @@
               <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
                 Joining Date
               </label>
-              <input
-                v-model="form.joining_date"
-                type="date"
-                class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100"
-              />
+              <DatePicker v-model="form.joining_date" />
             </div>
           </div>
 
@@ -701,6 +697,7 @@ import { staffApi } from '@/api/endpoints';
 import PaginationBar from '@/components/common/PaginationBar.vue';
 import SearchableSelect from '@/components/common/SearchableSelect.vue';
 import WhatsAppIcon from '@/components/common/WhatsAppIcon.vue';
+import DatePicker from '@/components/common/DatePicker.vue';
 import { formatDate } from '@/utils/date';
 
 const toast = useToastStore();

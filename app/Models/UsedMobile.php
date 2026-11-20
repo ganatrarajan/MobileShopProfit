@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class UsedMobile extends Model
 {
@@ -47,6 +48,9 @@ class UsedMobile extends Model
         'buyer_phone',
         'buyer_address',
         'selling_price',
+        'amount_paid',
+        'amount_due',
+        'payment_status',
         'sale_payment_mode',
         'warranty_days',
         'warranty_expiry_date',
@@ -81,6 +85,8 @@ class UsedMobile extends Model
         'repair_cost' => 'decimal:2',
         'total_cost' => 'decimal:2',
         'selling_price' => 'decimal:2',
+        'amount_paid' => 'decimal:2',
+        'amount_due' => 'decimal:2',
         'profit' => 'decimal:2',
         'warranty_days' => 'integer',
         'purchase_tax_rate' => 'decimal:2',
@@ -156,6 +162,34 @@ class UsedMobile extends Model
     public function seller(): BelongsTo
     {
         return $this->belongsTo(User::class, 'sold_by');
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(UsedMobilePayment::class)->orderBy('payment_date', 'asc');
+    }
+
+    /**
+     * Recalculate amount_paid, amount_due, and payment_status based on payments table.
+     */
+    public function recalculatePayments(): void
+    {
+        $sellingPrice = (float) ($this->selling_price ?? 0);
+        $paid = (float) $this->payments()->sum('amount');
+        $due = max(0, $sellingPrice - $paid);
+
+        $status = 'due';
+        if ($paid >= $sellingPrice && $sellingPrice > 0) {
+            $status = 'paid';
+        } elseif ($paid > 0) {
+            $status = 'partially_paid';
+        }
+
+        $this->update([
+            'amount_paid' => $paid,
+            'amount_due' => $due,
+            'payment_status' => $status,
+        ]);
     }
 
     /**

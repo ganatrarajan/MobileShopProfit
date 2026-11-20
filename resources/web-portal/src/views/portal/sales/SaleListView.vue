@@ -50,9 +50,17 @@
       </div>
 
       <!-- Pending Due -->
-      <div class="bg-white dark:bg-[#111827] rounded-2xl p-4 border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex items-center justify-between">
+      <div
+        @click="setPaymentStatus(selectedPaymentStatus === 'unpaid' ? '' : 'unpaid')"
+        class="bg-white dark:bg-[#111827] rounded-2xl p-4 border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex items-center justify-between cursor-pointer transition-all hover:border-rose-400 hover:shadow-md"
+        :class="selectedPaymentStatus === 'unpaid' ? 'ring-2 ring-rose-500 bg-rose-50/20' : ''"
+        title="Click to filter dues"
+      >
         <div>
-          <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Pending Outstanding</p>
+          <div class="flex items-center gap-1.5">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Pending Outstanding</p>
+            <span v-if="selectedPaymentStatus === 'unpaid'" class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400">FILTERED</span>
+          </div>
           <p class="text-xl font-extrabold text-rose-600 dark:text-rose-400 mt-1">₹{{ formatAmount(summary.total_due) }}</p>
           <p class="text-[10px] text-slate-400 mt-0.5">Customer balance to collect</p>
         </div>
@@ -433,12 +441,7 @@
             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
               Payment Date <span class="text-rose-500">*</span>
             </label>
-            <input
-              v-model="collectForm.payment_date"
-              type="date"
-              required
-              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 font-semibold text-slate-800 dark:text-slate-200 text-xs focus:ring-2 focus:ring-emerald-500"
-            />
+            <DatePicker v-model="collectForm.payment_date" required />
           </div>
 
           <!-- Payment Mode -->
@@ -585,6 +588,7 @@ import { saleApi } from '@/api/endpoints';
 import PaginationBar from '@/components/common/PaginationBar.vue';
 import SearchableSelect from '@/components/common/SearchableSelect.vue';
 import WhatsAppIcon from '@/components/common/WhatsAppIcon.vue';
+import DatePicker from '@/components/common/DatePicker.vue';
 import { formatDate } from '@/utils/date';
 
 const filterStore = useFilterStore();

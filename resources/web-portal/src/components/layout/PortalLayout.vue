@@ -98,8 +98,8 @@
             <router-link
               to="/repairs/new"
               @click="sidebarOpen = false"
-              class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
-              :class="isRouteActive('/repairs/new') ? 'bg-emerald-600 !text-white font-semibold' : ''"
+              class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+              :class="isRouteActive('/repairs/new') ? 'bg-emerald-600 text-white font-semibold hover:bg-emerald-700' : 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'"
             >
               <span class="font-bold">+</span>
               <span>New Repair Ticket</span>
@@ -116,8 +116,8 @@
             <router-link
               to="/sales/new"
               @click="sidebarOpen = false"
-              class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
-              :class="isRouteActive('/sales/new') ? 'bg-emerald-600 !text-white font-semibold' : ''"
+              class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+              :class="isRouteActive('/sales/new') ? 'bg-emerald-600 text-white font-semibold hover:bg-emerald-700' : 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'"
             >
               <span class="font-bold">+</span>
               <span>New Sale / POS Counter</span>
@@ -133,16 +133,16 @@
             <router-link
               to="/used-mobiles?action=buy"
               @click="sidebarOpen = false"
-              class="block px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30"
-              :class="route.query.action === 'buy' ? 'bg-amber-600 !text-white font-semibold' : ''"
+              class="block px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+              :class="route.query.action === 'buy' ? 'bg-amber-600 text-white font-semibold hover:bg-amber-700' : 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30'"
             >
               + Buy Used Mobile
             </router-link>
             <router-link
               to="/used-mobiles?action=sell"
               @click="sidebarOpen = false"
-              class="block px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
-              :class="route.query.action === 'sell' ? 'bg-indigo-600 !text-white font-semibold' : ''"
+              class="block px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+              :class="route.query.action === 'sell' ? 'bg-indigo-600 text-white font-semibold hover:bg-indigo-700' : 'text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30'"
             >
               Sell Used Mobile
             </router-link>
@@ -281,13 +281,13 @@
           </div>
         </div>
 
-        <!-- 6. Accounts & Administration (Accordion: Expenses, Reports, Subscription, Settings) -->
+        <!-- 6. Accounts & Administration (Accordion: Expenses, Reports, Subscription, Referral, Settings) -->
         <div class="rounded-xl overflow-hidden transition-all">
           <button
             type="button"
             @click="toggleGroup('admin')"
             class="w-full flex items-center justify-between px-3 py-2.5 text-xs font-bold rounded-xl transition-all select-none cursor-pointer"
-            :class="isGroupActive(['/expenses', '/reports', '/subscription', '/settings']) ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-950/40 shadow-xs' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/50'"
+            :class="isGroupActive(['/expenses', '/reports', '/subscription', '/referral', '/settings']) ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-950/40 shadow-xs' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/50'"
           >
             <div class="flex items-center gap-2.5 min-w-0">
               <svg class="w-4 h-4 flex-shrink-0 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -330,6 +330,25 @@
               :class="isRouteActive('/subscription') ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800/40'"
             >
               Subscription & Billing
+            </router-link>
+            <router-link
+              to="/referral"
+              @click="sidebarOpen = false"
+              class="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all select-none"
+              :class="isRouteActive('/referral') 
+                ? 'bg-amber-500 !text-white font-semibold shadow-sm' 
+                : 'text-slate-700 dark:text-slate-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:text-amber-700 dark:hover:text-amber-300'"
+            >
+              <div class="flex items-center gap-1.5">
+                <span>🎁</span>
+                <span :class="isRouteActive('/referral') ? '!text-white' : ''">Refer & Earn</span>
+              </div>
+              <span 
+                class="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase transition-colors" 
+                :class="isRouteActive('/referral') ? 'bg-white/20 !text-white' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300'"
+              >
+                Earn Points
+              </span>
             </router-link>
             <router-link
               to="/settings"
@@ -505,7 +524,8 @@ function toggleGroup(key) {
 }
 
 function isGroupActive(paths) {
-  return paths.some(p => route.path.startsWith(p));
+  const p = route.path || '';
+  return paths.some(path => p === path || p.startsWith(path + '/') || p.startsWith(path));
 }
 
 // Auto expand accordion if current route belongs to an accordion group
@@ -515,11 +535,11 @@ function autoExpandGroup() {
   else if (isGroupActive(['/inventory', '/purchases'])) target = 'stock';
   else if (isGroupActive(['/customers', '/warranties'])) target = 'customers';
   else if (isGroupActive(['/staff', '/technicians'])) target = 'team';
-  else if (isGroupActive(['/expenses', '/reports', '/subscription', '/settings'])) target = 'admin';
+  else if (isGroupActive(['/expenses', '/reports', '/subscription', '/referral', '/settings'])) target = 'admin';
 
-  Object.keys(openGroups).forEach((k) => {
-    openGroups[k] = (k === target);
-  });
+  if (target) {
+    openGroups[target] = true;
+  }
 }
 
 function syncModalScrollLock() {
@@ -548,7 +568,7 @@ watch(() => route.path, () => {
   if (mainContentRef.value) {
     mainContentRef.value.style.overflow = '';
   }
-});
+}, { immediate: true });
 
 function isRouteActive(path) {
   if (path === '/') return route.path === '/';
@@ -570,6 +590,7 @@ const pageTitle = computed(() => {
   if (p.startsWith('/staff')) return 'Staff Accounts';
   if (p.startsWith('/reports')) return 'Reports & Analytics';
   if (p.startsWith('/subscription')) return 'Subscription & Billing';
+  if (p.startsWith('/referral')) return 'Refer & Earn Program';
   if (p.startsWith('/settings')) return 'Shop Settings';
   return 'MyRepairHub Portal';
 });

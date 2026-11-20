@@ -72,7 +72,13 @@ class AdminDashboardController extends Controller
         $totalRepairs = Repair::withoutGlobalScope('shop')->count();
         $totalSales = Sale::withoutGlobalScope('shop')->count();
         $totalDevices = Device::withoutGlobalScope('shop')->count();
-        $todayAppOpens = User::whereDate('last_app_opened_at', today())->count();
+        $todayAppOpens = User::where(function ($q) {
+            $q->whereDate('last_app_opened_at', today())
+              ->orWhereDate('last_mobile_login_at', today());
+        })->count();
+        $todayWebLogins = User::whereDate('last_web_login_at', today())->count();
+        $todayMobileShopsCount = Shop::whereDate('last_mobile_login_at', today())->count();
+        $todayWebShopsCount = Shop::whereDate('last_web_login_at', today())->count();
 
         // 4b. Used Mobiles Feature Adoption Metrics
         $totalUsedMobiles = UsedMobile::count();
@@ -112,11 +118,14 @@ class AdminDashboardController extends Controller
                 'successful_tx_count' => $successfulTxCount,
             ],
             'usage' => [
-                'total_customers'  => $totalCustomers,
-                'total_repairs'    => $totalRepairs,
-                'total_sales'      => $totalSales,
-                'total_devices'    => $totalDevices,
-                'today_app_opens'  => $todayAppOpens,
+                'total_customers'    => $totalCustomers,
+                'total_repairs'      => $totalRepairs,
+                'total_sales'        => $totalSales,
+                'total_devices'      => $totalDevices,
+                'today_app_opens'    => $todayAppOpens,
+                'today_web_logins'   => $todayWebLogins,
+                'today_mobile_shops' => $todayMobileShopsCount,
+                'today_web_shops'    => $todayWebShopsCount,
             ],
             'used_mobiles' => [
                 'total_devices' => $totalUsedMobiles,
@@ -135,8 +144,11 @@ class AdminDashboardController extends Controller
     public function appOpensTodayUsers(Request $request): JsonResponse
     {
         $query = User::with('shop')
-            ->whereDate('last_app_opened_at', today())
-            ->orderBy('last_app_opened_at', 'desc');
+            ->where(function ($q) {
+                $q->whereDate('last_app_opened_at', today())
+                  ->orWhereDate('last_mobile_login_at', today());
+            })
+            ->orderByRaw('COALESCE(last_mobile_login_at, last_app_opened_at) desc');
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -154,5 +166,32 @@ class AdminDashboardController extends Controller
         $users = $query->get();
 
         return $this->successResponse($users, 'Users who opened mobile app today retrieved successfully');
+    }
+
+    /**
+     * Get the list of users who logged into web portal today.
+     */
+    public function webLoginsTodayUsers(Request $request): JsonResponse
+    {
+        $query = User::with('shop')
+            ->whereDate('last_web_login_at', today())
+            ->orderBy('last_web_login_at', 'desc');
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('mobile', 'like', "%{$search}%")
+                  ->orWhere('phone', 'like', "%{$search}%")
+                  ->orWhereHas('shop', function ($sq) use ($search) {
+                      $sq->where('name', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        $users = $query->get();
+
+        return $this->successResponse($users, 'Users who logged into web portal today retrieved successfully');
     }
 }

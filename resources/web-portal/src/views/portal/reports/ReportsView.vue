@@ -29,22 +29,22 @@
         />
 
         <!-- Custom Date Range Inputs (Shown when 'custom' period is selected) -->
-        <div v-if="selectedPeriod === 'custom'" class="flex items-center gap-1.5 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
-          <input
-            type="date"
-            v-model="customStartDate"
-            @change="onFilterChange"
-            class="px-2 py-1 bg-transparent text-slate-800 dark:text-slate-200 border-0 focus:outline-none"
-            title="Start Date"
-          />
-          <span class="text-slate-400 font-bold">to</span>
-          <input
-            type="date"
-            v-model="customEndDate"
-            @change="onFilterChange"
-            class="px-2 py-1 bg-transparent text-slate-800 dark:text-slate-200 border-0 focus:outline-none"
-            title="End Date"
-          />
+        <div v-if="selectedPeriod === 'custom'" class="flex items-center gap-2">
+          <div class="w-36">
+            <DatePicker
+              v-model="customStartDate"
+              placeholder="From date"
+              @change="onFilterChange"
+            />
+          </div>
+          <span class="text-slate-400 font-bold text-xs">to</span>
+          <div class="w-36">
+            <DatePicker
+              v-model="customEndDate"
+              placeholder="To date"
+              @change="onFilterChange"
+            />
+          </div>
         </div>
 
         <!-- Download CSV Button -->
@@ -957,6 +957,7 @@ import { formatDate } from '@/utils/date';
 import SearchableSelect from '@/components/common/SearchableSelect.vue';
 import PaginationBar from '@/components/common/PaginationBar.vue';
 import WhatsAppIcon from '@/components/common/WhatsAppIcon.vue';
+import DatePicker from '@/components/common/DatePicker.vue';
 
 // 8 Official Mobile App Report Categories
 const reportCategories = [

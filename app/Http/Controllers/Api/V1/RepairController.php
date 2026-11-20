@@ -70,6 +70,16 @@ class RepairController extends Controller
             $query->where('repair_status', $statusParam);
         }
 
+        // Filter by Payment / Due Status
+        if ($request->filled('payment_status') && $request->input('payment_status') !== 'all') {
+            $paymentStatus = $request->input('payment_status');
+            if ($paymentStatus === 'due' || $paymentStatus === 'unpaid') {
+                $query->where('amount_due', '>', 0);
+            } elseif ($paymentStatus === 'paid') {
+                $query->where('amount_due', '<=', 0);
+            }
+        }
+
         if ($request->filled('customer_id')) {
             $query->where('customer_id', $request->input('customer_id'));
         }
@@ -474,7 +484,7 @@ class RepairController extends Controller
     {
         if ($request->hasFile('device_photo')) {
             $path = $request->file('device_photo')->store('repairs/photos', 'public');
-            return asset('storage/' . $path);
+            return 'storage/' . $path;
         } elseif (!empty($devicePhoto) && str_starts_with($devicePhoto, 'data:image')) {
             try {
                 $imageParts = explode(';base64,', $devicePhoto);
@@ -487,7 +497,7 @@ class RepairController extends Controller
                     $imageBase64 = base64_decode($imageParts[1]);
                     $fileName = 'repairs/photos/repair_' . uniqid() . '.' . $imageType;
                     Storage::disk('public')->put($fileName, $imageBase64);
-                    return asset('storage/' . $fileName);
+                    return 'storage/' . $fileName;
                 }
             } catch (\Exception $e) {
                 Log::warning('Repair device photo save failed: ' . $e->getMessage());
