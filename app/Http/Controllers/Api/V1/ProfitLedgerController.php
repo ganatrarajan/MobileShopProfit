@@ -60,6 +60,8 @@ class ProfitLedgerController extends Controller
 
         $sDateStr = $startDate->format('Y-m-d');
         $eDateStr = $endDate->format('Y-m-d');
+        $sDateTimeStr = $startDate->format('Y-m-d 00:00:00');
+        $eDateTimeStr = $endDate->format('Y-m-d 23:59:59');
 
         $items = [];
         $totalSalesProfit = 0.0;
@@ -78,7 +80,7 @@ class ProfitLedgerController extends Controller
         // 1. Fetch Sales Profits
         if ($category === 'all' || $category === 'sales') {
             $salesQuery = Sale::forShop($shopId)
-                ->whereBetween('sale_date', [$sDateStr, $eDateStr])
+                ->whereBetween('sale_date', [$sDateTimeStr, $eDateTimeStr])
                 ->with(['items.inventoryItem', 'customer']);
 
             $sales = $salesQuery->get();

@@ -45,7 +45,9 @@ class SubscriptionController extends Controller
             $expiryDate = $startDate->copy()->addDays($trialDays);
 
             if (!$subscription) {
-                $defaultPlan = Plan::where('slug', 'monthly')->first() ?? Plan::first();
+                $defaultPlan = Plan::where('status', 'active')->where('slug', 'monthly')->first() 
+                    ?? Plan::where('status', 'active')->orderBy('sort_order', 'asc')->first() 
+                    ?? Plan::first();
                 $subscription = Subscription::create([
                     'shop_id'        => $user->shop_id,
                     'plan_id'        => $defaultPlan ? $defaultPlan->id : null,
@@ -65,11 +67,6 @@ class SubscriptionController extends Controller
         $expiryDate = Carbon::parse($subscription->expiry_date);
         $daysRemaining = max(0, (int) ceil($now->diffInDays($expiryDate, false)));
         $isExpired = $now->greaterThan($expiryDate);
-
-        if ($isExpired && $subscription->status !== 'expired' && $subscription->status !== 'cancelled') {
-            $subscription->status = 'expired';
-            $subscription->save();
-        }
 
         $currentPlan = $subscription->plan;
         $currentPlanStaff = $currentPlan ? (int) ($currentPlan->max_staff_accounts ?? 0) : 0;
@@ -172,6 +169,12 @@ class SubscriptionController extends Controller
                     'price'              => 99.00,
                     'billing_period'     => 'monthly',
                     'max_staff_accounts' => 0,
+                ],
+                'admin_contact'         => [
+                    'phone'    => \App\Models\SystemSetting::getByKey('support_phone', '+91 98765 43210'),
+                    'whatsapp' => \App\Models\SystemSetting::getByKey('whatsapp_number', \App\Models\SystemSetting::getByKey('support_phone', '+91 98765 43210')),
+                    'email'    => \App\Models\SystemSetting::getByKey('support_email', 'support@mobileprofits1.com'),
+                    'hours'    => \App\Models\SystemSetting::getByKey('support_hours', 'Mon - Sat: 9:00 AM - 8:00 PM IST'),
                 ],
                 'plans'                 => $allPlans,
             ],
@@ -458,10 +461,6 @@ class SubscriptionController extends Controller
         $now = now();
         $expiryDate = Carbon::parse($subscription->expiry_date);
         $daysRemaining = max(1, (int) ceil($now->diffInDays($expiryDate, false)));
-
-        if ($now->greaterThan($expiryDate) || $subscription->status === 'expired') {
-            return response()->json(['success' => false, 'message' => 'Your subscription has expired. Please renew your plan first.'], 400);
-        }
 
         $shop = Shop::find($user->shop_id);
         $dailyRate = $shop ? $shop->getEffectiveStaffPricePerDay() : (float) \App\Models\SystemSetting::getByKey('staff_price_per_day', '2.00');
@@ -786,10 +785,6 @@ class SubscriptionController extends Controller
         $now = now();
         $expiryDate = Carbon::parse($subscription->expiry_date);
         $daysRemaining = max(1, (int) ceil($now->diffInDays($expiryDate, false)));
-
-        if ($now->greaterThan($expiryDate) || $subscription->status === 'expired') {
-            return response()->json(['success' => false, 'message' => 'Your subscription has expired. Please renew your plan first.'], 400);
-        }
 
         $shop = Shop::find($user->shop_id);
         $dailyRate = $shop ? $shop->getEffectiveStaffPricePerDay() : (float) \App\Models\SystemSetting::getByKey('staff_price_per_day', '2.00');

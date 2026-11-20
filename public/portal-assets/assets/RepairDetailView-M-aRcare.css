@@ -1,0 +1,1 @@
+@media print{body *{visibility:hidden}#printable-job-card,#printable-job-card *{visibility:visible}#printable-job-card{position:absolute;left:0;top:0;width:100%;margin:0;padding:10px;border:none;box-shadow:none}}

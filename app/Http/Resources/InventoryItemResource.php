@@ -21,6 +21,10 @@ class InventoryItemResource extends JsonResource
 
         $totalStock = max($currentStock, $openingStock + $purchasedStock);
 
+        $firstSerial = $this->relationLoaded('serials')
+            ? $this->serials->first()
+            : $this->serials()->first();
+
         return [
             'id' => $this->id,
             'shop_id' => $this->shop_id,
@@ -44,15 +48,24 @@ class InventoryItemResource extends JsonResource
             'stock_value' => (float) ($currentStock * $this->purchase_price),
             'is_low_stock' => $currentStock <= $this->minimum_stock && $currentStock > 0,
             'is_out_of_stock' => $currentStock <= 0,
-            'serials' => $this->whenLoaded('serials', function() {
-                return $this->serials->map(fn($s) => [
+            'imei1' => $firstSerial?->imei1,
+            'imei2' => $firstSerial?->imei2,
+            'serial_number' => $firstSerial?->serial_number,
+            'serials' => $this->relationLoaded('serials')
+                ? $this->serials->map(fn($s) => [
                     'id' => $s->id,
                     'imei1' => $s->imei1,
                     'imei2' => $s->imei2,
                     'serial_number' => $s->serial_number,
                     'status' => $s->status,
-                ]);
-            }),
+                ])
+                : ($firstSerial ? [[
+                    'id' => $firstSerial->id,
+                    'imei1' => $firstSerial->imei1,
+                    'imei2' => $firstSerial->imei2,
+                    'serial_number' => $firstSerial->serial_number,
+                    'status' => $firstSerial->status,
+                ]] : []),
             'stock_movements' => StockMovementResource::collection($this->whenLoaded('stockMovements')),
             'created_at' => $this->created_at ? $this->created_at->format('d M Y') : null,
         ];

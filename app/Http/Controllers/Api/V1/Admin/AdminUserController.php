@@ -37,13 +37,21 @@ class AdminUserController extends Controller
         }
 
         if ($request->boolean('today_opened') || $request->input('opened_filter') === 'today') {
-            $query->whereDate('last_app_opened_at', today());
-            $query->orderBy('last_app_opened_at', 'desc');
+            $query->where(function ($q) {
+                $q->whereDate('last_app_opened_at', today())
+                  ->orWhereDate('last_mobile_login_at', today());
+            });
+            $query->orderByRaw('COALESCE(last_mobile_login_at, last_app_opened_at) desc');
+        } elseif ($request->input('opened_filter') === 'web_today') {
+            $query->whereDate('last_web_login_at', today());
+            $query->orderBy('last_web_login_at', 'desc');
         } elseif ($request->input('opened_filter') === 'never') {
-            $query->whereNull('last_app_opened_at');
+            $query->whereNull('last_app_opened_at')
+                  ->whereNull('last_mobile_login_at')
+                  ->whereNull('last_web_login_at');
             $query->latest();
         } else {
-            $query->orderByRaw('CASE WHEN last_app_opened_at IS NULL THEN 1 ELSE 0 END, last_app_opened_at DESC, id DESC');
+            $query->orderByRaw('CASE WHEN last_app_opened_at IS NULL AND last_web_login_at IS NULL THEN 1 ELSE 0 END, GREATEST(COALESCE(last_mobile_login_at, "2000-01-01"), COALESCE(last_app_opened_at, "2000-01-01"), COALESCE(last_web_login_at, "2000-01-01")) DESC, id DESC');
         }
 
         $perPage = (int) $request->input('per_page', 15);

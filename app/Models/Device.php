@@ -56,6 +56,22 @@ class Device extends Model
         return $this->hasMany(Warranty::class)->whereNull('warranties.deleted_at');
     }
 
+    /**
+     * Get the repair job cards belonging to the device.
+     */
+    public function repairs(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Repair::class)->whereNull('repairs.deleted_at');
+    }
+
+    /**
+     * Get sales & invoice records linked to the device.
+     */
+    public function sales(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Sale::class)->whereNull('sales.deleted_at');
+    }
+
     protected static function booted(): void
     {
         static::deleting(function ($device) {

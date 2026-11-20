@@ -98,12 +98,15 @@ Route::prefix('v1')->group(function () {
         // Admin Dashboard Overview
         Route::get('/dashboard', [AdminDashboardController::class, 'index']);
         Route::get('/dashboard/app-opens-today', [AdminDashboardController::class, 'appOpensTodayUsers']);
+        Route::get('/dashboard/web-logins-today', [AdminDashboardController::class, 'webLoginsTodayUsers']);
 
         // Admin Shop Management
         Route::get('/shops', [AdminShopController::class, 'index']);
         Route::get('/shops/{id}', [AdminShopController::class, 'show']);
         Route::post('/shops/{id}/toggle-status', [AdminShopController::class, 'toggleStatus']);
         Route::post('/shops/{id}/staff-limit', [AdminShopController::class, 'updateStaffLimit']);
+        Route::post('/shops/{id}/web-access', [AdminShopController::class, 'updateWebAccess']);
+
         Route::post('/shops/{id}/staff', [AdminShopController::class, 'addStaff']);
         Route::put('/shops/{id}/staff/{staffId}', [AdminShopController::class, 'updateStaff']);
         Route::delete('/shops/{id}/staff/{staffId}', [AdminShopController::class, 'deleteStaff']);
@@ -220,6 +223,7 @@ Route::prefix('v1')->group(function () {
 
         // Auth User Profile & Password Change
         Route::get('/auth/me', [AuthController::class, 'me']);
+        Route::get('/auth/session-check', [AuthController::class, 'sessionCheck']);
         Route::post('/auth/update-profile', [AuthController::class, 'updateProfile']);
         Route::post('/auth/profile/send-otp', [AuthController::class, 'sendProfileUpdateOtp'])->middleware('throttle:10,1');
         Route::post('/auth/profile/verify-otp', [AuthController::class, 'verifyProfileUpdateOtp'])->middleware('throttle:10,1');
@@ -238,6 +242,7 @@ Route::prefix('v1')->group(function () {
 
         // Refer & Earn (Dynamic per-shop config, wallet & passbook)
         Route::get('/referrals/summary', [ReferralController::class, 'summary']);
+        Route::get('/referrals/shops/{shopId}/payments', [ReferralController::class, 'referredShopPayments']);
 
         // Support Requests (App Submissions)
         Route::get('/support/contact-info', [AdminSupportController::class, 'getContactInfo']);
@@ -309,6 +314,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/used-mobiles/stats', [UsedMobileController::class, 'stats']);
         Route::post('/used-mobiles/{id}/repair-expense', [UsedMobileController::class, 'addRepairExpense']);
         Route::post('/used-mobiles/{id}/sell', [UsedMobileController::class, 'sell']);
+        Route::post('/used-mobiles/{id}/payments', [UsedMobileController::class, 'addPayment']);
         Route::apiResource('used-mobiles', UsedMobileController::class);
 
         // Expense Management
@@ -337,6 +343,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/reports/payments', [ReportController::class, 'payments']);
         Route::get('/reports/customers', [ReportController::class, 'customers']);
         Route::get('/reports/warranties', [ReportController::class, 'warranties']);
+        Route::get('/reports/export', [ReportController::class, 'export']);
     });
 });
 

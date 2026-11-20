@@ -17,6 +17,7 @@ class Plan extends Model
         'max_staff_accounts',
         'billing_period',
         'status',
+        'sort_order',
     ];
 
     public function subscriptions(): HasMany

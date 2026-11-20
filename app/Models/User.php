@@ -31,6 +31,8 @@ class User extends Authenticatable
         'plain_password',
         'fcm_token',
         'last_app_opened_at',
+        'last_mobile_login_at',
+        'last_web_login_at',
     ];
 
     /**
@@ -52,9 +54,12 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'password'          => 'hashed',
-            'permissions'       => 'array',
+            'email_verified_at'   => 'datetime',
+            'last_app_opened_at'  => 'datetime',
+            'last_mobile_login_at'=> 'datetime',
+            'last_web_login_at'   => 'datetime',
+            'password'            => 'hashed',
+            'permissions'         => 'array',
         ];
     }
 

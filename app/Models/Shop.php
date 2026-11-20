@@ -64,6 +64,11 @@ class Shop extends Model
         'custom_discount_valid_until',
         'custom_discount_note',
         'custom_discount_is_one_time',
+        'is_web_enabled',
+        'web_valid_until',
+        'web_access_note',
+        'last_mobile_login_at',
+        'last_web_login_at',
     ];
 
     protected $casts = [
@@ -81,9 +86,61 @@ class Shop extends Model
         'custom_staff_price_per_day'         => 'float',
         'custom_discount_valid_until'        => 'date:Y-m-d',
         'custom_discount_is_one_time'        => 'boolean',
+        'is_web_enabled'                     => 'boolean',
+        'web_valid_until'                    => 'date:Y-m-d',
+        'last_mobile_login_at'               => 'datetime',
+        'last_web_login_at'                  => 'datetime',
     ];
 
-    protected $appends = ['logo_url', 'effective_max_staff', 'staff_days_remaining', 'staff_valid_until', 'staff_valid_until_formatted'];
+    protected $appends = [
+        'logo_url',
+        'owner_mobile',
+        'effective_max_staff',
+        'staff_days_remaining',
+        'staff_valid_until',
+        'staff_valid_until_formatted',
+        'is_web_active',
+        'web_days_remaining',
+        'web_valid_until_formatted',
+    ];
+
+    /**
+     * Check if web portal access is active and not expired.
+     */
+    public function getIsWebActiveAttribute(): bool
+    {
+        if (!$this->is_web_enabled) {
+            return false;
+        }
+        if ($this->web_valid_until) {
+            return now()->startOfDay()->lte(Carbon::parse($this->web_valid_until)->endOfDay());
+        }
+        return true;
+    }
+
+    /**
+     * Calculate remaining days for web portal access.
+     */
+    public function getWebDaysRemainingAttribute(): int
+    {
+        if (!$this->is_web_enabled) {
+            return 0;
+        }
+        if (!$this->web_valid_until) {
+            return 9999; // Indefinite
+        }
+        $expiry = Carbon::parse($this->web_valid_until)->endOfDay();
+        return now()->gt($expiry) ? 0 : (int) ceil(now()->diffInDays($expiry, false));
+    }
+
+    /**
+     * Formatted string for web validity date.
+     */
+    public function getWebValidUntilFormattedAttribute(): ?string
+    {
+        return $this->web_valid_until ? Carbon::parse($this->web_valid_until)->format('d M Y') : null;
+    }
+
 
     /**
      * Get the effective max staff / technician logins allowed for this shop.
@@ -398,6 +455,11 @@ class Shop extends Model
     public function getMobileAttribute(): ?string
     {
         return $this->attributes['phone'] ?? null;
+    }
+
+    public function getOwnerMobileAttribute(): ?string
+    {
+        return $this->user?->mobile;
     }
 
     public function setMobileAttribute(?string $value): void

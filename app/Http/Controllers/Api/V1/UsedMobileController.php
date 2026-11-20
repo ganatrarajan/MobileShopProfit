@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\UsedMobile;
+use App\Models\UsedMobilePayment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -35,7 +36,30 @@ class UsedMobileController extends Controller
 
         // Status Filter
         if ($request->filled('status') && $request->input('status') !== 'all') {
-            $query->where('status', $request->input('status'));
+            $st = $request->input('status');
+            if ($st === 'due' || $st === 'partial') {
+                $query->where(function ($q) {
+                    $q->where('payment_status', 'partially_paid')
+                      ->orWhere('payment_status', 'due')
+                      ->orWhere('amount_due', '>', 0);
+                });
+            } else {
+                $query->where('status', $st);
+            }
+        }
+
+        // Payment Status Filter (e.g. 'due', 'partially_paid', 'paid')
+        if ($request->filled('payment_status') && $request->input('payment_status') !== 'all') {
+            $ps = $request->input('payment_status');
+            if ($ps === 'due') {
+                $query->where(function ($q) {
+                    $q->where('payment_status', 'due')
+                      ->orWhere('payment_status', 'partially_paid')
+                      ->orWhere('amount_due', '>', 0);
+                });
+            } else {
+                $query->where('payment_status', $ps);
+            }
         }
 
         // Search Filter
@@ -67,22 +91,29 @@ class UsedMobileController extends Controller
                 if ($request->filled('date_to')) {
                     $query->whereDate('sale_date', '<=', $request->input('date_to'));
                 }
-            } elseif ($status === 'in_stock') {
-                // In-Stock phones are active unsold inventory currently in the shop.
-                // An unsold mobile must ALWAYS remain visible in the In-Stock showroom list
-                // regardless of what month it was acquired in, so the owner can view and sell it!
+            } elseif ($status === 'in_stock' || $status === 'due' || $status === 'partial') {
+                // In-Stock phones and Payment Due phones are active open items currently outstanding in the shop.
+                // They must ALWAYS remain visible in the active showroom / due collection list
+                // regardless of what month they were acquired or sold in, so the owner can view, sell, and collect pending payments!
             } else {
                 // Status is 'all' or not specified:
-                // If a mobile is not sold (status == 'in_stock'), keep it visible in the listing!
-                // For sold mobiles, only include if purchase_date matches the filtered period.
+                // If a mobile is not sold (status == 'in_stock') or has pending due payment, keep it visible in the listing!
+                // For fully settled sold mobiles, only include if sale_date / purchase_date matches the filtered period.
                 $query->where(function ($q) use ($request) {
                     $q->where('status', 'in_stock')
+                      ->orWhere(function ($dueQ) {
+                          $dueQ->where(function ($sub) {
+                              $sub->where('payment_status', 'partially_paid')
+                                  ->orWhere('payment_status', 'due')
+                                  ->orWhere('amount_due', '>', 0);
+                          });
+                      })
                       ->orWhere(function ($subQ) use ($request) {
                           if ($request->filled('date_from')) {
-                              $subQ->whereDate('purchase_date', '>=', $request->input('date_from'));
+                              $subQ->whereDate('sale_date', '>=', $request->input('date_from'));
                           }
                           if ($request->filled('date_to')) {
-                              $subQ->whereDate('purchase_date', '<=', $request->input('date_to'));
+                              $subQ->whereDate('sale_date', '<=', $request->input('date_to'));
                           }
                       });
                 });
@@ -124,7 +155,33 @@ class UsedMobileController extends Controller
         $totalProfitEarned = (clone $soldQuery)->sum('profit');
 
         $perPage = min((int) $request->input('per_page', 20), 1000);
-        $paginated = $query->orderByDesc('id')->paginate($perPage);
+        $sort = $request->input('sort', 'newest');
+        switch ($sort) {
+            case 'oldest':
+                $query->orderBy('id', 'asc');
+                break;
+            case 'price_high':
+                $query->orderBy('purchase_price', 'desc');
+                break;
+            case 'price_low':
+                $query->orderBy('purchase_price', 'asc');
+                break;
+            case 'newest':
+            default:
+                $query->orderByDesc('id');
+                break;
+        }
+
+        $paginated = $query->paginate($perPage);
+
+        $activeDueQuery = UsedMobile::forShop($user->shop_id)
+            ->where(function ($q) {
+                $q->where('payment_status', 'partially_paid')
+                  ->orWhere('payment_status', 'due')
+                  ->orWhere('amount_due', '>', 0);
+            });
+        $allDueCount = (clone $activeDueQuery)->count();
+        $allTotalDueAmount = (clone $activeDueQuery)->sum('amount_due');
 
         return response()->json([
             'success' => true,
@@ -143,6 +200,9 @@ class UsedMobileController extends Controller
                 'in_stock_investment' => round((float) $inStockInvestment, 2),
                 'sold_count' => $soldCount,
                 'total_sale_revenue' => round((float) $totalSaleRevenue, 2),
+                'total_paid_amount' => round((float) (clone $soldQuery)->sum('amount_paid'), 2),
+                'total_due_amount' => round((float) $allTotalDueAmount, 2),
+                'due_count' => $allDueCount,
                 'total_profit_earned' => round((float) $totalProfitEarned, 2),
             ],
         ]);
@@ -165,6 +225,7 @@ class UsedMobileController extends Controller
 
         $soldCount = (clone $all)->where('status', 'sold')->count();
         $totalRevenue = (clone $all)->where('status', 'sold')->sum('selling_price');
+        $totalDue = (clone $all)->where('status', 'sold')->sum('amount_due');
         $totalProfit = (clone $all)->where('status', 'sold')->sum('profit');
         $totalPurchased = (clone $all)->count();
 
@@ -175,6 +236,7 @@ class UsedMobileController extends Controller
                 'in_stock_investment' => round((float) $inStockInvestment, 2),
                 'sold_count' => $soldCount,
                 'total_revenue' => round((float) $totalRevenue, 2),
+                'total_due' => round((float) $totalDue, 2),
                 'total_profit' => round((float) $totalProfit, 2),
                 'total_purchased' => $totalPurchased,
             ],
@@ -330,7 +392,7 @@ class UsedMobileController extends Controller
     {
         $user = $request->user();
         $usedMobile = UsedMobile::forShop($user->shop_id)
-            ->with(['creator', 'seller', 'shop'])
+            ->with(['creator', 'seller', 'shop', 'payments.creator'])
             ->findOrFail($id);
 
         return response()->json([
@@ -540,6 +602,7 @@ class UsedMobileController extends Controller
             'buyer_address' => 'nullable|string|max:500',
             'sale_date' => 'required|date',
             'selling_price' => 'required|numeric|min:0',
+            'amount_paid' => 'nullable|numeric|min:0',
             'sale_payment_mode' => 'nullable|string|max:30',
             'warranty_days' => 'nullable|integer|min:0',
             'warranty_terms' => 'nullable|string|max:500',
@@ -554,6 +617,18 @@ class UsedMobileController extends Controller
         ]);
 
         $sellingPrice = (float) $validated['selling_price'];
+        $amountPaid = isset($validated['amount_paid']) && $validated['amount_paid'] !== ''
+            ? min($sellingPrice, max(0, (float) $validated['amount_paid']))
+            : $sellingPrice;
+        $amountDue = max(0, round($sellingPrice - $amountPaid, 2));
+
+        $paymentStatus = 'due';
+        if ($amountPaid >= $sellingPrice && $sellingPrice > 0) {
+            $paymentStatus = 'paid';
+        } elseif ($amountPaid > 0) {
+            $paymentStatus = 'partially_paid';
+        }
+
         $totalCost = (float) $usedMobile->total_cost;
         $taxRate = (float) ($validated['tax_rate'] ?? 0);
         $taxType = $validated['tax_type'] ?? 'inclusive';
@@ -577,6 +652,9 @@ class UsedMobileController extends Controller
             'buyer_address' => $validated['buyer_address'] ?? null,
             'sale_date' => $validated['sale_date'],
             'selling_price' => $sellingPrice,
+            'amount_paid' => $amountPaid,
+            'amount_due' => $amountDue,
+            'payment_status' => $paymentStatus,
             'sale_payment_mode' => $validated['sale_payment_mode'] ?? 'cash',
             'warranty_days' => $warrantyDays,
             'warranty_expiry_date' => $warrantyExpiry,
@@ -595,10 +673,73 @@ class UsedMobileController extends Controller
             'sold_by' => $user->id,
         ]);
 
+        if ($amountPaid > 0) {
+            UsedMobilePayment::create([
+                'shop_id' => $user->shop_id,
+                'used_mobile_id' => $usedMobile->id,
+                'amount' => $amountPaid,
+                'payment_method' => $validated['sale_payment_mode'] ?? 'cash',
+                'payment_date' => $validated['sale_date'] ?? now(),
+                'notes' => 'Payment received upon sale',
+                'created_by' => $user->id,
+            ]);
+        }
+
         return response()->json([
             'success' => true,
             'message' => "Used phone sold successfully with Invoice #{$saleInvoiceNumber}! Net profit: ₹{$profit}.",
-            'data' => $usedMobile->fresh()->load(['creator', 'seller']),
+            'data' => $usedMobile->fresh()->load(['creator', 'seller', 'payments.creator']),
+        ]);
+    }
+
+    /**
+     * Collect / add partial payment towards pending due of sold used mobile.
+     */
+    public function addPayment(Request $request, $id): JsonResponse
+    {
+        $user = $request->user();
+        $usedMobile = UsedMobile::forShop($user->shop_id)->findOrFail($id);
+
+        if ($usedMobile->status !== 'sold') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot record payment on a phone that is not marked as sold.',
+            ], 422);
+        }
+
+        $due = (float) ($usedMobile->amount_due ?? 0);
+        if ($due <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This device is already fully paid. No pending due amount.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:0.01|max:' . ($due + 0.01),
+            'payment_method' => 'nullable|string|max:50',
+            'payment_date' => 'nullable|date',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        $paymentAmount = (float) $validated['amount'];
+
+        UsedMobilePayment::create([
+            'shop_id' => $user->shop_id,
+            'used_mobile_id' => $usedMobile->id,
+            'amount' => $paymentAmount,
+            'payment_method' => $validated['payment_method'] ?? 'cash',
+            'payment_date' => $validated['payment_date'] ?? now(),
+            'notes' => $validated['notes'] ?? 'Installment payment',
+            'created_by' => $user->id,
+        ]);
+
+        $usedMobile->recalculatePayments();
+
+        return response()->json([
+            'success' => true,
+            'message' => "Payment of ₹" . number_format($paymentAmount, 2) . " collected successfully.",
+            'data' => $usedMobile->fresh()->load(['creator', 'seller', 'payments.creator']),
         ]);
     }
 

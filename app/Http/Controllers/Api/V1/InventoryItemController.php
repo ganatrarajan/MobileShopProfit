@@ -30,7 +30,7 @@ class InventoryItemController extends Controller
             return response()->json(['message' => 'No active shop associated with user.'], 400);
         }
 
-        $query = InventoryItem::forShop($shopId)->where('is_active', true);
+        $query = InventoryItem::forShop($shopId)->where('is_active', true)->with(['serials']);
 
         // Search by name, SKU, brand, model, or serial/IMEI
         if ($request->filled('search')) {
@@ -72,7 +72,37 @@ class InventoryItemController extends Controller
         $totalStockValue = (float) InventoryItem::forShop($shopId)->where('is_active', true)->selectRaw('SUM(current_stock * purchase_price) as total_val')->value('total_val');
 
         $perPage = (int) $request->input('per_page', 15);
-        $items = $query->orderBy('name', 'asc')->paginate($perPage);
+
+        $sort = $request->input('sort', 'newest');
+        switch ($sort) {
+            case 'oldest':
+                $query->orderBy('created_at', 'asc')->orderBy('id', 'asc');
+                break;
+            case 'name_asc':
+                $query->orderBy('name', 'asc');
+                break;
+            case 'name_desc':
+                $query->orderBy('name', 'desc');
+                break;
+            case 'price_high':
+                $query->orderBy('selling_price', 'desc');
+                break;
+            case 'price_low':
+                $query->orderBy('selling_price', 'asc');
+                break;
+            case 'stock_high':
+                $query->orderBy('current_stock', 'desc');
+                break;
+            case 'stock_low':
+                $query->orderBy('current_stock', 'asc');
+                break;
+            case 'newest':
+            default:
+                $query->orderBy('created_at', 'desc')->orderBy('id', 'desc');
+                break;
+        }
+
+        $items = $query->paginate($perPage);
 
         return response()->json([
             'success' => true,
@@ -252,14 +282,14 @@ class InventoryItemController extends Controller
         $item->update($validated);
 
         if (array_key_exists('imei1', $validated) || array_key_exists('imei2', $validated) || array_key_exists('serial_number', $validated)) {
-            $serial = $item->serials()->first();
+            $serial = $item->serials()->where('status', 'available')->first() ?? $item->serials()->first();
             if ($serial) {
                 $serialUpdates = [];
                 if (array_key_exists('imei1', $validated)) $serialUpdates['imei1'] = $validated['imei1'];
                 if (array_key_exists('imei2', $validated)) $serialUpdates['imei2'] = $validated['imei2'];
                 if (array_key_exists('serial_number', $validated)) $serialUpdates['serial_number'] = $validated['serial_number'];
                 $serial->update($serialUpdates);
-            } else if (!empty($validated['imei1']) || !empty($validated['serial_number'])) {
+            } else if (!empty($validated['imei1']) || !empty($validated['imei2']) || !empty($validated['serial_number'])) {
                 InventorySerial::create([
                     'shop_id' => $shopId,
                     'inventory_item_id' => $item->id,

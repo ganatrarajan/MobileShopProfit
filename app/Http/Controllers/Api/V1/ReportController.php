@@ -35,6 +35,10 @@ class ReportController extends Controller
                 $start = Carbon::today();
                 $end = Carbon::today()->endOfDay();
                 break;
+            case 'yesterday':
+                $start = Carbon::yesterday();
+                $end = Carbon::yesterday()->endOfDay();
+                break;
             case 'this_week':
                 $start = Carbon::now()->startOfWeek();
                 $end = Carbon::now()->endOfWeek();
@@ -101,13 +105,17 @@ class ReportController extends Controller
             $repairQuery->where(function ($q) use ($s) {
                 $q->where('job_number', 'like', $s)
                   ->orWhereHas('customer', function($cq) use ($s) {
-                      $cq->where('name', 'like', $s)->orWhere('phone', 'like', $s);
+                      $cq->where('name', 'like', $s)
+                         ->orWhere('mobile', 'like', $s)
+                         ->orWhere('alternate_mobile', 'like', $s);
                   });
             });
         }
 
         $allRepairs = (clone $repairQuery)->with(['customer', 'device'])->get();
         $totalRepairDues = 0;
+        $totalRepairBilled = 0;
+        $totalRepairPaid = 0;
         foreach ($allRepairs as $r) {
             $final = (float)($r->final_cost ?? 0);
             $est = (float)($r->estimated_cost ?? 0);
@@ -118,6 +126,8 @@ class ReportController extends Controller
             $paid = (float)($r->amount_paid ?? 0);
             $due = max(0, (float)($r->amount_due > 0 ? $r->amount_due : ($effectiveCost - $paid)));
             $totalRepairDues += $due;
+            $totalRepairBilled += $effectiveCost;
+            $totalRepairPaid += $paid;
 
             if ($category === 'all' || $category === 'repairs' || $category === 'customers') {
                 $items[] = [
@@ -128,7 +138,7 @@ class ReportController extends Controller
                     'ref_number' => $r->job_number,
                     'date' => $r->date_received ? $r->date_received->format('Y-m-d') : $r->created_at->format('Y-m-d'),
                     'party_name' => $r->customer?->name ?? 'Walk-in Customer',
-                    'party_phone' => $r->customer?->phone ?? '',
+                    'party_phone' => $r->customer?->mobile ?? $r->customer?->alternate_mobile ?? '',
                     'party_type' => 'customer',
                     'description' => trim(($r->device?->brand ?? '') . ' ' . ($r->device?->model ?? 'Device')),
                     'total_amount' => $effectiveCost,
@@ -156,17 +166,24 @@ class ReportController extends Controller
             $saleQuery->where(function ($q) use ($s) {
                 $q->where('invoice_number', 'like', $s)
                   ->orWhere('customer_name', 'like', $s)
-                  ->orWhere('customer_mobile', 'like', $s);
+                  ->orWhere('customer_mobile', 'like', $s)
+                  ->orWhereHas('customer', function($cq) use ($s) {
+                      $cq->where('name', 'like', $s)->orWhere('mobile', 'like', $s);
+                  });
             });
         }
 
-        $allSales = (clone $saleQuery)->get();
+        $allSales = (clone $saleQuery)->with('customer')->get();
         $totalSalesDues = 0;
+        $totalSalesBilled = 0;
+        $totalSalesPaid = 0;
         foreach ($allSales as $s) {
             $total = (float)$s->grand_total;
             $paid = (float)$s->amount_paid;
             $due = max(0, (float)($s->amount_due > 0 ? $s->amount_due : ($total - $paid)));
             $totalSalesDues += $due;
+            $totalSalesBilled += $total;
+            $totalSalesPaid += $paid;
 
             if ($category === 'all' || $category === 'sales' || $category === 'customers') {
                 $items[] = [
@@ -176,8 +193,8 @@ class ReportController extends Controller
                     'category_label' => 'Sale Invoice',
                     'ref_number' => $s->invoice_number,
                     'date' => $s->sale_date ? Carbon::parse($s->sale_date)->format('Y-m-d') : $s->created_at->format('Y-m-d'),
-                    'party_name' => $s->customer_name ?? 'Walk-in Customer',
-                    'party_phone' => $s->customer_mobile ?? '',
+                    'party_name' => $s->customer_name ?? $s->customer?->name ?? 'Walk-in Customer',
+                    'party_phone' => $s->customer_mobile ?? $s->customer?->mobile ?? $s->customer?->alternate_mobile ?? '',
                     'party_type' => 'customer',
                     'description' => ucfirst($s->sale_type ?? 'regular') . ' Sale',
                     'total_amount' => $total,
@@ -212,11 +229,15 @@ class ReportController extends Controller
 
         $allPurchases = (clone $purchaseQuery)->with('vendor')->get();
         $totalVendorDues = 0;
+        $totalPurchaseBilled = 0;
+        $totalPurchasePaid = 0;
         foreach ($allPurchases as $p) {
             $total = (float)$p->grand_total;
             $paid = (float)$p->amount_paid;
             $due = max(0, (float)($p->outstanding_amount > 0 ? $p->outstanding_amount : ($total - $paid)));
             $totalVendorDues += $due;
+            $totalPurchaseBilled += $total;
+            $totalPurchasePaid += $paid;
 
             if ($category === 'all' || $category === 'purchases' || $category === 'vendors') {
                 $items[] = [
@@ -259,13 +280,20 @@ class ReportController extends Controller
                 'summary' => [
                     'total_customer_dues' => (float)$totalCustomerDues,
                     'total_repair_dues' => (float)$totalRepairDues,
+                    'total_repair_billed' => (float)$totalRepairBilled,
+                    'total_repair_paid' => (float)$totalRepairPaid,
                     'total_sales_dues' => (float)$totalSalesDues,
+                    'total_sales_billed' => (float)$totalSalesBilled,
+                    'total_sales_paid' => (float)$totalSalesPaid,
                     'total_vendor_dues' => (float)$totalVendorDues,
+                    'total_purchase_billed' => (float)$totalPurchaseBilled,
+                    'total_purchase_paid' => (float)$totalPurchasePaid,
                     'net_balance' => (float)$netBalance,
-                    'total_records_count' => count($items),
+                    'total_records_count' => count($allRepairs) + count($allSales) + count($allPurchases),
                     'repairs_count' => count($allRepairs),
                     'sales_count' => count($allSales),
                     'purchases_count' => count($allPurchases),
+                    'active_category' => $category,
                 ],
                 'details' => $items,
             ],
@@ -300,7 +328,9 @@ class ReportController extends Controller
         $totalSales = (float) (clone $query)->sum('grand_total');
         $totalTransactions = (int) (clone $query)->count();
         $regularSalesTotal = (float) (clone $query)->where('sale_type', 'regular')->sum('grand_total');
+        $regularSalesCount = (int) (clone $query)->where('sale_type', 'regular')->count();
         $quickSalesTotal = (float) (clone $query)->where('sale_type', 'quick')->sum('grand_total');
+        $quickSalesCount = (int) (clone $query)->where('sale_type', 'quick')->count();
         $totalCollected = (float) (clone $query)->sum('amount_paid');
         $totalOutstanding = (float) (clone $query)->sum('amount_due');
         $totalDiscounts = (float) (clone $query)->sum('discount');
@@ -349,7 +379,9 @@ class ReportController extends Controller
                     'total_sales' => $totalSales,
                     'total_transactions' => $totalTransactions,
                     'regular_sales' => $regularSalesTotal,
+                    'regular_count' => $regularSalesCount,
                     'quick_sales' => $quickSalesTotal,
+                    'quick_count' => $quickSalesCount,
                     'total_collected' => $totalCollected,
                     'total_outstanding' => $totalOutstanding,
                     'total_discounts' => $totalDiscounts,
@@ -391,7 +423,9 @@ class ReportController extends Controller
         $deliveredRepairs = (int) (clone $query)->where('repair_status', 'delivered')->count();
         $cancelledRepairs = (int) (clone $query)->where('repair_status', 'cancelled')->count();
 
-        $repairRevenue = (float) (clone $query)->whereIn('repair_status', ['completed', 'delivered'])->sum('estimated_cost');
+        $repairRevenue = (float) (clone $query)->whereIn('repair_status', ['completed', 'delivered'])->sum(DB::raw('COALESCE(final_cost, estimated_cost, 0)'));
+        $repairDues = (float) (clone $query)->where('amount_due', '>', 0)->sum('amount_due');
+        $repairPaid = (float) (clone $query)->sum('amount_paid');
         $avgRepairValue = ($completedRepairs + $deliveredRepairs) > 0
             ? round($repairRevenue / ($completedRepairs + $deliveredRepairs), 2)
             : 0.0;
@@ -421,6 +455,8 @@ class ReportController extends Controller
                     'delivered' => $deliveredRepairs,
                     'cancelled' => $cancelledRepairs,
                     'repair_revenue' => $repairRevenue,
+                    'repair_dues' => $repairDues,
+                    'repair_paid' => $repairPaid,
                     'average_repair_value' => $avgRepairValue,
                     'status_distribution' => $statusDist,
                 ],
@@ -807,7 +843,45 @@ class ReportController extends Controller
         $response = new StreamedResponse(function () use ($type, $shopId, $start, $end) {
             $handle = fopen('php://output', 'w');
 
-            if ($type === 'sales') {
+            if ($type === 'outstanding') {
+                fputcsv($handle, ['Ref / Job #', 'Category', 'Party / Customer', 'Mobile', 'Date', 'Total Bill', 'Amount Paid', 'Pending Due', 'Status']);
+                $repairs = Repair::forShop($shopId)->where(function($q) {
+                    $q->where('amount_due', '>', 0)->orWhereRaw('(COALESCE(final_cost, estimated_cost) - amount_paid) > 0');
+                })->where('repair_status', '!=', 'cancelled')->with(['customer', 'device'])->get();
+                foreach ($repairs as $r) {
+                    $effective = (float)($r->final_cost > 0 ? $r->final_cost : ($r->estimated_cost > 0 ? $r->estimated_cost : $r->effective_cost));
+                    $paid = (float)$r->amount_paid;
+                    $due = max(0, (float)($r->amount_due > 0 ? $r->amount_due : ($effective - $paid)));
+                    fputcsv($handle, [
+                        $r->job_number,
+                        'Repair Job',
+                        $r->customer?->name ?? 'Customer',
+                        $r->customer?->mobile ?? $r->customer?->alternate_mobile ?? '',
+                        $r->date_received ? $r->date_received->format('Y-m-d') : ($r->created_at ? $r->created_at->format('Y-m-d') : ''),
+                        $effective,
+                        $paid,
+                        $due,
+                        $r->repair_status,
+                    ]);
+                }
+                $sales = Sale::forShop($shopId)->where(function($q) {
+                    $q->where('amount_due', '>', 0)->orWhereRaw('(grand_total - amount_paid) > 0');
+                })->where('payment_status', '!=', 'paid')->with('customer')->get();
+                foreach ($sales as $s) {
+                    $due = max(0, (float)($s->amount_due > 0 ? $s->amount_due : ($s->grand_total - $s->amount_paid)));
+                    fputcsv($handle, [
+                        $s->invoice_number,
+                        'Sale Invoice',
+                        $s->customer_name ?? $s->customer?->name ?? 'Customer',
+                        $s->customer_mobile ?? $s->customer?->mobile ?? '',
+                        $s->sale_date ?? ($s->created_at ? $s->created_at->format('Y-m-d') : ''),
+                        $s->grand_total,
+                        $s->amount_paid,
+                        $due,
+                        $s->payment_status,
+                    ]);
+                }
+            } elseif ($type === 'sales') {
                 fputcsv($handle, ['Invoice #', 'Sale Date', 'Type', 'Customer', 'Subtotal', 'Discount', 'Grand Total', 'Paid', 'Due', 'Payment Status']);
                 $sales = Sale::where('shop_id', $shopId)->whereBetween('sale_date', [$start, $end])->orderBy('sale_date', 'desc')->get();
                 foreach ($sales as $s) {
@@ -824,9 +898,46 @@ class ReportController extends Controller
                         $s->payment_status,
                     ]);
                 }
+            } elseif ($type === 'repairs') {
+                fputcsv($handle, ['Job #', 'Received Date', 'Customer', 'Mobile', 'Device', 'Issue', 'Estimated Cost', 'Final Cost', 'Amount Paid', 'Amount Due', 'Status']);
+                $repairs = Repair::where('shop_id', $shopId)->whereBetween('created_at', [$start, $end])->with(['customer', 'device'])->orderBy('created_at', 'desc')->get();
+                foreach ($repairs as $r) {
+                    fputcsv($handle, [
+                        $r->job_number,
+                        $r->created_at ? $r->created_at->format('Y-m-d') : '',
+                        $r->customer ? $r->customer->name : 'N/A',
+                        $r->customer ? $r->customer->mobile : '',
+                        $r->device ? "{$r->device->brand} {$r->device->model}" : '',
+                        $r->problem_description ?? '',
+                        $r->estimated_cost,
+                        $r->final_cost ?? $r->estimated_cost,
+                        $r->amount_paid,
+                        $r->amount_due,
+                        $r->repair_status,
+                    ]);
+                }
+            } elseif ($type === 'inventory') {
+                fputcsv($handle, ['Item Name', 'Category', 'Brand', 'Model', 'SKU', 'Current Stock', 'Min Stock', 'Purchase Cost', 'Selling Price', 'Total Valuation']);
+                $items = InventoryItem::where('shop_id', $shopId)->orderBy('name', 'asc')->get();
+                foreach ($items as $item) {
+                    $stock = $item->recalculateStock();
+                    $val = $stock * (float) $item->purchase_price;
+                    fputcsv($handle, [
+                        $item->name,
+                        $item->category,
+                        $item->brand,
+                        $item->model,
+                        $item->sku,
+                        $stock,
+                        $item->minimum_stock,
+                        $item->purchase_price,
+                        $item->selling_price,
+                        $val,
+                    ]);
+                }
             } elseif ($type === 'expenses') {
                 fputcsv($handle, ['Expense Date', 'Category', 'Title', 'Amount', 'Payment Method', 'Notes']);
-                $expenses = Expense::where('shop_id', $shopId)->whereBetween('expense_date', [$start, $end])->with('category')->get();
+                $expenses = Expense::where('shop_id', $shopId)->whereBetween('expense_date', [$start, $end])->with('category')->orderBy('expense_date', 'desc')->get();
                 foreach ($expenses as $e) {
                     fputcsv($handle, [
                         $e->expense_date,
@@ -837,9 +948,51 @@ class ReportController extends Controller
                         $e->notes ?? '',
                     ]);
                 }
+            } elseif ($type === 'payments') {
+                fputcsv($handle, ['Payment Date', 'Invoice / Job #', 'Customer / Party', 'Payment Method', 'Amount', 'Transaction Ref']);
+                $payments = SalePayment::whereHas('sale', function ($q) use ($shopId, $start, $end) {
+                    $q->forShop($shopId)->whereBetween('sale_date', [$start, $end]);
+                })->with('sale')->orderBy('payment_date', 'desc')->get();
+                foreach ($payments as $p) {
+                    fputcsv($handle, [
+                        $p->payment_date,
+                        $p->sale ? $p->sale->invoice_number : 'N/A',
+                        $p->sale ? $p->sale->customer_name : 'Customer',
+                        $p->payment_method,
+                        $p->amount,
+                        $p->transaction_reference ?? '',
+                    ]);
+                }
+            } elseif ($type === 'customers') {
+                fputcsv($handle, ['Customer Name', 'Mobile', 'Email', 'City', 'Total Sales Count', 'Total Spent']);
+                $customers = Customer::where('shop_id', $shopId)->withCount('sales')->withSum('sales', 'grand_total')->orderBy('name', 'asc')->get();
+                foreach ($customers as $c) {
+                    fputcsv($handle, [
+                        $c->name,
+                        $c->mobile,
+                        $c->email ?? '',
+                        $c->city ?? '',
+                        $c->sales_count ?? 0,
+                        $c->sales_sum_grand_total ?? 0.0,
+                    ]);
+                }
+            } elseif ($type === 'warranties') {
+                fputcsv($handle, ['Warranty Code', 'Customer', 'Mobile', 'Item Name', 'Start Date', 'End Date', 'Status']);
+                $warranties = Warranty::where('shop_id', $shopId)->whereBetween('created_at', [$start, $end])->with('customer')->orderBy('created_at', 'desc')->get();
+                foreach ($warranties as $w) {
+                    fputcsv($handle, [
+                        $w->warranty_code ?? "WAR-{$w->id}",
+                        $w->customer ? $w->customer->name : 'N/A',
+                        $w->customer ? $w->customer->mobile : '',
+                        $w->item_name ?? 'Product / Service',
+                        $w->start_date,
+                        $w->end_date,
+                        $w->status,
+                    ]);
+                }
             } else {
-                fputcsv($handle, ['ID', 'Created At', 'Status']);
-                fputcsv($handle, [1, date('Y-m-d'), 'Report export completed']);
+                fputcsv($handle, ['ID', 'Date', 'Type', 'Status']);
+                fputcsv($handle, [1, date('Y-m-d'), $type, 'Report Export Completed']);
             }
 
             fclose($handle);

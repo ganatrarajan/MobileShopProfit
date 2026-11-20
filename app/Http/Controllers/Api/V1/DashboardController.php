@@ -44,12 +44,21 @@ class DashboardController extends Controller
         if ($period === 'today') {
             $startDate = $now->copy()->startOfDay();
             $endDate = $now->copy()->endOfDay();
+        } elseif ($period === 'yesterday') {
+            $startDate = $now->copy()->subDay()->startOfDay();
+            $endDate = $now->copy()->subDay()->endOfDay();
         } elseif ($period === 'this_week') {
             $startDate = $now->copy()->startOfWeek();
             $endDate = $now->copy()->endOfWeek();
         } elseif ($period === 'last_month') {
             $startDate = $now->copy()->subMonth()->startOfMonth();
-            $endDate = $now->copy()->endOfMonth();
+            $endDate = $now->copy()->subMonth()->endOfMonth();
+        } elseif ($period === 'this_year') {
+            $startDate = $now->copy()->startOfYear();
+            $endDate = $now->copy()->endOfYear();
+        } elseif ($period === 'all_time') {
+            $startDate = Carbon::create(2020, 1, 1)->startOfDay();
+            $endDate = $now->copy()->endOfDay();
         } elseif ($period === 'custom' && $request->filled('start_date') && $request->filled('end_date')) {
             $startDate = Carbon::parse($request->input('start_date'))->startOfDay();
             $endDate = Carbon::parse($request->input('end_date'))->endOfDay();
@@ -60,12 +69,14 @@ class DashboardController extends Controller
 
         $sDateStr = $startDate->format('Y-m-d');
         $eDateStr = $endDate->format('Y-m-d');
+        $sDateTimeStr = $startDate->format('Y-m-d 00:00:00');
+        $eDateTimeStr = $endDate->format('Y-m-d 23:59:59');
 
         // 1. Sales Aggregations
         $salesAgg = DB::table('sales')
             ->where('shop_id', $shopId)
             ->whereNull('deleted_at')
-            ->whereBetween('sale_date', [$sDateStr, $eDateStr])
+            ->whereBetween('sale_date', [$sDateTimeStr, $eDateTimeStr])
             ->selectRaw('
                 COALESCE(SUM(grand_total), 0) as total_sales,
                 COALESCE(SUM(amount_paid), 0) as total_collected,
@@ -82,11 +93,22 @@ class DashboardController extends Controller
         $regularSalesCount = (int) ($salesAgg->regular_count ?? 0);
         $quickSalesCount = (int) ($salesAgg->quick_count ?? 0);
 
+        // Track all sales payments collected during this period (including collections on earlier invoices)
+        $salePaymentsCollected = 0.0;
+        if (Schema::hasTable('sale_payments')) {
+            $salePaymentsCollected = (float) DB::table('sale_payments')
+                ->where('shop_id', $shopId)
+                ->whereNull('deleted_at')
+                ->whereBetween('payment_date', [$sDateTimeStr, $eDateTimeStr])
+                ->sum('amount');
+        }
+        $effectiveSalesCollected = max($salePaymentsCollected, $totalCollected);
+
         // Total cost of items sold in this period
         $periodSaleIds = DB::table('sales')
             ->where('shop_id', $shopId)
             ->whereNull('deleted_at')
-            ->whereBetween('sale_date', [$sDateStr, $eDateStr])
+            ->whereBetween('sale_date', [$sDateTimeStr, $eDateTimeStr])
             ->pluck('id');
 
         $totalSalesCost = 0.0;
@@ -99,7 +121,7 @@ class DashboardController extends Controller
                 ->value('cost_sum');
         }
 
-        $salesNetProfit = max(0.0, round($totalCollected - $totalSalesCost, 2));
+        $salesNetProfit = max(0.0, round($effectiveSalesCollected - $totalSalesCost, 2));
 
         // Total Dues Across All Time
         $allTimeDues = (float) DB::table('sales')
@@ -439,7 +461,7 @@ class DashboardController extends Controller
         $combinedSales = $totalSales + $usedMobileSales;
         $totalRevenue = $combinedSales + $repairNetProfit;
         $netProfit = round($salesNetProfit + $repairNetProfit + $usedMobileProfit, 2);
-        $netCashRemaining = ($totalCollected + $effectiveRepairEarnings + $usedMobileSales) - $totalPurchasePaid - $totalExpensesSum - $totalRepairPartsCost - $totalRepairTechCost;
+        $netCashRemaining = ($effectiveSalesCollected + $effectiveRepairEarnings + $usedMobileSales) - $totalPurchasePaid - $totalExpensesSum - $totalRepairPartsCost - $totalRepairTechCost;
 
         $discountBanner = null;
         if ($shopObj && $shopObj->hasActiveCustomDiscount()) {
@@ -485,18 +507,18 @@ class DashboardController extends Controller
                     'total_purchases' => round($totalPurchases, 2),
                     'total_expenses' => round($totalExpensesSum, 2),
                     'net_profit' => round($netProfit, 2),
-                    'cash_collected' => round($totalCollected + $effectiveRepairEarnings + $usedMobileSales, 2),
+                    'cash_collected' => round($effectiveSalesCollected + $effectiveRepairEarnings + $usedMobileSales, 2),
                     'cash_paid_purchases' => round($totalPurchasePaid, 2),
                     'cash_paid_expenses' => round($totalExpensesSum, 2),
                     'net_cash_remaining' => round($netCashRemaining, 2),
                 ],
                 'sales' => [
                     'total_sales' => round($totalSales, 2),
-                    'total_collected' => round($totalCollected, 2),
+                    'total_collected' => round($effectiveSalesCollected, 2),
                     'total_due' => round($totalDue, 2),
                     'total_cost' => round($totalSalesCost, 2),
                     'net_profit' => round($salesNetProfit, 2),
-                    'profit_margin' => $totalCollected > 0 && $salesNetProfit > 0 ? round(($salesNetProfit / $totalCollected) * 100, 1) : 0,
+                    'profit_margin' => $effectiveSalesCollected > 0 && $salesNetProfit > 0 ? round(($salesNetProfit / $effectiveSalesCollected) * 100, 1) : 0,
                     'total_count' => $totalSalesCount,
                     'regular_sales_count' => $regularSalesCount,
                     'quick_sales_count' => $quickSalesCount,
@@ -548,6 +570,7 @@ class DashboardController extends Controller
                     'total_sales' => round($usedMobileSales, 2),
                     'total_cost' => round($usedMobileCost, 2),
                     'total_profit' => round($usedMobileProfit, 2),
+                    'profit_margin' => $usedMobileSales > 0 && $usedMobileProfit > 0 ? round(($usedMobileProfit / $usedMobileSales) * 100, 1) : 0,
                     'in_stock_count' => $usedMobileInStockCount,
                     'in_stock_investment' => round($usedMobileInStockInvestment, 2),
                 ],

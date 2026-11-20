@@ -1,0 +1,1 @@
+@media print{body *{visibility:hidden}.no-print{display:none!important}#invoice-printable,#invoice-printable *{visibility:visible}#invoice-printable{position:absolute;left:0;top:0;width:100%;margin:0;padding:20px;border:none;box-shadow:none}}

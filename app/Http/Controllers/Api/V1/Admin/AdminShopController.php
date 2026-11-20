@@ -315,6 +315,51 @@ class AdminShopController extends Controller
     }
 
     /**
+     * Enable / Disable Web Portal access and set validity date for a shop.
+     */
+    public function updateWebAccess(Request $request, $id): JsonResponse
+    {
+        $request->validate([
+            'is_web_enabled'  => 'required|boolean',
+            'web_valid_until' => 'nullable|date',
+            'web_access_note' => 'nullable|string|max:255',
+        ]);
+
+        $shop = Shop::find($id);
+
+        if (! $shop) {
+            return $this->errorResponse('Shop not found', 404);
+        }
+
+        $isEnabled  = (bool) $request->input('is_web_enabled');
+
+        $validUntil = $request->input('web_valid_until');
+        $validUntil = !empty($validUntil) ? Carbon::parse($validUntil)->format('Y-m-d') : null;
+
+        $note = $request->input('web_access_note');
+        $note = !empty($note) ? trim($note) : null;
+
+        $shop->update([
+            'is_web_enabled'  => $isEnabled,
+            'web_valid_until' => $validUntil,
+            'web_access_note' => $note,
+        ]);
+
+        // Audit Log
+        AdminAuditLog::create([
+            'admin_id'    => $request->user()->id,
+            'action'      => $isEnabled ? 'ENABLE_WEB_PORTAL' : 'DISABLE_WEB_PORTAL',
+            'target_type' => 'Shop',
+            'target_id'   => $shop->id,
+            'details'     => ($isEnabled ? "Enabled" : "Disabled") . " Web Portal access for shop #{$shop->id} ({$shop->name}). Valid until: " . ($validUntil ?? 'Indefinite') . ". Note: " . ($note ?? 'None'),
+            'ip_address'  => $request->ip(),
+        ]);
+
+        return $this->successResponse($shop->fresh(['user', 'latestSubscription.plan']), 'Shop web portal access updated successfully');
+    }
+
+
+    /**
      * Create a staff member for a specific shop directly from Admin Panel.
      */
     public function addStaff(Request $request, $id): JsonResponse

@@ -77,7 +77,16 @@ class WarrantyController extends Controller
             $query->where('repair_id', $request->input('repair_id'));
         }
 
-        $warranties = $query->orderBy('id', 'desc')->get();
+        $sort = $request->input('sort', 'newest');
+        if ($sort === 'oldest') {
+            $query->orderBy('id', 'asc');
+        } elseif ($sort === 'expiring_soon') {
+            $query->orderBy('warranty_end_date', 'asc');
+        } else {
+            $query->orderBy('id', 'desc');
+        }
+
+        $warranties = $query->get();
 
         // Dynamic status filter in PHP since status is dynamically calculated
         if ($request->filled('status') && $request->input('status') !== 'all') {

@@ -63,11 +63,43 @@ class SaleController extends Controller
         }
 
         if ($request->filled('payment_status') && $request->input('payment_status') !== 'all') {
-            $query->where('payment_status', $request->input('payment_status'));
+            $paymentStatus = $request->input('payment_status');
+            if ($paymentStatus === 'due' || $paymentStatus === 'unpaid') {
+                $query->where(function ($q) {
+                    $q->where('payment_status', 'due')
+                      ->orWhere('payment_status', 'partially_paid')
+                      ->orWhere('amount_due', '>', 0);
+                });
+            } elseif ($paymentStatus === 'partial' || $paymentStatus === 'partially_paid') {
+                $query->where('payment_status', 'partially_paid');
+            } elseif ($paymentStatus === 'paid') {
+                $query->where('payment_status', 'paid');
+            } else {
+                $query->where('payment_status', $paymentStatus);
+            }
         }
 
         if ($request->filled('customer_id')) {
             $query->where('customer_id', $request->input('customer_id'));
+        }
+
+        // Filter by Period presets
+        if ($request->filled('period') && $request->input('period') !== 'all_time') {
+            $period = $request->input('period');
+            $now = \Carbon\Carbon::now();
+            if ($period === 'today') {
+                $query->whereDate('sale_date', $now->toDateString());
+            } elseif ($period === 'yesterday') {
+                $query->whereDate('sale_date', $now->copy()->subDay()->toDateString());
+            } elseif ($period === 'this_week') {
+                $query->whereBetween('sale_date', [$now->copy()->startOfWeek()->startOfDay(), $now->copy()->endOfWeek()->endOfDay()]);
+            } elseif ($period === 'this_month') {
+                $query->whereBetween('sale_date', [$now->copy()->startOfMonth()->startOfDay(), $now->copy()->endOfMonth()->endOfDay()]);
+            } elseif ($period === 'last_month') {
+                $query->whereBetween('sale_date', [$now->copy()->subMonth()->startOfMonth()->startOfDay(), $now->copy()->subMonth()->endOfMonth()->endOfDay()]);
+            } elseif ($period === 'this_year') {
+                $query->whereBetween('sale_date', [$now->copy()->startOfYear()->startOfDay(), $now->copy()->endOfYear()->endOfDay()]);
+            }
         }
 
         if ($request->filled('date_from')) {
@@ -78,13 +110,54 @@ class SaleController extends Controller
             $query->whereDate('sale_date', '<=', $request->input('date_to'));
         }
 
-        $sales = $query->orderBy('sale_date', 'desc')
-            ->orderBy('id', 'desc')
-            ->paginate($request->input('per_page', 15));
+        $summaryQuery = clone $query;
+        $totalBilled = (float) (clone $summaryQuery)->sum('grand_total');
+        $totalPaid = (float) (clone $summaryQuery)->sum('amount_paid');
+        $totalDue = (float) (clone $summaryQuery)->sum('amount_due');
+        $totalCount = (int) (clone $summaryQuery)->count();
+
+        $totalProfit = 0.0;
+        $totalCost = 0.0;
+        if ($user->role === 'owner') {
+            $salesForSummary = (clone $summaryQuery)->with(['items.inventoryItem'])->get();
+            foreach ($salesForSummary as $s) {
+                $totalProfit += (float) $s->net_profit;
+                $totalCost += (float) $s->total_cost;
+            }
+        }
+
+        $summary = [
+            'total_billed' => round($totalBilled, 2),
+            'total_paid' => round($totalPaid, 2),
+            'total_due' => round($totalDue, 2),
+            'total_profit' => round($totalProfit, 2),
+            'total_cost' => round($totalCost, 2),
+            'total_count' => $totalCount,
+        ];
+
+        $sort = $request->input('sort', 'newest');
+        switch ($sort) {
+            case 'oldest':
+                $query->orderBy('sale_date', 'asc')->orderBy('id', 'asc');
+                break;
+            case 'amount_high':
+                $query->orderBy('grand_total', 'desc');
+                break;
+            case 'amount_low':
+                $query->orderBy('grand_total', 'asc');
+                break;
+            case 'newest':
+            default:
+                $query->orderBy('sale_date', 'desc')->orderBy('id', 'desc');
+                break;
+        }
+
+        $sales = $query->paginate($request->input('per_page', 15));
 
         return response()->json([
             'success' => true,
             'data' => SaleResource::collection($sales),
+            'summary' => $summary,
             'meta' => [
                 'current_page' => $sales->currentPage(),
                 'last_page' => $sales->lastPage(),
@@ -250,6 +323,12 @@ class SaleController extends Controller
 
                 $grandTotal = max(0, $subtotal - $overallDiscount + ($taxType === 'inclusive' ? 0 : $overallTax));
 
+                // Validation: Payment amount cannot exceed the bill grand total
+                $initialPayment = (float) ($validated['payment_amount'] ?? 0);
+                if ($initialPayment > (float) $grandTotal) {
+                    throw new \Exception("Paid amount (₹" . number_format($initialPayment, 2) . ") cannot exceed the total bill amount (₹" . number_format($grandTotal, 2) . ").");
+                }
+
                 $sale = Sale::create([
                     'shop_id' => $user->shop_id,
                     'sale_type' => $validated['sale_type'] ?? 'regular',
@@ -388,8 +467,8 @@ class SaleController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to create sale invoice: ' . $e->getMessage(),
-            ], 500);
+                'message' => $e->getMessage(),
+            ], 422);
         }
     }
 
@@ -432,6 +511,9 @@ class SaleController extends Controller
         }
 
         $validated = $request->validate([
+            'customer_name' => ['nullable', 'string', 'max:255'],
+            'customer_mobile' => ['nullable', 'string', 'max:50'],
+            'sale_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 

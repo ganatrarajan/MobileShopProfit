@@ -77,7 +77,7 @@ class AuthController extends Controller
             }
 
             // 4. Issue Sanctum Bearer Token
-            $token = $user->createToken('auth_token')->plainTextToken;
+            $token = $user->createToken($this->resolveTokenName($request))->plainTextToken;
 
             return $this->successResponse([
                 'token' => $token,
@@ -137,7 +137,7 @@ class AuthController extends Controller
                     $shop->refresh();
                 }
 
-                $token = $user->createToken('auth_token')->plainTextToken;
+                $token = $user->createToken($this->resolveTokenName($request))->plainTextToken;
 
                 return $this->successResponse([
                     'otp_skipped' => true,
@@ -269,7 +269,7 @@ class AuthController extends Controller
             }
 
             // 4. Issue Sanctum Bearer Token
-            $token = $user->createToken('auth_token')->plainTextToken;
+            $token = $user->createToken($this->resolveTokenName($request))->plainTextToken;
 
             // Delete pending registration after successful creation
             $pending->delete();
@@ -337,12 +337,26 @@ class AuthController extends Controller
      */
     public function login(LoginRequest $request): JsonResponse
     {
-        $loginInput = $request->login;
+        $loginInput = trim((string) $request->login);
 
         // Determine if login input is email or mobile number
-        $fieldType = filter_var($loginInput, FILTER_VALIDATE_EMAIL) ? 'email' : 'mobile';
+        if (filter_var($loginInput, FILTER_VALIDATE_EMAIL)) {
+            $user = User::where('email', $loginInput)->first();
+        } else {
+            $cleanDigits = preg_replace('/\D/', '', $loginInput);
+            $tenDigit = strlen($cleanDigits) >= 10 ? substr($cleanDigits, -10) : $cleanDigits;
 
-        $user = User::where($fieldType, $loginInput)->first();
+            $user = User::where(function ($q) use ($loginInput, $tenDigit) {
+                $q->where('mobile', $loginInput)
+                  ->orWhere('phone', $loginInput);
+                if (!empty($tenDigit)) {
+                    $q->orWhere('mobile', $tenDigit)
+                      ->orWhere('phone', $tenDigit)
+                      ->orWhere('mobile', 'like', "%{$tenDigit}")
+                      ->orWhere('phone', 'like', "%{$tenDigit}");
+                }
+            })->first();
+        }
 
         if (! $user || ! Hash::check($request->password, $user->password)) {
             return $this->errorResponse('Invalid mobile/email or password', 401);
@@ -354,6 +368,30 @@ class AuthController extends Controller
                 return $this->errorResponse('Your shop account has been deactivated. Please contact support.', 403);
             }
         }
+
+        // Enforce Web Portal access control when logging in via web portal
+        if ($request->input('login_source') === 'web' || $request->header('X-Login-Source') === 'web') {
+            if ($user->role !== 'owner') {
+                return $this->errorResponse('Web portal access is available for shop owners only. Staff members please use the mobile app.', 403);
+            }
+
+            $shop = $user->shop;
+            if (!$shop) {
+                return $this->errorResponse('No shop account found associated with this user.', 404);
+            }
+
+            // 1. Check if admin has enabled web portal for this shop (Default is OFF)
+            if (!$shop->is_web_enabled) {
+                return $this->errorResponse('Web portal access is currently not enabled for your shop. Please contact admin to activate web portal access for your account.', 403);
+            }
+
+            // 2. Check if custom web access validity has expired
+            if ($shop->web_valid_until && now()->startOfDay()->gt(\Carbon\Carbon::parse($shop->web_valid_until)->endOfDay())) {
+                $webExpFormatted = \Carbon\Carbon::parse($shop->web_valid_until)->format('d M Y');
+                return $this->errorResponse("Your web portal access expired on {$webExpFormatted}. Please contact admin to renew or extend your web access.", 403);
+            }
+        }
+
 
         // Check if staff / technician account is active and staff validity is not expired
         if (in_array($user->role, ['staff', 'technician'])) {
@@ -375,10 +413,38 @@ class AuthController extends Controller
             }
         }
 
-        // Revoke all previous tokens for this user to enforce single active device session
-        $user->tokens()->delete();
+        // Differentiate login platform: Web Portal vs Mobile Application
+        // Allows 1 Mobile App + 1 Web Portal session simultaneously.
+        // Enforces: Max 1 active mobile session AND max 1 active web session per account.
+        $isWeb = $request->input('login_source') === 'web'
+            || strtolower((string)$request->header('X-Client-Type')) === 'web'
+            || $request->input('client_type') === 'web';
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $tokenName = $isWeb ? 'web_session' : 'mobile_session';
+
+        if ($isWeb) {
+            // Revoke ONLY existing web session tokens for this user -> keeps mobile app logged in!
+            $user->tokens()->where('name', 'web_session')->delete();
+            $user->update(['last_web_login_at' => now()]);
+            if ($user->shop) {
+                $user->shop->update(['last_web_login_at' => now()]);
+            }
+        } else {
+            // Revoke ONLY existing mobile session tokens for this user -> keeps web portal logged in!
+            // Also cleans up legacy 'auth_token' tokens
+            $user->tokens()->where(function ($q) {
+                $q->where('name', 'mobile_session')->orWhere('name', 'auth_token');
+            })->delete();
+            $user->update([
+                'last_mobile_login_at' => now(),
+                'last_app_opened_at'   => now(),
+            ]);
+            if ($user->shop) {
+                $user->shop->update(['last_mobile_login_at' => now()]);
+            }
+        }
+
+        $token = $user->createToken($tokenName)->plainTextToken;
 
         return $this->successResponse([
             'token' => $token,
@@ -394,7 +460,26 @@ class AuthController extends Controller
     {
         $user = $request->user();
         if ($user) {
-            $user->update(['last_app_opened_at' => now()]);
+            $isWeb = $request->input('login_source') === 'web'
+                || strtolower((string)$request->header('X-Client-Type')) === 'web'
+                || $request->input('client_type') === 'web'
+                || ($user->currentAccessToken() && $user->currentAccessToken()->name === 'web_session');
+
+            if ($isWeb) {
+                $user->update(['last_web_login_at' => now()]);
+                if ($user->shop) {
+                    $user->shop->update(['last_web_login_at' => now()]);
+                }
+            } else {
+                $user->update([
+                    'last_mobile_login_at' => now(),
+                    'last_app_opened_at'   => now(),
+                ]);
+                if ($user->shop) {
+                    $user->shop->update(['last_mobile_login_at' => now()]);
+                }
+            }
+
             $user->load('shop');
 
             // Enforce staff expiry on active session
@@ -424,7 +509,13 @@ class AuthController extends Controller
     {
         $user = $request->user();
         if ($user) {
-            $user->update(['last_app_opened_at' => now()]);
+            $user->update([
+                'last_mobile_login_at' => now(),
+                'last_app_opened_at'   => now(),
+            ]);
+            if ($user->shop) {
+                $user->shop->update(['last_mobile_login_at' => now()]);
+            }
 
             if (in_array($user->role, ['staff', 'technician'])) {
                 $shop = $user->shop;
@@ -806,6 +897,33 @@ class AuthController extends Controller
     }
 
     /**
+     * Check if current session token is still active and valid.
+     * If user logged in from another device/browser, token was revoked and 401 is returned.
+     */
+    public function sessionCheck(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user) {
+            return $this->errorResponse('Unauthenticated', 401);
+        }
+
+        $isWeb = ($user->currentAccessToken() && $user->currentAccessToken()->name === 'web_session');
+        if ($isWeb) {
+            $user->update(['last_web_login_at' => now()]);
+            if ($user->shop) {
+                $user->shop->update(['last_web_login_at' => now()]);
+            }
+        }
+
+        return $this->successResponse([
+            'valid'     => true,
+            'user_id'   => $user->id,
+            'role'      => $user->role,
+            'timestamp' => now()->timestamp,
+        ], 'Session is active');
+    }
+
+    /**
      * Revoke current API token.
      */
     public function logout(Request $request): JsonResponse
@@ -836,6 +954,18 @@ class AuthController extends Controller
         ]);
 
         return $this->successResponse(null, 'Password updated successfully');
+    }
+
+    /**
+     * Determine token name based on client platform (web vs mobile).
+     */
+    private function resolveTokenName(Request $request): string
+    {
+        $isWeb = $request->input('login_source') === 'web'
+            || strtolower((string) $request->header('X-Client-Type')) === 'web'
+            || $request->input('client_type') === 'web';
+
+        return $isWeb ? 'web_session' : 'mobile_session';
     }
 }
 

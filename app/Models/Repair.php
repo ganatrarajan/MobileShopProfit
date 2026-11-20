@@ -67,6 +67,32 @@ class Repair extends Model
         'net_profit',
     ];
 
+    /**
+     * Resolve device photo dynamically to current request origin (e.g. Wi-Fi IP, localhost, domain).
+     */
+    public function getDevicePhotoAttribute($value): ?string
+    {
+        if (empty($value)) {
+            return null;
+        }
+
+        if (str_starts_with($value, 'data:image')) {
+            return $value;
+        }
+
+        if (preg_match('#(?:https?://[^/]+)?/?storage/(.+)#i', $value, $matches)) {
+            $storagePath = 'storage/' . $matches[1];
+            $origin = request() ? request()->getSchemeAndHttpHost() : config('app.url');
+            return rtrim($origin, '/') . '/' . ltrim($storagePath, '/');
+        } elseif (str_starts_with($value, 'repairs/photos/')) {
+            $storagePath = 'storage/' . $value;
+            $origin = request() ? request()->getSchemeAndHttpHost() : config('app.url');
+            return rtrim($origin, '/') . '/' . ltrim($storagePath, '/');
+        }
+
+        return $value;
+    }
+
     public function scopeForShop($query, $shopId)
     {
         return $query->where('shop_id', $shopId);

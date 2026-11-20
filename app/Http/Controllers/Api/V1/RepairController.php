@@ -64,12 +64,43 @@ class RepairController extends Controller
             });
         }
 
-        if ($request->filled('repair_status') && $request->input('repair_status') !== 'all') {
-            $query->where('repair_status', $request->input('repair_status'));
+        // Filter by Status (accepts both 'repair_status' and 'status')
+        $statusParam = $request->input('repair_status') ?? $request->input('status');
+        if (!empty($statusParam) && $statusParam !== 'all') {
+            $query->where('repair_status', $statusParam);
+        }
+
+        // Filter by Payment / Due Status
+        if ($request->filled('payment_status') && $request->input('payment_status') !== 'all') {
+            $paymentStatus = $request->input('payment_status');
+            if ($paymentStatus === 'due' || $paymentStatus === 'unpaid') {
+                $query->where('amount_due', '>', 0);
+            } elseif ($paymentStatus === 'paid') {
+                $query->where('amount_due', '<=', 0);
+            }
         }
 
         if ($request->filled('customer_id')) {
             $query->where('customer_id', $request->input('customer_id'));
+        }
+
+        // Filter by Period presets
+        if ($request->filled('period') && $request->input('period') !== 'all_time') {
+            $period = $request->input('period');
+            $now = \Carbon\Carbon::now();
+            if ($period === 'today') {
+                $query->whereDate('date_received', $now->toDateString());
+            } elseif ($period === 'yesterday') {
+                $query->whereDate('date_received', $now->copy()->subDay()->toDateString());
+            } elseif ($period === 'this_week') {
+                $query->whereBetween('date_received', [$now->copy()->startOfWeek()->toDateString(), $now->copy()->endOfWeek()->toDateString()]);
+            } elseif ($period === 'this_month') {
+                $query->whereBetween('date_received', [$now->copy()->startOfMonth()->toDateString(), $now->copy()->endOfMonth()->toDateString()]);
+            } elseif ($period === 'last_month') {
+                $query->whereBetween('date_received', [$now->copy()->subMonth()->startOfMonth()->toDateString(), $now->copy()->subMonth()->endOfMonth()->toDateString()]);
+            } elseif ($period === 'this_year') {
+                $query->whereBetween('date_received', [$now->copy()->startOfYear()->toDateString(), $now->copy()->endOfYear()->toDateString()]);
+            }
         }
 
         if ($request->filled('date_from')) {
@@ -80,8 +111,21 @@ class RepairController extends Controller
             $query->whereDate('date_received', '<=', $request->input('date_to'));
         }
 
-        $repairs = $query->orderBy('id', 'desc')
-            ->paginate($request->input('per_page', 15));
+        $sort = $request->input('sort', 'newest');
+        switch ($sort) {
+            case 'oldest':
+                $query->orderBy('id', 'asc');
+                break;
+            case 'cost_high':
+                $query->orderBy('final_cost', 'desc');
+                break;
+            case 'newest':
+            default:
+                $query->orderBy('id', 'desc');
+                break;
+        }
+
+        $repairs = $query->paginate($request->input('per_page', 15));
 
         return response()->json([
             'success' => true,
@@ -307,6 +351,13 @@ class RepairController extends Controller
             ], 404);
         }
 
+        if ($repair->repair_status === 'delivered') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Job Card is Delivered & finalized. It is completely locked and cannot be modified.',
+            ], 422);
+        }
+
         $validated = $request->validated();
         if (array_key_exists('technician_id', $validated) && !empty($validated['technician_id'])) {
             $tech = \App\Models\Technician::forShop($user->shop_id)->find($validated['technician_id']);
@@ -345,6 +396,13 @@ class RepairController extends Controller
                 'success' => false,
                 'message' => 'Repair job card not found or unauthorized.',
             ], 404);
+        }
+
+        if ($repair->repair_status === 'delivered') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Job Card is Delivered & finalized. It is completely locked and cannot be modified.',
+            ], 422);
         }
 
         $validated = $request->validated();
@@ -400,6 +458,13 @@ class RepairController extends Controller
             ], 404);
         }
 
+        if ($repairRecord->repair_status === 'delivered') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Job Card is Delivered & finalized. Delivered repairs are frozen and cannot be deleted.',
+            ], 422);
+        }
+
         DB::transaction(function () use ($repairRecord) {
             $repairRecord->parts()->delete();
             $repairRecord->payments()->delete();
@@ -419,7 +484,7 @@ class RepairController extends Controller
     {
         if ($request->hasFile('device_photo')) {
             $path = $request->file('device_photo')->store('repairs/photos', 'public');
-            return asset('storage/' . $path);
+            return 'storage/' . $path;
         } elseif (!empty($devicePhoto) && str_starts_with($devicePhoto, 'data:image')) {
             try {
                 $imageParts = explode(';base64,', $devicePhoto);
@@ -432,7 +497,7 @@ class RepairController extends Controller
                     $imageBase64 = base64_decode($imageParts[1]);
                     $fileName = 'repairs/photos/repair_' . uniqid() . '.' . $imageType;
                     Storage::disk('public')->put($fileName, $imageBase64);
-                    return asset('storage/' . $fileName);
+                    return 'storage/' . $fileName;
                 }
             } catch (\Exception $e) {
                 Log::warning('Repair device photo save failed: ' . $e->getMessage());
