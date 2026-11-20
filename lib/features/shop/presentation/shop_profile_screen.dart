@@ -67,9 +67,14 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
         final shop = response.data as Map<String, dynamic>;
         _nameController.text = shop['name'] ?? '';
         _ownerController.text = shop['owner_name'] ?? '';
-        _initialMobile = (shop['mobile'] ?? shop['phone'] ?? '').toString();
+        _initialMobile = (shop['owner_mobile'] ?? shop['mobile'] ?? shop['phone'] ?? '').toString().trim();
         _mobileController.text = _initialMobile;
-        _phoneController.text = shop['phone'] ?? '';
+        final shopPhone = (shop['phone'] != null && shop['phone'].toString().trim().isNotEmpty)
+            ? shop['phone'].toString().trim()
+            : ((shop['shop_phone'] != null && shop['shop_phone'].toString().trim().isNotEmpty)
+                ? shop['shop_phone'].toString().trim()
+                : _initialMobile);
+        _phoneController.text = shopPhone;
         _emailController.text = shop['email'] ?? '';
         _addressController.text = shop['address'] ?? '';
         _cityController.text = shop['city'] ?? '';
@@ -440,12 +445,16 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
         });
       }
 
+      final shopPhone = _phoneController.text.trim().isNotEmpty
+          ? _phoneController.text.trim()
+          : newMobile;
+
       // Update remaining shop details
       final response = await _authRepository.updateShop(
         name: _nameController.text.trim(),
         ownerName: _ownerController.text.trim(),
         mobile: newMobile,
-        phone: newMobile,
+        phone: shopPhone,
         email: _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : null,
         address: _addressController.text.trim(),
         city: _cityController.text.trim(),
@@ -460,8 +469,9 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
       final shopData = await AuthStorage().getShop() ?? {};
       shopData['name'] = _nameController.text.trim();
       shopData['owner_name'] = _ownerController.text.trim();
-      shopData['phone'] = newMobile;
+      shopData['phone'] = shopPhone;
       shopData['mobile'] = newMobile;
+      shopData['owner_mobile'] = newMobile;
       shopData['email'] = _emailController.text.trim();
       shopData['address'] = _addressController.text.trim();
       shopData['city'] = _cityController.text.trim();
@@ -678,14 +688,33 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
                             ),
                             const SizedBox(height: 14),
                             CustomTextField(
-                              label: 'Mobile Number',
+                              label: 'Shop Contact Number (Bills, Card & WhatsApp) *',
+                              controller: _phoneController,
+                              keyboardType: TextInputType.phone,
+                              prefixIcon: Icons.store_rounded,
+                              hint: 'e.g. 9876543210',
+                              validator: (val) {
+                                if (val == null || val.trim().isEmpty) {
+                                  return 'Shop contact number is required';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              'This phone number is printed on customer PDF invoices, digital visiting card, and WhatsApp messages. No OTP required to change.',
+                              style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                            ),
+                            const SizedBox(height: 14),
+                            CustomTextField(
+                              label: 'Owner Login Mobile *',
                               controller: _mobileController,
                               keyboardType: TextInputType.phone,
                               prefixIcon: Icons.phone_android_rounded,
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 6),
                             const MobileHelperBanner(
-                              message: 'SMS OTP verification will be sent if you update your mobile number.',
+                              message: 'Used strictly for account login. SMS OTP verification will be sent if you update your mobile number.',
                             ),
                             const SizedBox(height: 14),
                             CustomTextField(

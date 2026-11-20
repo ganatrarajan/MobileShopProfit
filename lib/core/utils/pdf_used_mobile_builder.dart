@@ -17,6 +17,7 @@ class PdfUsedMobileBuilder {
   static final PdfColor textMuted = PdfColor.fromHex('#64748B');
   static final PdfColor successGreen = PdfColor.fromHex('#10B981');
   static final PdfColor warningAmber = PdfColor.fromHex('#D97706');
+  static final PdfColor dangerRed = PdfColor.fromHex('#EF4444');
 
   static Future<Uint8List?> _loadMediaBytes(String? rawPath) async {
     if (rawPath == null || rawPath.trim().isEmpty) return null;
@@ -62,10 +63,12 @@ class PdfUsedMobileBuilder {
         ];
         shopAddress = parts.join(', ');
 
-        if (shop['mobile'] != null && shop['mobile'].toString().trim().isNotEmpty) {
-          shopPhone = shop['mobile'].toString().trim();
-        } else if (shop['phone'] != null && shop['phone'].toString().trim().isNotEmpty) {
+        if (shop['phone'] != null && shop['phone'].toString().trim().isNotEmpty) {
           shopPhone = shop['phone'].toString().trim();
+        } else if (shop['shop_phone'] != null && shop['shop_phone'].toString().trim().isNotEmpty) {
+          shopPhone = shop['shop_phone'].toString().trim();
+        } else if (shop['mobile'] != null && shop['mobile'].toString().trim().isNotEmpty) {
+          shopPhone = shop['mobile'].toString().trim();
         }
 
         final rawGst = shop['gst_number'] ?? shop['gstin'];
@@ -741,13 +744,37 @@ class PdfUsedMobileBuilder {
                         pw.Row(
                           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                           children: [
-                            pw.Text('Net Total Paid:', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: textDark)),
+                            pw.Text('Net Bill Amount:', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: textDark)),
                             pw.Text(
                               'Rs. ${(mobile.taxType == 'exclusive' ? ((mobile.sellingPrice ?? 0.0) + mobile.taxAmount) : (mobile.sellingPrice ?? 0.0)).toStringAsFixed(2)}',
-                              style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: brandPurple),
+                              style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: brandPurple),
                             ),
                           ],
                         ),
+                        pw.SizedBox(height: 3),
+                        pw.Row(
+                          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                          children: [
+                            pw.Text('Amount Paid:', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: successGreen)),
+                            pw.Text(
+                              'Rs. ${mobile.effectiveAmountPaid.toStringAsFixed(2)}',
+                              style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: successGreen),
+                            ),
+                          ],
+                        ),
+                        if (mobile.hasDue) ...[
+                          pw.SizedBox(height: 3),
+                          pw.Row(
+                            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                            children: [
+                              pw.Text('Balance Due:', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: dangerRed)),
+                              pw.Text(
+                                'Rs. ${mobile.effectiveAmountDue.toStringAsFixed(2)}',
+                                style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: dangerRed),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),

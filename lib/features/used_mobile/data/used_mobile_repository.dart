@@ -165,6 +165,25 @@ class UsedMobileRepository {
     );
   }
 
+  /// Record payment against a sold phone with pending due
+  Future<ApiResponse<UsedMobile>> addPayment({
+    required int id,
+    required double amount,
+    required String paymentMethod,
+    String? notes,
+  }) async {
+    return await _client.post<UsedMobile>(
+      '${ApiEndpoints.usedMobiles}/$id/payments',
+      body: {
+        'amount': amount,
+        'payment_method': paymentMethod,
+        if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+      },
+      fromJson: (res) =>
+          UsedMobile.fromJson(Map<String, dynamic>.from(res as Map)),
+    );
+  }
+
   /// Delete an entry
   Future<ApiResponse<dynamic>> deleteUsedMobile(int id) async {
     return await _client.delete<dynamic>(

@@ -76,12 +76,27 @@ class _QuickWarrantyModalState extends State<QuickWarrantyModal> {
     {'label': '1 Year', 'days': 365},
   ];
 
-  final List<String> _presetTerms = [
-    'Full Device Warranty',
-    'Display / Touch Combo Only',
-    'Battery & Charging Port Only',
-    'Motherboard Repair Warranty',
-    'Part Replacement Warranty',
+  final List<Map<String, String>> _presetTerms = [
+    {
+      'label': 'Service Center Warranty',
+      'text': 'Official Brand Service Center Warranty. Customer can claim directly at authorized service center with invoice.',
+    },
+    {
+      'label': 'Shop Testing Warranty',
+      'text': 'Shop Testing Warranty. Covers hardware & manufacturing defects. Physical and liquid damage void.',
+    },
+    {
+      'label': 'Display & Touch Only',
+      'text': 'Covers screen and touch failure only. Glass crack, black spot, lines, drop or liquid damage strictly void.',
+    },
+    {
+      'label': 'Parts Replaced Only',
+      'text': 'Covers repair & replaced parts only. Physical damage, water ingress, or unauthorized opening voids warranty.',
+    },
+    {
+      'label': 'Full Device Warranty',
+      'text': 'Comprehensive device warranty covering internal components. Excludes physical drop and liquid exposure.',
+    },
   ];
 
   @override
@@ -425,25 +440,41 @@ class _QuickWarrantyModalState extends State<QuickWarrantyModal> {
                             _buildDatePreviewCard(),
                             const SizedBox(height: 16),
 
-                            const Text(
-                              'Warranty Terms & Coverage (Optional)',
-                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Warranty Terms & Coverage (Optional)',
+                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                ),
+                                if (_termsController.text.isNotEmpty)
+                                  GestureDetector(
+                                    onTap: () => setState(() => _termsController.clear()),
+                                    child: const Text('Clear', style: TextStyle(fontSize: 11, color: AppColors.error, fontWeight: FontWeight.bold)),
+                                  ),
+                              ],
                             ),
                             const SizedBox(height: 8),
                             Wrap(
                               spacing: 6,
                               runSpacing: 6,
-                              children: _presetTerms.map((term) {
+                              children: _presetTerms.map((preset) {
+                                final isSelected = _termsController.text.trim() == preset['text'];
                                 return ActionChip(
-                                  label: Text(term, style: const TextStyle(fontSize: 12)),
-                                  backgroundColor: Colors.grey.shade100,
+                                  label: Text(
+                                    preset['label']!,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                      color: isSelected ? Colors.white : AppColors.primary,
+                                    ),
+                                  ),
+                                  backgroundColor: isSelected ? AppColors.primary : AppColors.primary.withOpacity(0.08),
+                                  side: BorderSide(color: isSelected ? AppColors.primary : AppColors.primary.withOpacity(0.25)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
                                   onPressed: () {
                                     setState(() {
-                                      if (_termsController.text.isEmpty) {
-                                        _termsController.text = term;
-                                      } else if (!_termsController.text.contains(term)) {
-                                        _termsController.text += ', $term';
-                                      }
+                                      _termsController.text = preset['text']!;
                                     });
                                   },
                                 );

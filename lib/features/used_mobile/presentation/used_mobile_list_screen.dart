@@ -18,6 +18,7 @@ import 'buy_used_mobile_screen.dart';
 import 'used_mobile_details_screen.dart';
 import 'used_mobile_pdf_screen.dart';
 import 'widgets/add_repair_expense_modal.dart';
+import 'widgets/collect_used_mobile_payment_dialog.dart';
 import 'widgets/sell_used_mobile_modal.dart';
 
 class UsedMobileListScreen extends StatefulWidget {
@@ -85,10 +86,14 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
   }
 
   List<UsedMobile> get _filteredMobiles {
-    if (_selectedBrand == 'all') {
-      return _mobiles;
+    List<UsedMobile> list = _mobiles;
+    if (_selectedFilter == 'due') {
+      list = list.where((m) => m.hasDue || m.isPartiallyPaid || m.paymentStatus.toLowerCase() == 'due' || m.paymentStatus.toLowerCase() == 'partially_paid').toList();
     }
-    return _mobiles.where((m) => m.brand.trim().toLowerCase() == _selectedBrand.trim().toLowerCase()).toList();
+    if (_selectedBrand == 'all') {
+      return list;
+    }
+    return list.where((m) => m.brand.trim().toLowerCase() == _selectedBrand.trim().toLowerCase()).toList();
   }
 
   String? get _dateFrom => DateHelper.getDateRangeForPreset(_datePreset, customRange: _customDateRange).dateFrom;
@@ -685,6 +690,33 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
                         style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.accent),
                       ),
                     ],
+                    if (_stats.dueCount > 0) ...[
+                      const SizedBox(width: 6),
+                      const Text('•', style: TextStyle(color: Colors.grey)),
+                      const SizedBox(width: 6),
+                      InkWell(
+                        onTap: () {
+                          setState(() {
+                            _selectedFilter = 'due';
+                            _selectedBrand = 'all';
+                          });
+                          fetchMobiles();
+                        },
+                        borderRadius: BorderRadius.circular(5),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(5),
+                            border: Border.all(color: const Color(0xFFF59E0B)),
+                          ),
+                          child: Text(
+                            '₹${_stats.totalDueAmount.toStringAsFixed(0)} Due (${_stats.dueCount})',
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: Color(0xFFB45309)),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -892,6 +924,7 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
     final tabs = [
       {'id': 'in_stock', 'label': 'In Stock (${_stats.inStockCount})'},
       {'id': 'sold', 'label': 'Sold (${_stats.soldCount})'},
+      {'id': 'due', 'label': 'Due (${_stats.dueCount})'},
       {'id': 'all', 'label': 'All (${_stats.totalPurchasedCount})'},
     ];
 
@@ -906,8 +939,11 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
       child: Row(
         children: tabs.map((t) {
           final isSelected = _selectedFilter == t['id'];
+          final isDue = t['id'] == 'due';
           final isSold = t['id'] == 'sold';
-          final activeColor = isSold ? AppColors.accent : AppColors.primary;
+          final activeColor = isDue
+              ? const Color(0xFFD97706)
+              : (isSold ? AppColors.accent : AppColors.primary);
 
           return Expanded(
             child: GestureDetector(
@@ -937,17 +973,22 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
                         ]
                       : null,
                 ),
-                child: Text(
-                  t['label']!,
-                  style: TextStyle(
-                    color: isSelected
-                        ? Colors.white
-                        : (isDark ? Colors.grey.shade300 : AppColors.textSecondary),
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                    fontSize: 12,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: Text(
+                      t['label']!,
+                      style: TextStyle(
+                        color: isSelected
+                            ? Colors.white
+                            : (isDark ? Colors.grey.shade300 : AppColors.textSecondary),
+                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                        fontSize: 11,
+                      ),
+                      maxLines: 1,
+                    ),
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ),
@@ -1557,10 +1598,26 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    if (isSold && mobile.buyerName != null && mobile.buyerName!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'Buyer: ${mobile.buyerName}${mobile.hasDue ? ' • Due: ₹${mobile.effectiveAmountDue.toStringAsFixed(0)}' : ''}',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          color: mobile.hasDue ? const Color(0xFFB45309) : AppColors.textSecondary,
+                          fontWeight: mobile.hasDue ? FontWeight.bold : FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                     const SizedBox(height: 5),
 
                     // Condition Pill & Status/Battery
-                    Row(
+                    Wrap(
+                      spacing: 5,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1578,8 +1635,7 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
                             ),
                           ),
                         ),
-                        if (mobile.batteryHealth != null && mobile.batteryHealth!.isNotEmpty) ...[
-                          const SizedBox(width: 5),
+                        if (mobile.batteryHealth != null && mobile.batteryHealth!.isNotEmpty)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                             decoration: BoxDecoration(
@@ -1592,21 +1648,33 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
                               style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: Colors.green.shade800),
                             ),
                           ),
-                        ],
-                        if (isSold) ...[
-                          const SizedBox(width: 5),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppColors.accent.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(5),
+                        if (isSold)
+                          if (mobile.hasDue)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFEF3C7),
+                                borderRadius: BorderRadius.circular(5),
+                                border: Border.all(color: const Color(0xFFF59E0B)),
+                              ),
+                              child: Text(
+                                'DUE: ₹${mobile.effectiveAmountDue.toStringAsFixed(0)}',
+                                style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: Color(0xFFB45309)),
+                              ),
+                            )
+                          else
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFDCFCE7),
+                                borderRadius: BorderRadius.circular(5),
+                                border: Border.all(color: const Color(0xFF86EFAC)),
+                              ),
+                              child: const Text(
+                                'SOLD (PAID)',
+                                style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: Color(0xFF166534)),
+                              ),
                             ),
-                            child: const Text(
-                              'SOLD',
-                              style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: AppColors.accent),
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                   ],
@@ -1645,12 +1713,29 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
                       },
                     ),
                   ] else ...[
-                    // Sold: Selling Price & Profit
+                    // Sold: Selling Price & Profit or Collect Due
                     Text(
                       '₹${(mobile.sellingPrice ?? 0).toStringAsFixed(0)}',
                       style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
                     ),
-                    if (_isOwner) ...[
+                    if (mobile.hasDue) ...[
+                      const SizedBox(height: 3),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFD97706),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                          elevation: 0,
+                        ),
+                        onPressed: () {
+                          CollectUsedMobilePaymentDialog.show(context, mobile: mobile, onPaymentRecorded: fetchMobiles);
+                        },
+                        child: const Text('Collect Due', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5)),
+                      ),
+                    ] else if (_isOwner) ...[
                       const SizedBox(height: 3),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1680,7 +1765,9 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     onSelected: (val) {
-                      if (val == 'pdf') {
+                      if (val == 'collect_due') {
+                        CollectUsedMobilePaymentDialog.show(context, mobile: mobile, onPaymentRecorded: fetchMobiles);
+                      } else if (val == 'pdf') {
                         UsedMobilePdfScreen.show(
                           context,
                           mobile,
@@ -1704,6 +1791,17 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
                       }
                     },
                     itemBuilder: (ctx) => [
+                      if (mobile.hasDue)
+                        const PopupMenuItem(
+                          value: 'collect_due',
+                          child: Row(
+                            children: [
+                              Icon(Icons.add_card_rounded, size: 16, color: Color(0xFFD97706)),
+                              SizedBox(width: 8),
+                              Text('Collect Due Payment', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFD97706))),
+                            ],
+                          ),
+                        ),
                       const PopupMenuItem(
                         value: 'details',
                         child: Row(

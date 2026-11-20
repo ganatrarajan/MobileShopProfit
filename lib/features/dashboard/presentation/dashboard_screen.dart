@@ -1823,7 +1823,25 @@ class DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Total Profit', style: TextStyle(fontSize: 11, color: textMutedColor)),
+                    Row(
+                      children: [
+                        Text('Total Profit', style: TextStyle(fontSize: 11, color: textMutedColor)),
+                        if (usedMobiles.profitMargin > 0) ...[
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF059669),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: Text(
+                              '${usedMobiles.profitMargin.toStringAsFixed(0)}%',
+                              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                     const SizedBox(height: 4),
                     ProfitText(
                       amount: usedMobiles.totalProfit,

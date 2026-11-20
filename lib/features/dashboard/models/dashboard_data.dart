@@ -235,6 +235,7 @@ class UsedMobileSummary {
   final double totalCost;
   final int inStockCount;
   final double inStockInvestment;
+  final double profitMargin;
 
   UsedMobileSummary({
     this.soldCount = 0,
@@ -243,16 +244,24 @@ class UsedMobileSummary {
     this.totalCost = 0.0,
     this.inStockCount = 0,
     this.inStockInvestment = 0.0,
+    this.profitMargin = 0.0,
   });
 
   factory UsedMobileSummary.fromJson(Map<String, dynamic> json) {
+    final sales = _parseDouble(json['total_sales'] ?? json['total_sale_revenue']);
+    final profit = _parseDouble(json['total_profit'] ?? json['total_profit_earned']);
+    final margin = json['profit_margin'] != null
+        ? _parseDouble(json['profit_margin'])
+        : (sales > 0 && profit > 0 ? ((profit / sales) * 100) : 0.0);
+
     return UsedMobileSummary(
       soldCount: _parseInt(json['sold_count']),
-      totalSales: _parseDouble(json['total_sales'] ?? json['total_sale_revenue']),
-      totalProfit: _parseDouble(json['total_profit'] ?? json['total_profit_earned']),
+      totalSales: sales,
+      totalProfit: profit,
       totalCost: _parseDouble(json['total_cost']),
       inStockCount: _parseInt(json['in_stock_count']),
       inStockInvestment: _parseDouble(json['in_stock_investment']),
+      profitMargin: margin,
     );
   }
 }

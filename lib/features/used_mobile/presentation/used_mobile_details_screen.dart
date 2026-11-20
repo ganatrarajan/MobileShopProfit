@@ -14,6 +14,7 @@ import 'buy_used_mobile_screen.dart';
 import 'used_mobile_pdf_screen.dart';
 import 'widgets/add_repair_expense_modal.dart';
 import 'widgets/sell_used_mobile_modal.dart';
+import 'widgets/collect_used_mobile_payment_dialog.dart';
 
 class UsedMobileDetailsScreen extends StatefulWidget {
   final UsedMobile mobile;
@@ -251,7 +252,33 @@ class _UsedMobileDetailsScreenState extends State<UsedMobileDetailsScreen> {
                 ],
               ),
             )
-          : null,
+          : (_mobile.hasDue
+              ? Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.darkSurface : Colors.white,
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, -3)),
+                    ],
+                  ),
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.amber.shade800,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    icon: const Icon(Icons.payments_rounded, size: 20),
+                    label: Text(
+                      'Collect Due Payment (₹${_mobile.effectiveAmountDue.toStringAsFixed(0)})',
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                    ),
+                    onPressed: () {
+                      CollectUsedMobilePaymentDialog.show(context, mobile: _mobile, onPaymentRecorded: _refreshDetails);
+                    },
+                  ),
+                )
+              : null),
     );
   }
 
@@ -946,6 +973,23 @@ class _UsedMobileDetailsScreenState extends State<UsedMobileDetailsScreen> {
   }
 
   Widget _buildBuyerCard(bool isDark) {
+    Color badgeBg;
+    Color badgeText;
+    String statusLabel;
+    if (_mobile.isPaid) {
+      badgeBg = Colors.green.withOpacity(0.12);
+      badgeText = Colors.green.shade700;
+      statusLabel = 'PAID IN FULL';
+    } else if (_mobile.isPartiallyPaid) {
+      badgeBg = Colors.amber.withOpacity(0.15);
+      badgeText = Colors.amber.shade900;
+      statusLabel = 'PARTIALLY PAID';
+    } else {
+      badgeBg = Colors.red.withOpacity(0.12);
+      badgeText = Colors.red.shade700;
+      statusLabel = 'PAYMENT DUE';
+    }
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -958,13 +1002,30 @@ class _UsedMobileDetailsScreenState extends State<UsedMobileDetailsScreen> {
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Expanded(
-                child: Text(
-                  'Buyer & Sale Information',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+              Expanded(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    const Text(
+                      'Buyer & Sale Information',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: badgeBg,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        statusLabel,
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: badgeText),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 8),
@@ -997,6 +1058,60 @@ class _UsedMobileDetailsScreenState extends State<UsedMobileDetailsScreen> {
           if (_mobile.buyerAddress != null) _detailRow('Address', _mobile.buyerAddress!),
           if (_mobile.saleDate != null)
             _detailRow('Sale Date', DateHelper.formatDate(_mobile.saleDate!.toIso8601String())),
+          _detailRow('Sale Price', '₹${_mobile.effectiveSellingPrice.toStringAsFixed(2)}'),
+          _detailRow('Amount Paid', '₹${_mobile.effectiveAmountPaid.toStringAsFixed(2)}'),
+          if (_mobile.hasDue) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const SizedBox(
+                    width: 120,
+                    child: Text(
+                      'Balance Due',
+                      style: TextStyle(fontSize: 12, color: AppColors.error, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  Expanded(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '₹${_mobile.effectiveAmountDue.toStringAsFixed(2)}',
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: AppColors.error),
+                        ),
+                        InkWell(
+                          onTap: () {
+                            CollectUsedMobilePaymentDialog.show(context, mobile: _mobile, onPaymentRecorded: _refreshDetails);
+                          },
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.add_circle_outline, size: 13, color: Colors.white),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Collect',
+                                  style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           _detailRow('Payment Mode', _mobile.salePaymentMode ?? 'Cash'),
           if (_mobile.warrantyDays != null && _mobile.warrantyDays! > 0)
             _detailRow('Testing Warranty', '${_mobile.warrantyDays} Days Guarantee'),
@@ -1004,6 +1119,56 @@ class _UsedMobileDetailsScreenState extends State<UsedMobileDetailsScreen> {
             _detailRow('Warranty Terms', _mobile.warrantyTerms!),
           if (_mobile.saleNotes != null && _mobile.saleNotes!.isNotEmpty)
             _detailRow('Sale Notes', _mobile.saleNotes!),
+
+          // Payment Installments History
+          if (_mobile.payments.isNotEmpty) ...[
+            const Divider(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Payment History',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                ),
+                Text(
+                  '${_mobile.payments.length} receipt${_mobile.payments.length > 1 ? 's' : ''}',
+                  style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _mobile.payments.length,
+              separatorBuilder: (_, __) => const Divider(height: 12),
+              itemBuilder: (ctx, i) {
+                final p = _mobile.payments[i];
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          DateHelper.formatDate(p.paymentDate.toIso8601String()),
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                        ),
+                        Text(
+                          '${p.paymentMode}${p.notes != null && p.notes!.isNotEmpty ? ' • ${p.notes}' : ''}',
+                          style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      '+₹${p.amount.toStringAsFixed(2)}',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.green),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
         ],
       ),
     );

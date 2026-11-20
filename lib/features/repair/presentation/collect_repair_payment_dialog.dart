@@ -95,11 +95,14 @@ class _CollectRepairPaymentDialogState extends State<CollectRepairPaymentDialog>
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           Center(
             child: Container(
               width: 38,
@@ -245,6 +248,8 @@ class _CollectRepairPaymentDialogState extends State<CollectRepairPaymentDialog>
           ),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 }

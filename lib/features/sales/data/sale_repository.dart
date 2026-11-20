@@ -18,6 +18,7 @@ class SaleRepository {
   }) async {
     final queryParams = <String, String>{
       'page': page.toString(),
+      'per_page': '100',
       if (search != null && search.isNotEmpty) 'search': search,
       if (paymentStatus != null && paymentStatus.isNotEmpty && paymentStatus != 'all') 'payment_status': paymentStatus,
       if (saleType != null && saleType.isNotEmpty && saleType != 'all') 'sale_type': saleType,

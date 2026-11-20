@@ -23,6 +23,12 @@ class Device {
   final String? purchaseDate;
   final String? notes;
   final Customer? customer;
+  final int repairsCount;
+  final int salesCount;
+  final int warrantiesCount;
+  final List<dynamic> repairs;
+  final List<dynamic> sales;
+  final List<dynamic> warranties;
   final String? createdAt;
   final String? updatedAt;
 
@@ -41,6 +47,12 @@ class Device {
     this.purchaseDate,
     this.notes,
     this.customer,
+    this.repairsCount = 0,
+    this.salesCount = 0,
+    this.warrantiesCount = 0,
+    this.repairs = const [],
+    this.sales = const [],
+    this.warranties = const [],
     this.createdAt,
     this.updatedAt,
   });
@@ -63,6 +75,12 @@ class Device {
       customer: json['customer'] != null && json['customer'] is Map<String, dynamic>
           ? Customer.fromJson(json['customer'])
           : null,
+      repairsCount: _parseInt(json['repairs_count']),
+      salesCount: _parseInt(json['sales_count']),
+      warrantiesCount: _parseInt(json['warranties_count']),
+      repairs: json['repairs'] is List ? json['repairs'] : const [],
+      sales: json['sales'] is List ? json['sales'] : const [],
+      warranties: json['warranties'] is List ? json['warranties'] : const [],
       createdAt: json['created_at']?.toString(),
       updatedAt: json['updated_at']?.toString(),
     );

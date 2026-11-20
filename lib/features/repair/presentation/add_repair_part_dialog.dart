@@ -30,7 +30,6 @@ class _AddRepairPartDialogState extends State<AddRepairPartDialog> {
   final _repairRepository = RepairRepository();
   final _partNameController = TextEditingController();
   final _qtyController = TextEditingController(text: '1');
-  final _costPriceController = TextEditingController();
   final _sellingPriceController = TextEditingController();
   final _notesController = TextEditingController();
 
@@ -41,7 +40,6 @@ class _AddRepairPartDialogState extends State<AddRepairPartDialog> {
   void dispose() {
     _partNameController.dispose();
     _qtyController.dispose();
-    _costPriceController.dispose();
     _sellingPriceController.dispose();
     _notesController.dispose();
     super.dispose();
@@ -55,7 +53,6 @@ class _AddRepairPartDialogState extends State<AddRepairPartDialog> {
     }
 
     final qty = int.tryParse(_qtyController.text.trim()) ?? 1;
-    final costPrice = double.tryParse(_costPriceController.text.trim());
     final sellingPrice = double.tryParse(_sellingPriceController.text.trim()) ?? 0.0;
 
     setState(() {
@@ -68,7 +65,6 @@ class _AddRepairPartDialogState extends State<AddRepairPartDialog> {
         repairId: widget.repair.id,
         partName: name,
         quantity: qty,
-        costPrice: costPrice,
         sellingPrice: sellingPrice,
         notes: _notesController.text.trim(),
       );
@@ -100,11 +96,14 @@ class _AddRepairPartDialogState extends State<AddRepairPartDialog> {
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           Center(
             child: Container(
               width: 38,
@@ -174,13 +173,6 @@ class _AddRepairPartDialogState extends State<AddRepairPartDialog> {
           ),
           const SizedBox(height: 12),
           CustomTextField(
-            label: 'Cost Price (₹, Optional)',
-            hint: 'Cost to shop if known',
-            controller: _costPriceController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          ),
-          const SizedBox(height: 12),
-          CustomTextField(
             label: 'Notes (Optional)',
             hint: 'Supplier or part warranty note',
             controller: _notesController,
@@ -203,6 +195,8 @@ class _AddRepairPartDialogState extends State<AddRepairPartDialog> {
           ),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 }

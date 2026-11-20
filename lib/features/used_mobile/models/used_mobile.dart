@@ -65,11 +65,15 @@ class UsedMobile {
   final String? buyerAddress;
   final DateTime? saleDate;
   final double? sellingPrice;
+  final double amountPaid;
+  final double amountDue;
+  final String paymentStatus;
   final String? salePaymentMode;
   final int? warrantyDays;
   final String? warrantyTerms;
   final String? saleNotes;
   final double? profit;
+  final List<UsedMobilePayment> payments;
 
   // Sale Tax / GST fields
   final double taxRate;
@@ -129,11 +133,15 @@ class UsedMobile {
     this.buyerAddress,
     this.saleDate,
     this.sellingPrice,
+    this.amountPaid = 0.0,
+    this.amountDue = 0.0,
+    this.paymentStatus = 'paid',
     this.salePaymentMode,
     this.warrantyDays,
     this.warrantyTerms,
     this.saleNotes,
     this.profit,
+    this.payments = const [],
     this.taxRate = 0.0,
     this.taxType = 'inclusive',
     this.taxAmount = 0.0,
@@ -149,6 +157,13 @@ class UsedMobile {
   bool get isSold => status.toLowerCase() == 'sold';
   bool get hasPurchaseTax => purchaseTaxAmount > 0 || purchaseTaxRate > 0;
   bool get hasSaleTax => taxAmount > 0 || taxRate > 0;
+  bool get isPaid => paymentStatus.toLowerCase() == 'paid' || (sellingPrice != null && amountDue <= 0);
+  bool get isPartiallyPaid => paymentStatus.toLowerCase() == 'partially_paid' || (amountPaid > 0 && amountDue > 0);
+  bool get hasDue => amountDue > 0 || paymentStatus.toLowerCase() == 'due' || paymentStatus.toLowerCase() == 'partially_paid';
+
+  double get effectiveSellingPrice => sellingPrice ?? 0.0;
+  double get effectiveAmountPaid => isSold ? (amountPaid > 0 ? amountPaid : (isPaid ? effectiveSellingPrice : 0.0)) : 0.0;
+  double get effectiveAmountDue => isSold ? (amountDue > 0 ? amountDue : (isPaid ? 0.0 : effectiveSellingPrice - effectiveAmountPaid)) : 0.0;
 
   String get deviceDisplayName {
     final specParts = <String>[];
@@ -247,11 +262,21 @@ class UsedMobile {
       buyerAddress: json['buyer_address']?.toString(),
       saleDate: json['sale_date'] != null ? DateTime.tryParse(json['sale_date'].toString()) : null,
       sellingPrice: json['selling_price'] != null ? _toDouble(json['selling_price']) : null,
+      amountPaid: _toDouble(json['amount_paid'] ?? (json['status'] == 'sold' ? json['selling_price'] : 0.0)),
+      amountDue: _toDouble(json['amount_due'] ?? 0.0),
+      paymentStatus: json['payment_status']?.toString() ??
+          (_toDouble(json['amount_due'] ?? 0.0) > 0
+              ? (_toDouble(json['amount_paid'] ?? 0.0) > 0 ? 'partially_paid' : 'due')
+              : 'paid'),
       salePaymentMode: json['sale_payment_mode']?.toString(),
       warrantyDays: json['warranty_days'] != null ? _toInt(json['warranty_days']) : null,
       warrantyTerms: json['warranty_terms']?.toString(),
       saleNotes: json['sale_notes']?.toString(),
       profit: json['profit'] != null ? _toDouble(json['profit']) : null,
+      payments: (json['payments'] as List?)
+              ?.map((p) => UsedMobilePayment.fromJson(p as Map<String, dynamic>))
+              .toList() ??
+          const [],
       taxRate: _toDouble(json['tax_rate']),
       taxType: json['tax_type']?.toString() ?? 'inclusive',
       taxAmount: _toDouble(json['tax_amount']),
@@ -316,6 +341,9 @@ class UsedMobile {
       'buyer_address': buyerAddress,
       'sale_date': saleDate?.toIso8601String().split('T').first,
       'selling_price': sellingPrice,
+      'amount_paid': amountPaid,
+      'amount_due': amountDue,
+      'payment_status': paymentStatus,
       'sale_payment_mode': salePaymentMode,
       'warranty_days': warrantyDays,
       'warranty_terms': warrantyTerms,
@@ -328,6 +356,53 @@ class UsedMobile {
       'sgst_amount': sgstAmount,
       'igst_amount': igstAmount,
       'is_inter_state': isInterState,
+    };
+  }
+}
+
+class UsedMobilePayment {
+  final int id;
+  final int usedMobileId;
+  final double amount;
+  final String paymentMethod;
+  final DateTime paymentDate;
+  final String? notes;
+  final String? creatorName;
+
+  String get paymentMode => paymentMethod;
+
+  UsedMobilePayment({
+    required this.id,
+    required this.usedMobileId,
+    required this.amount,
+    this.paymentMethod = 'Cash',
+    required this.paymentDate,
+    this.notes,
+    this.creatorName,
+  });
+
+  factory UsedMobilePayment.fromJson(Map<String, dynamic> json) {
+    return UsedMobilePayment(
+      id: _toInt(json['id']),
+      usedMobileId: _toInt(json['used_mobile_id']),
+      amount: _toDouble(json['amount']),
+      paymentMethod: json['payment_method']?.toString() ?? 'Cash',
+      paymentDate: json['payment_date'] != null
+          ? DateTime.tryParse(json['payment_date'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      notes: json['notes']?.toString(),
+      creatorName: json['creator'] != null ? json['creator']['name']?.toString() : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'used_mobile_id': usedMobileId,
+      'amount': amount,
+      'payment_method': paymentMethod,
+      'payment_date': paymentDate.toIso8601String(),
+      'notes': notes,
     };
   }
 }

@@ -156,6 +156,27 @@ class WhatsAppHelper {
     return clean;
   }
 
+  /// Directly opens WhatsApp chat with a contact, optionally with a pre-filled message.
+  static Future<bool> openChat(
+    BuildContext context, {
+    required String phone,
+    String message = '',
+  }) async {
+    final formattedPhone = formatPhoneNumber(phone);
+    if (formattedPhone == null || formattedPhone.isEmpty) return false;
+    final encodedMsg = Uri.encodeComponent(message);
+    final whatsappUri = Uri.parse('whatsapp://send?phone=$formattedPhone${message.isNotEmpty ? '&text=$encodedMsg' : ''}');
+    final wameUri = Uri.parse('https://wa.me/$formattedPhone${message.isNotEmpty ? '?text=$encodedMsg' : ''}');
+    try {
+      if (await canLaunchUrl(whatsappUri)) {
+        return await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
+      } else if (await canLaunchUrl(wameUri)) {
+        return await launchUrl(wameUri, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {}
+    return false;
+  }
+
   // ==========================================
   // SALE WHATSAPP METHODS
   // ==========================================
@@ -222,10 +243,6 @@ class WhatsAppHelper {
             sb.writeln('* नियम व शर्तें: ${sale.warranty!.warrantyTerms}');
           }
         }
-        if (sale.notes != null && sale.notes!.trim().isNotEmpty) {
-          sb.writeln('');
-          sb.writeln('📝 नोट्स: ${sale.notes!.trim()}');
-        }
         sb.writeln('');
         sb.writeln('आपके विश्वास और व्यापार के लिए धन्यवाद! 🤝✨');
         break;
@@ -266,10 +283,6 @@ class WhatsAppHelper {
           if (sale.warranty!.warrantyTerms != null && sale.warranty!.warrantyTerms!.isNotEmpty) {
             sb.writeln('* શરતો: ${sale.warranty!.warrantyTerms}');
           }
-        }
-        if (sale.notes != null && sale.notes!.trim().isNotEmpty) {
-          sb.writeln('');
-          sb.writeln('📝 નોંધ: ${sale.notes!.trim()}');
         }
         sb.writeln('');
         sb.writeln('અમારા પર વિશ્વાસ મૂકવા બદલ આભાર! આપનો દિવસ શુભ રહે! 🤝✨');
@@ -312,10 +325,6 @@ class WhatsAppHelper {
           if (sale.warranty!.warrantyTerms != null && sale.warranty!.warrantyTerms!.isNotEmpty) {
             sb.writeln('* Terms: ${sale.warranty!.warrantyTerms}');
           }
-        }
-        if (sale.notes != null && sale.notes!.trim().isNotEmpty) {
-          sb.writeln('');
-          sb.writeln('📝 Notes: ${sale.notes!.trim()}');
         }
         sb.writeln('');
         sb.writeln('Thank you for your business! Have a wonderful day! 🤝✨');
@@ -716,9 +725,6 @@ class WhatsAppHelper {
         if (imeiStr != null && imeiStr.isNotEmpty) {
           sb.writeln('* IMEI / सीरियल: $imeiStr');
         }
-        if (repair.pinPasscode != null && repair.pinPasscode!.isNotEmpty) {
-          sb.writeln('* पासकोड / पिन: ${repair.pinPasscode}');
-        }
 
         sb.writeln('* वर्तमान स्थिति: *$localizedStatus*');
 
@@ -750,28 +756,10 @@ class WhatsAppHelper {
           }
         }
 
-        if (repair.technicianName != null && repair.technicianName!.isNotEmpty) {
-          sb.writeln('');
-          sb.writeln('👨‍🔧 नियुक्त तकनीशियन (TECHNICIAN):');
-          sb.writeln('• ${repair.technicianName}');
-        }
-
-        if (repair.parts.isNotEmpty) {
-          sb.writeln('');
-          sb.writeln('⚙️ बदले गए पार्ट्स (PARTS & REPLACEMENTS):');
-          for (var i = 0; i < repair.parts.length; i++) {
-            final p = repair.parts[i];
-            sb.writeln('  ${i + 1}. ${p.partName} x ${p.quantity} - ₹${(p.quantity * p.sellingPrice).toStringAsFixed(2)}');
-          }
-        }
 
         if (repair.customerNotes != null && repair.customerNotes!.trim().isNotEmpty) {
           sb.writeln('');
           sb.writeln('💬 ग्राहक नोट्स: ${repair.customerNotes!.trim()}');
-        }
-        if (repair.internalNotes != null && repair.internalNotes!.trim().isNotEmpty) {
-          sb.writeln('');
-          sb.writeln('📝 स्टेटस नोट्स: ${repair.internalNotes!.trim()}');
         }
 
         sb.writeln('');
@@ -815,9 +803,6 @@ class WhatsAppHelper {
         if (imeiStr != null && imeiStr.isNotEmpty) {
           sb.writeln('* IMEI / સિરિયલ: $imeiStr');
         }
-        if (repair.pinPasscode != null && repair.pinPasscode!.isNotEmpty) {
-          sb.writeln('* પાસકોડ / PIN: ${repair.pinPasscode}');
-        }
 
         sb.writeln('* વર્તમાન સ્થિતિ: *$localizedStatus*');
 
@@ -849,28 +834,10 @@ class WhatsAppHelper {
           }
         }
 
-        if (repair.technicianName != null && repair.technicianName!.isNotEmpty) {
-          sb.writeln('');
-          sb.writeln('👨‍🔧 ફાળવેલ ટેકનિશિયન (TECHNICIAN):');
-          sb.writeln('• ${repair.technicianName}');
-        }
-
-        if (repair.parts.isNotEmpty) {
-          sb.writeln('');
-          sb.writeln('⚙️ પાર્ટ્સ અને સર્વિસ (PARTS & REPLACEMENTS):');
-          for (var i = 0; i < repair.parts.length; i++) {
-            final p = repair.parts[i];
-            sb.writeln('  ${i + 1}. ${p.partName} x ${p.quantity} - ₹${(p.quantity * p.sellingPrice).toStringAsFixed(2)}');
-          }
-        }
 
         if (repair.customerNotes != null && repair.customerNotes!.trim().isNotEmpty) {
           sb.writeln('');
           sb.writeln('💬 ગ્રાહકની નોંધ: ${repair.customerNotes!.trim()}');
-        }
-        if (repair.internalNotes != null && repair.internalNotes!.trim().isNotEmpty) {
-          sb.writeln('');
-          sb.writeln('📝 સ્ટેટસ નોંધ: ${repair.internalNotes!.trim()}');
         }
 
         sb.writeln('');
@@ -915,9 +882,6 @@ class WhatsAppHelper {
         if (imeiStr != null && imeiStr.isNotEmpty) {
           sb.writeln('* IMEI / Serial: $imeiStr');
         }
-        if (repair.pinPasscode != null && repair.pinPasscode!.isNotEmpty) {
-          sb.writeln('* Passcode / PIN: ${repair.pinPasscode}');
-        }
 
         sb.writeln('* Current Status: *${repair.repairStatus.toUpperCase()}*');
 
@@ -949,28 +913,10 @@ class WhatsAppHelper {
           }
         }
 
-        if (repair.technicianName != null && repair.technicianName!.isNotEmpty) {
-          sb.writeln('');
-          sb.writeln('👨‍🔧 ASSIGNED TECHNICIAN:');
-          sb.writeln('• ${repair.technicianName}');
-        }
-
-        if (repair.parts.isNotEmpty) {
-          sb.writeln('');
-          sb.writeln('⚙️ PARTS & REPLACEMENTS:');
-          for (var i = 0; i < repair.parts.length; i++) {
-            final p = repair.parts[i];
-            sb.writeln('  ${i + 1}. ${p.partName} x ${p.quantity} - ₹${(p.quantity * p.sellingPrice).toStringAsFixed(2)}');
-          }
-        }
 
         if (repair.customerNotes != null && repair.customerNotes!.trim().isNotEmpty) {
           sb.writeln('');
           sb.writeln('💬 Customer Notes: ${repair.customerNotes!.trim()}');
-        }
-        if (repair.internalNotes != null && repair.internalNotes!.trim().isNotEmpty) {
-          sb.writeln('');
-          sb.writeln('📝 Internal / Status Notes: ${repair.internalNotes!.trim()}');
         }
 
         sb.writeln('');
@@ -2046,7 +1992,14 @@ class WhatsAppHelper {
         }
         sb.writeln('');
         sb.writeln('💳 *બિલ રકમ (PAYMENT DETAILS)*:');
-        sb.writeln('* કુલ ચૂકવેલ રકમ: *₹${(mobile.sellingPrice ?? 0.0).toStringAsFixed(2)}* ✅');
+        if (mobile.hasDue) {
+          sb.writeln('* કુલ વેચાણ કિંમત: *₹${mobile.effectiveSellingPrice.toStringAsFixed(2)}*');
+          sb.writeln('* જમા રકમ (Amount Paid): *₹${mobile.effectiveAmountPaid.toStringAsFixed(2)}* ✅');
+          sb.writeln('* બાકી રકમ (Balance Due): *₹${mobile.effectiveAmountDue.toStringAsFixed(2)}* ⚠️');
+          sb.writeln('* પેમેન્ટ સ્થિતિ: *અંશતઃ ચૂકવેલ (Partially Paid)*');
+        } else {
+          sb.writeln('* કુલ ચૂકવેલ રકમ: *₹${mobile.effectiveAmountPaid.toStringAsFixed(2)}* ✅ (સંપૂર્ણ ચૂકતે)');
+        }
         sb.writeln('* પેમેન્ટ મોડ: ${mobile.salePaymentMode ?? 'Cash'}');
         sb.writeln('');
         if (warrantyDays > 0) {
@@ -2075,7 +2028,14 @@ class WhatsAppHelper {
         }
         sb.writeln('');
         sb.writeln('💳 *भुगतान विवरण (PAYMENT DETAILS)*:');
-        sb.writeln('* कुल भुगतान: *₹${(mobile.sellingPrice ?? 0.0).toStringAsFixed(2)}* ✅');
+        if (mobile.hasDue) {
+          sb.writeln('* कुल बिक्री मूल्य: *₹${mobile.effectiveSellingPrice.toStringAsFixed(2)}*');
+          sb.writeln('* प्राप्त राशि (Amount Paid): *₹${mobile.effectiveAmountPaid.toStringAsFixed(2)}* ✅');
+          sb.writeln('* शेष बकाया (Balance Due): *₹${mobile.effectiveAmountDue.toStringAsFixed(2)}* ⚠️');
+          sb.writeln('* भुगतान स्थिति: *आंशिक भुगतान (Partially Paid)*');
+        } else {
+          sb.writeln('* कुल भुगतान: *₹${mobile.effectiveAmountPaid.toStringAsFixed(2)}* ✅ (पूर्ण भुगतान)');
+        }
         sb.writeln('* भुगतान माध्यम: ${mobile.salePaymentMode ?? 'Cash'}');
         sb.writeln('');
         if (warrantyDays > 0) {
@@ -2105,7 +2065,14 @@ class WhatsAppHelper {
         }
         sb.writeln('');
         sb.writeln('💳 *PAYMENT SUMMARY*:');
-        sb.writeln('* Total Paid: *₹${(mobile.sellingPrice ?? 0.0).toStringAsFixed(2)}* ✅');
+        if (mobile.hasDue) {
+          sb.writeln('* Total Sale Price: *₹${mobile.effectiveSellingPrice.toStringAsFixed(2)}*');
+          sb.writeln('* Amount Paid: *₹${mobile.effectiveAmountPaid.toStringAsFixed(2)}* ✅');
+          sb.writeln('* Pending Due: *₹${mobile.effectiveAmountDue.toStringAsFixed(2)}* ⚠️');
+          sb.writeln('* Payment Status: *PARTIALLY PAID*');
+        } else {
+          sb.writeln('* Total Paid: *₹${mobile.effectiveAmountPaid.toStringAsFixed(2)}* ✅ (Paid in Full)');
+        }
         sb.writeln('* Payment Mode: ${mobile.salePaymentMode ?? 'Cash'}');
         sb.writeln('');
         if (warrantyDays > 0) {

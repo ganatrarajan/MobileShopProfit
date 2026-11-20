@@ -220,7 +220,22 @@ class AppRoutes {
       case sales:
         return MaterialPageRoute(settings: settings, builder: (_) => const SalesListScreen());
       case createSale:
-        return MaterialPageRoute(settings: settings, builder: (_) => const CreateSaleScreen());
+        Customer? initSaleCustomer;
+        Device? initSaleDevice;
+        if (settings.arguments is Map) {
+          final map = settings.arguments as Map;
+          if (map['customer'] is Customer) initSaleCustomer = map['customer'] as Customer;
+          if (map['device'] is Device) initSaleDevice = map['device'] as Device;
+        } else if (settings.arguments is Customer) {
+          initSaleCustomer = settings.arguments as Customer;
+        } else if (settings.arguments is Device) {
+          initSaleDevice = settings.arguments as Device;
+          initSaleCustomer = initSaleDevice.customer;
+        }
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => CreateSaleScreen(initialCustomer: initSaleCustomer, initialDevice: initSaleDevice),
+        );
       case quickSale:
         return MaterialPageRoute(settings: settings, builder: (_) => const QuickSaleScreen());
       case saleDetails:
@@ -235,7 +250,22 @@ class AppRoutes {
       case repairs:
         return MaterialPageRoute(settings: settings, builder: (_) => const RepairListScreen());
       case createRepair:
-        return MaterialPageRoute(settings: settings, builder: (_) => const CreateRepairScreen());
+        Customer? initRepairCustomer;
+        Device? initRepairDevice;
+        if (settings.arguments is Map) {
+          final map = settings.arguments as Map;
+          if (map['customer'] is Customer) initRepairCustomer = map['customer'] as Customer;
+          if (map['device'] is Device) initRepairDevice = map['device'] as Device;
+        } else if (settings.arguments is Customer) {
+          initRepairCustomer = settings.arguments as Customer;
+        } else if (settings.arguments is Device) {
+          initRepairDevice = settings.arguments as Device;
+          initRepairCustomer = initRepairDevice.customer;
+        }
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => CreateRepairScreen(initialCustomer: initRepairCustomer, initialDevice: initRepairDevice),
+        );
       case repairDetails:
         final repair = settings.arguments as Repair;
         return MaterialPageRoute(settings: settings, builder: (_) => RepairDetailsScreen(repair: repair));

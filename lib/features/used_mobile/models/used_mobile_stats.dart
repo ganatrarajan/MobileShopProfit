@@ -20,6 +20,8 @@ class UsedMobileStats {
   final double totalSaleRevenue;
   final double totalProfitEarned;
   final double profitMarginPercentage;
+  final int dueCount;
+  final double totalDueAmount;
 
   UsedMobileStats({
     this.totalPurchasedCount = 0,
@@ -30,6 +32,8 @@ class UsedMobileStats {
     this.totalSaleRevenue = 0.0,
     this.totalProfitEarned = 0.0,
     this.profitMarginPercentage = 0.0,
+    this.dueCount = 0,
+    this.totalDueAmount = 0.0,
   });
 
   factory UsedMobileStats.fromJson(Map<String, dynamic> json) {
@@ -42,6 +46,8 @@ class UsedMobileStats {
       totalSaleRevenue: _toDouble(json['total_sale_revenue']),
       totalProfitEarned: _toDouble(json['total_profit_earned']),
       profitMarginPercentage: _toDouble(json['profit_margin_percentage']),
+      dueCount: _toInt(json['due_count']),
+      totalDueAmount: _toDouble(json['total_due_amount'] ?? json['total_due']),
     );
   }
 

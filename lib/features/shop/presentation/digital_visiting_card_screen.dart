@@ -175,7 +175,15 @@ class _DigitalVisitingCardScreenState extends State<DigitalVisitingCardScreen> {
 
   String get _shopName => (_shop['name'] ?? 'My Mobile Shop').toString().trim();
   String get _ownerName => (_shop['owner_name'] ?? 'Shop Owner').toString().trim();
-  String get _mobile => (_shop['mobile'] ?? _shop['phone'] ?? '').toString().trim();
+  String get _mobile {
+    if (_shop['phone'] != null && _shop['phone'].toString().trim().isNotEmpty) {
+      return _shop['phone'].toString().trim();
+    }
+    if (_shop['shop_phone'] != null && _shop['shop_phone'].toString().trim().isNotEmpty) {
+      return _shop['shop_phone'].toString().trim();
+    }
+    return (_shop['mobile'] ?? '').toString().trim();
+  }
   String get _email => (_shop['email'] ?? '').toString().trim();
   String get _address => (_shop['address'] ?? '').toString().trim();
   String get _city => (_shop['city'] ?? '').toString().trim();

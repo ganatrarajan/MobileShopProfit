@@ -745,46 +745,38 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   }
 
   bool _checkIsActivePlan(Map<String, dynamic> planItem, String currentStatus) {
-    if (currentStatus != 'active' || _statusData == null) {
+    if (_statusData == null) {
       return false;
+    }
+
+    if (planItem['is_current'] == true && (currentStatus == 'active' || currentStatus == 'trial')) {
+      return true;
     }
 
     final dynamic rawPlanId = _statusData!['plan_id'] ??
         _statusData!['active_plan_id'] ??
         _statusData!['plan']?['id'];
 
-    final dynamic rawBillingPeriod = _statusData!['billing_period'] ??
-        _statusData!['active_billing_period'] ??
-        _statusData!['plan']?['billing_period'];
-
     final dynamic rawPlanName = _statusData!['plan_name'] ??
         _statusData!['name'] ??
         _statusData!['plan']?['name'];
 
     final dynamic planId = planItem['id'];
-    final String periodRaw = (planItem['billing_period'] ?? '').toString().toLowerCase();
-    final String nameRaw = (planItem['name'] ?? '').toString().toLowerCase();
+    final String nameRaw = (planItem['name'] ?? '').toString().trim().toLowerCase();
 
     // 1. Direct plan_id match (highest precedence)
     if (rawPlanId != null && planId != null) {
-      return rawPlanId.toString() == planId.toString();
+      if (rawPlanId.toString() == planId.toString()) {
+        return (currentStatus == 'active' || currentStatus == 'trial');
+      }
     }
 
-    // 2. Billing period match
-    if (rawBillingPeriod != null && periodRaw.isNotEmpty) {
-      final String activeBp = rawBillingPeriod.toString().toLowerCase();
-      if (activeBp == periodRaw) return true;
-      if ((activeBp == 'monthly' || activeBp == 'month') && (periodRaw == 'monthly' || periodRaw == 'month')) return true;
-      if ((activeBp == '3_months' || activeBp == '3_month') && (periodRaw == '3_months' || periodRaw == '3_month')) return true;
-      if ((activeBp == '6_months' || activeBp == '6_month') && (periodRaw == '6_months' || periodRaw == '6_month')) return true;
-      if ((activeBp == 'annual' || activeBp == 'yearly') && (periodRaw == 'annual' || periodRaw == 'yearly')) return true;
-      return false;
-    }
-
-    // 3. Plan name match
+    // 2. Strict plan name match
     if (rawPlanName != null && nameRaw.isNotEmpty) {
-      final String activeName = rawPlanName.toString().toLowerCase();
-      return activeName == nameRaw;
+      final String activeName = rawPlanName.toString().trim().toLowerCase();
+      if (activeName == nameRaw) {
+        return (currentStatus == 'active' || currentStatus == 'trial');
+      }
     }
 
     return false;
@@ -1220,11 +1212,33 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         return Map<String, dynamic>.from(item);
       }).toList();
 
-      // Base plans: Solo Owner plans (staff logins are added via ₹2/day add-on)
-      final List<Map<String, dynamic>> filteredPlans = parsedPlans.where((p) {
+      final bool hasStaffPlans = parsedPlans.any((p) {
         final staff = int.tryParse(p['max_staff_accounts']?.toString() ?? '0') ?? 0;
-        return staff == 0;
-      }).toList();
+        return staff > 0;
+      });
+
+      List<Map<String, dynamic>> filteredPlans = parsedPlans;
+      if (_planFilter == 'solo') {
+        filteredPlans = parsedPlans.where((p) {
+          final staff = int.tryParse(p['max_staff_accounts']?.toString() ?? '0') ?? 0;
+          return staff == 0;
+        }).toList();
+      } else if (_planFilter == 'staff') {
+        filteredPlans = parsedPlans.where((p) {
+          final staff = int.tryParse(p['max_staff_accounts']?.toString() ?? '0') ?? 0;
+          return staff > 0;
+        }).toList();
+      }
+
+      // Strictly sort plans by sort_order ascending, then by price ascending
+      filteredPlans.sort((a, b) {
+        final int sortA = int.tryParse(a['sort_order']?.toString() ?? '0') ?? 0;
+        final int sortB = int.tryParse(b['sort_order']?.toString() ?? '0') ?? 0;
+        if (sortA != sortB) return sortA.compareTo(sortB);
+        final double priceA = double.tryParse(a['price']?.toString() ?? '0') ?? 0.0;
+        final double priceB = double.tryParse(b['price']?.toString() ?? '0') ?? 0.0;
+        return priceA.compareTo(priceB);
+      });
 
       final bool hasCustomDiscount = _statusData?['has_custom_discount'] == true;
       final bool isOneTimeDiscount = _statusData?['custom_discount_is_one_time'] == true;
@@ -1301,10 +1315,42 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               ),
             ),
 
-          const Text(
-            'Choose Subscription Plan',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Choose Subscription Plan',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              ),
+              if (hasStaffPlans)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${parsedPlans.length} Plans',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
+                  ),
+                ),
+            ],
           ),
+          if (hasStaffPlans) ...[
+            const SizedBox(height: 8),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildPlanFilterChip(label: 'All Plans (${parsedPlans.length})', key: 'all'),
+                  const SizedBox(width: 8),
+                  _buildPlanFilterChip(label: '👤 Solo Owner', key: 'solo'),
+                  const SizedBox(width: 8),
+                  _buildPlanFilterChip(label: '👥 Multi-Staff / Device', key: 'staff'),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
 
           ...filteredPlans.map((p) {

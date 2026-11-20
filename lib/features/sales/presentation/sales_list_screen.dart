@@ -381,6 +381,14 @@ class SalesListScreenState extends State<SalesListScreen> {
                       value: '₹ ${_totalSalesSum.toStringAsFixed(0)}',
                       icon: Icons.receipt_long_rounded,
                       color: Colors.white,
+                      isSelected: _selectedStatus == 'all' && _selectedSaleType == 'all',
+                      onTap: () {
+                        setState(() {
+                          _selectedStatus = 'all';
+                          _selectedSaleType = 'all';
+                        });
+                        _fetchSales();
+                      },
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -390,6 +398,13 @@ class SalesListScreenState extends State<SalesListScreen> {
                       value: '₹ ${_totalPaidSum.toStringAsFixed(0)}',
                       icon: Icons.check_circle_rounded,
                       color: Colors.greenAccent.shade400,
+                      isSelected: _selectedStatus == 'paid',
+                      onTap: () {
+                        setState(() {
+                          _selectedStatus = _selectedStatus == 'paid' ? 'all' : 'paid';
+                        });
+                        _fetchSales();
+                      },
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -399,6 +414,13 @@ class SalesListScreenState extends State<SalesListScreen> {
                       value: '₹ ${_totalDueSum.toStringAsFixed(0)}',
                       icon: Icons.pending_actions_rounded,
                       color: Colors.amberAccent.shade200,
+                      isSelected: _selectedStatus == 'due',
+                      onTap: () {
+                        setState(() {
+                          _selectedStatus = _selectedStatus == 'due' ? 'all' : 'due';
+                        });
+                        _fetchSales();
+                      },
                     ),
                   ),
                 ],
@@ -512,6 +534,25 @@ class SalesListScreenState extends State<SalesListScreen> {
               _buildSaleTypeChip('All Types', 'all'),
               _buildSaleTypeChip('⚡ Quick Sales', 'quick'),
               _buildSaleTypeChip('🧾 Invoices', 'regular'),
+              if (_selectedStatus != 'all' || _selectedSaleType != 'all') ...[
+                const VerticalDivider(width: 16, indent: 4, endIndent: 4),
+                Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: ActionChip(
+                    avatar: const Icon(Icons.close_rounded, size: 14, color: AppColors.error),
+                    label: const Text('Clear Filter', style: TextStyle(color: AppColors.error, fontSize: 11, fontWeight: FontWeight.bold)),
+                    backgroundColor: Colors.red.shade50,
+                    side: BorderSide(color: Colors.red.shade200),
+                    onPressed: () {
+                      setState(() {
+                        _selectedStatus = 'all';
+                        _selectedSaleType = 'all';
+                      });
+                      _fetchSales();
+                    },
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -811,38 +852,65 @@ class SalesListScreenState extends State<SalesListScreen> {
     required String value,
     required IconData icon,
     required Color color,
+    VoidCallback? onTap,
+    bool isSelected = false,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.12),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white.withOpacity(0.24) : Colors.white.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected ? color : Colors.white.withOpacity(0.15),
+              width: isSelected ? 1.8 : 1.0,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, size: 14, color: color),
-              const SizedBox(width: 4),
-              Expanded(
+              Row(
+                children: [
+                  Icon(icon, size: 14, color: color),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isSelected ? Colors.white : Colors.white70,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (isSelected)
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              FittedBox(
+                fit: BoxFit.scaleDown,
                 child: Text(
-                  title,
-                  style: const TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.w500),
-                  overflow: TextOverflow.ellipsis,
+                  value,
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              value,
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

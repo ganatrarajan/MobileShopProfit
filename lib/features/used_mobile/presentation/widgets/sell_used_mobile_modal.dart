@@ -45,6 +45,7 @@ class _SellUsedMobileModalState extends State<SellUsedMobileModal> {
   final _buyerAddressController = TextEditingController();
   final _sellingPriceController = TextEditingController();
   final _customWarrantyController = TextEditingController();
+  final _amountPaidController = TextEditingController();
   final _notesController = TextEditingController();
 
   final UsedMobileRepository _repo = UsedMobileRepository();
@@ -53,6 +54,7 @@ class _SellUsedMobileModalState extends State<SellUsedMobileModal> {
   String _paymentMode = 'Cash';
   int _warrantyDays = 15;
   bool _isCustomWarranty = false;
+  bool _isPartialPayment = false;
   bool _isLoading = false;
   bool _isOwner = true;
 
@@ -92,6 +94,7 @@ class _SellUsedMobileModalState extends State<SellUsedMobileModal> {
     _buyerAddressController.dispose();
     _sellingPriceController.dispose();
     _customWarrantyController.dispose();
+    _amountPaidController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -175,6 +178,28 @@ class _SellUsedMobileModalState extends State<SellUsedMobileModal> {
       return;
     }
 
+    double amountPaid = _finalPayable;
+    if (_isPartialPayment) {
+      final parsed = double.tryParse(_amountPaidController.text.trim());
+      if (parsed == null || parsed < 0) {
+        AppFeedback.showError(
+          context,
+          title: 'Invalid Paid Amount',
+          message: 'Please enter a valid amount received now.',
+        );
+        return;
+      }
+      if (parsed > _finalPayable) {
+        AppFeedback.showError(
+          context,
+          title: 'Amount Exceeds Total',
+          message: 'Amount paid cannot exceed total payable amount (₹${_finalPayable.toStringAsFixed(2)}).',
+        );
+        return;
+      }
+      amountPaid = parsed;
+    }
+
     final int selectedWarranty = _isCustomWarranty
         ? (int.tryParse(_customWarrantyController.text.trim()) ?? 0)
         : _warrantyDays;
@@ -189,6 +214,7 @@ class _SellUsedMobileModalState extends State<SellUsedMobileModal> {
       if (_buyerAddressController.text.trim().isNotEmpty)
         'buyer_address': _buyerAddressController.text.trim(),
       'selling_price': sellingPrice,
+      'amount_paid': amountPaid,
       'sale_date': _saleDate.toIso8601String().split('T').first,
       'sale_payment_mode': _paymentMode,
       'warranty_days': selectedWarranty,
@@ -548,6 +574,105 @@ class _SellUsedMobileModalState extends State<SellUsedMobileModal> {
                             ),
                           ],
                         ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Payment Type / Partial Payment Option
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.darkSurface : Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Payment Option',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ChoiceChip(
+                                label: const Center(
+                                  child: Text('Full Payment'),
+                                ),
+                                selected: !_isPartialPayment,
+                                onSelected: (sel) {
+                                  if (sel) setState(() => _isPartialPayment = false);
+                                },
+                                selectedColor: AppColors.primary,
+                                labelStyle: TextStyle(
+                                  color: !_isPartialPayment ? Colors.white : AppColors.textPrimary,
+                                  fontWeight: !_isPartialPayment ? FontWeight.bold : FontWeight.normal,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ChoiceChip(
+                                label: const Center(
+                                  child: Text('Partial / Due'),
+                                ),
+                                selected: _isPartialPayment,
+                                onSelected: (sel) {
+                                  if (sel) {
+                                    setState(() {
+                                      _isPartialPayment = true;
+                                      if (_amountPaidController.text.isEmpty && _finalPayable > 0) {
+                                        _amountPaidController.text = (_finalPayable / 2).toStringAsFixed(0);
+                                      }
+                                    });
+                                  }
+                                },
+                                selectedColor: Colors.orange.shade700,
+                                labelStyle: TextStyle(
+                                  color: _isPartialPayment ? Colors.white : AppColors.textPrimary,
+                                  fontWeight: _isPartialPayment ? FontWeight.bold : FontWeight.normal,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (_isPartialPayment) ...[
+                          const SizedBox(height: 12),
+                          CustomTextField(
+                            controller: _amountPaidController,
+                            label: 'Amount Received Now (₹) *',
+                            hint: 'e.g. 5000',
+                            prefixIcon: Icons.payments_outlined,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                          const SizedBox(height: 8),
+                          Builder(builder: (context) {
+                            final paid = double.tryParse(_amountPaidController.text.trim()) ?? 0.0;
+                            final due = (_finalPayable - paid).clamp(0.0, _finalPayable);
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.orange.shade200),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('Remaining Due to Collect:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.orange.shade900)),
+                                  Text('₹${due.toStringAsFixed(2)}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.orange.shade900)),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
                       ],
                     ),
                   ),

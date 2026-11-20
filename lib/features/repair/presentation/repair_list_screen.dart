@@ -35,6 +35,7 @@ class RepairListScreenState extends State<RepairListScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   String _selectedStatus = 'all';
+  String _paymentStatus = 'all';
 
   // Date Filtering state
   String _datePreset = 'this_month'; // 'today', 'yesterday', 'this_month', 'all_time', 'custom'
@@ -168,6 +169,7 @@ class RepairListScreenState extends State<RepairListScreen> {
       final response = await _repairRepository.getRepairs(
         search: _searchController.text.trim(),
         repairStatus: _selectedStatus,
+        paymentStatus: _paymentStatus,
         dateFrom: _dateFrom,
         dateTo: _dateTo,
       );
@@ -436,6 +438,14 @@ class RepairListScreenState extends State<RepairListScreen> {
                       value: '\u20B9 ${_totalRepairVolume.toStringAsFixed(0)}',
                       icon: Icons.receipt_long_rounded,
                       color: Colors.white,
+                      isSelected: _selectedStatus == 'all' && _paymentStatus == 'all',
+                      onTap: () {
+                        setState(() {
+                          _selectedStatus = 'all';
+                          _paymentStatus = 'all';
+                        });
+                        _fetchRepairs();
+                      },
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -447,6 +457,13 @@ class RepairListScreenState extends State<RepairListScreen> {
                       color: Colors.greenAccent.shade400,
                       borderColor: Colors.greenAccent.withOpacity(0.4),
                       bgColor: Colors.greenAccent.withOpacity(0.15),
+                      isSelected: _paymentStatus == 'paid',
+                      onTap: () {
+                        setState(() {
+                          _paymentStatus = _paymentStatus == 'paid' ? 'all' : 'paid';
+                        });
+                        _fetchRepairs();
+                      },
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -458,6 +475,13 @@ class RepairListScreenState extends State<RepairListScreen> {
                       color: _totalDueSum > 0 ? Colors.amberAccent.shade200 : Colors.white70,
                       borderColor: _totalDueSum > 0 ? Colors.amberAccent.withOpacity(0.5) : null,
                       bgColor: _totalDueSum > 0 ? Colors.amber.withOpacity(0.15) : null,
+                      isSelected: _paymentStatus == 'due',
+                      onTap: () {
+                        setState(() {
+                          _paymentStatus = _paymentStatus == 'due' ? 'all' : 'due';
+                        });
+                        _fetchRepairs();
+                      },
                     ),
                   ),
                 ],
@@ -617,11 +641,12 @@ class RepairListScreenState extends State<RepairListScreen> {
                           entityName: 'Repairs',
                           datePreset: _datePreset,
                           dateFilterLabel: _dateFilterLabel,
-                          hasActiveSearchOrFilter: _searchController.text.isNotEmpty || _selectedStatus != 'all',
+                          hasActiveSearchOrFilter: _searchController.text.isNotEmpty || _selectedStatus != 'all' || _paymentStatus != 'all',
                           onResetFilters: () {
                             setState(() {
                               _searchController.clear();
                               _selectedStatus = 'all';
+                              _paymentStatus = 'all';
                               _datePreset = 'all_time';
                             });
                             _fetchRepairs();
@@ -897,40 +922,65 @@ class RepairListScreenState extends State<RepairListScreen> {
     required Color color,
     Color? borderColor,
     Color? bgColor,
+    VoidCallback? onTap,
+    bool isSelected = false,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-      decoration: BoxDecoration(
-        color: bgColor ?? Colors.white.withOpacity(0.12),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(10),
-        border: borderColor != null ? Border.all(color: borderColor, width: 1.2) : null,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white.withOpacity(0.24) : (bgColor ?? Colors.white.withOpacity(0.12)),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected ? Colors.amberAccent : (borderColor ?? Colors.white.withOpacity(0.15)),
+              width: isSelected ? 1.8 : 1.2,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, size: 14, color: color),
-              const SizedBox(width: 4),
-              Expanded(
+              Row(
+                children: [
+                  Icon(icon, size: 14, color: color),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isSelected ? Colors.white : Colors.white70,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (isSelected)
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: Colors.amberAccent,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              FittedBox(
+                fit: BoxFit.scaleDown,
                 child: Text(
-                  title,
-                  style: const TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.w600),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  value,
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: color),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              value,
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: color),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

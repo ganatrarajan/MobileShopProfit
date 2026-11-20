@@ -26,7 +26,9 @@ import '../../../core/utils/gst_calculator.dart';
 import '../../../core/widgets/gst_input_card.dart';
 
 class CreateSaleScreen extends StatefulWidget {
-  const CreateSaleScreen({super.key});
+  final Customer? initialCustomer;
+  final Device? initialDevice;
+  const CreateSaleScreen({super.key, this.initialCustomer, this.initialDevice});
 
   @override
   State<CreateSaleScreen> createState() => _CreateSaleScreenState();
@@ -71,6 +73,17 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialCustomer != null) {
+      _selectedCustomer = widget.initialCustomer;
+      _loadDevicesForCustomer(widget.initialCustomer!.id);
+    }
+    if (widget.initialDevice != null) {
+      _selectedDevice = widget.initialDevice;
+      if (_selectedCustomer == null && widget.initialDevice!.customer != null) {
+        _selectedCustomer = widget.initialDevice!.customer;
+        _loadDevicesForCustomer(widget.initialDevice!.customer!.id);
+      }
+    }
     _loadCustomers();
   }
 

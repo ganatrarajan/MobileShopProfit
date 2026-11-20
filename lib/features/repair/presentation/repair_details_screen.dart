@@ -1354,31 +1354,210 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
                       const SizedBox(height: 14),
                     ],
 
-                    // 4. Problem & Condition Details
+                    // 4. Problem & Intake Condition Checklist
                     CustomCard(
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Problem Description', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textMuted)),
-                          const SizedBox(height: 4),
-                          Text(_repair.problemDescription, style: const TextStyle(fontSize: 14, color: AppColors.textPrimary)),
-                          if (_repair.deviceCondition.isNotEmpty) ...[
-                            const SizedBox(height: 12),
-                            const Text('Device Condition', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textMuted)),
-                            const SizedBox(height: 4),
-                            Text(_repair.deviceCondition.join(', '), style: const TextStyle(fontSize: 14, color: AppColors.textPrimary)),
+                          const Row(
+                            children: [
+                              Icon(Icons.build_circle_outlined, size: 18, color: AppColors.primary),
+                              SizedBox(width: 8),
+                              Text('Reported Fault / Problem', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.grey.shade200),
+                            ),
+                            child: Text(
+                              _repair.problemDescription.isNotEmpty ? _repair.problemDescription : 'No problem description entered.',
+                              style: const TextStyle(fontSize: 13.5, color: AppColors.textPrimary, height: 1.3),
+                            ),
+                          ),
+
+                          // Device Physical Condition
+                          if (_repair.deviceCondition.isNotEmpty || (_repair.conditionNotes != null && _repair.conditionNotes!.trim().isNotEmpty)) ...[
+                            const SizedBox(height: 14),
+                            const Row(
+                              children: [
+                                Icon(Icons.phonelink_setup_rounded, size: 17, color: Color(0xFFD97706)),
+                                SizedBox(width: 8),
+                                Text('Physical Condition', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                              ],
+                            ),
+                            if (_repair.deviceCondition.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: _repair.deviceCondition.map((c) => Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.red.shade200),
+                                  ),
+                                  child: Text('⚠️ $c', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.red.shade800)),
+                                )).toList(),
+                              ),
+                            ],
+                            if (_repair.conditionNotes != null && _repair.conditionNotes!.trim().isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.grey.shade200),
+                                ),
+                                child: Text(
+                                  'Condition Note: ${_repair.conditionNotes!}',
+                                  style: TextStyle(fontSize: 12.5, fontStyle: FontStyle.italic, color: Colors.grey.shade800),
+                                ),
+                              ),
+                            ],
                           ],
-                          if (_repair.accessoriesReceived.isNotEmpty) ...[
-                            const SizedBox(height: 12),
-                            const Text('Accessories Received', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textMuted)),
-                            const SizedBox(height: 4),
-                            Text(_repair.accessoriesReceived.join(', '), style: const TextStyle(fontSize: 14, color: AppColors.textPrimary)),
+
+                          // Accessories Received
+                          if (_repair.accessoriesReceived.isNotEmpty || (_repair.accessoriesNotes != null && _repair.accessoriesNotes!.trim().isNotEmpty)) ...[
+                            const SizedBox(height: 14),
+                            const Row(
+                              children: [
+                                Icon(Icons.inventory_2_outlined, size: 17, color: Color(0xFF0D9488)),
+                                SizedBox(width: 8),
+                                Text('Accessories Received', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                              ],
+                            ),
+                            if (_repair.accessoriesReceived.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: _repair.accessoriesReceived.map((a) => Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.teal.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.teal.shade200),
+                                  ),
+                                  child: Text('📦 $a', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.teal.shade800)),
+                                )).toList(),
+                              ),
+                            ],
+                            if (_repair.accessoriesNotes != null && _repair.accessoriesNotes!.trim().isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.grey.shade200),
+                                ),
+                                child: Text(
+                                  'Accessories Note: ${_repair.accessoriesNotes!}',
+                                  style: TextStyle(fontSize: 12.5, fontStyle: FontStyle.italic, color: Colors.grey.shade800),
+                                ),
+                              ),
+                            ],
                           ],
                         ],
                       ),
                     ),
                     const SizedBox(height: 14),
+
+                    // 4a. Customer Notes & Internal Shop Notes (Prominently displayed)
+                    if ((_repair.customerNotes != null && _repair.customerNotes!.trim().isNotEmpty) ||
+                        (_repair.internalNotes != null && _repair.internalNotes!.trim().isNotEmpty)) ...[
+                      CustomCard(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(Icons.description_outlined, size: 18, color: AppColors.primary),
+                                SizedBox(width: 8),
+                                Text('Repair Notes & Remarks', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                              ],
+                            ),
+                            if (_repair.customerNotes != null && _repair.customerNotes!.trim().isNotEmpty) ...[
+                              const SizedBox(height: 12),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEFF6FF),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Row(
+                                      children: [
+                                        Icon(Icons.notes_rounded, size: 15, color: Color(0xFF1D4ED8)),
+                                        SizedBox(width: 6),
+                                        Text(
+                                          'CUSTOMER NOTES',
+                                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF1D4ED8), letterSpacing: 0.5),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    SelectableText(
+                                      _repair.customerNotes!,
+                                      style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B), height: 1.3),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            if (_repair.internalNotes != null && _repair.internalNotes!.trim().isNotEmpty) ...[
+                              const SizedBox(height: 10),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFFBEB),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: const Color(0xFFFDE68A)),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Row(
+                                      children: [
+                                        Icon(Icons.lock_outline_rounded, size: 15, color: Color(0xFFB45309)),
+                                        SizedBox(width: 6),
+                                        Text(
+                                          'INTERNAL SHOP NOTES (PRIVATE)',
+                                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFFB45309), letterSpacing: 0.5),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    SelectableText(
+                                      _repair.internalNotes!,
+                                      style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B), height: 1.3),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
 
                     // 4b. Device Condition Photo (Optional)
                     if (_repair.devicePhoto != null && _repair.devicePhoto!.isNotEmpty) ...[

@@ -36,6 +36,29 @@ class CreateWarrantyScreen extends StatefulWidget {
 }
 
 class _CreateWarrantyScreenState extends State<CreateWarrantyScreen> {
+  static const List<Map<String, String>> _warrantyPresets = [
+    {
+      'label': 'Service Center Warranty',
+      'text': 'Official Brand Service Center Warranty. Customer can claim directly at authorized service center with invoice.',
+    },
+    {
+      'label': 'Shop Testing Warranty',
+      'text': 'Shop Testing Warranty. Covers hardware & manufacturing defects. Physical and liquid damage void.',
+    },
+    {
+      'label': 'Display & Touch Only',
+      'text': 'Covers screen and touch failure only. Glass crack, black spot, lines, drop or liquid damage strictly void.',
+    },
+    {
+      'label': 'Parts Replaced Only',
+      'text': 'Covers repair & replaced parts only. Physical damage, water ingress, or unauthorized opening voids warranty.',
+    },
+    {
+      'label': 'Full Device Warranty',
+      'text': 'Comprehensive device warranty covering internal components. Excludes physical drop and liquid exposure.',
+    },
+  ];
+
   final _formKey = GlobalKey<FormState>();
   final _warrantyRepository = WarrantyRepository();
   final _customerRepository = CustomerRepository();
@@ -1095,6 +1118,47 @@ class _CreateWarrantyScreenState extends State<CreateWarrantyScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('Warranty Terms & Notes', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Quick Auto-Fill Presets:',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                        ),
+                        if (_termsController.text.isNotEmpty)
+                          GestureDetector(
+                            onTap: () => setState(() => _termsController.clear()),
+                            child: const Text('Clear', style: TextStyle(fontSize: 11, color: AppColors.error, fontWeight: FontWeight.bold)),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: _warrantyPresets.map((preset) {
+                        final isSelected = _termsController.text.trim() == preset['text'];
+                        return ActionChip(
+                          label: Text(
+                            preset['label']!,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              color: isSelected ? Colors.white : AppColors.primary,
+                            ),
+                          ),
+                          backgroundColor: isSelected ? AppColors.primary : AppColors.primary.withOpacity(0.08),
+                          side: BorderSide(color: isSelected ? AppColors.primary : AppColors.primary.withOpacity(0.25)),
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                          onPressed: () {
+                            setState(() {
+                              _termsController.text = preset['text']!;
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
                     const SizedBox(height: 12),
                     CustomTextField(
                       label: 'Warranty Terms & Inclusions (Optional)',

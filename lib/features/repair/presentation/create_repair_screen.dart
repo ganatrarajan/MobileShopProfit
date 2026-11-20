@@ -27,7 +27,9 @@ import '../data/repair_repository.dart';
 import '../models/repair.dart';
 
 class CreateRepairScreen extends StatefulWidget {
-  const CreateRepairScreen({super.key});
+  final Customer? initialCustomer;
+  final Device? initialDevice;
+  const CreateRepairScreen({super.key, this.initialCustomer, this.initialDevice});
 
   @override
   State<CreateRepairScreen> createState() => _CreateRepairScreenState();
@@ -41,6 +43,28 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
   bool _addWarrantyOnCreate = false;
   int _selectedWarrantyDays = 180;
   final _warrantyTermsController = TextEditingController();
+  static const List<Map<String, String>> _warrantyPresets = [
+    {
+      'label': 'Service Center Warranty',
+      'text': 'Official Brand Service Center Warranty. Customer can claim directly at authorized service center with invoice.',
+    },
+    {
+      'label': 'Shop Testing Warranty',
+      'text': 'Shop Testing Warranty. Covers hardware & manufacturing defects. Physical and liquid damage void.',
+    },
+    {
+      'label': 'Display & Touch Only',
+      'text': 'Covers screen and touch failure only. Glass crack, black spot, lines, drop or liquid damage strictly void.',
+    },
+    {
+      'label': 'Parts Replaced Only',
+      'text': 'Covers repair & replaced parts only. Physical damage, water ingress, or unauthorized opening voids warranty.',
+    },
+    {
+      'label': 'Full Device Warranty',
+      'text': 'Comprehensive device warranty covering internal components. Excludes physical drop and liquid exposure.',
+    },
+  ];
   final _customerRepository = CustomerRepository();
   final _deviceRepository = DeviceRepository();
   final _technicianRepository = TechnicianRepository();
@@ -118,6 +142,17 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialCustomer != null) {
+      _selectedCustomer = widget.initialCustomer;
+      _loadDevicesForCustomer(widget.initialCustomer!.id);
+    }
+    if (widget.initialDevice != null) {
+      _selectedDevice = widget.initialDevice;
+      if (_selectedCustomer == null && widget.initialDevice!.customer != null) {
+        _selectedCustomer = widget.initialDevice!.customer;
+        _loadDevicesForCustomer(widget.initialDevice!.customer!.id);
+      }
+    }
     _loadCustomers();
     _loadTechnicians();
   }
@@ -1815,6 +1850,47 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
                         }).toList(),
                       ),
                       const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Quick Auto-Fill Presets:',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                          ),
+                          if (_warrantyTermsController.text.isNotEmpty)
+                            GestureDetector(
+                              onTap: () => setState(() => _warrantyTermsController.clear()),
+                              child: const Text('Clear', style: TextStyle(fontSize: 11, color: AppColors.error, fontWeight: FontWeight.bold)),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: _warrantyPresets.map((preset) {
+                          final isSelected = _warrantyTermsController.text.trim() == preset['text'];
+                          return ActionChip(
+                            label: Text(
+                              preset['label']!,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                color: isSelected ? Colors.white : AppColors.primary,
+                              ),
+                            ),
+                            backgroundColor: isSelected ? AppColors.primary : AppColors.primary.withOpacity(0.08),
+                            side: BorderSide(color: isSelected ? AppColors.primary : AppColors.primary.withOpacity(0.25)),
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                            onPressed: () {
+                              setState(() {
+                                _warrantyTermsController.text = preset['text']!;
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 10),
                       CustomTextField(
                         label: 'Warranty Terms / Coverage (Optional)',
                         hint: 'e.g. Display & Touch Repair Warranty',

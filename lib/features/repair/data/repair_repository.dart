@@ -10,6 +10,7 @@ class RepairRepository {
   Future<ApiResponse<List<Repair>>> getRepairs({
     String? search,
     String? repairStatus,
+    String? paymentStatus,
     int? customerId,
     String? dateFrom,
     String? dateTo,
@@ -17,8 +18,10 @@ class RepairRepository {
   }) async {
     final queryParams = <String, String>{
       'page': page.toString(),
+      'per_page': '100',
       if (search != null && search.isNotEmpty) 'search': search,
       if (repairStatus != null && repairStatus.isNotEmpty && repairStatus != 'all') 'repair_status': repairStatus,
+      if (paymentStatus != null && paymentStatus.isNotEmpty && paymentStatus != 'all') 'payment_status': paymentStatus,
       if (customerId != null) 'customer_id': customerId.toString(),
       if (dateFrom != null && dateFrom.isNotEmpty) 'date_from': dateFrom,
       if (dateTo != null && dateTo.isNotEmpty) 'date_to': dateTo,
