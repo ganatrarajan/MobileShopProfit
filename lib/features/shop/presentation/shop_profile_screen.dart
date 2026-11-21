@@ -9,8 +9,6 @@ import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../../core/storage/auth_storage.dart';
-import '../../auth/presentation/otp_verification_screen.dart';
-import '../../../core/widgets/confirm_phone_dialog.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/utils/india_locations.dart';
 import '../../../core/widgets/app_searchable_bottom_sheet.dart';
@@ -52,7 +50,6 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
   String? _signatureUrl;
   File? _newSignatureFile;
   String? _message;
-  String _initialMobile = '';
 
   @override
   void initState() {
@@ -63,17 +60,28 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
   Future<void> _fetchShopDetails() async {
     try {
       final response = await _authRepository.fetchShop();
+      final localUser = await AuthStorage().getUser();
+      final localUserMobile = (localUser?['mobile'] ?? localUser?['phone'] ?? '').toString().trim();
+
       if (response.success && response.data != null) {
         final shop = response.data as Map<String, dynamic>;
         _nameController.text = shop['name'] ?? '';
         _ownerController.text = shop['owner_name'] ?? '';
-        _initialMobile = (shop['owner_mobile'] ?? shop['mobile'] ?? shop['phone'] ?? '').toString().trim();
-        _mobileController.text = _initialMobile;
-        final shopPhone = (shop['phone'] != null && shop['phone'].toString().trim().isNotEmpty)
-            ? shop['phone'].toString().trim()
-            : ((shop['shop_phone'] != null && shop['shop_phone'].toString().trim().isNotEmpty)
-                ? shop['shop_phone'].toString().trim()
-                : _initialMobile);
+
+        final ownerMob = (shop['owner_mobile'] != null && shop['owner_mobile'].toString().trim().isNotEmpty)
+            ? shop['owner_mobile'].toString().trim()
+            : (localUserMobile.isNotEmpty
+                ? localUserMobile
+                : (shop['mobile'] ?? shop['phone'] ?? '').toString().trim());
+
+        _mobileController.text = ownerMob;
+
+        final shopPhone = (shop['shop_phone'] != null && shop['shop_phone'].toString().trim().isNotEmpty)
+            ? shop['shop_phone'].toString().trim()
+            : ((shop['phone'] != null && shop['phone'].toString().trim().isNotEmpty)
+                ? shop['phone'].toString().trim()
+                : ownerMob);
+
         _phoneController.text = shopPhone;
         _emailController.text = shop['email'] ?? '';
         _addressController.text = shop['address'] ?? '';
@@ -96,7 +104,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
         }
       }
     } catch (e) {
-      if (mounted) setState(() => _message = 'Failed to load shop: ');
+      if (mounted) setState(() => _message = 'Failed to load shop: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -374,86 +382,17 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
       _message = null;
     });
 
-    final newMobile = _mobileController.text.trim();
-    final isMobileChanged = _initialMobile.isNotEmpty && newMobile != _initialMobile;
+    final newOwnerMobile = _mobileController.text.trim();
+    final shopPhone = _phoneController.text.trim().isNotEmpty
+        ? _phoneController.text.trim()
+        : newOwnerMobile;
 
     try {
-      if (isMobileChanged) {
-        final confirmed = await showConfirmPhoneDialog(
-          context: context,
-          mobileNumber: newMobile,
-          title: 'Confirm Mobile Update',
-          message: 'An SMS OTP code will be sent to verify your new mobile number:',
-        );
-        if (confirmed != true) {
-          setState(() => _isSaving = false);
-          return;
-        }
-        // Send MSG91 OTP for Mobile Update
-        final otpSendRes = await _authRepository.sendProfileOtp(
-          name: _ownerController.text.trim(),
-          mobile: newMobile,
-          email: _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : null,
-        );
-
-        if (!otpSendRes.success || otpSendRes.data == null) {
-          if (mounted) {
-            setState(() {
-              _isSaving = false;
-              _message = otpSendRes.message.isNotEmpty ? otpSendRes.message : 'Failed to send OTP for mobile update.';
-            });
-          }
-          return;
-        }
-
-        final data = otpSendRes.data is Map ? otpSendRes.data['data'] ?? otpSendRes.data : {};
-        final verificationId = data['verification_id']?.toString() ?? '';
-
-        if (verificationId.isEmpty) {
-          if (mounted) {
-            setState(() {
-              _isSaving = false;
-              _message = 'Invalid verification session response.';
-            });
-          }
-          return;
-        }
-
-        setState(() => _isSaving = false);
-
-        // Open OTP Verification Screen
-        final dynamic verified = await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => OtpVerificationScreen(
-              verificationId: verificationId,
-              mobile: newMobile,
-              cooldownSeconds: data['cooldown_seconds'] ?? 60,
-              isProfileUpdate: true,
-            ),
-          ),
-        );
-
-        if (verified != true) {
-          // Verification failed or user backed out
-          return;
-        }
-
-        setState(() {
-          _isSaving = true;
-          _initialMobile = newMobile;
-        });
-      }
-
-      final shopPhone = _phoneController.text.trim().isNotEmpty
-          ? _phoneController.text.trim()
-          : newMobile;
-
-      // Update remaining shop details
       final response = await _authRepository.updateShop(
         name: _nameController.text.trim(),
         ownerName: _ownerController.text.trim(),
-        mobile: newMobile,
+        mobile: newOwnerMobile,
+        ownerMobile: newOwnerMobile,
         phone: shopPhone,
         email: _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : null,
         address: _addressController.text.trim(),
@@ -464,14 +403,16 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
         googleMapsUrl: _mapsUrlController.text.trim().isNotEmpty ? _mapsUrlController.text.trim() : null,
         upiId: _upiIdController.text.trim().isNotEmpty ? _upiIdController.text.trim() : null,
         tagline: _taglineController.text.trim().isNotEmpty ? _taglineController.text.trim() : null,
+        termsAndConditions: _termsController.text.trim(),
       );
 
       final shopData = await AuthStorage().getShop() ?? {};
       shopData['name'] = _nameController.text.trim();
       shopData['owner_name'] = _ownerController.text.trim();
       shopData['phone'] = shopPhone;
-      shopData['mobile'] = newMobile;
-      shopData['owner_mobile'] = newMobile;
+      shopData['shop_phone'] = shopPhone;
+      shopData['mobile'] = newOwnerMobile;
+      shopData['owner_mobile'] = newOwnerMobile;
       shopData['email'] = _emailController.text.trim();
       shopData['address'] = _addressController.text.trim();
       shopData['city'] = _cityController.text.trim();
@@ -483,9 +424,19 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
       shopData['tagline'] = _taglineController.text.trim();
       shopData['google_maps_url'] = _mapsUrlController.text.trim();
       shopData['upi_id'] = _upiIdController.text.trim();
+
+      final userData = await AuthStorage().getUser() ?? {};
+      if (newOwnerMobile.isNotEmpty) {
+        userData['mobile'] = newOwnerMobile;
+        userData['phone'] = newOwnerMobile;
+      }
+      if (_ownerController.text.trim().isNotEmpty) {
+        userData['name'] = _ownerController.text.trim();
+      }
+
       await AuthStorage().saveSession(
         token: (await AuthStorage().getToken()) ?? '',
-        user: (await AuthStorage().getUser()) ?? {},
+        user: userData,
         shop: shopData,
       );
 
@@ -494,7 +445,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
           AppFeedback.showSuccess(
             context,
             title: 'Profile Updated',
-            message: 'Shop profile and details saved successfully!',
+            message: 'Shop profile, contact details and terms saved successfully!',
           );
         } else {
           _showErrorAndScrollToTop('Update Failed', response.message);
@@ -711,10 +662,18 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
                               controller: _mobileController,
                               keyboardType: TextInputType.phone,
                               prefixIcon: Icons.phone_android_rounded,
+                              hint: 'e.g. 9876543210',
+                              validator: (val) {
+                                if (val == null || val.trim().isEmpty) {
+                                  return 'Owner mobile number is required';
+                                }
+                                return null;
+                              },
                             ),
                             const SizedBox(height: 6),
-                            const MobileHelperBanner(
-                              message: 'Used strictly for account login. SMS OTP verification will be sent if you update your mobile number.',
+                            const Text(
+                              'Primary owner mobile used for login and account access.',
+                              style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
                             ),
                             const SizedBox(height: 14),
                             CustomTextField(

@@ -291,6 +291,7 @@ class AuthRepository {
     String? name,
     String? ownerName,
     String? mobile,
+    String? ownerMobile,
     String? address,
     String? city,
     String? state,
@@ -303,6 +304,7 @@ class AuthRepository {
     double? longitude,
     String? upiId,
     String? tagline,
+    String? termsAndConditions,
   }) async {
     final currentShop = await _authStorage.getShop() ?? {};
 
@@ -315,15 +317,15 @@ class AuthRepository {
         ? ownerName.trim()
         : (currentShop['owner_name']?.toString().trim());
 
-    final shopMobile = (mobile != null && mobile.trim().isNotEmpty)
-        ? mobile.trim()
-        : (phone != null && phone.trim().isNotEmpty)
-            ? phone.trim()
-            : (currentShop['phone']?.toString().trim() ?? currentShop['mobile']?.toString().trim());
+    final shopOwnerMobile = (ownerMobile != null && ownerMobile.trim().isNotEmpty)
+        ? ownerMobile.trim()
+        : (mobile != null && mobile.trim().isNotEmpty)
+            ? mobile.trim()
+            : (currentShop['owner_mobile']?.toString().trim() ?? currentShop['mobile']?.toString().trim());
 
     final shopPhone = (phone != null && phone.trim().isNotEmpty)
         ? phone.trim()
-        : shopMobile;
+        : (currentShop['phone']?.toString().trim() ?? currentShop['shop_phone']?.toString().trim() ?? shopOwnerMobile);
 
     final shopEmail = (email != null && email.trim().isNotEmpty)
         ? email.trim()
@@ -360,6 +362,8 @@ class AuthRepository {
         ? tagline.trim()
         : (currentShop['tagline']?.toString().trim());
 
+    final shopTerms = termsAndConditions ?? currentShop['terms_and_conditions']?.toString();
+
     final shopGst = (gstNumber != null && gstNumber.trim().isNotEmpty)
         ? gstNumber.trim()
         : (currentShop['gst_number']?.toString().trim() ?? currentShop['gstin']?.toString().trim());
@@ -367,9 +371,13 @@ class AuthRepository {
     final body = <String, dynamic>{};
     if (shopName != null && shopName.isNotEmpty) body['name'] = shopName;
     if (shopOwner != null && shopOwner.isNotEmpty) body['owner_name'] = shopOwner;
-    if (shopMobile != null && shopMobile.isNotEmpty) {
-      body['mobile'] = shopMobile;
-      body['phone'] = shopPhone ?? shopMobile;
+    if (shopOwnerMobile != null && shopOwnerMobile.isNotEmpty) {
+      body['mobile'] = shopOwnerMobile;
+      body['owner_mobile'] = shopOwnerMobile;
+    }
+    if (shopPhone != null && shopPhone.isNotEmpty) {
+      body['phone'] = shopPhone;
+      body['shop_phone'] = shopPhone;
     }
     if (shopEmail != null && shopEmail.isNotEmpty) body['email'] = shopEmail;
     if (shopAddress != null && shopAddress.isNotEmpty) body['address'] = shopAddress;
@@ -381,6 +389,7 @@ class AuthRepository {
     if (shopLng != null) body['longitude'] = shopLng;
     if (shopUpiId != null && shopUpiId.isNotEmpty) body['upi_id'] = shopUpiId;
     if (shopTagline != null && shopTagline.isNotEmpty) body['tagline'] = shopTagline;
+    if (shopTerms != null) body['terms_and_conditions'] = shopTerms;
     if (shopGst != null && shopGst.isNotEmpty) body['gst_number'] = shopGst;
 
     final response = await _apiClient.put(
