@@ -234,13 +234,15 @@ class WhatsAppHelper {
           sb.writeln('* भुगतान स्थिति: पूरा भुगतान प्राप्त ✅ (PAID IN FULL)');
         }
         if (sale.warranty != null) {
+          final w = sale.warranty!;
           sb.writeln('');
           sb.writeln('🛡️ वारंटी विवरण (WARRANTY COVERAGE):');
-          sb.writeln('* वारंटी नंबर: ${sale.warranty!.warrantyNumber}');
-          sb.writeln('* वारंटी अवधि: ${sale.warranty!.durationDays} दिन');
-          sb.writeln('* वैध तिथि: ${DateHelper.formatDate(sale.warranty!.warrantyEndDate)}');
-          if (sale.warranty!.warrantyTerms != null && sale.warranty!.warrantyTerms!.isNotEmpty) {
-            sb.writeln('* नियम व शर्तें: ${sale.warranty!.warrantyTerms}');
+          sb.writeln('* वारंटी नंबर: #${w.warrantyNumber}');
+          sb.writeln('* वारंटी अवधि: ${w.durationDays} दिन (${DateHelper.formatDate(w.warrantyStartDate)} से ${DateHelper.formatDate(w.warrantyEndDate)})');
+          sb.writeln('* वैध तिथि: ${DateHelper.formatDate(w.warrantyEndDate)} (${w.daysRemaining} दिन शेष)');
+          final note = (w.warrantyTerms?.trim().isNotEmpty == true) ? w.warrantyTerms!.trim() : w.notes?.trim();
+          if (note != null && note.isNotEmpty) {
+            sb.writeln('* वारंटी नोट/शर्तें: $note');
           }
         }
         sb.writeln('');
@@ -275,13 +277,15 @@ class WhatsAppHelper {
           sb.writeln('* પેમેન્ટ સ્થિતિ: પૂરેપૂરું ચૂકવાઈ ગયેલ છે ✅ (PAID IN FULL)');
         }
         if (sale.warranty != null) {
+          final w = sale.warranty!;
           sb.writeln('');
           sb.writeln('🛡️ વોરંટી વિગતો (WARRANTY COVERAGE):');
-          sb.writeln('* વોરંટી નંબર: ${sale.warranty!.warrantyNumber}');
-          sb.writeln('* વોરંટી સમયગાળો: ${sale.warranty!.durationDays} દિવસ');
-          sb.writeln('* માન્ય તારીખ: ${DateHelper.formatDate(sale.warranty!.warrantyEndDate)}');
-          if (sale.warranty!.warrantyTerms != null && sale.warranty!.warrantyTerms!.isNotEmpty) {
-            sb.writeln('* શરતો: ${sale.warranty!.warrantyTerms}');
+          sb.writeln('* વોરંટી નંબર: #${w.warrantyNumber}');
+          sb.writeln('* વોરંટી સમયગાળો: ${w.durationDays} દિવસ (${DateHelper.formatDate(w.warrantyStartDate)} થી ${DateHelper.formatDate(w.warrantyEndDate)})');
+          sb.writeln('* માન્ય તારીખ: ${DateHelper.formatDate(w.warrantyEndDate)} (${w.daysRemaining} દિવસ બાકી)');
+          final note = (w.warrantyTerms?.trim().isNotEmpty == true) ? w.warrantyTerms!.trim() : w.notes?.trim();
+          if (note != null && note.isNotEmpty) {
+            sb.writeln('* વોરંટી શરતો/નોંધ: $note');
           }
         }
         sb.writeln('');
@@ -317,13 +321,15 @@ class WhatsAppHelper {
           sb.writeln('* Status: PAID IN FULL ✅');
         }
         if (sale.warranty != null) {
+          final w = sale.warranty!;
           sb.writeln('');
           sb.writeln('🛡️ WARRANTY COVERAGE:');
-          sb.writeln('* Warranty No: ${sale.warranty!.warrantyNumber}');
-          sb.writeln('* Duration: ${sale.warranty!.durationDays} Days');
-          sb.writeln('* Valid Until: ${DateHelper.formatDate(sale.warranty!.warrantyEndDate)}');
-          if (sale.warranty!.warrantyTerms != null && sale.warranty!.warrantyTerms!.isNotEmpty) {
-            sb.writeln('* Terms: ${sale.warranty!.warrantyTerms}');
+          sb.writeln('* Warranty No: #${w.warrantyNumber}');
+          sb.writeln('* Duration: ${w.durationDays} Days (${DateHelper.formatDate(w.warrantyStartDate)} to ${DateHelper.formatDate(w.warrantyEndDate)})');
+          sb.writeln('* Valid Until: ${DateHelper.formatDate(w.warrantyEndDate)} (${w.daysRemaining} Days remaining)');
+          final note = (w.warrantyTerms?.trim().isNotEmpty == true) ? w.warrantyTerms!.trim() : w.notes?.trim();
+          if (note != null && note.isNotEmpty) {
+            sb.writeln('* Warranty Note / Terms: $note');
           }
         }
         sb.writeln('');
@@ -776,10 +782,16 @@ class WhatsAppHelper {
         }
 
         if (repair.warranty != null) {
+          final w = repair.warranty!;
           sb.writeln('');
           sb.writeln('🛡️ वारंटी विवरण (WARRANTY COVERAGE):');
-          sb.writeln('* वारंटी नंबर: ${repair.warranty!.warrantyNumber}');
-          sb.writeln('* वैध तिथि: ${DateHelper.formatDate(repair.warranty!.warrantyEndDate)} (${repair.warranty!.daysRemaining} दिन)');
+          sb.writeln('* वारंटी नंबर: #${w.warrantyNumber}');
+          sb.writeln('* वारंटी अवधि: ${w.durationDays} दिन (${DateHelper.formatDate(w.warrantyStartDate)} से ${DateHelper.formatDate(w.warrantyEndDate)})');
+          sb.writeln('* वैध तिथि: ${DateHelper.formatDate(w.warrantyEndDate)} (${w.daysRemaining} दिन शेष)');
+          final note = (w.warrantyTerms?.trim().isNotEmpty == true) ? w.warrantyTerms!.trim() : w.notes?.trim();
+          if (note != null && note.isNotEmpty) {
+            sb.writeln('* वारंटी नोट/शर्तें: $note');
+          }
         }
 
         sb.writeln('');
@@ -854,10 +866,16 @@ class WhatsAppHelper {
         }
 
         if (repair.warranty != null) {
+          final w = repair.warranty!;
           sb.writeln('');
           sb.writeln('🛡️ વોરંટી વિગતો (WARRANTY COVERAGE):');
-          sb.writeln('* વોરંટી નંબર: ${repair.warranty!.warrantyNumber}');
-          sb.writeln('* માન્ય તારીખ: ${DateHelper.formatDate(repair.warranty!.warrantyEndDate)} (${repair.warranty!.daysRemaining} દિવસ)');
+          sb.writeln('* વોરંટી નંબર: #${w.warrantyNumber}');
+          sb.writeln('* વોરંટી સમયગાળો: ${w.durationDays} દિવસ (${DateHelper.formatDate(w.warrantyStartDate)} થી ${DateHelper.formatDate(w.warrantyEndDate)})');
+          sb.writeln('* માન્ય તારીખ: ${DateHelper.formatDate(w.warrantyEndDate)} (${w.daysRemaining} દિવસ બાકી)');
+          final note = (w.warrantyTerms?.trim().isNotEmpty == true) ? w.warrantyTerms!.trim() : w.notes?.trim();
+          if (note != null && note.isNotEmpty) {
+            sb.writeln('* વોરંટી શરતો/નોંધ: $note');
+          }
         }
 
         sb.writeln('');
@@ -933,10 +951,16 @@ class WhatsAppHelper {
         }
 
         if (repair.warranty != null) {
+          final w = repair.warranty!;
           sb.writeln('');
           sb.writeln('🛡️ WARRANTY COVERAGE:');
-          sb.writeln('* Warranty No: ${repair.warranty!.warrantyNumber}');
-          sb.writeln('* Valid Until: ${DateHelper.formatDate(repair.warranty!.warrantyEndDate)} (${repair.warranty!.daysRemaining} Days)');
+          sb.writeln('* Warranty No: #${w.warrantyNumber}');
+          sb.writeln('* Duration: ${w.durationDays} Days (${DateHelper.formatDate(w.warrantyStartDate)} to ${DateHelper.formatDate(w.warrantyEndDate)})');
+          sb.writeln('* Valid Until: ${DateHelper.formatDate(w.warrantyEndDate)} (${w.daysRemaining} Days remaining)');
+          final note = (w.warrantyTerms?.trim().isNotEmpty == true) ? w.warrantyTerms!.trim() : w.notes?.trim();
+          if (note != null && note.isNotEmpty) {
+            sb.writeln('* Warranty Note / Terms: $note');
+          }
         }
 
         sb.writeln('');
@@ -1050,6 +1074,16 @@ class WhatsAppHelper {
             sb.writeln('* बकाया राशि: ₹${repair.amountDue.toStringAsFixed(2)}');
           }
         }
+        if (repair.warranty != null) {
+          final w = repair.warranty!;
+          sb.writeln('');
+          sb.writeln('🛡️ वारंटी कवरेज: ${w.durationDays} दिन (${DateHelper.formatDate(w.warrantyStartDate)} से ${DateHelper.formatDate(w.warrantyEndDate)})');
+          sb.writeln('* वैध तिथि: ${DateHelper.formatDate(w.warrantyEndDate)}');
+          final note = (w.warrantyTerms?.trim().isNotEmpty == true) ? w.warrantyTerms!.trim() : w.notes?.trim();
+          if (note != null && note.isNotEmpty) {
+            sb.writeln('* वारंटी नोट: $note');
+          }
+        }
         sb.writeln('');
         sb.writeln('आपके धैर्य और सहयोग के लिए धन्यवाद! 🤝✨');
         break;
@@ -1067,6 +1101,16 @@ class WhatsAppHelper {
           sb.writeln('🎉 તમારું ડિવાઇસ રિપેર થઈ ગયું છે અને મેળવવા માટે તૈયાર છે!');
           if (repair.amountDue > 0) {
             sb.writeln('* બાકી ચૂકવવાપાત્ર રકમ: ₹${repair.amountDue.toStringAsFixed(2)}');
+          }
+        }
+        if (repair.warranty != null) {
+          final w = repair.warranty!;
+          sb.writeln('');
+          sb.writeln('🛡️ વોરંટી કવરેજ: ${w.durationDays} દિવસ (${DateHelper.formatDate(w.warrantyStartDate)} થી ${DateHelper.formatDate(w.warrantyEndDate)})');
+          sb.writeln('* માન્ય તારીખ: ${DateHelper.formatDate(w.warrantyEndDate)}');
+          final note = (w.warrantyTerms?.trim().isNotEmpty == true) ? w.warrantyTerms!.trim() : w.notes?.trim();
+          if (note != null && note.isNotEmpty) {
+            sb.writeln('* વોરંટી નોંધ: $note');
           }
         }
         sb.writeln('');
@@ -1087,6 +1131,16 @@ class WhatsAppHelper {
           sb.writeln('🎉 Your device is repaired and ready for pickup!');
           if (repair.amountDue > 0) {
             sb.writeln('* Remaining Balance: ₹${repair.amountDue.toStringAsFixed(2)}');
+          }
+        }
+        if (repair.warranty != null) {
+          final w = repair.warranty!;
+          sb.writeln('');
+          sb.writeln('🛡️ Warranty Coverage: ${w.durationDays} Days (${DateHelper.formatDate(w.warrantyStartDate)} to ${DateHelper.formatDate(w.warrantyEndDate)})');
+          sb.writeln('* Valid Until: ${DateHelper.formatDate(w.warrantyEndDate)}');
+          final note = (w.warrantyTerms?.trim().isNotEmpty == true) ? w.warrantyTerms!.trim() : w.notes?.trim();
+          if (note != null && note.isNotEmpty) {
+            sb.writeln('* Warranty Note: $note');
           }
         }
         sb.writeln('');

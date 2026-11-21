@@ -520,23 +520,62 @@ class PdfInvoiceBuilder {
                                 border: pw.Border.all(color: borderBlue, width: 0.8),
                                 borderRadius: pw.BorderRadius.circular(6),
                               ),
-                              padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                              child: pw.Row(
-                                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                              padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                              child: pw.Column(
+                                crossAxisAlignment: pw.CrossAxisAlignment.start,
                                 children: [
-                                  pw.Text('Warranty:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: textMuted)),
-                                  pw.Container(
-                                    decoration: pw.BoxDecoration(
-                                      color: PdfColors.blue50,
-                                      borderRadius: pw.BorderRadius.circular(4),
-                                      border: pw.Border.all(color: PdfColors.blue200, width: 0.6),
-                                    ),
-                                    padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                    child: pw.Text(
-                                      sale.warranty != null ? '${sale.warranty!.durationDays} Days' : 'Standard',
-                                      style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: brandBlue),
-                                    ),
+                                  pw.Row(
+                                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      pw.Text('Warranty:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: textMuted)),
+                                      pw.Container(
+                                        decoration: pw.BoxDecoration(
+                                          color: PdfColors.blue50,
+                                          borderRadius: pw.BorderRadius.circular(4),
+                                          border: pw.Border.all(color: PdfColors.blue200, width: 0.6),
+                                        ),
+                                        padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                                        child: pw.Text(
+                                          sale.warranty != null ? '${sale.warranty!.durationDays} Days' : 'Standard',
+                                          style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: brandBlue),
+                                        ),
+                                      ),
+                                    ],
                                   ),
+                                  if (sale.warranty != null) ...[
+                                    pw.SizedBox(height: 3),
+                                    pw.Row(
+                                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        pw.Text('Valid Until:', style: pw.TextStyle(fontSize: 7.5, color: textMuted)),
+                                        pw.Text(
+                                          DateHelper.formatDate(sale.warranty!.warrantyEndDate),
+                                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: textDark),
+                                        ),
+                                      ],
+                                    ),
+                                    if (sale.warranty!.warrantyNumber.isNotEmpty) ...[
+                                      pw.SizedBox(height: 1.5),
+                                      pw.Row(
+                                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          pw.Text('Warranty #:', style: pw.TextStyle(fontSize: 7.5, color: textMuted)),
+                                          pw.Text(
+                                            sale.warranty!.warrantyNumber,
+                                            style: pw.TextStyle(fontSize: 7.5, color: brandBlue, fontWeight: pw.FontWeight.bold),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                    if ((sale.warranty!.warrantyTerms?.trim().isNotEmpty == true) || (sale.warranty!.notes?.trim().isNotEmpty == true)) ...[
+                                      pw.SizedBox(height: 2),
+                                      pw.Text(
+                                        'Note: ${sale.warranty!.warrantyTerms?.trim().isNotEmpty == true ? sale.warranty!.warrantyTerms!.trim() : sale.warranty!.notes!.trim()}',
+                                        style: pw.TextStyle(fontSize: 7, color: textMuted),
+                                        maxLines: 2,
+                                      ),
+                                    ],
+                                  ],
                                 ],
                               ),
                             ),
@@ -1157,12 +1196,108 @@ class PdfInvoiceBuilder {
                   pw.Row(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      // Left Column: Terms
+                      // Left Column: Payment & Warranty Status Cards + Terms
                       pw.Expanded(
                         flex: 5,
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
+                            // Payment Status Card
+                            pw.Container(
+                              decoration: pw.BoxDecoration(
+                                color: cardBgBlue,
+                                border: pw.Border.all(color: borderBlue, width: 0.8),
+                                borderRadius: pw.BorderRadius.circular(6),
+                              ),
+                              padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              child: pw.Row(
+                                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                children: [
+                                  pw.Text('Payment Status:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: textMuted)),
+                                  pw.Container(
+                                    decoration: pw.BoxDecoration(
+                                      color: paymentStatusBg,
+                                      borderRadius: pw.BorderRadius.circular(4),
+                                    ),
+                                    padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                                    child: pw.Text(
+                                      paymentStatusText,
+                                      style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: paymentStatusColor),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            pw.SizedBox(height: 5),
+
+                            // Warranty Card
+                            pw.Container(
+                              decoration: pw.BoxDecoration(
+                                color: cardBgBlue,
+                                border: pw.Border.all(color: borderBlue, width: 0.8),
+                                borderRadius: pw.BorderRadius.circular(6),
+                              ),
+                              padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              child: pw.Column(
+                                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                                children: [
+                                  pw.Row(
+                                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      pw.Text('Repair Warranty:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: textMuted)),
+                                      pw.Container(
+                                        decoration: pw.BoxDecoration(
+                                          color: PdfColors.blue50,
+                                          borderRadius: pw.BorderRadius.circular(4),
+                                          border: pw.Border.all(color: PdfColors.blue200, width: 0.6),
+                                        ),
+                                        padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                                        child: pw.Text(
+                                          repair.warranty != null ? '${repair.warranty!.durationDays} Days' : 'Testing Warranty',
+                                          style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: brandBlue),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (repair.warranty != null) ...[
+                                    pw.SizedBox(height: 3),
+                                    pw.Row(
+                                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        pw.Text('Valid Until:', style: pw.TextStyle(fontSize: 7.5, color: textMuted)),
+                                        pw.Text(
+                                          DateHelper.formatDate(repair.warranty!.warrantyEndDate),
+                                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: textDark),
+                                        ),
+                                      ],
+                                    ),
+                                    if (repair.warranty!.warrantyNumber.isNotEmpty) ...[
+                                      pw.SizedBox(height: 1.5),
+                                      pw.Row(
+                                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          pw.Text('Warranty #:', style: pw.TextStyle(fontSize: 7.5, color: textMuted)),
+                                          pw.Text(
+                                            repair.warranty!.warrantyNumber,
+                                            style: pw.TextStyle(fontSize: 7.5, color: brandBlue, fontWeight: pw.FontWeight.bold),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                    if ((repair.warranty!.warrantyTerms?.trim().isNotEmpty == true) || (repair.warranty!.notes?.trim().isNotEmpty == true)) ...[
+                                      pw.SizedBox(height: 2),
+                                      pw.Text(
+                                        'Note: ${repair.warranty!.warrantyTerms?.trim().isNotEmpty == true ? repair.warranty!.warrantyTerms!.trim() : repair.warranty!.notes!.trim()}',
+                                        style: pw.TextStyle(fontSize: 7, color: textMuted),
+                                        maxLines: 2,
+                                      ),
+                                    ],
+                                  ],
+                                ],
+                              ),
+                            ),
+                            pw.SizedBox(height: 6),
+
                             pw.Text('Terms & Conditions:', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: headerNavy)),
                             pw.SizedBox(height: 2),
                             ...termsList.map(
