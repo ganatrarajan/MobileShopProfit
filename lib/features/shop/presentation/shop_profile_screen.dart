@@ -10,7 +10,6 @@ import '../../../core/widgets/custom_text_field.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../../core/storage/auth_storage.dart';
 import '../../auth/presentation/otp_verification_screen.dart';
-import '../../../core/widgets/confirm_phone_dialog.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/utils/india_locations.dart';
 import '../../../core/widgets/app_searchable_bottom_sheet.dart';
@@ -394,18 +393,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
 
     try {
       if (isMobileChanged) {
-        final confirmed = await showConfirmPhoneDialog(
-          context: context,
-          mobileNumber: newOwnerMobile,
-          title: 'Confirm Mobile Update',
-          message: 'An SMS OTP code will be sent to verify your new owner mobile number:',
-        );
-        if (confirmed != true) {
-          setState(() => _isSaving = false);
-          return;
-        }
-
-        // Send MSG91 OTP for Mobile Update
+        // Send MSG91 OTP for Mobile Update (or direct update if OTP is disabled in Admin Panel)
         final otpSendRes = await _authRepository.sendProfileOtp(
           name: _ownerController.text.trim(),
           mobile: newOwnerMobile,
@@ -416,11 +404,11 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
           if (mounted) {
             setState(() {
               _isSaving = false;
-              _message = otpSendRes.message.isNotEmpty ? otpSendRes.message : 'Failed to send OTP for mobile update.';
+              _message = otpSendRes.message.isNotEmpty ? otpSendRes.message : 'Failed to update owner mobile.';
             });
             AppFeedback.showError(
               context,
-              title: 'OTP Send Failed',
+              title: 'Update Failed',
               error: _message!,
             );
           }
@@ -428,37 +416,41 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
         }
 
         final data = otpSendRes.data is Map ? otpSendRes.data['data'] ?? otpSendRes.data : {};
-        final verificationId = data['verification_id']?.toString() ?? '';
+        final bool isOtpRequired = data['otp_required'] == true;
 
-        if (verificationId.isEmpty) {
-          if (mounted) {
-            setState(() {
-              _isSaving = false;
-              _message = 'Invalid verification session response.';
-            });
+        if (isOtpRequired) {
+          final verificationId = data['verification_id']?.toString() ?? '';
+
+          if (verificationId.isEmpty) {
+            if (mounted) {
+              setState(() {
+                _isSaving = false;
+                _message = 'Invalid verification session response.';
+              });
+            }
+            return;
           }
-          return;
-        }
 
-        setState(() => _isSaving = false);
-        if (!mounted) return;
+          setState(() => _isSaving = false);
+          if (!mounted) return;
 
-        // Open OTP Verification Screen
-        final dynamic verified = await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => OtpVerificationScreen(
-              verificationId: verificationId,
-              mobile: newOwnerMobile,
-              cooldownSeconds: data['cooldown_seconds'] ?? 60,
-              isProfileUpdate: true,
+          // Open OTP Verification Screen
+          final dynamic verified = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => OtpVerificationScreen(
+                verificationId: verificationId,
+                mobile: newOwnerMobile,
+                cooldownSeconds: data['cooldown_seconds'] ?? 60,
+                isProfileUpdate: true,
+              ),
             ),
-          ),
-        );
+          );
 
-        if (verified != true) {
-          // Verification failed or user backed out
-          return;
+          if (verified != true) {
+            // Verification failed or user backed out
+            return;
+          }
         }
 
         setState(() {
