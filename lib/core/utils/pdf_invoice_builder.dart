@@ -1,10 +1,12 @@
 import '../../features/auth/data/auth_repository.dart';
 import '../../features/customer/data/customer_repository.dart';
 import '../../features/repair/models/repair.dart';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import '../config/env_config.dart';
 import 'date_helper.dart';
 import '../storage/auth_storage.dart';
 import '../../features/sales/models/sale.dart';
@@ -22,20 +24,54 @@ class PdfInvoiceBuilder {
 
   static Future<Uint8List?> _loadMediaBytes(String? rawPath) async {
     if (rawPath == null || rawPath.trim().isEmpty) return null;
-    final path = rawPath.trim();
+    var path = rawPath.trim();
+
+    // 1. Base64 Data URI check
+    if (path.startsWith('data:image/') || path.contains(';base64,')) {
+      try {
+        final base64String = path.contains(';base64,') ? path.split(';base64,').last : path;
+        return base64Decode(base64String.replaceAll('\n', '').replaceAll('\r', '').trim());
+      } catch (_) {}
+    }
+
+    // 2. Local File path check (from file picker or local storage cache)
     try {
-      if (path.startsWith('http://') || path.startsWith('https://')) {
-        final request = await HttpClient().getUrl(Uri.parse(path));
-        final response = await request.close();
-        if (response.statusCode == 200) {
-          final bytes = await response.fold<List<int>>([], (previous, element) => previous..addAll(element));
-          return Uint8List.fromList(bytes);
+      final file = File(path);
+      if (await file.exists()) {
+        return await file.readAsBytes();
+      }
+    } catch (_) {}
+
+    // 3. Resolve relative URL or normalize localhost / 127.0.0.1
+    try {
+      final baseHostUri = Uri.parse(EnvConfig.webBaseUrl);
+      if (!path.startsWith('http://') && !path.startsWith('https://')) {
+        // Prepend webBaseUrl
+        final cleanPath = path.startsWith('/') ? path.substring(1) : path;
+        if (!cleanPath.startsWith('storage/')) {
+          path = '${EnvConfig.webBaseUrl}/storage/$cleanPath';
+        } else {
+          path = '${EnvConfig.webBaseUrl}/$cleanPath';
         }
       } else {
-        final file = File(path);
-        if (await file.exists()) {
-          return await file.readAsBytes();
+        // Normalize localhost/127.0.0.1 to EnvConfig host & port
+        final uri = Uri.parse(path);
+        if (uri.host == 'localhost' || uri.host == '127.0.0.1') {
+          path = uri.replace(
+            scheme: baseHostUri.scheme,
+            host: baseHostUri.host,
+            port: baseHostUri.hasPort ? baseHostUri.port : null,
+          ).toString();
         }
+      }
+
+      // 4. Network fetch with 5-second timeout
+      final client = HttpClient()..connectionTimeout = const Duration(seconds: 5);
+      final request = await client.getUrl(Uri.parse(path)).timeout(const Duration(seconds: 5));
+      final response = await request.close().timeout(const Duration(seconds: 5));
+      if (response.statusCode == 200) {
+        final bytes = await response.fold<List<int>>([], (previous, element) => previous..addAll(element)).timeout(const Duration(seconds: 5));
+        return Uint8List.fromList(bytes);
       }
     } catch (_) {}
     return null;
@@ -62,7 +98,12 @@ class PdfInvoiceBuilder {
               shop['gstin']?.toString().trim().isNotEmpty == true ||
               shop['gst']?.toString().trim().isNotEmpty == true);
 
-      if (shop == null || !hasGst) {
+      final hasSignature = shop != null &&
+          ((shop['signature_path'] != null && shop['signature_path'].toString().trim().isNotEmpty) ||
+           (shop['signature_url'] != null && shop['signature_url'].toString().trim().isNotEmpty) ||
+           (shop['signature'] != null && shop['signature'].toString().trim().isNotEmpty));
+
+      if (shop == null || !hasGst || !hasSignature) {
         try {
           final res = await AuthRepository().fetchShop();
           if (res.success && res.data != null && res.data is Map<String, dynamic>) {
@@ -792,12 +833,14 @@ class PdfInvoiceBuilder {
                           children: [
                             if (customerSignatureBytes != null) ...[
                               pw.Container(
-                                height: 26,
+                                height: 32,
+                                width: 95,
+                                alignment: pw.Alignment.centerLeft,
                                 child: pw.Image(pw.MemoryImage(customerSignatureBytes), fit: pw.BoxFit.contain),
                               ),
                               pw.SizedBox(height: 2),
                             ],
-                            pw.Container(width: 80, height: 1, color: borderBlue),
+                            pw.Container(width: 95, height: 1, color: borderBlue),
                             pw.SizedBox(height: 2),
                             pw.Text('Customer Signature', style: pw.TextStyle(fontSize: 7.5, color: textMuted)),
                             pw.SizedBox(height: 4),
@@ -810,12 +853,14 @@ class PdfInvoiceBuilder {
                           children: [
                             if (signatureBytes != null) ...[
                               pw.Container(
-                                height: 26,
+                                height: 32,
+                                width: 95,
+                                alignment: pw.Alignment.centerRight,
                                 child: pw.Image(pw.MemoryImage(signatureBytes), fit: pw.BoxFit.contain),
                               ),
                               pw.SizedBox(height: 2),
                             ],
-                            pw.Container(width: 80, height: 1.5, color: brandBlue),
+                            pw.Container(width: 95, height: 1.5, color: brandBlue),
                             pw.SizedBox(height: 2),
                             pw.Text('Authorised Shop Signature', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: textDark)),
                             pw.Text('For $shopName', style: pw.TextStyle(fontSize: 7.5, color: textMuted)),
@@ -906,7 +951,12 @@ class PdfInvoiceBuilder {
               shop['gstin']?.toString().trim().isNotEmpty == true ||
               shop['gst']?.toString().trim().isNotEmpty == true);
 
-      if (shop == null || !hasGst) {
+      final hasSignature = shop != null &&
+          ((shop['signature_path'] != null && shop['signature_path'].toString().trim().isNotEmpty) ||
+           (shop['signature_url'] != null && shop['signature_url'].toString().trim().isNotEmpty) ||
+           (shop['signature'] != null && shop['signature'].toString().trim().isNotEmpty));
+
+      if (shop == null || !hasGst || !hasSignature) {
         try {
           final res = await AuthRepository().fetchShop();
           if (res.success && res.data != null && res.data is Map<String, dynamic>) {
@@ -1437,12 +1487,14 @@ class PdfInvoiceBuilder {
                           children: [
                             if (customerSignatureBytes != null) ...[
                               pw.Container(
-                                height: 26,
+                                height: 32,
+                                width: 95,
+                                alignment: pw.Alignment.centerLeft,
                                 child: pw.Image(pw.MemoryImage(customerSignatureBytes), fit: pw.BoxFit.contain),
                               ),
                               pw.SizedBox(height: 2),
                             ],
-                            pw.Container(width: 80, height: 1, color: borderBlue),
+                            pw.Container(width: 95, height: 1, color: borderBlue),
                             pw.SizedBox(height: 2),
                             pw.Text('Customer Signature', style: pw.TextStyle(fontSize: 7.5, color: textMuted)),
                             pw.SizedBox(height: 4),
@@ -1455,12 +1507,14 @@ class PdfInvoiceBuilder {
                           children: [
                             if (signatureBytes != null) ...[
                               pw.Container(
-                                height: 26,
+                                height: 32,
+                                width: 95,
+                                alignment: pw.Alignment.centerRight,
                                 child: pw.Image(pw.MemoryImage(signatureBytes), fit: pw.BoxFit.contain),
                               ),
                               pw.SizedBox(height: 2),
                             ],
-                            pw.Container(width: 80, height: 1.5, color: brandBlue),
+                            pw.Container(width: 95, height: 1.5, color: brandBlue),
                             pw.SizedBox(height: 2),
                             pw.Text('Authorised Shop Signature', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: textDark)),
                             pw.Text('For $shopName', style: pw.TextStyle(fontSize: 7.5, color: textMuted)),

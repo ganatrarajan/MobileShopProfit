@@ -10,6 +10,7 @@ import '../../../core/widgets/custom_text_field.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../../core/storage/auth_storage.dart';
 import '../../auth/presentation/otp_verification_screen.dart';
+import '../../../core/widgets/confirm_phone_dialog.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/utils/india_locations.dart';
 import '../../../core/widgets/app_searchable_bottom_sheet.dart';
@@ -413,13 +414,24 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
     });
 
     final newOwnerMobile = _mobileController.text.trim();
-    final isMobileChanged = _initialMobile.isNotEmpty && newOwnerMobile != _initialMobile;
+    final isMobileChanged = newOwnerMobile != _initialMobile;
     final shopPhone = _phoneController.text.trim().isNotEmpty
         ? _phoneController.text.trim()
         : newOwnerMobile;
 
     try {
       if (isMobileChanged) {
+        final confirmed = await showConfirmPhoneDialog(
+          context: context,
+          mobileNumber: newOwnerMobile,
+          title: 'Confirm Mobile Update',
+          message: 'Are you sure you want to change your Owner Login Mobile number to:',
+        );
+        if (confirmed != true) {
+          setState(() => _isSaving = false);
+          return;
+        }
+
         // Send MSG91 OTP for Mobile Update (or direct update if OTP is disabled in Admin Panel)
         final otpSendRes = await _authRepository.sendProfileOtp(
           name: _ownerController.text.trim(),
@@ -773,7 +785,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
                             ),
                             const SizedBox(height: 6),
                             const Text(
-                              'Used strictly for account login. SMS OTP verification will be sent if you update your mobile number.',
+                              'Primary owner mobile used for login and account access. SMS OTP verification will be required to change this if enabled in admin panel.',
                               style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
                             ),
                             const SizedBox(height: 14),
