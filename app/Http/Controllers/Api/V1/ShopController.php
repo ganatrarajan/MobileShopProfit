@@ -93,6 +93,12 @@ class ShopController extends Controller
             return $this->errorResponse('No shop associated with this owner account', 404);
         }
 
+        if (! $shop->user_id && $user->id) {
+            $shop->user_id = $user->id;
+            $shop->save();
+        }
+        $shop->loadMissing('user');
+
         return $this->successResponse(new ShopResource($shop), 'Shop profile retrieved successfully');
     }
 
@@ -103,6 +109,10 @@ class ShopController extends Controller
     {
         $user = $request->user();
         $shop = $user->shop;
+
+        if (! $shop && $user->shop_id) {
+            $shop = Shop::find($user->shop_id);
+        }
 
         if (! $shop) {
             return $this->errorResponse('Shop profile not found', 404);
@@ -122,27 +132,50 @@ class ShopController extends Controller
             'longitude',
             'upi_id',
             'tagline',
+            'terms_and_conditions',
             'gst_number',
             'currency',
         ]);
 
-        // Map 'mobile' to database column 'phone' if 'phone' was not provided
-        if (empty($data['phone']) && $request->filled('mobile')) {
-            $data['phone'] = $request->input('mobile');
+        // Support shop_phone or phone explicitly for shop contact number
+        if ($request->filled('shop_phone')) {
+            $data['phone'] = $request->input('shop_phone');
+        } elseif ($request->filled('phone')) {
+            $data['phone'] = $request->input('phone');
         }
 
-        // Guard: filter out null/empty values for core identity attributes so partial updates never overwrite existing shop data
-        $data = array_filter($data, function ($value, $key) {
-            $requiredCore = ['name', 'owner_name', 'phone', 'address', 'city', 'state', 'pincode'];
-            if (in_array($key, $requiredCore, true)) {
-                return $value !== null && trim((string)$value) !== '';
+        // Handle owner login mobile update directly
+        $ownerMobile = $request->input('owner_mobile') ?? $request->input('mobile');
+        if (!empty($ownerMobile) && trim((string)$ownerMobile) !== '') {
+            $user->mobile = trim((string)$ownerMobile);
+            $user->phone = trim((string)$ownerMobile);
+            $user->save();
+
+            // If shop public phone is still empty, fallback to owner mobile
+            if (empty($data['phone']) && empty($shop->phone)) {
+                $data['phone'] = trim((string)$ownerMobile);
             }
+        }
+
+        // Sync user name with owner_name if provided
+        if (!empty($data['owner_name'])) {
+            $user->name = $data['owner_name'];
+            $user->save();
+        }
+
+        // Ensure shop is linked to user
+        if (! $shop->user_id) {
+            $data['user_id'] = $user->id;
+        }
+
+        // Guard: filter out null values
+        $data = array_filter($data, function ($value) {
             return $value !== null;
-        }, ARRAY_FILTER_USE_BOTH);
+        });
 
         $shop->update($data);
 
-        return $this->successResponse(new ShopResource($shop->fresh()), 'Shop profile updated successfully');
+        return $this->successResponse(new ShopResource($shop->fresh(['user'])), 'Shop profile updated successfully');
     }
 
     /**

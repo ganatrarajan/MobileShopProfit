@@ -43,6 +43,7 @@ class Shop extends Model
         'longitude',
         'upi_id',
         'tagline',
+        'terms_and_conditions',
         'gst_number',
         'logo',
         'currency',
@@ -459,7 +460,20 @@ class Shop extends Model
 
     public function getOwnerMobileAttribute(): ?string
     {
-        return $this->user?->mobile;
+        if ($this->user && $this->user->mobile) {
+            return $this->user->mobile;
+        }
+        if ($this->user_id) {
+            $owner = User::find($this->user_id);
+            if ($owner && $owner->mobile) {
+                return $owner->mobile;
+            }
+        }
+        $ownerByShop = User::where('shop_id', $this->id)->where('role', 'owner')->first();
+        if ($ownerByShop && $ownerByShop->mobile) {
+            return $ownerByShop->mobile;
+        }
+        return $this->attributes['phone'] ?? null;
     }
 
     public function setMobileAttribute(?string $value): void

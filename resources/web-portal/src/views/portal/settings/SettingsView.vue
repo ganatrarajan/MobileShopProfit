@@ -102,6 +102,23 @@
         </div>
       </div>
 
+      <!-- Invoice Terms & Conditions Card -->
+      <div class="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200/80 dark:border-slate-800/80 p-6 shadow-sm space-y-4">
+        <h3 class="font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800/80 pb-3">Invoice Terms & Conditions</h3>
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+            Bill Terms (Printed on PDF Invoices)
+          </label>
+          <textarea
+            v-model="form.terms_and_conditions"
+            rows="4"
+            class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100 placeholder-slate-400 font-mono text-xs"
+            placeholder="1. Goods once sold will be covered strictly as per warranty terms.&#10;2. Physical damage or liquid exposure voids warranty.&#10;3. Please present this bill for any warranty claims."
+          ></textarea>
+          <p class="text-[10px] text-slate-400 mt-1">These custom warranty and repair terms are printed at the bottom of all customer bills.</p>
+        </div>
+      </div>
+
       <div class="flex justify-end">
         <button
           type="submit"
@@ -219,6 +236,7 @@ const form = reactive({
   city: '',
   state: '',
   pincode: '',
+  terms_and_conditions: '',
 });
 
 async function loadAdminContact() {
@@ -254,6 +272,7 @@ async function loadShop() {
         city: data.city || '',
         state: data.state || '',
         pincode: data.pincode || '',
+        terms_and_conditions: data.terms_and_conditions || '',
       });
     }
   } catch (err) {
