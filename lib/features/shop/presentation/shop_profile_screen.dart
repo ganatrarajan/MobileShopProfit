@@ -9,6 +9,8 @@ import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../../core/storage/auth_storage.dart';
+import '../../auth/presentation/otp_verification_screen.dart';
+import '../../../core/widgets/confirm_phone_dialog.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/utils/india_locations.dart';
 import '../../../core/widgets/app_searchable_bottom_sheet.dart';
@@ -50,6 +52,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
   String? _signatureUrl;
   File? _newSignatureFile;
   String? _message;
+  String _initialMobile = '';
 
   @override
   void initState() {
@@ -74,6 +77,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
                 ? localUserMobile
                 : (shop['mobile'] ?? shop['phone'] ?? '').toString().trim());
 
+        _initialMobile = ownerMob;
         _mobileController.text = ownerMob;
 
         final shopPhone = (shop['shop_phone'] != null && shop['shop_phone'].toString().trim().isNotEmpty)
@@ -383,11 +387,85 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
     });
 
     final newOwnerMobile = _mobileController.text.trim();
+    final isMobileChanged = _initialMobile.isNotEmpty && newOwnerMobile != _initialMobile;
     final shopPhone = _phoneController.text.trim().isNotEmpty
         ? _phoneController.text.trim()
         : newOwnerMobile;
 
     try {
+      if (isMobileChanged) {
+        final confirmed = await showConfirmPhoneDialog(
+          context: context,
+          mobileNumber: newOwnerMobile,
+          title: 'Confirm Mobile Update',
+          message: 'An SMS OTP code will be sent to verify your new owner mobile number:',
+        );
+        if (confirmed != true) {
+          setState(() => _isSaving = false);
+          return;
+        }
+
+        // Send MSG91 OTP for Mobile Update
+        final otpSendRes = await _authRepository.sendProfileOtp(
+          name: _ownerController.text.trim(),
+          mobile: newOwnerMobile,
+          email: _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : null,
+        );
+
+        if (!otpSendRes.success || otpSendRes.data == null) {
+          if (mounted) {
+            setState(() {
+              _isSaving = false;
+              _message = otpSendRes.message.isNotEmpty ? otpSendRes.message : 'Failed to send OTP for mobile update.';
+            });
+            AppFeedback.showError(
+              context,
+              title: 'OTP Send Failed',
+              error: _message!,
+            );
+          }
+          return;
+        }
+
+        final data = otpSendRes.data is Map ? otpSendRes.data['data'] ?? otpSendRes.data : {};
+        final verificationId = data['verification_id']?.toString() ?? '';
+
+        if (verificationId.isEmpty) {
+          if (mounted) {
+            setState(() {
+              _isSaving = false;
+              _message = 'Invalid verification session response.';
+            });
+          }
+          return;
+        }
+
+        setState(() => _isSaving = false);
+        if (!mounted) return;
+
+        // Open OTP Verification Screen
+        final dynamic verified = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OtpVerificationScreen(
+              verificationId: verificationId,
+              mobile: newOwnerMobile,
+              cooldownSeconds: data['cooldown_seconds'] ?? 60,
+              isProfileUpdate: true,
+            ),
+          ),
+        );
+
+        if (verified != true) {
+          // Verification failed or user backed out
+          return;
+        }
+
+        setState(() {
+          _isSaving = true;
+          _initialMobile = newOwnerMobile;
+        });
+      }
       final response = await _authRepository.updateShop(
         name: _nameController.text.trim(),
         ownerName: _ownerController.text.trim(),
@@ -672,7 +750,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
                             ),
                             const SizedBox(height: 6),
                             const Text(
-                              'Primary owner mobile used for login and account access.',
+                              'Used strictly for account login. SMS OTP verification will be sent if you update your mobile number.',
                               style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
                             ),
                             const SizedBox(height: 14),
