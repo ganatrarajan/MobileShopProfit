@@ -147,13 +147,19 @@ class ShopController extends Controller
         // Handle owner login mobile update directly
         $ownerMobile = $request->input('owner_mobile') ?? $request->input('mobile');
         if (!empty($ownerMobile) && trim((string)$ownerMobile) !== '') {
-            $user->mobile = trim((string)$ownerMobile);
-            $user->phone = trim((string)$ownerMobile);
-            $user->save();
+            $cleanedMobile = trim((string)$ownerMobile);
+            $isOtpEnabled = filter_var(\App\Models\SystemSetting::getByKey('otp_verification_enabled', '1'), FILTER_VALIDATE_BOOLEAN);
+
+            // If OTP is disabled or user already verified (or mobile unchanged), update user mobile
+            if (! $isOtpEnabled || $user->mobile === $cleanedMobile) {
+                $user->mobile = $cleanedMobile;
+                $user->phone = $cleanedMobile;
+                $user->save();
+            }
 
             // If shop public phone is still empty, fallback to owner mobile
             if (empty($data['phone']) && empty($shop->phone)) {
-                $data['phone'] = trim((string)$ownerMobile);
+                $data['phone'] = $cleanedMobile;
             }
         }
 
