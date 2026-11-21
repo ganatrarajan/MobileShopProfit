@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/routes/app_routes.dart';

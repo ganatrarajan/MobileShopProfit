@@ -1,8 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/custom_text_field.dart';
+import '../../../../core/widgets/digital_signature_pad_dialog.dart';
 import '../../data/customer_repository.dart';
 import '../../models/customer.dart';
 
@@ -33,6 +35,7 @@ class _QuickAddCustomerModalState extends State<QuickAddCustomerModal> {
   final _customerRepository = CustomerRepository();
   bool _isSaving = false;
   String? _errorMessage;
+  File? _signatureFile;
 
   @override
   void dispose() {
@@ -41,6 +44,20 @@ class _QuickAddCustomerModalState extends State<QuickAddCustomerModal> {
     _emailController.dispose();
     _addressController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickSignature() async {
+    await SignaturePickerHelper.showOptions(
+      context: context,
+      title: 'Customer Signature (Optional)',
+      hasExistingSignature: _signatureFile != null,
+      onSignaturePicked: (File file) {
+        setState(() => _signatureFile = file);
+      },
+      onSignatureCleared: () {
+        setState(() => _signatureFile = null);
+      },
+    );
   }
 
   Future<void> _save() async {
@@ -56,6 +73,7 @@ class _QuickAddCustomerModalState extends State<QuickAddCustomerModal> {
         mobile: _mobileController.text.trim(),
         email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
         address: _addressController.text.trim().isEmpty ? null : _addressController.text.trim(),
+        signature: _signatureFile?.path,
       );
 
       if (mounted) {
@@ -216,6 +234,85 @@ class _QuickAddCustomerModalState extends State<QuickAddCustomerModal> {
               hint: 'e.g. Shop 12, Main Market',
               controller: _addressController,
               prefixIcon: Icons.location_on_outlined,
+            ),
+            const SizedBox(height: 14),
+
+            // Signature Option (Optional)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Customer Signature',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text('Optional', style: TextStyle(fontSize: 10, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            InkWell(
+              onTap: _pickSignature,
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: double.infinity,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: _signatureFile != null ? AppColors.primary : AppColors.border,
+                    width: _signatureFile != null ? 1.5 : 1.0,
+                  ),
+                ),
+                child: _signatureFile != null
+                    ? Stack(
+                        children: [
+                          Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(6.0),
+                              child: Image.file(_signatureFile!, fit: BoxFit.contain),
+                            ),
+                          ),
+                          Positioned(
+                            top: 2,
+                            right: 2,
+                            child: IconButton(
+                              icon: const Icon(Icons.cancel_rounded, color: AppColors.error, size: 20),
+                              onPressed: () => setState(() => _signatureFile = null),
+                              tooltip: 'Remove',
+                            ),
+                          ),
+                        ],
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.draw_rounded, color: AppColors.primary, size: 18),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Tap to Draw or Upload Sign',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
             ),
             const SizedBox(height: 20),
             CustomButton(

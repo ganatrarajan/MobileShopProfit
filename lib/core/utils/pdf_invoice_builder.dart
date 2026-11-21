@@ -1,4 +1,5 @@
 import '../../features/auth/data/auth_repository.dart';
+import '../../features/customer/data/customer_repository.dart';
 import '../../features/repair/models/repair.dart';
 import 'dart:io';
 import 'dart:typed_data';
@@ -115,6 +116,22 @@ class PdfInvoiceBuilder {
 
         final sigPath = shop['signature_path'] ?? shop['signature_url'] ?? shop['signature'];
         signatureBytes = await _loadMediaBytes(sigPath?.toString());
+      }
+    } catch (_) {}
+
+    Uint8List? customerSignatureBytes;
+    try {
+      final custSig = sale.customer?.signatureUrl ?? sale.customer?.signaturePath;
+      if (custSig != null && custSig.isNotEmpty) {
+        customerSignatureBytes = await _loadMediaBytes(custSig);
+      } else if (sale.customerId != null && sale.customerId! > 0) {
+        final custRes = await CustomerRepository().getCustomerDetails(sale.customerId!);
+        if (custRes.success && custRes.data != null) {
+          final s = custRes.data!.signatureUrl ?? custRes.data!.signaturePath;
+          if (s != null && s.isNotEmpty) {
+            customerSignatureBytes = await _loadMediaBytes(s);
+          }
+        }
       }
     } catch (_) {}
 
@@ -769,31 +786,39 @@ class PdfInvoiceBuilder {
                       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: pw.CrossAxisAlignment.end,
                       children: [
-                        // Left Footer Text
+                        // Left: Customer Signature & Thank You
                         pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
-                            pw.Text('Thank you for choosing $shopName', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: brandBlue)),
+                            if (customerSignatureBytes != null) ...[
+                              pw.Container(
+                                height: 26,
+                                child: pw.Image(pw.MemoryImage(customerSignatureBytes), fit: pw.BoxFit.contain),
+                              ),
+                              pw.SizedBox(height: 2),
+                            ],
+                            pw.Container(width: 80, height: 1, color: borderBlue),
                             pw.SizedBox(height: 2),
-                            pw.Text('Same Devices  |  Happier People  |  Always Here for You', style: pw.TextStyle(fontSize: 7.5, color: textMuted)),
+                            pw.Text('Customer Signature', style: pw.TextStyle(fontSize: 7.5, color: textMuted)),
+                            pw.SizedBox(height: 4),
+                            pw.Text('Thank you for choosing $shopName', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: brandBlue)),
                           ],
                         ),
-                        // Right Footer Text & Authorised Signature
+                        // Right: Authorised Shop Signature
                         pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.end,
                           children: [
                             if (signatureBytes != null) ...[
                               pw.Container(
-                                height: 24,
+                                height: 26,
                                 child: pw.Image(pw.MemoryImage(signatureBytes), fit: pw.BoxFit.contain),
                               ),
                               pw.SizedBox(height: 2),
                             ],
-                            pw.Text('Buy   |   Repair   |   Upgrade', style: pw.TextStyle(fontSize: 8, color: textMuted)),
+                            pw.Container(width: 80, height: 1.5, color: brandBlue),
                             pw.SizedBox(height: 2),
-                            pw.Text('Reliable Care for a Connected World', style: pw.TextStyle(fontSize: 8, color: textMuted)),
-                            pw.SizedBox(height: 2),
-                            pw.Container(width: 50, height: 1.5, color: brandBlue),
+                            pw.Text('Authorised Shop Signature', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: textDark)),
+                            pw.Text('For $shopName', style: pw.TextStyle(fontSize: 7.5, color: textMuted)),
                           ],
                         ),
                       ],
@@ -935,6 +960,22 @@ class PdfInvoiceBuilder {
 
         final sigPath = shop['signature_path'] ?? shop['signature_url'] ?? shop['signature'];
         signatureBytes = await _loadMediaBytes(sigPath?.toString());
+      }
+    } catch (_) {}
+
+    Uint8List? customerSignatureBytes;
+    try {
+      final custSig = repair.customer?.signatureUrl ?? repair.customer?.signaturePath;
+      if (custSig != null && custSig.isNotEmpty) {
+        customerSignatureBytes = await _loadMediaBytes(custSig);
+      } else if (repair.customerId > 0) {
+        final custRes = await CustomerRepository().getCustomerDetails(repair.customerId);
+        if (custRes.success && custRes.data != null) {
+          final s = custRes.data!.signatureUrl ?? custRes.data!.signaturePath;
+          if (s != null && s.isNotEmpty) {
+            customerSignatureBytes = await _loadMediaBytes(s);
+          }
+        }
       }
     } catch (_) {}
 
@@ -1390,27 +1431,39 @@ class PdfInvoiceBuilder {
                       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: pw.CrossAxisAlignment.end,
                       children: [
+                        // Left: Customer Signature & Thank You
                         pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
-                            pw.Text('Thank you for choosing $shopName', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: brandBlue)),
+                            if (customerSignatureBytes != null) ...[
+                              pw.Container(
+                                height: 26,
+                                child: pw.Image(pw.MemoryImage(customerSignatureBytes), fit: pw.BoxFit.contain),
+                              ),
+                              pw.SizedBox(height: 2),
+                            ],
+                            pw.Container(width: 80, height: 1, color: borderBlue),
                             pw.SizedBox(height: 2),
-                            pw.Text('Quality Mobile Repair  |  Fast Service  |  Always Here for You', style: pw.TextStyle(fontSize: 7.5, color: textMuted)),
+                            pw.Text('Customer Signature', style: pw.TextStyle(fontSize: 7.5, color: textMuted)),
+                            pw.SizedBox(height: 4),
+                            pw.Text('Thank you for choosing $shopName', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: brandBlue)),
                           ],
                         ),
+                        // Right: Authorised Shop Signature
                         pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.end,
                           children: [
                             if (signatureBytes != null) ...[
                               pw.Container(
-                                height: 24,
+                                height: 26,
                                 child: pw.Image(pw.MemoryImage(signatureBytes), fit: pw.BoxFit.contain),
                               ),
                               pw.SizedBox(height: 2),
                             ],
-                            pw.Text('Authorised Signature', style: pw.TextStyle(fontSize: 8, color: textMuted)),
+                            pw.Container(width: 80, height: 1.5, color: brandBlue),
                             pw.SizedBox(height: 2),
-                            pw.Container(width: 50, height: 1.5, color: brandBlue),
+                            pw.Text('Authorised Shop Signature', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: textDark)),
+                            pw.Text('For $shopName', style: pw.TextStyle(fontSize: 7.5, color: textMuted)),
                           ],
                         ),
                       ],
