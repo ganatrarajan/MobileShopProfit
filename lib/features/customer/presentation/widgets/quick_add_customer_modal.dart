@@ -136,12 +136,13 @@ class _QuickAddCustomerModalState extends State<QuickAddCustomerModal> {
         top: 20,
         bottom: bottomInset + 20,
       ),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Row(
               children: [
                 Container(
@@ -324,6 +325,7 @@ class _QuickAddCustomerModalState extends State<QuickAddCustomerModal> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }
