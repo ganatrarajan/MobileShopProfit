@@ -22,7 +22,23 @@ class Customer extends Model
         'address',
         'city',
         'notes',
+        'signature_path',
     ];
+
+    protected $appends = [
+        'signature_url',
+    ];
+
+    public function getSignatureUrlAttribute(): ?string
+    {
+        if (! $this->signature_path) {
+            return null;
+        }
+        if (str_starts_with($this->signature_path, 'http://') || str_starts_with($this->signature_path, 'https://')) {
+            return $this->signature_path;
+        }
+        return asset(\Illuminate\Support\Facades\Storage::url($this->signature_path));
+    }
 
     /**
      * Get the shop that owns the customer.

@@ -576,6 +576,24 @@ class AuthController extends Controller
             return $this->errorResponse('This mobile number is already registered by another account.', 422);
         }
 
+        // Check if OTP verification is enabled in Admin Panel
+        if (! $this->isOtpEnabled()) {
+            $user->update([
+                'name'   => $request->name,
+                'email'  => $request->email ?? $user->email,
+                'mobile' => $request->mobile,
+                'phone'  => $request->mobile,
+            ]);
+            if ($user->shop) {
+                $user->shop->update(['owner_name' => $request->name]);
+            }
+
+            return $this->successResponse([
+                'otp_required' => false,
+                'user'         => $user->fresh(),
+            ], 'Owner mobile updated directly (OTP verification disabled in admin panel).');
+        }
+
         // Generate 4-digit OTP
         $otp = (string) random_int(1000, 9999);
         $expirySeconds = (int) config('services.msg91.otp_expiry', 300);
@@ -607,6 +625,7 @@ class AuthController extends Controller
         ]);
 
         return $this->successResponse([
+            'otp_required'     => true,
             'verification_id'  => $pending->id,
             'mobile'           => $request->mobile,
             'cooldown_seconds' => (int) config('services.msg91.resend_cooldown', 60),

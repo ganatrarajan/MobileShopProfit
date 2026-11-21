@@ -25,6 +25,8 @@ class CustomerResource extends JsonResource
             'address'          => $this->address,
             'city'             => $this->city,
             'notes'            => $this->notes,
+            'signature_path'   => $this->signature_path,
+            'signature_url'    => $this->signature_url,
             'repairs_count'    => (int) ($this->repairs_count ?? ($this->relationLoaded('repairs') ? $this->repairs->count() : 0)),
             'sales_count'      => (int) ($this->sales_count ?? ($this->relationLoaded('sales') ? $this->sales->count() : 0)),
             'devices_count'    => (int) ($this->devices_count ?? ($this->relationLoaded('devices') ? $this->devices->count() : 0)),

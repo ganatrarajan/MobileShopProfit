@@ -21,6 +21,8 @@ class CreateCustomerRequest extends FormRequest
             'address'          => 'nullable|string',
             'city'             => 'nullable|string|max:100',
             'notes'            => 'nullable|string',
+            'signature'        => 'nullable',
+            'signature_path'   => 'nullable',
         ];
     }
 

@@ -43,8 +43,10 @@ class Shop extends Model
         'longitude',
         'upi_id',
         'tagline',
+        'terms_and_conditions',
         'gst_number',
         'logo',
+        'signature_path',
         'currency',
         'status',
         'referral_code',
@@ -94,6 +96,7 @@ class Shop extends Model
 
     protected $appends = [
         'logo_url',
+        'signature_url',
         'owner_mobile',
         'effective_max_staff',
         'staff_days_remaining',
@@ -351,6 +354,17 @@ class Shop extends Model
         return null;
     }
 
+    public function getSignatureUrlAttribute(): ?string
+    {
+        if (! $this->signature_path) {
+            return null;
+        }
+        if (str_starts_with($this->signature_path, 'http://') || str_starts_with($this->signature_path, 'https://')) {
+            return $this->signature_path;
+        }
+        return asset(\Illuminate\Support\Facades\Storage::url($this->signature_path));
+    }
+
     /**
      * Get the owner user of the shop.
      */
@@ -459,7 +473,20 @@ class Shop extends Model
 
     public function getOwnerMobileAttribute(): ?string
     {
-        return $this->user?->mobile;
+        if ($this->user && $this->user->mobile) {
+            return $this->user->mobile;
+        }
+        if ($this->user_id) {
+            $owner = User::find($this->user_id);
+            if ($owner && $owner->mobile) {
+                return $owner->mobile;
+            }
+        }
+        $ownerByShop = User::where('shop_id', $this->id)->where('role', 'owner')->first();
+        if ($ownerByShop && $ownerByShop->mobile) {
+            return $ownerByShop->mobile;
+        }
+        return $this->attributes['phone'] ?? null;
     }
 
     public function setMobileAttribute(?string $value): void
