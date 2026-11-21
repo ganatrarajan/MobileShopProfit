@@ -32,8 +32,8 @@ class UpdateShopRequest extends FormRequest
             'tagline'              => 'sometimes|nullable|string|max:255',
             'terms_and_conditions' => 'sometimes|nullable|string',
             'gst_number'           => 'sometimes|nullable|string|max:50',
-            'signature'            => 'sometimes|nullable|string',
-            'signature_path'       => 'sometimes|nullable|string',
+            'signature'            => 'sometimes|nullable',
+            'signature_path'       => 'sometimes|nullable',
             'currency'             => 'sometimes|nullable|string|max:10',
         ];
     }

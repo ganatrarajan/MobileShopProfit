@@ -120,13 +120,13 @@ class CustomerController extends Controller
     /**
      * Process and store signature from file upload or base64 data URL.
      */
-    private function processSignature(Request $request, ?string $signatureInput): ?string
+    private function processSignature(Request $request, $signatureInput = null): ?string
     {
         if ($request->hasFile('signature')) {
             return $request->file('signature')->store('signatures/customers', 'public');
         }
 
-        if (!empty($signatureInput) && str_starts_with($signatureInput, 'data:image')) {
+        if (!empty($signatureInput) && is_string($signatureInput) && str_starts_with($signatureInput, 'data:image')) {
             try {
                 $imageParts = explode(';base64,', $signatureInput);
                 if (count($imageParts) === 2) {
@@ -145,7 +145,7 @@ class CustomerController extends Controller
             }
         }
 
-        return $signatureInput;
+        return is_string($signatureInput) ? $signatureInput : null;
     }
 
     /**
