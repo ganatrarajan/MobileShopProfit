@@ -441,6 +441,28 @@ class AuthRepository {
     return response;
   }
 
+  Future<ApiResponse<dynamic>> uploadShopSignature(String filePath) async {
+    final response = await _apiClient.postMultipart(
+      ApiEndpoints.shopSignature,
+      filePath: filePath,
+      fileFieldName: 'signature',
+    );
+
+    if (response.success && response.data != null) {
+      final user = await _authStorage.getUser();
+      final token = await _authStorage.getToken();
+      if (user != null && token != null) {
+        await _authStorage.saveSession(
+          token: token,
+          user: user,
+          shop: response.data,
+        );
+      }
+    }
+
+    return response;
+  }
+
   Future<ApiResponse<dynamic>> sendProfileOtp({
     required String name,
     required String mobile,

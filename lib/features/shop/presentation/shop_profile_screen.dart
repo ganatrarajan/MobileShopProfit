@@ -13,6 +13,7 @@ import '../../auth/presentation/otp_verification_screen.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/utils/india_locations.dart';
 import '../../../core/widgets/app_searchable_bottom_sheet.dart';
+import '../../../core/widgets/digital_signature_pad_dialog.dart';
 import 'digital_visiting_card_screen.dart';
 
 class ShopProfileScreen extends StatefulWidget {
@@ -99,8 +100,8 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
         final localShop = await AuthStorage().getShop();
         final savedTerms = shop['terms_and_conditions'] ?? shop['terms'] ?? localShop?['terms_and_conditions'];
         _termsController.text = savedTerms ?? "1. Goods once sold will be covered strictly as per warranty terms.\n2. Physical damage, liquid exposure, or unauthorized tampering voids all warranty.\n3. Please present this bill for any warranty claims or queries.";
+        _signatureUrl = shop['signature_url'] ?? shop['signature_path'] ?? localShop?['signature_path'] ?? localShop?['signature_url'];
         if (localShop != null) {
-          _signatureUrl = localShop['signature_path'] ?? localShop['signature_url'];
           if (_logoUrl == null || _logoUrl!.isEmpty) {
             _logoUrl = localShop['logo_path'] ?? localShop['logo_url'];
           }
@@ -177,41 +178,67 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
 
   Future<void> _pickAndUploadSignature() async {
     try {
-      final XFile? image = await _picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 800,
-        maxHeight: 400,
-        imageQuality: 85,
-      );
+      await SignaturePickerHelper.showOptions(
+        context: context,
+        title: 'Shop Authorised Signature',
+        hasExistingSignature: _newSignatureFile != null || (_signatureUrl != null && _signatureUrl!.isNotEmpty),
+        onSignaturePicked: (File file) async {
+          setState(() {
+            _newSignatureFile = file;
+            _signatureUrl = file.path;
+          });
 
-      if (image != null) {
-        setState(() {
-          _newSignatureFile = File(image.path);
-          _signatureUrl = image.path;
-        });
+          // Upload signature to backend API
+          try {
+            await _authRepository.uploadShopSignature(file.path);
+          } catch (_) {}
 
-        final shopData = await AuthStorage().getShop() ?? {};
-        shopData['signature_path'] = image.path;
-        shopData['signature_url'] = image.path;
-        await AuthStorage().saveSession(
-          token: (await AuthStorage().getToken()) ?? '',
-          user: (await AuthStorage().getUser()) ?? {},
-          shop: shopData,
-        );
-
-        if (mounted) {
-          AppFeedback.showSuccess(
-            context,
-            title: 'Signature Saved',
-            message: 'Shop signature image updated successfully!',
+          final shopData = await AuthStorage().getShop() ?? {};
+          shopData['signature_path'] = file.path;
+          shopData['signature_url'] = file.path;
+          await AuthStorage().saveSession(
+            token: (await AuthStorage().getToken()) ?? '',
+            user: (await AuthStorage().getUser()) ?? {},
+            shop: shopData,
           );
-        }
-      }
+
+          if (mounted) {
+            AppFeedback.showSuccess(
+              context,
+              title: 'Signature Saved',
+              message: 'Shop signature updated successfully!',
+            );
+          }
+        },
+        onSignatureCleared: () async {
+          setState(() {
+            _newSignatureFile = null;
+            _signatureUrl = null;
+          });
+
+          final shopData = await AuthStorage().getShop() ?? {};
+          shopData['signature_path'] = null;
+          shopData['signature_url'] = null;
+          await AuthStorage().saveSession(
+            token: (await AuthStorage().getToken()) ?? '',
+            user: (await AuthStorage().getUser()) ?? {},
+            shop: shopData,
+          );
+
+          if (mounted) {
+            AppFeedback.showInfo(
+              context,
+              title: 'Signature Removed',
+              message: 'Shop signature cleared.',
+            );
+          }
+        },
+      );
     } catch (e) {
       if (mounted) {
         AppFeedback.showError(
           context,
-          title: 'Signature Selection Failed',
+          title: 'Signature Update Failed',
           error: e.toString(),
         );
       }
@@ -646,34 +673,38 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
                                 ),
                                 Column(
                                   children: [
-                                    Container(
-                                      width: 120,
-                                      height: 90,
-                                      decoration: BoxDecoration(
-                                        color: AppColors.surface,
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: AppColors.border),
+                                    InkWell(
+                                      onTap: _pickAndUploadSignature,
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Container(
+                                        width: 120,
+                                        height: 90,
+                                        decoration: BoxDecoration(
+                                          color: AppColors.surface,
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(color: AppColors.border),
+                                        ),
+                                        child: _newSignatureFile != null
+                                            ? ClipRRect(
+                                                borderRadius: BorderRadius.circular(8),
+                                                child: Image.file(_newSignatureFile!, fit: BoxFit.contain),
+                                              )
+                                            : (_signatureUrl != null && _signatureUrl!.isNotEmpty
+                                                ? ClipRRect(
+                                                    borderRadius: BorderRadius.circular(8),
+                                                    child: _signatureUrl!.startsWith('http')
+                                                        ? Image.network(_signatureUrl!, fit: BoxFit.contain)
+                                                        : Image.file(File(_signatureUrl!), fit: BoxFit.contain),
+                                                  )
+                                                : const Column(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    children: [
+                                                      Icon(Icons.draw_rounded, size: 26, color: AppColors.textMuted),
+                                                      SizedBox(height: 2),
+                                                      Text('Draw / Photo', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                                                    ],
+                                                  )),
                                       ),
-                                      child: _newSignatureFile != null
-                                          ? ClipRRect(
-                                              borderRadius: BorderRadius.circular(8),
-                                              child: Image.file(_newSignatureFile!, fit: BoxFit.contain),
-                                            )
-                                          : (_signatureUrl != null && _signatureUrl!.isNotEmpty
-                                              ? ClipRRect(
-                                                  borderRadius: BorderRadius.circular(8),
-                                                  child: _signatureUrl!.startsWith('http')
-                                                      ? Image.network(_signatureUrl!, fit: BoxFit.contain)
-                                                      : Image.file(File(_signatureUrl!), fit: BoxFit.contain),
-                                                )
-                                              : const Column(
-                                                  mainAxisAlignment: MainAxisAlignment.center,
-                                                  children: [
-                                                    Icon(Icons.draw_rounded, size: 26, color: AppColors.textMuted),
-                                                    SizedBox(height: 2),
-                                                    Text('Add Sign', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
-                                                  ],
-                                                )),
                                     ),
                                     const SizedBox(height: 6),
                                     TextButton.icon(

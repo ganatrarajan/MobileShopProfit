@@ -1,3 +1,4 @@
+import 'dart:io';
 import '../../../core/utils/whatsapp_helper.dart';
 import '../../../core/widgets/whatsapp_icon.dart';
 import '../../../core/widgets/app_shimmer.dart';
@@ -222,6 +223,48 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
                     _buildDetailRow(Icons.location_city_outlined, 'City', _currentCustomer.city!),
                   if (_currentCustomer.notes != null && _currentCustomer.notes!.isNotEmpty)
                     _buildDetailRow(Icons.note_alt_outlined, 'Notes', _currentCustomer.notes!),
+                  if ((_currentCustomer.signatureUrl != null && _currentCustomer.signatureUrl!.isNotEmpty) ||
+                      (_currentCustomer.signaturePath != null && _currentCustomer.signaturePath!.isNotEmpty)) ...[
+                    const Divider(height: 24),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.gesture_rounded, size: 20, color: AppColors.textMuted),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Customer Signature',
+                              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                            ),
+                            const SizedBox(height: 6),
+                            Container(
+                              height: 60,
+                              width: 140,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppColors.border),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: (_currentCustomer.signatureUrl ?? _currentCustomer.signaturePath)!.startsWith('http')
+                                    ? Image.network(
+                                        (_currentCustomer.signatureUrl ?? _currentCustomer.signaturePath)!,
+                                        fit: BoxFit.contain,
+                                      )
+                                    : Image.file(
+                                        File((_currentCustomer.signatureUrl ?? _currentCustomer.signaturePath)!),
+                                        fit: BoxFit.contain,
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -257,12 +300,12 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
             _isLoadingDevices
                 ? AppShimmer.cardLoading(height: 70)
                 : _devices.isEmpty
-                    ? CustomCard(
+                    ? const CustomCard(
                         child: Row(
                           children: [
-                            const Icon(Icons.phone_iphone_rounded, color: AppColors.textMuted, size: 24),
-                            const SizedBox(width: 12),
-                            const Expanded(
+                            Icon(Icons.phone_iphone_rounded, color: AppColors.textMuted, size: 24),
+                            SizedBox(width: 12),
+                            Expanded(
                               child: Text(
                                 'No registered devices yet. Tap "+ Add Device" to register customer phone/tablet.',
                                 style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
@@ -286,10 +329,10 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
                               },
                               child: Row(
                                 children: [
-                                  CircleAvatar(
+                                  const CircleAvatar(
                                     radius: 20,
                                     backgroundColor: AppColors.primaryLight,
-                                    child: const Icon(Icons.phone_iphone_rounded, color: Colors.white, size: 20),
+                                    child: Icon(Icons.phone_iphone_rounded, color: Colors.white, size: 20),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(

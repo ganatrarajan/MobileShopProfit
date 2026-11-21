@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:io';
+import 'package:flutter/material.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
@@ -6,6 +7,7 @@ import '../../../core/utils/app_feedback.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/custom_text_field.dart';
+import '../../../core/widgets/digital_signature_pad_dialog.dart';
 import '../data/customer_repository.dart';
 import '../models/customer.dart';
 
@@ -30,6 +32,7 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
   String? _errorMessage;
+  File? _signatureFile;
 
   void _showFormError(String errorMsg) {
     FocusManager.instance.primaryFocus?.unfocus();
@@ -42,6 +45,20 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> {
         curve: Curves.easeInOut,
       );
     }
+  }
+
+  Future<void> _pickSignature() async {
+    await SignaturePickerHelper.showOptions(
+      context: context,
+      title: 'Customer Signature (Optional)',
+      hasExistingSignature: _signatureFile != null,
+      onSignaturePicked: (File file) {
+        setState(() => _signatureFile = file);
+      },
+      onSignatureCleared: () {
+        setState(() => _signatureFile = null);
+      },
+    );
   }
 
   @override
@@ -70,6 +87,7 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> {
         address: _addressController.text.trim().isNotEmpty ? _addressController.text.trim() : null,
         city: _cityController.text.trim().isNotEmpty ? _cityController.text.trim() : null,
         notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
+        signature: _signatureFile?.path,
       );
 
       if (mounted) {
@@ -266,6 +284,107 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> {
                         controller: _notesController,
                         prefixIcon: Icons.note_alt_outlined,
                       ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                CustomCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Customer Signature',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text('Optional', style: TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Draw digital finger signature or upload photo signature for invoice and job cards.',
+                        style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                      ),
+                      const SizedBox(height: 14),
+                      InkWell(
+                        onTap: _pickSignature,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          width: double.infinity,
+                          height: 120,
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: _signatureFile != null ? AppColors.primary : AppColors.border,
+                              width: _signatureFile != null ? 1.5 : 1.0,
+                            ),
+                          ),
+                          child: _signatureFile != null
+                              ? Stack(
+                                  children: [
+                                    Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(8.0),
+                                        child: Image.file(_signatureFile!, fit: BoxFit.contain),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      top: 4,
+                                      right: 4,
+                                      child: IconButton(
+                                        icon: const Icon(Icons.cancel_rounded, color: AppColors.error, size: 22),
+                                        onPressed: () => setState(() => _signatureFile = null),
+                                        tooltip: 'Remove',
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary.withOpacity(0.1),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.draw_rounded, color: AppColors.primary, size: 24),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    const Text(
+                                      'Tap to Draw Digital Sign or Upload Photo',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                        ),
+                      ),
+                      if (_signatureFile != null) ...[
+                        const SizedBox(height: 6),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            onPressed: _pickSignature,
+                            icon: const Icon(Icons.edit_outlined, size: 16, color: AppColors.primary),
+                            label: const Text('Change Signature', style: TextStyle(color: AppColors.primary, fontSize: 12)),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

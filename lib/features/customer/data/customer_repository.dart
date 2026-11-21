@@ -43,7 +43,27 @@ class CustomerRepository {
     String? address,
     String? city,
     String? notes,
+    String? signature,
   }) async {
+    if (signature != null && signature.isNotEmpty && !signature.startsWith('data:image') && !signature.startsWith('http')) {
+      final fields = <String, String>{
+        'name': name,
+        'mobile': mobile,
+      };
+      if (alternateMobile != null && alternateMobile.isNotEmpty) fields['alternate_mobile'] = alternateMobile;
+      if (email != null && email.isNotEmpty) fields['email'] = email;
+      if (address != null && address.isNotEmpty) fields['address'] = address;
+      if (city != null && city.isNotEmpty) fields['city'] = city;
+      if (notes != null && notes.isNotEmpty) fields['notes'] = notes;
+
+      return await _apiClient.postMultipart(
+        ApiEndpoints.customers,
+        filePath: signature,
+        fileFieldName: 'signature',
+        fields: fields,
+      );
+    }
+
     return await _apiClient.post(
       ApiEndpoints.customers,
       body: {
@@ -54,6 +74,7 @@ class CustomerRepository {
         'address': address,
         'city': city,
         'notes': notes,
+        if (signature != null) 'signature': signature,
       },
     );
   }
@@ -67,7 +88,28 @@ class CustomerRepository {
     String? address,
     String? city,
     String? notes,
+    String? signature,
   }) async {
+    if (signature != null && signature.isNotEmpty && !signature.startsWith('data:image') && !signature.startsWith('http')) {
+      final fields = <String, String>{
+        '_method': 'PUT',
+        'name': name,
+        'mobile': mobile,
+      };
+      if (alternateMobile != null && alternateMobile.isNotEmpty) fields['alternate_mobile'] = alternateMobile;
+      if (email != null && email.isNotEmpty) fields['email'] = email;
+      if (address != null && address.isNotEmpty) fields['address'] = address;
+      if (city != null && city.isNotEmpty) fields['city'] = city;
+      if (notes != null && notes.isNotEmpty) fields['notes'] = notes;
+
+      return await _apiClient.postMultipart(
+        '${ApiEndpoints.customers}/$id',
+        filePath: signature,
+        fileFieldName: 'signature',
+        fields: fields,
+      );
+    }
+
     return await _apiClient.put(
       '${ApiEndpoints.customers}/$id',
       body: {
@@ -78,6 +120,7 @@ class CustomerRepository {
         'address': address,
         'city': city,
         'notes': notes,
+        if (signature != null) 'signature': signature,
       },
     );
   }

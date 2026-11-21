@@ -18,6 +18,7 @@ class ApiEndpoints {
   static const String logout = '/auth/logout';
   static const String shop = '/shop';
   static const String shopLogo = '/shop/logo';
+  static const String shopSignature = '/shop/signature';
   static const String customers = '/customers';
   static const String sales = '/sales';
   static const String repairs = '/repairs';

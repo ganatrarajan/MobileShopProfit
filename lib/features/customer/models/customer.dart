@@ -16,6 +16,8 @@ class Customer {
   final String? address;
   final String? city;
   final String? notes;
+  final String? signaturePath;
+  final String? signatureUrl;
   final String? createdAt;
   final String? updatedAt;
 
@@ -29,6 +31,8 @@ class Customer {
     this.address,
     this.city,
     this.notes,
+    this.signaturePath,
+    this.signatureUrl,
     this.createdAt,
     this.updatedAt,
   });
@@ -44,6 +48,8 @@ class Customer {
       address: json['address']?.toString(),
       city: json['city']?.toString(),
       notes: json['notes']?.toString(),
+      signaturePath: json['signature_path']?.toString(),
+      signatureUrl: json['signature_url']?.toString(),
       createdAt: json['created_at']?.toString(),
       updatedAt: json['updated_at']?.toString(),
     );
@@ -60,6 +66,8 @@ class Customer {
       'address': address,
       'city': city,
       'notes': notes,
+      'signature_path': signaturePath,
+      'signature_url': signatureUrl,
       'created_at': createdAt,
       'updated_at': updatedAt,
     };
