@@ -46,6 +46,7 @@ class Shop extends Model
         'terms_and_conditions',
         'gst_number',
         'logo',
+        'signature_path',
         'currency',
         'status',
         'referral_code',
@@ -95,6 +96,7 @@ class Shop extends Model
 
     protected $appends = [
         'logo_url',
+        'signature_url',
         'owner_mobile',
         'effective_max_staff',
         'staff_days_remaining',
@@ -350,6 +352,17 @@ class Shop extends Model
         }
 
         return null;
+    }
+
+    public function getSignatureUrlAttribute(): ?string
+    {
+        if (! $this->signature_path) {
+            return null;
+        }
+        if (str_starts_with($this->signature_path, 'http://') || str_starts_with($this->signature_path, 'https://')) {
+            return $this->signature_path;
+        }
+        return asset(\Illuminate\Support\Facades\Storage::url($this->signature_path));
     }
 
     /**

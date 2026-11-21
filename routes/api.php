@@ -264,6 +264,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/shop', [ShopController::class, 'store']);
         Route::put('/shop', [ShopController::class, 'update']);
         Route::post('/shop/logo', [ShopController::class, 'uploadLogo']);
+        Route::post('/shop/signature', [ShopController::class, 'uploadSignature']);
 
         // Customers Module
         Route::apiResource('customers', CustomerController::class);

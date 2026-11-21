@@ -169,6 +169,11 @@ class ShopController extends Controller
             $user->save();
         }
 
+        // Process and save signature if provided
+        if ($request->has('signature') || $request->has('signature_path') || $request->hasFile('signature')) {
+            $data['signature_path'] = $this->processShopSignature($request, $request->input('signature') ?? $request->input('signature_path'));
+        }
+
         // Ensure shop is linked to user
         if (! $shop->user_id) {
             $data['user_id'] = $user->id;
@@ -205,5 +210,58 @@ class ShopController extends Controller
         $shop->update(['logo' => $logoPath]);
 
         return $this->successResponse(new ShopResource($shop->fresh()), 'Shop logo uploaded successfully');
+    }
+
+    /**
+     * Upload or update the shop signature image.
+     */
+    public function uploadSignature(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $shop = $user->shop;
+
+        if (! $shop) {
+            return $this->errorResponse('Shop profile not found', 404);
+        }
+
+        if ($shop->signature_path && Storage::disk('public')->exists($shop->signature_path)) {
+            Storage::disk('public')->delete($shop->signature_path);
+        }
+
+        $path = $this->processShopSignature($request, $request->input('signature'));
+        $shop->update(['signature_path' => $path]);
+
+        return $this->successResponse(new ShopResource($shop->fresh()), 'Shop signature uploaded successfully');
+    }
+
+    /**
+     * Process shop signature from file upload or base64 data URL.
+     */
+    private function processShopSignature(Request $request, ?string $signatureInput): ?string
+    {
+        if ($request->hasFile('signature')) {
+            return $request->file('signature')->store('signatures/shop', 'public');
+        }
+
+        if (!empty($signatureInput) && str_starts_with($signatureInput, 'data:image')) {
+            try {
+                $imageParts = explode(';base64,', $signatureInput);
+                if (count($imageParts) === 2) {
+                    $imageTypeAux = explode('image/', $imageParts[0]);
+                    $imageType = $imageTypeAux[1] ?? 'png';
+                    if (str_contains($imageType, '+')) {
+                        $imageType = explode('+', $imageType)[0];
+                    }
+                    $imageBase64 = base64_decode($imageParts[1]);
+                    $fileName = 'signatures/shop/shop_sig_' . uniqid() . '.' . $imageType;
+                    Storage::disk('public')->put($fileName, $imageBase64);
+                    return $fileName;
+                }
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::warning('Shop signature save failed: ' . $e->getMessage());
+            }
+        }
+
+        return $signatureInput;
     }
 }

@@ -100,6 +100,8 @@ class CustomerController extends Controller
             ], 409);
         }
 
+        $signaturePath = $this->processSignature($request, $request->input('signature') ?? $request->input('signature_path'));
+
         $customer = Customer::create([
             'shop_id'          => $shopId,
             'name'             => $request->name,
@@ -109,9 +111,41 @@ class CustomerController extends Controller
             'address'          => $request->address,
             'city'             => $request->city,
             'notes'            => $request->notes,
+            'signature_path'   => $signaturePath,
         ]);
 
         return $this->successResponse(new CustomerResource($customer), 'Customer created successfully', 201);
+    }
+
+    /**
+     * Process and store signature from file upload or base64 data URL.
+     */
+    private function processSignature(Request $request, ?string $signatureInput): ?string
+    {
+        if ($request->hasFile('signature')) {
+            return $request->file('signature')->store('signatures/customers', 'public');
+        }
+
+        if (!empty($signatureInput) && str_starts_with($signatureInput, 'data:image')) {
+            try {
+                $imageParts = explode(';base64,', $signatureInput);
+                if (count($imageParts) === 2) {
+                    $imageTypeAux = explode('image/', $imageParts[0]);
+                    $imageType = $imageTypeAux[1] ?? 'png';
+                    if (str_contains($imageType, '+')) {
+                        $imageType = explode('+', $imageType)[0];
+                    }
+                    $imageBase64 = base64_decode($imageParts[1]);
+                    $fileName = 'signatures/customers/cust_sig_' . uniqid() . '.' . $imageType;
+                    \Illuminate\Support\Facades\Storage::disk('public')->put($fileName, $imageBase64);
+                    return $fileName;
+                }
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::warning('Customer signature save failed: ' . $e->getMessage());
+            }
+        }
+
+        return $signatureInput;
     }
 
     /**
@@ -163,7 +197,7 @@ class CustomerController extends Controller
             }
         }
 
-        $customer->update($request->only([
+        $updateData = $request->only([
             'name',
             'mobile',
             'alternate_mobile',
@@ -171,7 +205,13 @@ class CustomerController extends Controller
             'address',
             'city',
             'notes',
-        ]));
+        ]);
+
+        if ($request->has('signature') || $request->has('signature_path') || $request->hasFile('signature')) {
+            $updateData['signature_path'] = $this->processSignature($request, $request->input('signature') ?? $request->input('signature_path'));
+        }
+
+        $customer->update($updateData);
 
         return $this->successResponse(new CustomerResource($customer->fresh()), 'Customer details updated successfully');
     }

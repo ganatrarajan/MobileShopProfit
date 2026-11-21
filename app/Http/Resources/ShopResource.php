@@ -35,6 +35,8 @@ class ShopResource extends JsonResource
             'gst_number'           => $this->gst_number,
             'logo'                 => $this->logo,
             'logo_url'             => $this->logo_url,
+            'signature_path'       => $this->signature_path,
+            'signature_url'        => $this->signature_url,
             'currency'             => $this->currency ?? 'INR',
             'status'               => $this->status ?? 'active',
             'created_at'           => $this->created_at?->toIso8601String(),
