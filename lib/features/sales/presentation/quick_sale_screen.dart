@@ -461,6 +461,7 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
     // Quick/Custom Item controllers
     final nameCtrl = TextEditingController();
     final priceCtrl = TextEditingController();
+    final costPriceCtrl = TextEditingController();
     final qtyCtrl = TextEditingController(text: '1');
 
     // From Inventory state
@@ -956,19 +957,26 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
                                         label: 'Selling Price (\u20B9) *',
                                         hint: '0.00',
                                         controller: priceCtrl,
-                                        keyboardType: TextInputType.number,
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                       ),
                                     ),
                                     const SizedBox(width: 10),
                                     Expanded(
                                       child: CustomTextField(
-                                        label: 'Quantity *',
-                                        hint: '1',
-                                        controller: qtyCtrl,
-                                        keyboardType: TextInputType.number,
+                                        label: 'Purchase Price (\u20B9)',
+                                        hint: '0.00',
+                                        controller: costPriceCtrl,
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                       ),
                                     ),
                                   ],
+                                ),
+                                const SizedBox(height: 12),
+                                CustomTextField(
+                                  label: 'Quantity *',
+                                  hint: '1',
+                                  controller: qtyCtrl,
+                                  keyboardType: TextInputType.number,
                                 ),
                               ],
                             ),
@@ -1223,6 +1231,7 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
                                 return;
                               }
 
+                              final customCost = double.tryParse(costPriceCtrl.text.trim()) ?? 0.0;
                               setState(() {
                                 _items.add(
                                   SaleItem(
@@ -1231,7 +1240,7 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
                                     itemType: 'accessory',
                                     quantity: qty,
                                     unitPrice: price,
-                                    costPrice: 0.0,
+                                    costPrice: customCost > 0 ? customCost : null,
                                     discount: 0.0,
                                   ),
                                 );

@@ -888,6 +888,7 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
     final brandCtrl = TextEditingController();
     final modelCtrl = TextEditingController();
     final priceCtrl = TextEditingController();
+    final costPriceCtrl = TextEditingController();
     final qtyCtrl = TextEditingController(text: '1');
     final discountCtrl = TextEditingController(text: '0');
 
@@ -1490,20 +1491,35 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                                     const SizedBox(width: 10),
                                     Expanded(
                                       child: CustomTextField(
+                                        label: 'Purchase Price (₹)',
+                                        hint: '0.00',
+                                        controller: costPriceCtrl,
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: CustomTextField(
                                         label: 'Quantity *',
                                         hint: '1',
                                         controller: qtyCtrl,
                                         keyboardType: TextInputType.number,
                                       ),
                                     ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: CustomTextField(
+                                        label: 'Item Discount (₹)',
+                                        hint: '0',
+                                        controller: discountCtrl,
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      ),
+                                    ),
                                   ],
-                                ),
-                                const SizedBox(height: 12),
-                                CustomTextField(
-                                  label: 'Item Discount (₹)',
-                                  hint: '0',
-                                  controller: discountCtrl,
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                 ),
                               ],
                             ),
@@ -1748,6 +1764,7 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                                   )
                                 : null;
 
+                            final customCost = double.tryParse(costPriceCtrl.text.trim()) ?? 0.0;
                             final newItem = SaleItem(
                               inventoryItemId: saleMode == 'inventory' ? selectedInvItem?.id : null,
                               productName: name,
@@ -1756,7 +1773,7 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                               model: saleMode == 'inventory' ? selectedInvItem?.model : (modelCtrl.text.trim().isNotEmpty ? modelCtrl.text.trim() : null),
                               quantity: qty,
                               unitPrice: price,
-                              costPrice: saleMode == 'inventory' ? selectedInvItem?.purchasePrice : null,
+                              costPrice: saleMode == 'inventory' ? selectedInvItem?.purchasePrice : (customCost > 0 ? customCost : null),
                               discount: disc,
                               taxRate: itemTaxRate,
                               taxType: itemTaxType,
