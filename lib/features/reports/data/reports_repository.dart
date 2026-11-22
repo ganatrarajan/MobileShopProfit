@@ -165,6 +165,7 @@ class ReportsRepository {
     String? startDate,
     String? endDate,
     String? category, // all, repairs, sales, purchases
+    int? customerId,
     String? search,
     int page = 1,
   }) async {
@@ -175,6 +176,7 @@ class ReportsRepository {
     if (startDate != null) queryParams['start_date'] = startDate;
     if (endDate != null) queryParams['end_date'] = endDate;
     if (category != null && category != 'all') queryParams['category'] = category;
+    if (customerId != null) queryParams['customer_id'] = customerId.toString();
     if (search != null && search.isNotEmpty) queryParams['search'] = search;
 
     return await _apiClient.get<Map<String, dynamic>>(

@@ -1,17 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/customer_outstanding_statement_pdf_builder.dart';
 import '../../../core/utils/report_export_helper.dart';
 import '../../../core/widgets/custom_card.dart';
+import '../../customer/data/customer_repository.dart';
+import '../../customer/models/customer.dart';
 import '../data/reports_repository.dart';
 import '../domain/report_models.dart';
 
 class OutstandingReportScreen extends StatefulWidget {
   final String shopName;
+  final int? initialCustomerId;
+  final String? initialCustomerName;
+  final String? initialCustomerPhone;
 
   const OutstandingReportScreen({
     super.key,
     this.shopName = 'Mobile Repair & Retail Shop',
+    this.initialCustomerId,
+    this.initialCustomerName,
+    this.initialCustomerPhone,
   });
 
   @override
@@ -26,6 +35,10 @@ class _OutstandingReportScreenState extends State<OutstandingReportScreen> {
   String _flowTab = 'customers'; // 'customers' or 'vendors'
   String _customerSubCategory = 'all_customers'; // 'all_customers', 'repairs', 'sales'
 
+  int? _selectedCustomerId;
+  String? _selectedCustomerName;
+  String? _selectedCustomerPhone;
+
   DateTimeRange? _customDateRange;
   final TextEditingController _searchController = TextEditingController();
 
@@ -38,6 +51,9 @@ class _OutstandingReportScreenState extends State<OutstandingReportScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedCustomerId = widget.initialCustomerId;
+    _selectedCustomerName = widget.initialCustomerName;
+    _selectedCustomerPhone = widget.initialCustomerPhone;
     _fetchReport();
   }
 
@@ -76,6 +92,7 @@ class _OutstandingReportScreenState extends State<OutstandingReportScreen> {
         startDate: startStr,
         endDate: endStr,
         category: _effectiveBackendCategory,
+        customerId: _flowTab == 'customers' ? _selectedCustomerId : null,
         search: _searchController.text.trim().isNotEmpty ? _searchController.text.trim() : null,
       );
 
@@ -157,6 +174,308 @@ class _OutstandingReportScreenState extends State<OutstandingReportScreen> {
         );
       }
     }
+  }
+
+  void _downloadItemCustomerPdf(OutstandingReportItem item) {
+    final customerItems = _detailsList
+        .where((x) =>
+            (item.customerId != null && x.customerId == item.customerId) ||
+            (item.partyPhone.isNotEmpty && x.partyPhone == item.partyPhone) ||
+            x.partyName == item.partyName)
+        .toList();
+    if (customerItems.isEmpty) customerItems.add(item);
+
+    CustomerOutstandingStatementPdfBuilder.downloadCustomerStatementPdf(
+      context: context,
+      customerName: item.partyName,
+      customerPhone: item.partyPhone,
+      statementPeriod: _selectedPeriod,
+      items: customerItems,
+    );
+  }
+
+  Future<void> _showCustomerShareOptions(OutstandingReportItem item) async {
+    final customerItems = _detailsList
+        .where((x) =>
+            (item.customerId != null && x.customerId == item.customerId) ||
+            (item.partyPhone.isNotEmpty && x.partyPhone == item.partyPhone) ||
+            x.partyName == item.partyName)
+        .toList();
+    if (customerItems.isEmpty) customerItems.add(item);
+
+    final totalDue = customerItems.fold(0.0, (s, i) => s + i.amountDue);
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: const Color(0xFF25D366).withOpacity(0.15),
+                      child: const Icon(Icons.receipt_long_rounded, color: Color(0xFF25D366)),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.partyName,
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            'Pending Due: ₹${totalDue.toStringAsFixed(2)} (${customerItems.length} records)',
+                            style: const TextStyle(fontSize: 12, color: Color(0xFFDC2626), fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Divider(),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF25D366).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.chat_rounded, color: Color(0xFF25D366), size: 20),
+                  ),
+                  title: const Text('Send Detailed Statement on WhatsApp', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                  subtitle: const Text('Shares statement PDF + full breakdown of repairs, spare parts & sales', style: TextStyle(fontSize: 11)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    CustomerOutstandingStatementPdfBuilder.sendStatementOnWhatsApp(
+                      context: context,
+                      customerName: item.partyName,
+                      customerPhone: item.partyPhone,
+                      statementPeriod: _selectedPeriod,
+                      items: customerItems,
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDC2626).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFDC2626), size: 20),
+                  ),
+                  title: const Text('Download Statement PDF', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                  subtitle: const Text('Generates itemized PDF with used spare parts & dues', style: TextStyle(fontSize: 11)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    CustomerOutstandingStatementPdfBuilder.downloadCustomerStatementPdf(
+                      context: context,
+                      customerName: item.partyName,
+                      customerPhone: item.partyPhone,
+                      statementPeriod: _selectedPeriod,
+                      items: customerItems,
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.message_rounded, color: Colors.blue, size: 20),
+                  ),
+                  title: const Text('Send Quick Reminder Text Only', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                  subtitle: const Text('Opens WhatsApp with short reminder text without PDF', style: TextStyle(fontSize: 11)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _openWhatsApp(item);
+                  },
+                ),
+                if (_selectedCustomerId == null && item.customerId != null)
+                  ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.purple.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.person_search_rounded, color: Colors.purple, size: 20),
+                    ),
+                    title: const Text('Filter only this Customer', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                    subtitle: const Text('Show all pending dues for this customer only', style: TextStyle(fontSize: 11)),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      setState(() {
+                        _selectedCustomerId = item.customerId;
+                        _selectedCustomerName = item.partyName;
+                        _selectedCustomerPhone = item.partyPhone;
+                      });
+                      _fetchReport();
+                    },
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showCustomerSelectDialog() async {
+    final customerRepo = CustomerRepository();
+    final searchCtrl = TextEditingController();
+    List<Customer> customerList = [];
+    bool isSearching = true;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (modalCtx, setModalState) {
+            void loadCustomers([String? query]) async {
+              setModalState(() => isSearching = true);
+              try {
+                final res = await customerRepo.getCustomers(search: query);
+                if (res.success && res.data != null) {
+                  setModalState(() {
+                    customerList = res.data!;
+                    isSearching = false;
+                  });
+                } else {
+                  setModalState(() => isSearching = false);
+                }
+              } catch (_) {
+                setModalState(() => isSearching = false);
+              }
+            }
+
+            if (isSearching && customerList.isEmpty) {
+              loadCustomers();
+            }
+
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(modalCtx).viewInsets.bottom,
+                top: 16,
+                left: 16,
+                right: 16,
+              ),
+              child: SizedBox(
+                height: MediaQuery.of(modalCtx).size.height * 0.65,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Filter by Customer',
+                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded),
+                          onPressed: () => Navigator.pop(modalCtx),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: searchCtrl,
+                      decoration: InputDecoration(
+                        hintText: 'Search customer name or phone...',
+                        prefixIcon: const Icon(Icons.search, size: 20),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onChanged: (val) {
+                        loadCustomers(val.trim());
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    ListTile(
+                      leading: const CircleAvatar(
+                        backgroundColor: Color(0xFFEFF6FF),
+                        child: Icon(Icons.people_outline_rounded, color: AppColors.primary),
+                      ),
+                      title: const Text('All Customers (Clear Filter)', style: TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: const Text('Show dues across all customers'),
+                      selected: _selectedCustomerId == null,
+                      onTap: () {
+                        Navigator.pop(modalCtx);
+                        setState(() {
+                          _selectedCustomerId = null;
+                          _selectedCustomerName = null;
+                          _selectedCustomerPhone = null;
+                        });
+                        _fetchReport();
+                      },
+                    ),
+                    const Divider(),
+                    Expanded(
+                      child: isSearching
+                          ? const Center(child: CircularProgressIndicator())
+                          : customerList.isEmpty
+                              ? const Center(
+                                  child: Text('No customers found', style: TextStyle(color: Colors.grey)),
+                                )
+                              : ListView.separated(
+                                  itemCount: customerList.length,
+                                  separatorBuilder: (_, __) => const Divider(height: 1),
+                                  itemBuilder: (cCtx, i) {
+                                    final cust = customerList[i];
+                                    final isSelected = _selectedCustomerId == cust.id;
+                                    return ListTile(
+                                      leading: CircleAvatar(
+                                        backgroundColor: isSelected ? AppColors.primary : Colors.grey.shade200,
+                                        child: Text(
+                                          cust.name.isNotEmpty ? cust.name[0].toUpperCase() : '?',
+                                          style: TextStyle(
+                                            color: isSelected ? Colors.white : Colors.black87,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                      title: Text(cust.name, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.w600)),
+                                      subtitle: Text(cust.mobile),
+                                      trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,
+                                      onTap: () {
+                                        Navigator.pop(modalCtx);
+                                        setState(() {
+                                          _selectedCustomerId = cust.id;
+                                          _selectedCustomerName = cust.name;
+                                          _selectedCustomerPhone = cust.mobile;
+                                        });
+                                        _fetchReport();
+                                      },
+                                    );
+                                  },
+                                ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _makePhoneCall(String phone) async {
@@ -266,6 +585,17 @@ class _OutstandingReportScreenState extends State<OutstandingReportScreen> {
     if (_detailsList.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No records to export.')),
+      );
+      return;
+    }
+
+    if (_flowTab == 'customers' && _selectedCustomerId != null) {
+      CustomerOutstandingStatementPdfBuilder.downloadCustomerStatementPdf(
+        context: context,
+        customerName: _selectedCustomerName ?? 'Customer',
+        customerPhone: _selectedCustomerPhone ?? '',
+        statementPeriod: _selectedPeriod,
+        items: _detailsList,
       );
       return;
     }
@@ -532,7 +862,7 @@ class _OutstandingReportScreenState extends State<OutstandingReportScreen> {
           ),
 
           // Sub-category filters for Customer Flow (Repairs vs Sales)
-          if (_flowTab == 'customers')
+          if (_flowTab == 'customers') ...[
             Container(
               color: Colors.white,
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
@@ -567,6 +897,8 @@ class _OutstandingReportScreenState extends State<OutstandingReportScreen> {
                 ),
               ),
             ),
+            _buildCustomerFilterBar(),
+          ],
 
           // Search Bar
           Padding(
@@ -817,6 +1149,156 @@ class _OutstandingReportScreenState extends State<OutstandingReportScreen> {
     );
   }
 
+  Widget _buildCustomerFilterBar() {
+    if (_selectedCustomerId == null) {
+      return Container(
+        color: Colors.white,
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        child: InkWell(
+          onTap: _showCustomerSelectDialog,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.person_search_rounded, size: 18, color: AppColors.primary),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Filter by Customer: All Customers',
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                  ),
+                ),
+                Icon(Icons.arrow_drop_down_rounded, color: AppColors.textMuted),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEFF6FF),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFBFDBFE), width: 1.2),
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                const CircleAvatar(
+                  radius: 14,
+                  backgroundColor: AppColors.primary,
+                  child: Icon(Icons.person_rounded, size: 16, color: Colors.white),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text(
+                            'Customer: ',
+                            style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                          ),
+                          Expanded(
+                            child: Text(
+                              _selectedCustomerName ?? 'Customer',
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primary),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_selectedCustomerPhone != null && _selectedCustomerPhone!.isNotEmpty)
+                        Text(
+                          _selectedCustomerPhone!,
+                          style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                        ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded, size: 18, color: Colors.grey),
+                  tooltip: 'Clear Customer Filter',
+                  onPressed: () {
+                    setState(() {
+                      _selectedCustomerId = null;
+                      _selectedCustomerName = null;
+                      _selectedCustomerPhone = null;
+                    });
+                    _fetchReport();
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFDC2626),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: const Icon(Icons.picture_as_pdf_rounded, size: 15),
+                    label: const Text('Download PDF', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    onPressed: () {
+                      CustomerOutstandingStatementPdfBuilder.downloadCustomerStatementPdf(
+                        context: context,
+                        customerName: _selectedCustomerName ?? 'Customer',
+                        customerPhone: _selectedCustomerPhone ?? '',
+                        statementPeriod: _selectedPeriod,
+                        items: _detailsList,
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF25D366),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: const Icon(Icons.chat_rounded, size: 15),
+                    label: const Text('Send on WhatsApp', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    onPressed: () {
+                      CustomerOutstandingStatementPdfBuilder.sendStatementOnWhatsApp(
+                        context: context,
+                        customerName: _selectedCustomerName ?? 'Customer',
+                        customerPhone: _selectedCustomerPhone ?? '',
+                        statementPeriod: _selectedPeriod,
+                        items: _detailsList,
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildNetPositionBanner() {
     final net = _summary!.netBalance;
     final isPositive = net >= 0;
@@ -1045,54 +1527,131 @@ class _OutstandingReportScreenState extends State<OutstandingReportScreen> {
                   ],
                 ),
               ),
-              // WhatsApp and Call Quick Actions
-              if (item.partyPhone.isNotEmpty) ...[
-                InkWell(
-                  onTap: () => _openWhatsApp(item),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF25D366).withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFF25D366).withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.chat_rounded, size: 15, color: Color(0xFF25D366)),
-                        const SizedBox(width: 4),
-                        Text(
-                          isCustomer ? 'Remind' : 'Notify',
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF059669)),
-                        ),
-                      ],
+              // Quick Actions: Statement PDF, WhatsApp and Call
+              if (item.partyPhone.isNotEmpty || isCustomer) ...[
+                if (isCustomer) ...[
+                  InkWell(
+                    onTap: () => _downloadItemCustomerPdf(item),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDC2626).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFDC2626).withOpacity(0.2)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.picture_as_pdf_rounded, size: 14, color: Color(0xFFDC2626)),
+                          SizedBox(width: 3),
+                          Text('PDF', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFDC2626))),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 6),
-                InkWell(
-                  onTap: () => _makePhoneCall(item.partyPhone),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+                  const SizedBox(width: 6),
+                ],
+                if (item.partyPhone.isNotEmpty) ...[
+                  InkWell(
+                    onTap: () {
+                      if (isCustomer) {
+                        _showCustomerShareOptions(item);
+                      } else {
+                        _openWhatsApp(item);
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF25D366).withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF25D366).withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.chat_rounded, size: 14, color: Color(0xFF25D366)),
+                          const SizedBox(width: 4),
+                          Text(
+                            isCustomer ? 'Share' : 'Notify',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF059669)),
+                          ),
+                        ],
+                      ),
                     ),
-                    child: const Icon(Icons.phone_rounded, size: 16, color: AppColors.primary),
                   ),
-                ),
+                  const SizedBox(width: 6),
+                  InkWell(
+                    onTap: () => _makePhoneCall(item.partyPhone),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.phone_rounded, size: 16, color: AppColors.primary),
+                    ),
+                  ),
+                ],
               ],
             ],
           ),
 
-          if (item.description.isNotEmpty) ...[
-            const SizedBox(height: 8),
+          // Problem Description & Used Spare Parts / Items
+          if (item.category == 'repairs') ...[
+            if (item.problemDescription != null && item.problemDescription!.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Problem: ', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppColors.textMuted)),
+                  Expanded(
+                    child: Text(
+                      item.problemDescription!,
+                      style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            if (item.parts.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Used Parts: ', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFFD97706))),
+                  Expanded(
+                    child: Text(
+                      item.parts.map((p) => '${p['part_name']} (x${p['quantity'] ?? 1})').join(', '),
+                      style: const TextStyle(fontSize: 11.5, color: Color(0xFFB45309), fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ] else if (item.category == 'sales' && item.items.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Items: ', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppColors.textMuted)),
+                Expanded(
+                  child: Text(
+                    item.items.map((i) => '${i['product_name']} (x${i['quantity'] ?? 1})').join(', '),
+                    style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                  ),
+                ),
+              ],
+            ),
+          ] else if (item.description.isNotEmpty) ...[
+            const SizedBox(height: 6),
             Text(
               item.description,
-              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-              maxLines: 1,
+              style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
           ],

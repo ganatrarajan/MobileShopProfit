@@ -231,6 +231,12 @@ class OutstandingReportItem {
   final String partyName;
   final String partyPhone;
   final String partyType; // customer, vendor
+  final int? customerId;
+  final String? deviceName;
+  final String? problemDescription;
+  final double? labourCost;
+  final List<Map<String, dynamic>> parts;
+  final List<Map<String, dynamic>> items;
   final String description;
   final double totalAmount;
   final double amountPaid;
@@ -247,6 +253,12 @@ class OutstandingReportItem {
     required this.partyName,
     required this.partyPhone,
     required this.partyType,
+    this.customerId,
+    this.deviceName,
+    this.problemDescription,
+    this.labourCost,
+    this.parts = const [],
+    this.items = const [],
     required this.description,
     required this.totalAmount,
     required this.amountPaid,
@@ -262,6 +274,18 @@ class OutstandingReportItem {
       total = due + paid;
     }
 
+    final rawParts = json['parts'];
+    List<Map<String, dynamic>> parsedParts = [];
+    if (rawParts is List) {
+      parsedParts = rawParts.map((x) => Map<String, dynamic>.from(x as Map)).toList();
+    }
+
+    final rawItems = json['items'];
+    List<Map<String, dynamic>> parsedItems = [];
+    if (rawItems is List) {
+      parsedItems = rawItems.map((x) => Map<String, dynamic>.from(x as Map)).toList();
+    }
+
     return OutstandingReportItem(
       id: json['id']?.toString() ?? '',
       rawId: int.tryParse(json['raw_id']?.toString() ?? '') ?? 0,
@@ -272,6 +296,12 @@ class OutstandingReportItem {
       partyName: json['party_name']?.toString() ?? 'N/A',
       partyPhone: json['party_phone']?.toString() ?? '',
       partyType: json['party_type']?.toString() ?? 'customer',
+      customerId: int.tryParse(json['customer_id']?.toString() ?? ''),
+      deviceName: json['device_name']?.toString(),
+      problemDescription: json['problem_description']?.toString(),
+      labourCost: double.tryParse(json['labour_cost']?.toString() ?? ''),
+      parts: parsedParts,
+      items: parsedItems,
       description: json['description']?.toString() ?? '',
       totalAmount: total,
       amountPaid: paid,
