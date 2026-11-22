@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/customer_outstanding_statement_pdf_builder.dart';
+import '../../../core/utils/date_helper.dart';
 import '../../../core/utils/report_export_helper.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../customer/data/customer_repository.dart';
@@ -523,7 +524,7 @@ class _OutstandingReportScreenState extends State<OutstandingReportScreen> {
     final rows = _detailsList.map((item) {
       return [
         idx++,
-        item.date,
+        DateHelper.formatDate(item.date),
         item.categoryLabel,
         item.refNumber,
         item.partyName,
@@ -621,7 +622,7 @@ class _OutstandingReportScreenState extends State<OutstandingReportScreen> {
     final rows = _detailsList.map((item) {
       return [
         idx++,
-        item.date,
+        DateHelper.formatDate(item.date),
         item.categoryLabel,
         item.refNumber,
         item.partyName,
@@ -1481,7 +1482,7 @@ class _OutstandingReportScreenState extends State<OutstandingReportScreen> {
                 style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
               ),
               Text(
-                item.date,
+                DateHelper.formatDate(item.date),
                 style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
               ),
             ],

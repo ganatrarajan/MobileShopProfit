@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../storage/auth_storage.dart';
 import 'app_feedback.dart';
+import 'date_helper.dart';
 import 'pdf_text_helper.dart';
 import 'used_mobile_export_helper.dart';
 import '../../features/reports/domain/report_models.dart';
@@ -46,8 +47,7 @@ class CustomerOutstandingStatementPdfBuilder {
     final gstin = (shop?['gst_number']?.toString() ?? shop?['gstin']?.toString() ?? '').trim();
 
     final now = DateTime.now();
-    final nowStr =
-        '${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    final nowFormatted = DateHelper.formatDate(now.toIso8601String());
 
     final totalDue = items.fold(0.0, (sum, i) => sum + i.amountDue);
     final totalBilled = items.fold(0.0, (sum, i) => sum + i.totalAmount);
@@ -137,7 +137,7 @@ class CustomerOutstandingStatementPdfBuilder {
                       ),
                       pw.SizedBox(height: 5),
                       pw.Text(
-                        'Date: $nowStr',
+                        'Date: $nowFormatted',
                         style: pw.TextStyle(fontSize: 8.5, color: textDark),
                       ),
                       pw.Text(
@@ -314,7 +314,7 @@ class CustomerOutstandingStatementPdfBuilder {
                                 'Job #${r.refNumber}',
                                 style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: brandNavy),
                               ),
-                              pw.Text('  |  Date: ${r.date}', style: pw.TextStyle(fontSize: 8.5, color: textMuted)),
+                              pw.Text('  |  Date: ${DateHelper.formatDate(r.date)}', style: pw.TextStyle(fontSize: 8.5, color: textMuted)),
                               if (r.deviceName != null && r.deviceName!.isNotEmpty) ...[
                                 pw.Text('  |  Device: ', style: pw.TextStyle(fontSize: 8.5, color: textMuted)),
                                 pw.Text(r.deviceName!, style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: textDark)),
@@ -494,7 +494,7 @@ class CustomerOutstandingStatementPdfBuilder {
                                 'Invoice #${s.refNumber}',
                                 style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: brandNavy),
                               ),
-                              pw.Text('  |  Date: ${s.date}', style: pw.TextStyle(fontSize: 8.5, color: textMuted)),
+                              pw.Text('  |  Date: ${DateHelper.formatDate(s.date)}', style: pw.TextStyle(fontSize: 8.5, color: textMuted)),
                               pw.Text('  |  ${s.description}', style: pw.TextStyle(fontSize: 8.5, color: textDark)),
                             ],
                           ),
@@ -663,19 +663,19 @@ class CustomerOutstandingStatementPdfBuilder {
                   ),
                   pw.SizedBox(height: 2),
                   pw.Text(
-                    '• Kindly review the detailed statement above and settle the outstanding balance of Rs. ${totalDue.toStringAsFixed(2)} at your earliest convenience.',
+                    '- Kindly review the detailed statement above and settle the outstanding balance of Rs. ${totalDue.toStringAsFixed(2)} at your earliest convenience.',
                     style: pw.TextStyle(fontSize: 7.5, color: textDark),
                   ),
                   if (shopPhone.isNotEmpty) ...[
                     pw.SizedBox(height: 1),
                     pw.Text(
-                      '• For UPI / Bank payment or any clarification regarding repair parts or sales, please call/WhatsApp: $shopPhone.',
+                      '- For UPI / Bank payment or any clarification regarding repair parts or sales, please call/WhatsApp: $shopPhone.',
                       style: pw.TextStyle(fontSize: 7.5, color: textDark),
                     ),
                   ],
                   pw.SizedBox(height: 1),
                   pw.Text(
-                    '• Thank you for your continued trust and business!',
+                    '- Thank you for your continued trust and business!',
                     style: pw.TextStyle(fontSize: 7.5, color: textDark, fontStyle: pw.FontStyle.italic),
                   ),
                 ],
@@ -704,7 +704,7 @@ class CustomerOutstandingStatementPdfBuilder {
                   style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey600),
                 ),
                 pw.Text(
-                  'Generated on ${DateTime.now().toIso8601String().split('T')[0]}',
+                  'Generated on ${DateHelper.formatDate(DateTime.now().toIso8601String())}',
                   style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey600),
                 ),
               ],
@@ -835,7 +835,8 @@ class CustomerOutstandingStatementPdfBuilder {
       if (repairItems.isNotEmpty) {
         msg.writeln('🔧 *Pending Repairs Breakdown:*');
         for (final r in repairItems) {
-          msg.writeln('• *Job #${r.refNumber}* (${r.deviceName ?? r.description})');
+          final datePart = r.date.isNotEmpty ? ' - ${DateHelper.formatDate(r.date)}' : '';
+          msg.writeln('• *Job #${r.refNumber}* (${r.deviceName ?? r.description})$datePart');
           if (r.problemDescription != null && r.problemDescription!.isNotEmpty) {
             msg.writeln('   Problem: ${r.problemDescription}');
           }
@@ -851,7 +852,8 @@ class CustomerOutstandingStatementPdfBuilder {
       if (salesItems.isNotEmpty) {
         msg.writeln('🛍️ *Pending Sales Breakdown:*');
         for (final s in salesItems) {
-          msg.writeln('• *Invoice #${s.refNumber}*');
+          final datePart = s.date.isNotEmpty ? ' - ${DateHelper.formatDate(s.date)}' : '';
+          msg.writeln('• *Invoice #${s.refNumber}*$datePart');
           if (s.items.isNotEmpty) {
             final itemsList = s.items.map((i) => '${i['product_name']} (x${i['quantity']})').join(', ');
             msg.writeln('   Items: $itemsList');

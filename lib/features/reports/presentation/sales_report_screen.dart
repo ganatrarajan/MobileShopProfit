@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/date_helper.dart';
 import '../../../core/utils/report_export_helper.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../data/reports_repository.dart';
@@ -115,7 +116,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
       final total = double.tryParse(item['grand_total']?.toString() ?? '') ?? 0.0;
       final paid = double.tryParse(item['amount_paid']?.toString() ?? '') ?? 0.0;
       final due = double.tryParse(item['amount_due']?.toString() ?? '') ?? (total - paid);
-      final dt = item['sale_date']?.toString().split('T')[0] ?? '';
+      final dt = DateHelper.formatDate(item['sale_date']?.toString());
       return [
         idx++,
         item['invoice_number'] ?? 'INV',
@@ -159,7 +160,7 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
       final total = double.tryParse(item['grand_total']?.toString() ?? '') ?? 0.0;
       final paid = double.tryParse(item['amount_paid']?.toString() ?? '') ?? 0.0;
       final due = double.tryParse(item['amount_due']?.toString() ?? '') ?? (total - paid);
-      final dt = item['sale_date']?.toString().split('T')[0] ?? '';
+      final dt = DateHelper.formatDate(item['sale_date']?.toString());
       return [
         idx++,
         item['invoice_number'] ?? 'INV',

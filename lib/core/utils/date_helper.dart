@@ -58,11 +58,29 @@ class DateHelper {
   /// Parses raw timestamp/date string into local DateTime (Asia/Kolkata IST)
   static DateTime? parseToLocal(String? raw) {
     if (raw == null || raw.trim().isEmpty) return null;
+    final trimmed = raw.trim();
     try {
-      final trimmed = raw.trim();
       final dt = DateTime.parse(trimmed);
       return dt.isUtc ? dt.toLocal() : dt;
     } catch (_) {
+      try {
+        final parts = trimmed.contains('-') ? trimmed.split('-') : trimmed.split('/');
+        if (parts.length == 3) {
+          if (parts[0].length == 4) {
+            // yyyy-mm-dd
+            final y = int.parse(parts[0]);
+            final m = int.parse(parts[1]);
+            final d = int.parse(parts[2].split(' ')[0]);
+            return DateTime(y, m, d);
+          } else if (parts[2].length >= 4) {
+            // dd-mm-yyyy or dd/mm/yyyy
+            final d = int.parse(parts[0]);
+            final m = int.parse(parts[1]);
+            final y = int.parse(parts[2].split(' ')[0]);
+            return DateTime(y, m, d);
+          }
+        }
+      } catch (_) {}
       return null;
     }
   }
