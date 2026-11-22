@@ -416,7 +416,7 @@ class SaleController extends Controller
                         'sale_id' => $sale->id,
                         'amount' => $paymentAmount,
                         'payment_method' => $validated['payment_method'] ?? 'cash',
-                        'payment_date' => now(),
+                        'payment_date' => $validated['payment_date'] ?? $validated['sale_date'] ?? now(),
                         'notes' => $validated['payment_notes'] ?? 'Initial payment',
                         'created_by' => $user->id,
                     ]);
@@ -432,7 +432,7 @@ class SaleController extends Controller
 
                 if ($hasWarranty) {
                     $duration = (int) ($validated['warranty_duration_days'] ?? $validated['duration_days'] ?? 30);
-                    $startDate = \Carbon\Carbon::today();
+                    $startDate = !empty($validated['sale_date']) ? \Carbon\Carbon::parse($validated['sale_date']) : \Carbon\Carbon::today();
                     $endDate = (clone $startDate)->addDays($duration);
 
                     $count = \App\Models\Warranty::withTrashed()->forShop($user->shop_id)->lockForUpdate()->count();

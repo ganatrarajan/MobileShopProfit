@@ -248,7 +248,7 @@ class RepairController extends Controller
                         'repair_id' => $repair->id,
                         'amount' => $paymentAmount,
                         'payment_method' => $validated['payment_method'] ?? 'cash',
-                        'payment_date' => now(),
+                        'payment_date' => $validated['payment_date'] ?? $validated['date_received'] ?? now(),
                         'notes' => $validated['payment_notes'] ?? 'Advance payment',
                         'created_by' => $user->id,
                     ]);
