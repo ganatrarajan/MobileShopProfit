@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../storage/auth_storage.dart';
 import 'app_feedback.dart';
+import 'pdf_text_helper.dart';
 import 'used_mobile_export_helper.dart';
 import '../../features/reports/domain/report_models.dart';
 
@@ -54,6 +55,8 @@ class CustomerOutstandingStatementPdfBuilder {
 
     final repairItems = items.where((i) => i.category == 'repairs').toList();
     final salesItems = items.where((i) => i.category == 'sales').toList();
+    final rawTerms = shop?['terms_and_conditions'] ?? shop?['terms'];
+    final termsList = PdfTextHelper.parseTerms(rawTerms);
 
     pdf.addPage(
       pw.MultiPage(
@@ -335,7 +338,7 @@ class CustomerOutstandingStatementPdfBuilder {
                       if (r.problemDescription != null && r.problemDescription!.trim().isNotEmpty) ...[
                         pw.SizedBox(height: 3),
                         pw.Text(
-                          'Problem Reported: ${r.problemDescription!.trim()}',
+                          'Problem Reported: ${PdfTextHelper.sanitize(r.problemDescription!.trim())}',
                           style: pw.TextStyle(fontSize: 8, fontStyle: pw.FontStyle.italic, color: textMuted),
                         ),
                       ],
@@ -372,7 +375,7 @@ class CustomerOutstandingStatementPdfBuilder {
                             ...r.parts.asMap().entries.map((entry) {
                               final pIdx = entry.key + 1;
                               final part = entry.value;
-                              final pName = part['part_name']?.toString() ?? 'Spare Part';
+                              final pName = PdfTextHelper.sanitize(part['part_name']?.toString() ?? 'Spare Part');
                               final pQty = (part['quantity'] ?? 1).toString();
                               final pPrice = (double.tryParse(part['selling_price']?.toString() ?? '') ?? 0.0).toStringAsFixed(2);
                               final pTotal = (double.tryParse(part['total']?.toString() ?? '') ?? 0.0).toStringAsFixed(2);
@@ -535,7 +538,7 @@ class CustomerOutstandingStatementPdfBuilder {
                             ...s.items.asMap().entries.map((entry) {
                               final iIdx = entry.key + 1;
                               final item = entry.value;
-                              final iName = item['product_name']?.toString() ?? 'Item';
+                              final iName = PdfTextHelper.sanitize(item['product_name']?.toString() ?? 'Item');
                               final iQty = (item['quantity'] ?? 1).toString();
                               final iPrice = (double.tryParse(item['unit_price']?.toString() ?? '') ?? 0.0).toStringAsFixed(2);
                               final iTotal = (double.tryParse(item['total']?.toString() ?? '') ?? 0.0).toStringAsFixed(2);
@@ -678,6 +681,16 @@ class CustomerOutstandingStatementPdfBuilder {
                 ],
               ),
             ),
+            if (termsList.isNotEmpty) ...[
+              pw.SizedBox(height: 10),
+              PdfTextHelper.buildTermsWidget(
+                terms: termsList,
+                title: 'TERMS & CONDITIONS:',
+                titleColor: brandNavy,
+                textColor: textDark,
+                textSize: 7.5,
+              ),
+            ],
           ];
         },
         footer: (pw.Context ctx) {

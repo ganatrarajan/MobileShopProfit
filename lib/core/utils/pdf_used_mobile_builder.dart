@@ -6,6 +6,7 @@ import '../storage/auth_storage.dart';
 import '../../features/auth/data/auth_repository.dart';
 import '../../features/used_mobile/models/used_mobile.dart';
 import 'date_helper.dart';
+import 'pdf_text_helper.dart';
 
 class PdfUsedMobileBuilder {
   static final PdfColor brandPurple = PdfColor.fromHex('#6D28D9');
@@ -87,10 +88,24 @@ class PdfUsedMobileBuilder {
         }
         if (shop['pan_number'] != null) shopPan = shop['pan_number'].toString().trim();
 
+        final rawTerms = shop['terms_and_conditions'] ?? shop['terms'];
+        final shopTerms = PdfTextHelper.parseTerms(rawTerms);
+
         final logoPath = shop['logo_path'] ?? shop['logo_url'] ?? shop['logo'];
         logoBytes = await _loadMediaBytes(logoPath?.toString());
         final sigPath = shop['signature_path'] ?? shop['signature_url'] ?? shop['signature'];
         signatureBytes = await _loadMediaBytes(sigPath?.toString());
+
+        return {
+          'name': shopName,
+          'address': shopAddress,
+          'phone': shopPhone,
+          'gstin': shopGstin,
+          'pan': shopPan,
+          'logo': logoBytes,
+          'signature': signatureBytes,
+          'terms': shopTerms,
+        };
       }
     } catch (_) {}
 
@@ -102,6 +117,7 @@ class PdfUsedMobileBuilder {
       'pan': shopPan,
       'logo': logoBytes,
       'signature': signatureBytes,
+      'terms': PdfTextHelper.parseTerms(null),
     };
   }
 
@@ -396,6 +412,17 @@ class PdfUsedMobileBuilder {
                   ],
                 ),
               ),
+
+              if (shop['terms'] != null && (shop['terms'] as List).isNotEmpty) ...[
+                pw.SizedBox(height: 6),
+                PdfTextHelper.buildTermsWidget(
+                  terms: List<String>.from(shop['terms']),
+                  title: 'TERMS & CONDITIONS:',
+                  titleColor: headerNavy,
+                  textColor: textDark,
+                  textSize: 7.2,
+                ),
+              ],
 
               pw.Spacer(),
 
@@ -807,6 +834,17 @@ class PdfUsedMobileBuilder {
                     ],
                   ),
                 ),
+
+              if (shop['terms'] != null && (shop['terms'] as List).isNotEmpty) ...[
+                pw.SizedBox(height: 6),
+                PdfTextHelper.buildTermsWidget(
+                  terms: List<String>.from(shop['terms']),
+                  title: 'TERMS & CONDITIONS:',
+                  titleColor: headerNavy,
+                  textColor: textDark,
+                  textSize: 7.2,
+                ),
+              ],
 
               pw.Spacer(),
 

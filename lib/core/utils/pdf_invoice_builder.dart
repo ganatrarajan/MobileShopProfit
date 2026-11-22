@@ -8,6 +8,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../config/env_config.dart';
 import 'date_helper.dart';
+import 'pdf_text_helper.dart';
 import '../storage/auth_storage.dart';
 import '../../features/sales/models/sale.dart';
 
@@ -143,18 +144,18 @@ class PdfInvoiceBuilder {
           shopPan = rawPan.toString().trim();
         }
 
-        if (shop['terms_and_conditions'] != null && shop['terms_and_conditions'].toString().trim().isNotEmpty) {
-          final termsRaw = shop['terms_and_conditions'].toString();
-          termsList = termsRaw
-              .split('\n')
-              .map((e) => e.trim())
-              .where((e) => e.isNotEmpty)
-              .toList();
-        }
+        final rawTerms = shop['terms_and_conditions'] ?? shop['terms'];
+        termsList = PdfTextHelper.parseTerms(
+          rawTerms,
+          defaultTerms: [
+            '1. Goods once sold will be covered strictly as per warranty terms.',
+            '2. Physical damage, liquid exposure, or unauthorized tampering voids all warranty.',
+            '3. Please present this bill for any warranty claims or queries.',
+          ],
+        );
 
         final logoPath = shop['logo_path'] ?? shop['logo_url'] ?? shop['logo'];
         logoBytes = await _loadMediaBytes(logoPath?.toString());
-
         final sigPath = shop['signature_path'] ?? shop['signature_url'] ?? shop['signature'];
         signatureBytes = await _loadMediaBytes(sigPath?.toString());
       }
@@ -177,11 +178,7 @@ class PdfInvoiceBuilder {
     } catch (_) {}
 
     if (termsList.isEmpty) {
-      termsList = [
-        '1. Customer will pay applicable taxes.',
-        '2. Delivery charges non-refundable once goods leave premises.',
-        '3. Pay due amount within 10 days of invoice date.',
-      ];
+      termsList = PdfTextHelper.parseTerms(null);
     }
 
     final customerName = sale.customerName?.trim().isNotEmpty == true
@@ -627,7 +624,7 @@ class PdfInvoiceBuilder {
                                     if ((sale.warranty!.warrantyTerms?.trim().isNotEmpty == true) || (sale.warranty!.notes?.trim().isNotEmpty == true)) ...[
                                       pw.SizedBox(height: 2),
                                       pw.Text(
-                                        'Note: ${sale.warranty!.warrantyTerms?.trim().isNotEmpty == true ? sale.warranty!.warrantyTerms!.trim() : sale.warranty!.notes!.trim()}',
+                                        'Note: ${PdfTextHelper.sanitize(sale.warranty!.warrantyTerms?.trim().isNotEmpty == true ? sale.warranty!.warrantyTerms!.trim() : sale.warranty!.notes!.trim())}',
                                         style: pw.TextStyle(fontSize: 7, color: textMuted),
                                         maxLines: 2,
                                       ),
@@ -689,6 +686,13 @@ class PdfInvoiceBuilder {
                                 ),
                               ),
                             ],
+                            pw.SizedBox(height: 6),
+                            PdfTextHelper.buildTermsWidget(
+                              terms: termsList,
+                              title: 'Terms & Conditions:',
+                              titleColor: headerNavy,
+                              textColor: textMuted,
+                            ),
                           ],
                         ),
                       ),
@@ -995,18 +999,18 @@ class PdfInvoiceBuilder {
           shopPan = rawPan.toString().trim();
         }
 
-        if (shop['terms_and_conditions'] != null && shop['terms_and_conditions'].toString().trim().isNotEmpty) {
-          final termsRaw = shop['terms_and_conditions'].toString();
-          termsList = termsRaw
-              .split('\n')
-              .map((e) => e.trim())
-              .where((e) => e.isNotEmpty)
-              .toList();
-        }
+        final rawTerms = shop['terms_and_conditions'] ?? shop['terms'];
+        termsList = PdfTextHelper.parseTerms(
+          rawTerms,
+          defaultTerms: [
+            '1. Please inspect device thoroughly before leaving premises.',
+            '2. Shop is not responsible for data loss. Backup is recommended.',
+            '3. Unclaimed devices after 30 days may be subject to storage fees.',
+          ],
+        );
 
         final logoPath = shop['logo_path'] ?? shop['logo_url'] ?? shop['logo'];
         logoBytes = await _loadMediaBytes(logoPath?.toString());
-
         final sigPath = shop['signature_path'] ?? shop['signature_url'] ?? shop['signature'];
         signatureBytes = await _loadMediaBytes(sigPath?.toString());
       }
@@ -1029,11 +1033,11 @@ class PdfInvoiceBuilder {
     } catch (_) {}
 
     if (termsList.isEmpty) {
-      termsList = [
+      termsList = PdfTextHelper.parseTerms(null, defaultTerms: [
         '1. Please inspect device thoroughly before leaving premises.',
         '2. Shop is not responsible for data loss. Backup is recommended.',
         '3. Unclaimed devices after 30 days may be subject to storage fees.',
-      ];
+      ]);
     }
 
     final customerName = repair.customer?.name.trim().isNotEmpty == true
@@ -1225,13 +1229,13 @@ class PdfInvoiceBuilder {
                               pw.SizedBox(height: 4),
                               pw.Text('Device: ${deviceBrandModel.isNotEmpty ? deviceBrandModel : "Mobile Device"}', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: textDark)),
                               pw.Text('IMEI / Serial: $serialImei', style: pw.TextStyle(fontSize: 8.5, color: textDark)),
-                              pw.Text('Problem: ${repair.problemDescription.isNotEmpty ? repair.problemDescription : "Repair Service"}', style: pw.TextStyle(fontSize: 8.5, color: textDark)),
+                              pw.Text('Problem: ${PdfTextHelper.sanitize(repair.problemDescription.isNotEmpty ? repair.problemDescription : "Repair Service")}', style: pw.TextStyle(fontSize: 8.5, color: textDark)),
                               if (repair.deviceCondition.isNotEmpty)
-                                pw.Text('Condition: ${repair.deviceCondition.join(", ")}', style: pw.TextStyle(fontSize: 8, color: textMuted)),
+                                pw.Text('Condition: ${PdfTextHelper.sanitize(repair.deviceCondition.join(", "))}', style: pw.TextStyle(fontSize: 8, color: textMuted)),
                               if (repair.accessoriesReceived.isNotEmpty)
-                                pw.Text('Accessories: ${repair.accessoriesReceived.join(", ")}', style: pw.TextStyle(fontSize: 8, color: textMuted)),
+                                pw.Text('Accessories: ${PdfTextHelper.sanitize(repair.accessoriesReceived.join(", "))}', style: pw.TextStyle(fontSize: 8, color: textMuted)),
                               if (repair.customerNotes != null && repair.customerNotes!.trim().isNotEmpty)
-                                pw.Text('Customer Note: ${repair.customerNotes!.trim()}', style: pw.TextStyle(fontSize: 8, color: textMuted)),
+                                pw.Text('Customer Note: ${PdfTextHelper.sanitize(repair.customerNotes!.trim())}', style: pw.TextStyle(fontSize: 8, color: textMuted)),
                             ],
                           ),
                         ),
@@ -1270,7 +1274,7 @@ class PdfInvoiceBuilder {
                           _dataCell(
                             'Mobile Device Repair Service (${deviceBrandModel.isNotEmpty ? deviceBrandModel : "Device"})',
                             isBold: true,
-                            subtext: repair.problemDescription.isNotEmpty ? 'Problem: ${repair.problemDescription}' : null,
+                            subtext: repair.problemDescription.isNotEmpty ? 'Problem: ${PdfTextHelper.sanitize(repair.problemDescription)}' : null,
                           ),
                           _dataCell('1', align: pw.TextAlign.center),
                           _dataCell(repair.netCost.toStringAsFixed(2), align: pw.TextAlign.right),
@@ -1376,7 +1380,7 @@ class PdfInvoiceBuilder {
                                     if ((repair.warranty!.warrantyTerms?.trim().isNotEmpty == true) || (repair.warranty!.notes?.trim().isNotEmpty == true)) ...[
                                       pw.SizedBox(height: 2),
                                       pw.Text(
-                                        'Note: ${repair.warranty!.warrantyTerms?.trim().isNotEmpty == true ? repair.warranty!.warrantyTerms!.trim() : repair.warranty!.notes!.trim()}',
+                                        'Note: ${PdfTextHelper.sanitize(repair.warranty!.warrantyTerms?.trim().isNotEmpty == true ? repair.warranty!.warrantyTerms!.trim() : repair.warranty!.notes!.trim())}',
                                         style: pw.TextStyle(fontSize: 7, color: textMuted),
                                         maxLines: 2,
                                       ),
@@ -1386,14 +1390,11 @@ class PdfInvoiceBuilder {
                               ),
                             ],
                             pw.SizedBox(height: 6),
-
-                            pw.Text('Terms & Conditions:', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: headerNavy)),
-                            pw.SizedBox(height: 2),
-                            ...termsList.map(
-                              (term) => pw.Padding(
-                                padding: const pw.EdgeInsets.only(bottom: 1.5),
-                                child: pw.Text(term, style: pw.TextStyle(fontSize: 7.5, color: textMuted)),
-                              ),
+                            PdfTextHelper.buildTermsWidget(
+                              terms: termsList,
+                              title: 'Terms & Conditions:',
+                              titleColor: headerNavy,
+                              textColor: textMuted,
                             ),
                           ],
                         ),
