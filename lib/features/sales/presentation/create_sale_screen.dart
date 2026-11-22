@@ -24,6 +24,7 @@ import '../../used_mobile/data/used_mobile_repository.dart';
 import '../../used_mobile/models/used_mobile.dart';
 import '../../../core/utils/gst_calculator.dart';
 import '../../../core/widgets/gst_input_card.dart';
+import '../../../core/utils/date_helper.dart';
 
 class CreateSaleScreen extends StatefulWidget {
   final Customer? initialCustomer;
@@ -59,6 +60,7 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
 
   Customer? _selectedCustomer;
   Device? _selectedDevice;
+  DateTime _saleDate = DateTime.now();
   List<Customer> _customerList = [];
   List<Device> _deviceList = [];
   bool _isLoadingCustomers = false;
@@ -1827,9 +1829,12 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
             )
           : null;
 
+      final saleDateStr = _saleDate.toIso8601String().split('T')[0];
+
       final response = await _saleRepository.createSale(
         customerId: _selectedCustomer?.id,
         deviceId: _selectedDevice?.id,
+        saleDate: saleDateStr,
         discount: discount,
         taxAmount: effectiveGst?.taxAmount ?? 0.0,
         taxRate: _gstEnabled ? _gstRate : 0.0,
@@ -1849,7 +1854,7 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
           final createdSale = response.data!;
           if (_addWarrantyOnCreate) {
             try {
-              final startDateStr = DateTime.now().toIso8601String().split('T')[0];
+              final startDateStr = saleDateStr;
               await _warrantyRepository.createWarranty(
                 customerId: _selectedCustomer?.id,
                 deviceId: _selectedDevice?.id,
@@ -2011,6 +2016,56 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                             fontWeight: _selectedCustomer != null ? FontWeight.w600 : FontWeight.normal,
                           ),
                           overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    InkWell(
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _saleDate,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime.now().add(const Duration(days: 30)),
+                        );
+                        if (picked != null) {
+                          setState(() => _saleDate = picked);
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade400),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.calendar_today_rounded, color: AppColors.primary, size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Text(
+                                    'Sale / Invoice Date *',
+                                    style: TextStyle(fontSize: 10, color: AppColors.textMuted),
+                                  ),
+                                  Text(
+                                    DateHelper.formatDate(_saleDate.toIso8601String()),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: AppColors.textPrimary,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.edit_calendar_rounded, size: 18, color: AppColors.primary),
+                          ],
                         ),
                       ),
                     ),

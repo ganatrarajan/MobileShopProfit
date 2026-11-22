@@ -92,6 +92,7 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
   final ImagePicker _picker = ImagePicker();
   File? _devicePhotoFile;
 
+  DateTime _dateReceived = DateTime.now();
   DateTime? _expectedDeliveryDate;
   String _paymentMethod = 'cash';
   bool _obscurePin = true;
@@ -819,6 +820,7 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
       final technicianEarning = double.tryParse(_technicianEarningController.text.trim()) ?? 0.0;
       final advancePayment = double.tryParse(_advancePaymentController.text.trim()) ?? 0.0;
 
+      final dateReceivedStr = _dateReceived.toIso8601String().split('T')[0];
       String? dateStr;
       if (_expectedDeliveryDate != null) {
         dateStr = _expectedDeliveryDate!.toIso8601String().split('T')[0];
@@ -842,6 +844,7 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
         accessoriesNotes: _accessoriesNotesController.text.trim(),
         pinPasscode: _pinPasscodeController.text.trim(),
         devicePhoto: photoPayload,
+        dateReceived: dateReceivedStr,
         expectedDeliveryDate: dateStr,
         estimatedCost: estimatedCost,
         paymentAmount: advancePayment,
@@ -855,7 +858,7 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
                     var createdRepair = response.data!;
           if (_addWarrantyOnCreate && _selectedCustomer != null && _selectedDevice != null) {
             try {
-              final startDateStr = DateTime.now().toIso8601String().split('T')[0];
+              final startDateStr = _dateReceived.toIso8601String().split('T')[0];
               await _warrantyRepository.createWarranty(
                 customerId: _selectedCustomer!.id,
                 deviceId: _selectedDevice!.id,
@@ -1505,13 +1508,66 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
                     const SizedBox(height: 14),
                     Row(
                       children: [
+                        // 1. Date Received (Default Today, selectable past/present/future)
                         Expanded(
                           child: InkWell(
                             onTap: () async {
                               final picked = await showDatePicker(
                                 context: context,
-                                initialDate: DateTime.now().add(const Duration(days: 1)),
-                                firstDate: DateTime.now(),
+                                initialDate: _dateReceived,
+                                firstDate: DateTime(2020),
+                                lastDate: DateTime.now().add(const Duration(days: 30)),
+                              );
+                              if (picked != null) {
+                                setState(() => _dateReceived = picked);
+                              }
+                            },
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade400),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.calendar_today_rounded, color: AppColors.primary, size: 18),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Text(
+                                          'Received Date *',
+                                          style: TextStyle(fontSize: 10, color: AppColors.textMuted),
+                                        ),
+                                        Text(
+                                          '${_dateReceived.day}/${_dateReceived.month}/${_dateReceived.year}',
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: AppColors.textPrimary,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        // 2. Expected Delivery Date
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: _expectedDeliveryDate ?? DateTime.now().add(const Duration(days: 1)),
+                                firstDate: DateTime(2020),
                                 lastDate: DateTime.now().add(const Duration(days: 90)),
                               );
                               if (picked != null) {
@@ -1520,26 +1576,36 @@ class _CreateRepairScreenState extends State<CreateRepairScreen> {
                             },
                             borderRadius: BorderRadius.circular(10),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                               decoration: BoxDecoration(
                                 border: Border.all(color: Colors.grey.shade400),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.event_rounded, color: AppColors.primary, size: 20),
+                                  const Icon(Icons.event_rounded, color: AppColors.primary, size: 18),
                                   const SizedBox(width: 8),
                                   Expanded(
-                                    child: Text(
-                                      _expectedDeliveryDate != null
-                                          ? 'Expected: ${_expectedDeliveryDate!.day}/${_expectedDeliveryDate!.month}/${_expectedDeliveryDate!.year}'
-                                          : 'Expected Delivery Date',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: _expectedDeliveryDate != null ? AppColors.textPrimary : AppColors.textMuted,
-                                        fontWeight: _expectedDeliveryDate != null ? FontWeight.bold : FontWeight.normal,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Text(
+                                          'Expected Delivery',
+                                          style: TextStyle(fontSize: 10, color: AppColors.textMuted),
+                                        ),
+                                        Text(
+                                          _expectedDeliveryDate != null
+                                              ? '${_expectedDeliveryDate!.day}/${_expectedDeliveryDate!.month}/${_expectedDeliveryDate!.year}'
+                                              : 'Set Date',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: _expectedDeliveryDate != null ? AppColors.textPrimary : AppColors.textMuted,
+                                            fontWeight: _expectedDeliveryDate != null ? FontWeight.bold : FontWeight.normal,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
