@@ -59,6 +59,13 @@ class AdminAuthController extends Controller
      */
     public function changePassword(Request $request): JsonResponse
     {
+        if ($request->has('old_password') && !$request->has('current_password')) {
+            $request->merge(['current_password' => $request->input('old_password')]);
+        }
+        if ($request->has('confirm_password') && !$request->has('password_confirmation')) {
+            $request->merge(['password_confirmation' => $request->input('confirm_password')]);
+        }
+
         $request->validate([
             'current_password' => 'required|string',
             'password'         => 'required|string|min:6|confirmed',
