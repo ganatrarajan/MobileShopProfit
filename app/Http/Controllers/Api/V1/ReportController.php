@@ -84,6 +84,7 @@ class ReportController extends Controller
         [$start, $end, $period] = $this->resolveDateRange($request);
         $category = $request->query('category', 'all'); // all, repairs, sales, purchases
         $search = $request->query('search');
+        $customerId = $request->query('customer_id') ?: $request->query('customerId');
 
         $isAllTime = ($period === 'all_time');
         $items = [];
@@ -100,6 +101,10 @@ class ReportController extends Controller
             $repairQuery->whereBetween('date_received', [$start, $end]);
         }
 
+        if (!empty($customerId)) {
+            $repairQuery->where('customer_id', $customerId);
+        }
+
         if (!empty($search)) {
             $s = '%' . $search . '%';
             $repairQuery->where(function ($q) use ($s) {
@@ -112,7 +117,7 @@ class ReportController extends Controller
             });
         }
 
-        $allRepairs = (clone $repairQuery)->with(['customer', 'device'])->get();
+        $allRepairs = (clone $repairQuery)->with(['customer', 'device', 'parts'])->get();
         $totalRepairDues = 0;
         $totalRepairBilled = 0;
         $totalRepairPaid = 0;
@@ -130,6 +135,19 @@ class ReportController extends Controller
             $totalRepairPaid += $paid;
 
             if ($category === 'all' || $category === 'repairs' || $category === 'customers') {
+                $partsData = $r->parts ? $r->parts->map(function($p) {
+                    $qty = (int)($p->quantity ?? 1);
+                    $price = (float)($p->selling_price ?? 0);
+                    return [
+                        'id' => $p->id,
+                        'part_name' => $p->part_name ?? 'Spare Part',
+                        'quantity' => $qty,
+                        'selling_price' => $price,
+                        'cost_price' => (float)($p->cost_price ?? 0),
+                        'total' => round($price * $qty, 2),
+                    ];
+                })->values()->toArray() : [];
+
                 $items[] = [
                     'id' => 'repair_' . $r->id,
                     'raw_id' => $r->id,
@@ -140,6 +158,11 @@ class ReportController extends Controller
                     'party_name' => $r->customer?->name ?? 'Walk-in Customer',
                     'party_phone' => $r->customer?->mobile ?? $r->customer?->alternate_mobile ?? '',
                     'party_type' => 'customer',
+                    'customer_id' => $r->customer_id,
+                    'device_name' => trim(($r->device?->brand ?? '') . ' ' . ($r->device?->model ?? '')),
+                    'problem_description' => $r->problem_description ?? '',
+                    'labour_cost' => (float)($r->labour_cost ?? 0),
+                    'parts' => $partsData,
                     'description' => trim(($r->device?->brand ?? '') . ' ' . ($r->device?->model ?? 'Device')),
                     'total_amount' => $effectiveCost,
                     'amount_paid' => $paid,
@@ -161,6 +184,10 @@ class ReportController extends Controller
             $saleQuery->whereBetween('sale_date', [$start, $end]);
         }
 
+        if (!empty($customerId)) {
+            $saleQuery->where('customer_id', $customerId);
+        }
+
         if (!empty($search)) {
             $s = '%' . $search . '%';
             $saleQuery->where(function ($q) use ($s) {
@@ -173,7 +200,7 @@ class ReportController extends Controller
             });
         }
 
-        $allSales = (clone $saleQuery)->with('customer')->get();
+        $allSales = (clone $saleQuery)->with(['customer', 'items'])->get();
         $totalSalesDues = 0;
         $totalSalesBilled = 0;
         $totalSalesPaid = 0;
@@ -186,6 +213,19 @@ class ReportController extends Controller
             $totalSalesPaid += $paid;
 
             if ($category === 'all' || $category === 'sales' || $category === 'customers') {
+                $itemsData = $s->items ? $s->items->map(function($i) {
+                    $qty = (int)($i->quantity ?? 1);
+                    $price = (float)($i->unit_price ?? 0);
+                    $lineTotal = (float)($i->total ?? ($price * $qty));
+                    return [
+                        'id' => $i->id,
+                        'product_name' => $i->product_name ?? 'Item',
+                        'quantity' => $qty,
+                        'unit_price' => $price,
+                        'total' => $lineTotal,
+                    ];
+                })->values()->toArray() : [];
+
                 $items[] = [
                     'id' => 'sale_' . $s->id,
                     'raw_id' => $s->id,
@@ -196,6 +236,8 @@ class ReportController extends Controller
                     'party_name' => $s->customer_name ?? $s->customer?->name ?? 'Walk-in Customer',
                     'party_phone' => $s->customer_mobile ?? $s->customer?->mobile ?? $s->customer?->alternate_mobile ?? '',
                     'party_type' => 'customer',
+                    'customer_id' => $s->customer_id,
+                    'items' => $itemsData,
                     'description' => ucfirst($s->sale_type ?? 'regular') . ' Sale',
                     'total_amount' => $total,
                     'amount_paid' => $paid,
@@ -215,6 +257,11 @@ class ReportController extends Controller
 
         if (!$isAllTime) {
             $purchaseQuery->whereBetween('purchase_date', [$start, $end]);
+        }
+
+        // If filtering by customer, vendor purchases are not relevant
+        if (!empty($customerId)) {
+            $purchaseQuery->whereRaw('1 = 0');
         }
 
         if (!empty($search)) {
@@ -269,6 +316,21 @@ class ReportController extends Controller
         $totalCustomerDues = $totalRepairDues + $totalSalesDues;
         $netBalance = $totalCustomerDues - $totalVendorDues;
 
+        $selectedCustomer = null;
+        if (!empty($customerId)) {
+            $cust = Customer::find($customerId);
+            if ($cust) {
+                $selectedCustomer = [
+                    'id' => $cust->id,
+                    'name' => $cust->name,
+                    'mobile' => $cust->mobile,
+                    'alternate_mobile' => $cust->alternate_mobile,
+                    'email' => $cust->email,
+                    'address' => $cust->address,
+                ];
+            }
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Outstanding dues report retrieved successfully.',
@@ -277,6 +339,8 @@ class ReportController extends Controller
                 'start_date' => $start->format('Y-m-d'),
                 'end_date' => $end->format('Y-m-d'),
                 'category' => $category,
+                'customer_id' => $customerId ? (int)$customerId : null,
+                'customer' => $selectedCustomer,
                 'summary' => [
                     'total_customer_dues' => (float)$totalCustomerDues,
                     'total_repair_dues' => (float)$totalRepairDues,
