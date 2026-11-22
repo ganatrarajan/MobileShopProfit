@@ -233,7 +233,7 @@ class WhatsAppHelper {
         } else {
           sb.writeln('* भुगतान स्थिति: पूरा भुगतान प्राप्त ✅ (PAID IN FULL)');
         }
-        if (sale.warranty != null) {
+        if (sale.warranty != null && (sale.warranty!.durationDays > 0 || sale.warranty!.warrantyNumber.isNotEmpty)) {
           final w = sale.warranty!;
           sb.writeln('');
           sb.writeln('🛡️ वारंटी विवरण (WARRANTY COVERAGE):');
@@ -276,7 +276,7 @@ class WhatsAppHelper {
         } else {
           sb.writeln('* પેમેન્ટ સ્થિતિ: પૂરેપૂરું ચૂકવાઈ ગયેલ છે ✅ (PAID IN FULL)');
         }
-        if (sale.warranty != null) {
+        if (sale.warranty != null && (sale.warranty!.durationDays > 0 || sale.warranty!.warrantyNumber.isNotEmpty)) {
           final w = sale.warranty!;
           sb.writeln('');
           sb.writeln('🛡️ વોરંટી વિગતો (WARRANTY COVERAGE):');
@@ -320,7 +320,7 @@ class WhatsAppHelper {
         } else {
           sb.writeln('* Status: PAID IN FULL ✅');
         }
-        if (sale.warranty != null) {
+        if (sale.warranty != null && (sale.warranty!.durationDays > 0 || sale.warranty!.warrantyNumber.isNotEmpty)) {
           final w = sale.warranty!;
           sb.writeln('');
           sb.writeln('🛡️ WARRANTY COVERAGE:');
@@ -781,7 +781,7 @@ class WhatsAppHelper {
           sb.writeln('* भुगतान स्थिति: पूरा भुगतान प्राप्त ✅ (PAID IN FULL)');
         }
 
-        if (repair.warranty != null) {
+        if (repair.warranty != null && (repair.warranty!.durationDays > 0 || repair.warranty!.warrantyNumber.isNotEmpty)) {
           final w = repair.warranty!;
           sb.writeln('');
           sb.writeln('🛡️ वारंटी विवरण (WARRANTY COVERAGE):');
@@ -865,7 +865,7 @@ class WhatsAppHelper {
           sb.writeln('* પેમેન્ટ સ્થિતિ: પૂરેપૂરું ચૂકવાઈ ગયેલ છે ✅ (PAID IN FULL)');
         }
 
-        if (repair.warranty != null) {
+        if (repair.warranty != null && (repair.warranty!.durationDays > 0 || repair.warranty!.warrantyNumber.isNotEmpty)) {
           final w = repair.warranty!;
           sb.writeln('');
           sb.writeln('🛡️ વોરંટી વિગતો (WARRANTY COVERAGE):');
@@ -950,7 +950,7 @@ class WhatsAppHelper {
           sb.writeln('* Status: PAID IN FULL ✅');
         }
 
-        if (repair.warranty != null) {
+        if (repair.warranty != null && (repair.warranty!.durationDays > 0 || repair.warranty!.warrantyNumber.isNotEmpty)) {
           final w = repair.warranty!;
           sb.writeln('');
           sb.writeln('🛡️ WARRANTY COVERAGE:');
@@ -1074,7 +1074,7 @@ class WhatsAppHelper {
             sb.writeln('* बकाया राशि: ₹${repair.amountDue.toStringAsFixed(2)}');
           }
         }
-        if (repair.warranty != null) {
+        if (repair.warranty != null && (repair.warranty!.durationDays > 0 || repair.warranty!.warrantyNumber.isNotEmpty)) {
           final w = repair.warranty!;
           sb.writeln('');
           sb.writeln('🛡️ वारंटी कवरेज: ${w.durationDays} दिन (${DateHelper.formatDate(w.warrantyStartDate)} से ${DateHelper.formatDate(w.warrantyEndDate)})');
@@ -1103,7 +1103,7 @@ class WhatsAppHelper {
             sb.writeln('* બાકી ચૂકવવાપાત્ર રકમ: ₹${repair.amountDue.toStringAsFixed(2)}');
           }
         }
-        if (repair.warranty != null) {
+        if (repair.warranty != null && (repair.warranty!.durationDays > 0 || repair.warranty!.warrantyNumber.isNotEmpty)) {
           final w = repair.warranty!;
           sb.writeln('');
           sb.writeln('🛡️ વોરંટી કવરેજ: ${w.durationDays} દિવસ (${DateHelper.formatDate(w.warrantyStartDate)} થી ${DateHelper.formatDate(w.warrantyEndDate)})');
@@ -1133,7 +1133,7 @@ class WhatsAppHelper {
             sb.writeln('* Remaining Balance: ₹${repair.amountDue.toStringAsFixed(2)}');
           }
         }
-        if (repair.warranty != null) {
+        if (repair.warranty != null && (repair.warranty!.durationDays > 0 || repair.warranty!.warrantyNumber.isNotEmpty)) {
           final w = repair.warranty!;
           sb.writeln('');
           sb.writeln('🛡️ Warranty Coverage: ${w.durationDays} Days (${DateHelper.formatDate(w.warrantyStartDate)} to ${DateHelper.formatDate(w.warrantyEndDate)})');
@@ -2352,9 +2352,9 @@ class WhatsAppHelper {
                                 child: const WhatsAppIcon(size: 22, showBackground: false),
                               ),
                               const SizedBox(width: 10),
-                              const Text(
-                                'Send Sale Invoice & Warranty',
-                                style: TextStyle(
+                              Text(
+                                (mobile.warrantyDays ?? 0) > 0 ? 'Send Sale Invoice & Warranty' : 'Send Sale Invoice',
+                                style: const TextStyle(
                                   fontWeight: FontWeight.w800,
                                   fontSize: 16,
                                   color: AppColors.textPrimary,
@@ -2412,7 +2412,7 @@ class WhatsAppHelper {
                           ),
                           child: const WhatsAppIcon(size: 20, showBackground: false),
                         ),
-                        title: const Text('Send Invoice & Warranty Bill', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        title: Text((mobile.warrantyDays ?? 0) > 0 ? 'Send Invoice & Warranty Bill' : 'Send Invoice Bill', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                         subtitle: Text('Sends full invoice breakdown in ${currentLang.label}'),
                         onTap: () async {
                           Navigator.pop(ctx);
@@ -2448,16 +2448,19 @@ class WhatsAppHelper {
                           child: const Icon(Icons.picture_as_pdf_rounded, color: AppColors.primary, size: 20),
                         ),
                         title: const Text('Share Invoice PDF Certificate', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                        subtitle: const Text('Generates branded invoice PDF with warranty slip'),
+                        subtitle: Text((mobile.warrantyDays ?? 0) > 0 ? 'Generates branded invoice PDF with warranty slip' : 'Generates branded invoice PDF'),
                         onTap: () async {
                           Navigator.pop(ctx);
                           final bytes = await PdfUsedMobileBuilder.generateSaleInvoicePdf(mobile);
                           final tempDir = await getTemporaryDirectory();
                           final file = File('${tempDir.path}/Sale_Invoice_${mobile.saleInvoiceNumber ?? mobile.id}.pdf');
                           await file.writeAsBytes(bytes);
+                          final hasWarranty = (mobile.warrantyDays ?? 0) > 0;
                           await Share.shareXFiles(
                             [XFile(file.path)],
-                            text: 'Sale Invoice & Testing Warranty #${mobile.saleInvoiceNumber ?? mobile.id}',
+                            text: hasWarranty
+                                ? 'Sale Invoice & Testing Warranty #${mobile.saleInvoiceNumber ?? mobile.id}'
+                                : 'Sale Invoice #${mobile.saleInvoiceNumber ?? mobile.id}',
                           );
                         },
                       ),

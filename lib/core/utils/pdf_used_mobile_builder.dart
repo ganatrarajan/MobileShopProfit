@@ -647,7 +647,7 @@ class PdfUsedMobileBuilder {
                             crossAxisAlignment: pw.CrossAxisAlignment.start,
                             children: [
                               pw.Text(
-                                warrantyDays > 0 ? '$warrantyDays Days Testing Warranty' : 'No Warranty',
+                                warrantyDays > 0 ? '$warrantyDays Days Testing Warranty' : 'None',
                                 style: pw.TextStyle(
                                   fontSize: 8.5,
                                   fontWeight: pw.FontWeight.bold,
@@ -783,29 +783,30 @@ class PdfUsedMobileBuilder {
 
               pw.SizedBox(height: 12),
 
-              // Testing Warranty Terms
-              pw.Container(
-                padding: const pw.EdgeInsets.all(8),
-                decoration: pw.BoxDecoration(
-                  color: cardBg,
-                  borderRadius: pw.BorderRadius.circular(4),
-                  border: pw.Border.all(color: borderSlate),
+              // Testing Warranty Terms (Only displayed if warranty is added)
+              if (warrantyDays > 0)
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(8),
+                  decoration: pw.BoxDecoration(
+                    color: cardBg,
+                    borderRadius: pw.BorderRadius.circular(4),
+                    border: pw.Border.all(color: borderSlate),
+                  ),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('TESTING WARRANTY TERMS & CONDITIONS:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: headerNavy)),
+                      pw.SizedBox(height: 3),
+                      pw.Text(
+                        '1. Testing warranty covers internal functional hardware defects (motherboard/network/mic/speaker).\n'
+                        '2. Warranty is STRICTLY VOID if the device suffers physical drop damage, cracked glass/display, water/liquid ingress, or has been opened by any unauthorized technician.\n'
+                        '3. Warranty slip or digital invoice is mandatory for any claim.\n'
+                        '4. Pre-owned phones are sold in inspected working condition; no cash refunds provided.',
+                        style: pw.TextStyle(fontSize: 7.2, color: textDark, height: 1.3),
+                      ),
+                    ],
+                  ),
                 ),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text('TESTING WARRANTY TERMS & CONDITIONS:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: headerNavy)),
-                    pw.SizedBox(height: 3),
-                    pw.Text(
-                      '1. Testing warranty covers internal functional hardware defects (motherboard/network/mic/speaker).\n'
-                      '2. Warranty is STRICTLY VOID if the device suffers physical drop damage, cracked glass/display, water/liquid ingress, or has been opened by any unauthorized technician.\n'
-                      '3. Warranty slip or digital invoice is mandatory for any claim.\n'
-                      '4. Pre-owned phones are sold in inspected working condition; no cash refunds provided.',
-                      style: pw.TextStyle(fontSize: 7.2, color: textDark, height: 1.3),
-                    ),
-                  ],
-                ),
-              ),
 
               pw.Spacer(),
 
