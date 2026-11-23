@@ -272,42 +272,85 @@ class DeviceController extends Controller
     }
 
     /**
-     * Get unique device brands directly from storage/app/public/device/devices.json
+     * Get unique device brands from master catalog & devices.json.
+     * Supports optional category filtering (e.g. ?category=watch, ?category=tablet, etc.)
      */
     public function getBrands(Request $request): JsonResponse
     {
-        $jsonPath = storage_path('app/public/device/devices.json');
+        $rawCategory = strtolower(trim((string) $request->query('category', 'all')));
+        $category = $rawCategory;
+        if (in_array($category, ['phone', 'smartphone', 'mobiles'])) $category = 'mobile';
+        if (in_array($category, ['watches', 'smartwatch', 'smartwatches', 'watch'])) $category = 'watch';
+        if (in_array($category, ['tablets', 'ipad', 'ipads', 'tablet'])) $category = 'tablet';
+        if (in_array($category, ['audio', 'earbuds', 'headphone', 'headphones', 'accessories'])) $category = 'audio';
+        if (in_array($category, ['laptop', 'laptops', 'mac', 'macbook'])) $category = 'laptop';
 
-        if (! \Illuminate\Support\Facades\File::exists($jsonPath)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'devices.json not found',
-                'data'    => [],
-            ], 404);
-        }
+        $cacheKey = 'device_brands_master_v3_' . md5($category);
 
-        $brands = \Illuminate\Support\Facades\Cache::remember('device_brands_list_raw_json_v1', 86400, function () use ($jsonPath) {
-            $content = \Illuminate\Support\Facades\File::get($jsonPath);
-            $devices = json_decode($content, true) ?? [];
+        $loadBrands = function () use ($category) {
+            $masterPath = storage_path('app/public/device/master_catalog.json');
+            $legacyPath = storage_path('app/public/device/devices.json');
 
-            $brandList = [];
-            foreach ($devices as $key => $item) {
-                if (is_array($item) && ! empty($item['brand'])) {
-                    $brandList[] = trim($item['brand']);
+            $masterBrands = [];
+            if (\Illuminate\Support\Facades\File::exists($masterPath)) {
+                $masterJson = json_decode(\Illuminate\Support\Facades\File::get($masterPath), true) ?? [];
+                if (! empty($masterJson['brands'])) {
+                    foreach ($masterJson['brands'] as $bName => $bData) {
+                        if ($category === 'all' || in_array($category, $bData['categories'] ?? [])) {
+                            $masterBrands[] = $bName;
+                        }
+                    }
                 }
             }
 
+            // For phone/mobile/all, also merge in legacy brands from devices.json
+            $legacyBrands = [];
+            if (($category === 'all' || $category === 'mobile') && \Illuminate\Support\Facades\File::exists($legacyPath)) {
+                $content = \Illuminate\Support\Facades\File::get($legacyPath);
+                $devices = json_decode($content, true) ?? [];
+                foreach ($devices as $key => $item) {
+                    if (is_array($item) && ! empty($item['brand'])) {
+                        $legacyBrands[] = trim($item['brand']);
+                    }
+                }
+            }
+
+            // Popular top brands to prioritize at the beginning of the list
+            $popularOrder = [
+                'Apple', 'Samsung', 'OnePlus', 'Xiaomi', 'Vivo', 'Oppo', 'Realme',
+                'Motorola', 'Google', 'Nothing', 'Boat', 'Noise', 'Fire-Boltt', 'Fastrack', 'Amazfit'
+            ];
+
+            $allBrands = array_merge($masterBrands, $legacyBrands);
             $uniqueMap = [];
-            foreach ($brandList as $b) {
+            foreach ($allBrands as $b) {
                 $lower = strtolower($b);
                 if (! isset($uniqueMap[$lower])) {
                     $uniqueMap[$lower] = $b;
                 }
             }
-            $result = array_values($uniqueMap);
-            sort($result, SORT_NATURAL | SORT_FLAG_CASE);
-            return $result;
-        });
+
+            // Order with popular brands first if they exist in uniqueMap
+            $orderedList = [];
+            foreach ($popularOrder as $pop) {
+                $lowerPop = strtolower($pop);
+                if (isset($uniqueMap[$lowerPop])) {
+                    $orderedList[] = $uniqueMap[$lowerPop];
+                    unset($uniqueMap[$lowerPop]);
+                }
+            }
+
+            $remaining = array_values($uniqueMap);
+            sort($remaining, SORT_NATURAL | SORT_FLAG_CASE);
+
+            return array_merge($orderedList, $remaining);
+        };
+
+        try {
+            $brands = \Illuminate\Support\Facades\Cache::store('file')->remember($cacheKey, 86400, $loadBrands);
+        } catch (\Throwable $e) {
+            $brands = $loadBrands();
+        }
 
         return response()->json([
             'success' => true,
@@ -317,11 +360,19 @@ class DeviceController extends Controller
     }
 
     /**
-     * Get device models for a specific brand directly from storage/app/public/device/devices.json
+     * Get device models for a specific brand from master catalog & devices.json.
+     * Supports optional category filtering (e.g. ?brand=Apple&category=watch).
      */
     public function getModels(Request $request): JsonResponse
     {
         $brandName = trim((string) $request->query('brand'));
+        $rawCategory = strtolower(trim((string) $request->query('category', 'all')));
+        $category = $rawCategory;
+        if (in_array($category, ['phone', 'smartphone', 'mobiles'])) $category = 'mobile';
+        if (in_array($category, ['watches', 'smartwatch', 'smartwatches', 'watch'])) $category = 'watch';
+        if (in_array($category, ['tablets', 'ipad', 'ipads', 'tablet'])) $category = 'tablet';
+        if (in_array($category, ['audio', 'earbuds', 'headphone', 'headphones', 'accessories'])) $category = 'audio';
+        if (in_array($category, ['laptop', 'laptops', 'mac', 'macbook'])) $category = 'laptop';
 
         if (! $brandName) {
             return response()->json([
@@ -331,35 +382,62 @@ class DeviceController extends Controller
             ], 400);
         }
 
-        $jsonPath = storage_path('app/public/device/devices.json');
-        if (! \Illuminate\Support\Facades\File::exists($jsonPath)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'devices.json not found',
-                'data'    => [],
-            ], 404);
-        }
+        $cacheKey = 'device_models_master_v3_' . md5(strtolower($brandName) . '_' . $category);
 
-        $cacheKey = 'device_models_raw_json_v1_' . md5(strtolower($brandName));
-
-        $models = \Illuminate\Support\Facades\Cache::remember($cacheKey, 86400, function () use ($brandName, $jsonPath) {
-            $content = \Illuminate\Support\Facades\File::get($jsonPath);
-            $devices = json_decode($content, true) ?? [];
+        $loadModels = function () use ($brandName, $category) {
+            $masterPath = storage_path('app/public/device/master_catalog.json');
+            $legacyPath = storage_path('app/public/device/devices.json');
 
             $modelList = [];
-            foreach ($devices as $key => $item) {
-                if (is_array($item) && ! empty($item['brand']) && strcasecmp(trim($item['brand']), $brandName) === 0) {
-                    $modelVal = ! empty($item['name']) ? $item['name'] : (! empty($item['model']) ? $item['model'] : $key);
-                    if (! empty($modelVal)) {
-                        $modelList[] = trim($modelVal);
+
+            // 1. Check curated master catalog first
+            if (\Illuminate\Support\Facades\File::exists($masterPath)) {
+                $masterJson = json_decode(\Illuminate\Support\Facades\File::get($masterPath), true) ?? [];
+                if (! empty($masterJson['brands'])) {
+                    foreach ($masterJson['brands'] as $bName => $bData) {
+                        if (strcasecmp($bName, $brandName) === 0 && ! empty($bData['models'])) {
+                            if ($category !== 'all' && isset($bData['models'][$category])) {
+                                $modelList = array_merge($modelList, $bData['models'][$category]);
+                            } elseif ($category === 'all') {
+                                foreach ($bData['models'] as $catList) {
+                                    $modelList = array_merge($modelList, $catList);
+                                }
+                            }
+                        }
                     }
                 }
             }
 
-            $modelList = array_values(array_unique($modelList));
-            sort($modelList, SORT_NATURAL | SORT_FLAG_CASE);
-            return $modelList;
-        });
+            // 2. Also merge with legacy devices.json for broad Android compatibility (if category is all or mobile)
+            if (($category === 'all' || $category === 'mobile') && \Illuminate\Support\Facades\File::exists($legacyPath)) {
+                $content = \Illuminate\Support\Facades\File::get($legacyPath);
+                $devices = json_decode($content, true) ?? [];
+                foreach ($devices as $key => $item) {
+                    if (is_array($item) && ! empty($item['brand']) && strcasecmp(trim($item['brand']), $brandName) === 0) {
+                        $modelVal = ! empty($item['name']) ? $item['name'] : (! empty($item['model']) ? $item['model'] : $key);
+                        if (! empty($modelVal)) {
+                            $modelList[] = trim($modelVal);
+                        }
+                    }
+                }
+            }
+
+            // Deduplicate maintaining casing
+            $uniqueMap = [];
+            foreach ($modelList as $m) {
+                $lower = strtolower($m);
+                if (! isset($uniqueMap[$lower])) {
+                    $uniqueMap[$lower] = $m;
+                }
+            }
+            return array_values($uniqueMap);
+        };
+
+        try {
+            $models = \Illuminate\Support\Facades\Cache::store('file')->remember($cacheKey, 86400, $loadModels);
+        } catch (\Throwable $e) {
+            $models = $loadModels();
+        }
 
         return response()->json([
             'success' => true,

@@ -847,9 +847,15 @@
                 <li><a href="#notifications" class="nav-item" onclick="switchNav('notifications')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-2px; margin-right:6px;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Push Notifications</a></li>
                 <li><a href="#settings" class="nav-item" onclick="switchNav('settings')">⚙️ System & Settings</a></li>
             </ul>
-            <div class="user-footer">
-                <span id="admin-name">Admin</span>
-                <a href="#" style="color:#ef4444; text-decoration:none; font-weight:600;" onclick="logout()">Logout</a>
+            <div class="user-footer" style="display:flex; flex-direction:column; gap:8px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span id="admin-name" style="font-weight:600; color:#f8fafc; font-size:13px;">Admin</span>
+                    <a href="#" style="color:#ef4444; text-decoration:none; font-weight:600; font-size:12px;" onclick="logout()">Logout</a>
+                </div>
+                <button type="button" onclick="openAdminChangePasswordModal()" style="background:#1e293b; color:#93c5fd; border:1px solid #334155; border-radius:6px; padding:6px 10px; font-size:11.5px; font-weight:600; cursor:pointer; text-align:center; transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:6px;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    Change Password
+                </button>
             </div>
         </aside>
 
@@ -860,6 +866,10 @@
                     <h1 id="page-title">Dashboard Overview</h1>
                 </div>
                 <div style="display:flex; align-items:center; gap:12px;">
+                    <button type="button" onclick="openAdminChangePasswordModal()" style="font-size:12px; color:#1e293b; background:#ffffff; border:1px solid #cbd5e1; padding:6px 12px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; font-weight:600; transition:all 0.2s;">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        Change Password
+                    </button>
                     <span class="badge badge-active" style="font-size:11px; padding:4px 10px;">
                         <span style="width:6px; height:6px; border-radius:50%; background:#16a34a; display:inline-block; margin-right:3px;"></span>
                         Platform Online
@@ -1016,7 +1026,7 @@
             } else if (['subscriptions', 'payments', 'plans', 'revenue', 'billing'].includes(route)) {
                 mainSection = 'billing';
                 subTab = subTab || (route === 'billing' ? 'subscriptions' : route);
-            } else if (['pages', 'gateway', 'support', 'audit', 'users', 'version', 'notifications', 'settings'].includes(route)) {
+            } else if (['pages', 'gateway', 'support', 'audit', 'users', 'version', 'notifications', 'settings', 'change-password'].includes(route)) {
                 mainSection = 'settings';
                 subTab = subTab || (route === 'settings' ? 'version' : route);
             }
@@ -1089,6 +1099,7 @@
                     { id: 'support', label: '💬 Support Tickets', fn: loadSupportView },
                     { id: 'audit', label: '🛡️ Audit Logs', fn: loadAuditView },
                     { id: 'users', label: '👥 User Accounts', fn: loadUsersView },
+                    { id: 'change-password', label: '🔑 Change Password', fn: loadAdminChangePasswordView },
                 ]);
             }
         }
@@ -6325,6 +6336,175 @@
             } else {
                 alertErr.textContent = res?.message || 'Failed to save OTP settings.';
                 alertErr.style.display = 'block';
+            }
+        }
+
+        // ==========================================
+        // ADMIN CHANGE PASSWORD (MODAL & SETTINGS TAB)
+        // ==========================================
+        function togglePasswordVisibility(fieldId) {
+            const input = document.getElementById(fieldId);
+            if (!input) return;
+            input.type = input.type === 'password' ? 'text' : 'password';
+        }
+
+        function showChangePassAlert(box, msg, type) {
+            if (!box) return;
+            box.innerHTML = msg;
+            box.style.display = 'block';
+            if (type === 'success') {
+                box.style.background = '#dcfce7';
+                box.style.color = '#15803d';
+                box.style.border = '1px solid #86efac';
+            } else {
+                box.style.background = '#fee2e2';
+                box.style.color = '#b91c1c';
+                box.style.border = '1px solid #fca5a5';
+            }
+        }
+
+        function openAdminChangePasswordModal() {
+            const html = `
+                <div style="padding:6px 0;">
+                    <div id="modal-change-password-alert" style="display:none; padding:10px 14px; border-radius:8px; margin-bottom:16px; font-size:13px; font-weight:500;"></div>
+                    <form id="admin-change-password-modal-form" onsubmit="handleAdminChangePassword(event, 'modal')">
+                        <div class="form-group">
+                            <label style="display:flex; justify-content:space-between; align-items:center;">
+                                <span>Current / Old Password *</span>
+                                <a href="javascript:void(0)" onclick="togglePasswordVisibility('modal_current_password')" style="font-size:11px; text-transform:none; color:#2563eb; text-decoration:none; font-weight:600;">Show/Hide</a>
+                            </label>
+                            <input type="password" id="modal_current_password" class="form-control" placeholder="Enter current admin password" required autocomplete="current-password">
+                        </div>
+                        <div class="form-group">
+                            <label style="display:flex; justify-content:space-between; align-items:center;">
+                                <span>New Password * (Min. 6 characters)</span>
+                                <a href="javascript:void(0)" onclick="togglePasswordVisibility('modal_password')" style="font-size:11px; text-transform:none; color:#2563eb; text-decoration:none; font-weight:600;">Show/Hide</a>
+                            </label>
+                            <input type="password" id="modal_password" class="form-control" placeholder="Enter new password" minlength="6" required autocomplete="new-password">
+                        </div>
+                        <div class="form-group">
+                            <label style="display:flex; justify-content:space-between; align-items:center;">
+                                <span>Confirm New Password *</span>
+                                <a href="javascript:void(0)" onclick="togglePasswordVisibility('modal_password_confirmation')" style="font-size:11px; text-transform:none; color:#2563eb; text-decoration:none; font-weight:600;">Show/Hide</a>
+                            </label>
+                            <input type="password" id="modal_password_confirmation" class="form-control" placeholder="Re-enter new password" minlength="6" required autocomplete="new-password">
+                        </div>
+                        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:24px;">
+                            <button type="button" class="btn-sm" style="padding:10px 18px; border:1px solid #cbd5e1; background:#f1f5f9; color:#475569; border-radius:8px; cursor:pointer;" onclick="closeModal()">Cancel</button>
+                            <button type="submit" id="btn-submit-change-pass-modal" class="btn-primary" style="padding:10px 20px; font-weight:600; border-radius:8px; cursor:pointer;">Update Password</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            openModal('🔑 Change Admin Password', html, '480px');
+        }
+
+        function loadAdminChangePasswordView() {
+            const content = getContentContainer();
+            content.innerHTML = `
+                <div class="card-table" style="padding:28px; max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+                    <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px; border-bottom:1px solid #f1f5f9; padding-bottom:14px;">
+                        <div style="width:42px; height:42px; border-radius:10px; background:#eff6ff; display:flex; align-items:center; justify-content:center; font-size:20px; color:#2563eb;">
+                            🔐
+                        </div>
+                        <div>
+                            <h3 style="font-size:18px; font-weight:700; color:#0f172a; margin-bottom:2px;">Change Admin Password</h3>
+                            <p style="font-size:13px; color:#64748b; margin:0;">Enter your current password and choose a secure new password.</p>
+                        </div>
+                    </div>
+
+                    <div id="page-change-password-alert" style="display:none; padding:12px 14px; border-radius:8px; margin-bottom:18px; font-size:13px; font-weight:500;"></div>
+
+                    <form id="admin-change-password-page-form" onsubmit="handleAdminChangePassword(event, 'page')">
+                        <div class="form-group" style="margin-bottom:18px;">
+                            <label style="display:flex; justify-content:space-between; align-items:center; font-size:12px; font-weight:600; text-transform:uppercase; color:#475569; margin-bottom:6px;">
+                                <span>Current / Old Password *</span>
+                                <a href="javascript:void(0)" onclick="togglePasswordVisibility('page_current_password')" style="font-size:11.5px; text-transform:none; color:#2563eb; text-decoration:none; font-weight:600;">Show/Hide</a>
+                            </label>
+                            <input type="password" id="page_current_password" class="form-control" placeholder="Enter current admin password" required autocomplete="current-password">
+                        </div>
+                        <div class="form-group" style="margin-bottom:18px;">
+                            <label style="display:flex; justify-content:space-between; align-items:center; font-size:12px; font-weight:600; text-transform:uppercase; color:#475569; margin-bottom:6px;">
+                                <span>New Password * (Min. 6 characters)</span>
+                                <a href="javascript:void(0)" onclick="togglePasswordVisibility('page_password')" style="font-size:11.5px; text-transform:none; color:#2563eb; text-decoration:none; font-weight:600;">Show/Hide</a>
+                            </label>
+                            <input type="password" id="page_password" class="form-control" placeholder="Enter new strong password" minlength="6" required autocomplete="new-password">
+                        </div>
+                        <div class="form-group" style="margin-bottom:22px;">
+                            <label style="display:flex; justify-content:space-between; align-items:center; font-size:12px; font-weight:600; text-transform:uppercase; color:#475569; margin-bottom:6px;">
+                                <span>Confirm New Password *</span>
+                                <a href="javascript:void(0)" onclick="togglePasswordVisibility('page_password_confirmation')" style="font-size:11.5px; text-transform:none; color:#2563eb; text-decoration:none; font-weight:600;">Show/Hide</a>
+                            </label>
+                            <input type="password" id="page_password_confirmation" class="form-control" placeholder="Re-enter new password" minlength="6" required autocomplete="new-password">
+                        </div>
+                        <div style="display:flex; justify-content:flex-end;">
+                            <button type="submit" id="btn-submit-change-pass-page" class="btn-primary" style="padding:12px 24px; font-weight:600; border-radius:8px; cursor:pointer;">Update Password</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+        }
+
+        async function handleAdminChangePassword(e, context = 'modal') {
+            e.preventDefault();
+            const prefix = context === 'modal' ? 'modal_' : 'page_';
+            const alertBox = document.getElementById(`${context}-change-password-alert`);
+            const submitBtn = document.getElementById(`btn-submit-change-pass-${context}`);
+
+            const currentPassword = document.getElementById(`${prefix}current_password`).value;
+            const newPassword = document.getElementById(`${prefix}password`).value;
+            const confirmPassword = document.getElementById(`${prefix}password_confirmation`).value;
+
+            if (alertBox) {
+                alertBox.style.display = 'none';
+            }
+
+            if (!currentPassword) {
+                showChangePassAlert(alertBox, 'Please enter your current password.', 'error');
+                return;
+            }
+            if (newPassword.length < 6) {
+                showChangePassAlert(alertBox, 'New password must be at least 6 characters.', 'error');
+                return;
+            }
+            if (newPassword !== confirmPassword) {
+                showChangePassAlert(alertBox, 'New password and confirmation do not match.', 'error');
+                return;
+            }
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerText = 'Updating...';
+            }
+
+            try {
+                const res = await apiFetch('/auth/change-password', 'POST', {
+                    current_password: currentPassword,
+                    password: newPassword,
+                    password_confirmation: confirmPassword
+                });
+
+                if (res && (res.success === true || res.status === 'success')) {
+                    showChangePassAlert(alertBox, res.message || 'Admin password changed successfully!', 'success');
+                    const form = document.getElementById(`admin-change-password-${context}-form`);
+                    if (form) form.reset();
+                    if (context === 'modal') {
+                        setTimeout(() => closeModal(), 1800);
+                    }
+                } else {
+                    let errMsg = res?.message || 'Failed to change password.';
+                    if (res?.errors) {
+                        errMsg = Object.values(res.errors).flat().join('<br>');
+                    }
+                    showChangePassAlert(alertBox, errMsg, 'error');
+                }
+            } catch (err) {
+                showChangePassAlert(alertBox, 'Network or server error. Please try again.', 'error');
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = 'Update Password';
+                }
             }
         }
 </script>
