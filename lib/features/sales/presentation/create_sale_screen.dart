@@ -1261,6 +1261,10 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                                                   final item = invItems[idx];
                                                   final isSelected = selectedInvItem?.id == item.id;
                                                   final isOutOfStock = item.currentStock <= 0;
+                                                    final existingIndex = _items.indexWhere((si) => si.inventoryItemId != null && si.inventoryItemId == item.id);
+                                                    final currentInCart = existingIndex != -1 ? _items[existingIndex].quantity : 0;
+                                                    final remainingStock = item.currentStock - currentInCart;
+                                                    final isFullyAdded = currentInCart >= item.currentStock && item.currentStock > 0;
 
                                                   return Card(
                                                     elevation: isSelected ? 2 : 0.5,
@@ -1283,7 +1287,11 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                                                       borderRadius: BorderRadius.circular(12),
                                                       onTap: () {
                                                         if (isOutOfStock) {
-                                                          AppFeedback.showError(context, error: 'Item "${item.name}" is out of stock!');
+                                                          showSheetError('Item "${item.name}" is out of stock (0 units). Cannot add to invoice.');
+                                                          return;
+                                                        }
+                                                        if (isFullyAdded) {
+                                                          showSheetError('${item.name} is already in the invoice with all available stock ($currentInCart in invoice). Maximum stock is ${item.currentStock}.');
                                                           return;
                                                         }
                                                         setSheetState(() {
@@ -1291,6 +1299,7 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                                                           nameCtrl.text = item.name;
                                                           priceCtrl.text = item.sellingPrice.toStringAsFixed(2);
                                                           qtyCtrl.text = '1';
+                                                          sheetError = null;
                                                         });
                                                       },
                                                       child: Padding(
@@ -1345,6 +1354,19 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                                                                             style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.bold, fontSize: 10.5),
                                                                           ),
                                                                         )
+                                                                      else if (isFullyAdded)
+                                                                        Container(
+                                                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                                                          decoration: BoxDecoration(
+                                                                            color: Colors.orange.shade50,
+                                                                            borderRadius: BorderRadius.circular(4),
+                                                                            border: Border.all(color: Colors.orange.shade300),
+                                                                          ),
+                                                                          child: Text(
+                                                                            'In Invoice ($currentInCart / ${item.currentStock})',
+                                                                            style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.bold, fontSize: 10.5),
+                                                                          ),
+                                                                        )
                                                                       else
                                                                         Container(
                                                                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
@@ -1354,7 +1376,9 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                                                                             border: Border.all(color: Colors.green.shade200),
                                                                           ),
                                                                           child: Text(
-                                                                            'Stock: ${item.currentStock}',
+                                                                            currentInCart > 0
+                                                                                ? 'Stock: $remainingStock left ($currentInCart in invoice)'
+                                                                                : 'Stock: ${item.currentStock}',
                                                                             style: TextStyle(color: Colors.green.shade800, fontWeight: FontWeight.bold, fontSize: 10.5),
                                                                           ),
                                                                         ),
@@ -1553,9 +1577,22 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              Text(
-                                'Available: ${selectedInvItem!.currentStock}',
-                                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                              Builder(
+                                builder: (_) {
+                                  final existingIndex = _items.indexWhere((si) => si.inventoryItemId != null && si.inventoryItemId == selectedInvItem!.id);
+                                  final currentInCart = existingIndex != -1 ? _items[existingIndex].quantity : 0;
+                                  final remainingStock = selectedInvItem!.currentStock - currentInCart;
+                                  return Text(
+                                    currentInCart > 0
+                                        ? 'Available: $remainingStock of ${selectedInvItem!.currentStock} ($currentInCart in invoice)'
+                                        : 'Available: ${selectedInvItem!.currentStock}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: remainingStock > 0 ? AppColors.textSecondary : Colors.red.shade700,
+                                    ),
+                                  );
+                                },
                               ),
                             ],
                           ),
@@ -1591,7 +1628,10 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                                     onPressed: () {
                                       final q = int.tryParse(qtyCtrl.text.trim()) ?? 1;
                                       if (q > 1) {
-                                        setSheetState(() => qtyCtrl.text = (q - 1).toString());
+                                        setSheetState(() {
+                                          qtyCtrl.text = (q - 1).toString();
+                                          sheetError = null;
+                                        });
                                       }
                                     },
                                   ),
@@ -1608,10 +1648,21 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                                     icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.primary),
                                     onPressed: () {
                                       final q = int.tryParse(qtyCtrl.text.trim()) ?? 1;
-                                      if (q < selectedInvItem!.currentStock) {
-                                        setSheetState(() => qtyCtrl.text = (q + 1).toString());
+                                      final existingIndex = _items.indexWhere((si) => si.inventoryItemId != null && si.inventoryItemId == selectedInvItem!.id);
+                                      final currentInCart = existingIndex != -1 ? _items[existingIndex].quantity : 0;
+                                      final maxCanAdd = selectedInvItem!.currentStock - currentInCart;
+
+                                      if (q < maxCanAdd) {
+                                        setSheetState(() {
+                                          qtyCtrl.text = (q + 1).toString();
+                                          sheetError = null;
+                                        });
                                       } else {
-                                        AppFeedback.showError(context, error: 'Maximum available stock is ${selectedInvItem!.currentStock}');
+                                        if (currentInCart > 0) {
+                                          showSheetError('Cannot add more. $currentInCart unit(s) already in invoice. Remaining available stock is $maxCanAdd (Total stock: ${selectedInvItem!.currentStock}).');
+                                        } else {
+                                          showSheetError('Maximum available stock is ${selectedInvItem!.currentStock}');
+                                        }
                                       }
                                     },
                                   ),

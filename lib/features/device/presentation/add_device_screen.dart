@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/storage/preferences_storage.dart';
 import '../../../core/theme/app_colors.dart';
@@ -45,7 +45,7 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
   String? _selectedBrand;
   String? _selectedModel;
 
-  final List<String> _deviceTypes = ['Mobile', 'Tablet', 'Laptop', 'Other'];
+  final List<String> _deviceTypes = ['Mobile', 'Tablet', 'Laptop', 'Watch', 'Other'];
 
   void _showFormError(String errorMsg) {
     FocusManager.instance.primaryFocus?.unfocus();
@@ -66,9 +66,9 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
     _fetchBrands();
   }
 
-  Future<void> _fetchBrands() async {
+  Future<void> _fetchBrands([String? category]) async {
     setState(() => _isLoadingBrands = true);
-    final response = await _repository.getDeviceBrands();
+    final response = await _repository.getDeviceBrands(category: category ?? _selectedDeviceType);
     if (mounted) {
       setState(() {
         _isLoadingBrands = false;
@@ -82,14 +82,14 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
     }
   }
 
-  Future<void> _fetchModels(String brand) async {
+  Future<void> _fetchModels(String brand, [String? category]) async {
     setState(() {
       _isLoadingModels = true;
       _models = [];
       _selectedModel = null;
       _modelController.clear();
     });
-    final response = await _repository.getDeviceModels(brand);
+    final response = await _repository.getDeviceModels(brand, category: category ?? _selectedDeviceType);
     if (mounted) {
       setState(() {
         _isLoadingModels = false;
@@ -412,9 +412,16 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 3.0),
         child: InkWell(
           onTap: () {
-            setState(() {
-              _selectedDeviceType = type;
-            });
+            if (_selectedDeviceType != type) {
+              setState(() {
+                _selectedDeviceType = type;
+                _selectedBrand = null;
+                _selectedModel = null;
+                _brandController.clear();
+                _modelController.clear();
+              });
+              _fetchBrands(type);
+            }
           },
           borderRadius: BorderRadius.circular(8),
           child: Container(
@@ -430,9 +437,11 @@ class _AddDeviceScreenState extends State<AddDeviceScreen> {
             child: Text(
               type,
               textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: isSelected ? Colors.white : AppColors.textPrimary,
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               ),
             ),

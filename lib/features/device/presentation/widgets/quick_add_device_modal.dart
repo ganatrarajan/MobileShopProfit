@@ -86,9 +86,9 @@ class _QuickAddDeviceModalState extends State<QuickAddDeviceModal> {
     _fetchBrands();
   }
 
-  Future<void> _fetchBrands() async {
+  Future<void> _fetchBrands([String? category]) async {
     setState(() => _isLoadingBrands = true);
-    final response = await _deviceRepository.getDeviceBrands();
+    final response = await _deviceRepository.getDeviceBrands(category: category ?? _deviceType);
     if (mounted) {
       setState(() {
         _isLoadingBrands = false;
@@ -101,14 +101,14 @@ class _QuickAddDeviceModalState extends State<QuickAddDeviceModal> {
     }
   }
 
-  Future<void> _fetchModels(String brand) async {
+  Future<void> _fetchModels(String brand, [String? category]) async {
     setState(() {
       _isLoadingModels = true;
       _models = [];
       _selectedModel = null;
       _modelController.clear();
     });
-    final response = await _deviceRepository.getDeviceModels(brand);
+    final response = await _deviceRepository.getDeviceModels(brand, category: category ?? _deviceType);
     if (mounted) {
       setState(() {
         _isLoadingModels = false;
@@ -662,7 +662,16 @@ class _QuickAddDeviceModalState extends State<QuickAddDeviceModal> {
                       fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
                     ),
                     onSelected: (sel) {
-                      if (sel) setState(() => _deviceType = type);
+                      if (sel && _deviceType != type) {
+                        setState(() {
+                          _deviceType = type;
+                          _selectedBrand = null;
+                          _selectedModel = null;
+                          _brandController.clear();
+                          _modelController.clear();
+                        });
+                        _fetchBrands(type);
+                      }
                     },
                   );
                 }).toList(),

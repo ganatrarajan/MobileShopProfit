@@ -661,22 +661,21 @@ class CustomerOutstandingStatementPdfBuilder {
                     'PAYMENT REMINDER & NOTES:',
                     style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.amber900),
                   ),
-                  pw.SizedBox(height: 2),
-                  pw.Text(
-                    '- Kindly review the detailed statement above and settle the outstanding balance of Rs. ${totalDue.toStringAsFixed(2)} at your earliest convenience.',
-                    style: pw.TextStyle(fontSize: 7.5, color: textDark),
+                  pw.SizedBox(height: 3),
+                  _noteRow(
+                    'Kindly review the detailed statement above and settle the outstanding balance of Rs. ${totalDue.toStringAsFixed(2)} at your earliest convenience.',
+                    textDark,
                   ),
                   if (shopPhone.isNotEmpty) ...[
-                    pw.SizedBox(height: 1),
-                    pw.Text(
-                      '- For UPI / Bank payment or any clarification regarding repair parts or sales, please call/WhatsApp: $shopPhone.',
-                      style: pw.TextStyle(fontSize: 7.5, color: textDark),
+                    _noteRow(
+                      'For UPI / Bank payment or any clarification regarding repair parts or sales, please call/WhatsApp: $shopPhone.',
+                      textDark,
                     ),
                   ],
-                  pw.SizedBox(height: 1),
-                  pw.Text(
-                    '- Thank you for your continued trust and business!',
-                    style: pw.TextStyle(fontSize: 7.5, color: textDark, fontStyle: pw.FontStyle.italic),
+                  _noteRow(
+                    'Thank you for your continued trust and business!',
+                    textDark,
+                    isItalic: true,
                   ),
                 ],
               ),
@@ -728,6 +727,36 @@ class CustomerOutstandingStatementPdfBuilder {
           fontWeight: isHeader ? pw.FontWeight.bold : pw.FontWeight.normal,
           color: isHeader ? textDark : textDark,
         ),
+      ),
+    );
+  }
+
+  static pw.Widget _noteRow(String text, PdfColor color, {bool isItalic = false}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 2),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Container(
+            margin: const pw.EdgeInsets.only(top: 3.5, right: 5),
+            width: 3,
+            height: 3,
+            decoration: pw.BoxDecoration(
+              color: color,
+              shape: pw.BoxShape.circle,
+            ),
+          ),
+          pw.Expanded(
+            child: pw.Text(
+              PdfTextHelper.sanitize(text),
+              style: pw.TextStyle(
+                fontSize: 7.5,
+                color: color,
+                fontStyle: isItalic ? pw.FontStyle.italic : pw.FontStyle.normal,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

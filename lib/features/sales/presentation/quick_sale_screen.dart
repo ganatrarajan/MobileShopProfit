@@ -803,6 +803,10 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
                                                   final item = invItems[idx];
                                                   final isSelected = selectedInvItem?.id == item.id;
                                                   final isOutOfStock = item.currentStock <= 0;
+                                                    final existingIndex = _items.indexWhere((si) => si.inventoryItemId != null && si.inventoryItemId == item.id);
+                                                    final currentInCart = existingIndex != -1 ? _items[existingIndex].quantity : 0;
+                                                    final remainingStock = item.currentStock - currentInCart;
+                                                    final isFullyAdded = currentInCart >= item.currentStock && item.currentStock > 0;
 
                                                   return Card(
                                                     elevation: isSelected ? 2 : 0.5,
@@ -826,6 +830,10 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
                                                       onTap: () {
                                                         if (isOutOfStock) {
                                                           showSheetError('Item "${item.name}" is out of stock (0 units). Cannot add to sale.');
+                                                          return;
+                                                        }
+                                                        if (isFullyAdded) {
+                                                          showSheetError('${item.name} is already in the sale with all available stock ($currentInCart in sale). Maximum stock is ${item.currentStock}.');
                                                           return;
                                                         }
                                                         setSheetState(() {
@@ -887,6 +895,19 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
                                                                             style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.bold, fontSize: 10.5),
                                                                           ),
                                                                         )
+                                                                      else if (isFullyAdded)
+                                                                        Container(
+                                                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                                                          decoration: BoxDecoration(
+                                                                            color: Colors.orange.shade50,
+                                                                            borderRadius: BorderRadius.circular(4),
+                                                                            border: Border.all(color: Colors.orange.shade300),
+                                                                          ),
+                                                                          child: Text(
+                                                                            'In Sale ($currentInCart / ${item.currentStock})',
+                                                                            style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.bold, fontSize: 10.5),
+                                                                          ),
+                                                                        )
                                                                       else
                                                                         Container(
                                                                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
@@ -896,7 +917,9 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
                                                                             border: Border.all(color: Colors.green.shade200),
                                                                           ),
                                                                           child: Text(
-                                                                            'Stock: ${item.currentStock}',
+                                                                            currentInCart > 0
+                                                                                ? 'Stock: $remainingStock left ($currentInCart in sale)'
+                                                                                : 'Stock: ${item.currentStock}',
                                                                             style: TextStyle(color: Colors.green.shade800, fontWeight: FontWeight.bold, fontSize: 10.5),
                                                                           ),
                                                                         ),
@@ -1044,9 +1067,22 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              Text(
-                                'Available: ${selectedInvItem!.currentStock}',
-                                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                              Builder(
+                                builder: (_) {
+                                  final existingIndex = _items.indexWhere((si) => si.inventoryItemId != null && si.inventoryItemId == selectedInvItem!.id);
+                                  final currentInCart = existingIndex != -1 ? _items[existingIndex].quantity : 0;
+                                  final remainingStock = selectedInvItem!.currentStock - currentInCart;
+                                  return Text(
+                                    currentInCart > 0
+                                        ? 'Available: $remainingStock of ${selectedInvItem!.currentStock} ($currentInCart in sale)'
+                                        : 'Available: ${selectedInvItem!.currentStock}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: remainingStock > 0 ? AppColors.textSecondary : Colors.red.shade700,
+                                    ),
+                                  );
+                                },
                               ),
                             ],
                           ),
@@ -1104,13 +1140,21 @@ class QuickSaleScreenState extends State<QuickSaleScreen> {
                                     icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.primary),
                                     onPressed: () {
                                       final q = int.tryParse(qtyCtrl.text.trim()) ?? 1;
-                                      if (q < selectedInvItem!.currentStock) {
+                                      final existingIndex = _items.indexWhere((si) => si.inventoryItemId != null && si.inventoryItemId == selectedInvItem!.id);
+                                      final currentInCart = existingIndex != -1 ? _items[existingIndex].quantity : 0;
+                                      final maxCanAdd = selectedInvItem!.currentStock - currentInCart;
+
+                                      if (q < maxCanAdd) {
                                         setSheetState(() {
                                           qtyCtrl.text = (q + 1).toString();
                                           sheetError = null;
                                         });
                                       } else {
-                                        showSheetError('Maximum available stock is ${selectedInvItem!.currentStock}');
+                                        if (currentInCart > 0) {
+                                          showSheetError('Cannot add more. $currentInCart unit(s) already in sale. Remaining available stock is $maxCanAdd (Total stock: ${selectedInvItem!.currentStock}).');
+                                        } else {
+                                          showSheetError('Maximum available stock is ${selectedInvItem!.currentStock}');
+                                        }
                                       }
                                     },
                                   ),

@@ -6,11 +6,14 @@ import '../models/device.dart';
 class DeviceRepository {
   final ApiClient _apiClient = ApiClient();
 
-  /// Get list of available device brands from catalog
-  Future<ApiResponse<List<String>>> getDeviceBrands() async {
+  /// Get list of available device brands from catalog (optionally filtered by category)
+  Future<ApiResponse<List<String>>> getDeviceBrands({String? category}) async {
     try {
+      final query = (category != null && category.trim().isNotEmpty)
+          ? '?category=${Uri.encodeComponent(category.trim().toLowerCase())}'
+          : '';
       return await _apiClient.get<List<String>>(
-        ApiEndpoints.deviceBrands,
+        '${ApiEndpoints.deviceBrands}$query',
         fromJson: (data) {
           if (data is List) {
             return data.map((e) => e.toString()).toList();
@@ -29,12 +32,15 @@ class DeviceRepository {
     }
   }
 
-  /// Get list of available device models for a specific brand from catalog
-  Future<ApiResponse<List<String>>> getDeviceModels(String brand) async {
+  /// Get list of available device models for a specific brand from catalog (optionally filtered by category)
+  Future<ApiResponse<List<String>>> getDeviceModels(String brand, {String? category}) async {
     try {
       final encodedBrand = Uri.encodeComponent(brand.trim());
+      final catQuery = (category != null && category.trim().isNotEmpty)
+          ? '&category=${Uri.encodeComponent(category.trim().toLowerCase())}'
+          : '';
       return await _apiClient.get<List<String>>(
-        '${ApiEndpoints.deviceModels}?brand=$encodedBrand',
+        '${ApiEndpoints.deviceModels}?brand=$encodedBrand$catQuery',
         fromJson: (data) {
           if (data is List) {
             return data.map((e) => e.toString()).toList();

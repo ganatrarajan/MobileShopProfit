@@ -47,7 +47,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   GstCalculationResult? _gstResult;
 
   String _paymentStatus = 'pending'; // paid, partial, pending
-  bool _addToInventory = true;
+  bool _addToInventory = false;
   bool _isSaving = false;
   String? _errorMessage;
 

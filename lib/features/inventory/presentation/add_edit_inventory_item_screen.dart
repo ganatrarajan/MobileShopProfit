@@ -7,6 +7,7 @@ import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../device/data/device_repository.dart';
+import '../data/inventory_presets.dart';
 import '../data/inventory_repository.dart';
 import '../models/inventory_item.dart';
 import '../../../core/utils/gst_calculator.dart';
@@ -51,6 +52,8 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
   late TextEditingController _colorController;
 
   String _itemType = 'spare_part'; // mobile, spare_part, accessory, other
+  String? _selectedAccessoryCategory;
+  String? _selectedSparePartCategory;
   bool _isSubmitting = false;
   bool _isScanning = false;
   bool _isManualBrandModel = false;
@@ -241,6 +244,11 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
 
     if (item != null) {
       _itemType = item.itemType;
+      if (item.itemType == 'accessory' && InventoryPresets.accessoryPresets.containsKey(item.category)) {
+        _selectedAccessoryCategory = item.category;
+      } else if (item.itemType == 'spare_part' && InventoryPresets.sparePartPresets.containsKey(item.category)) {
+        _selectedSparePartCategory = item.category;
+      }
     }
 
     _fetchBrandsCatalog();
@@ -270,6 +278,276 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
     _colorController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onItemTypeChanged(String newType) {
+    if (_itemType == newType) return;
+    setState(() {
+      final wasMobile = _itemType == 'mobile';
+      _itemType = newType;
+
+      if (wasMobile) {
+        // Clear all mobile-specific controllers and dropdown data
+        _brandController.clear();
+        _modelController.clear();
+        _ramController.clear();
+        _storageController.clear();
+        _colorController.clear();
+        _imei1Controller.clear();
+        _imei2Controller.clear();
+        _serialController.clear();
+        _catalogModels = [];
+      }
+
+      // Clear the item name when category changes so previous phone name is removed
+      _nameController.clear();
+      _selectedAccessoryCategory = null;
+      _selectedSparePartCategory = null;
+
+      if (_itemType == 'mobile') {
+        _categoryController.text = 'Mobile Phone';
+      } else if (_itemType == 'accessory') {
+        _categoryController.text = 'Accessories';
+      } else if (_itemType == 'spare_part') {
+        _categoryController.text = 'Spare Parts';
+      } else {
+        _categoryController.text = 'General';
+      }
+    });
+  }
+
+  Widget _buildAccessoryPresetSelector() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.headphones_rounded, size: 16, color: AppColors.primary),
+              SizedBox(width: 6),
+              Text(
+                'Accessory Category & Item Presets',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          InkWell(
+            onTap: () async {
+              final selected = await AppSearchableBottomSheet.show(
+                context,
+                title: 'Select Accessory Category',
+                options: InventoryPresets.accessoryPresets.keys.toList(),
+                selectedValues: _selectedAccessoryCategory != null ? [_selectedAccessoryCategory!] : [],
+                searchHint: 'Search category (Chargers, Cables, Glass)...',
+                addCustomHint: '+ Add Custom Category',
+                onAddCustomOption: (custom) async {
+                  setState(() {
+                    _selectedAccessoryCategory = custom;
+                    _categoryController.text = custom;
+                  });
+                },
+              );
+              if (selected != null && selected is String && selected.isNotEmpty) {
+                setState(() {
+                  _selectedAccessoryCategory = selected;
+                  _categoryController.text = selected;
+                });
+              }
+            },
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.category_outlined, size: 18, color: AppColors.textMuted),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _selectedAccessoryCategory ?? 'Choose Accessory Type (e.g. Chargers, Cables, Tempered Glass)...',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: _selectedAccessoryCategory != null ? AppColors.textPrimary : AppColors.textMuted,
+                        fontWeight: _selectedAccessoryCategory != null ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const Icon(Icons.arrow_drop_down, color: AppColors.textMuted),
+                ],
+              ),
+            ),
+          ),
+          if (_selectedAccessoryCategory != null &&
+              InventoryPresets.accessoryPresets.containsKey(_selectedAccessoryCategory)) ...[
+            const SizedBox(height: 10),
+            const Text(
+              'Quick Select Item Name (1-Tap):',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textMuted),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: InventoryPresets.accessoryPresets[_selectedAccessoryCategory]!.map((item) {
+                final isCurrent = _nameController.text.trim() == item;
+                return ActionChip(
+                  label: Text(item),
+                  backgroundColor: isCurrent ? AppColors.primary : Colors.white,
+                  labelStyle: TextStyle(
+                    fontSize: 11,
+                    color: isCurrent ? Colors.white : AppColors.textPrimary,
+                    fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    side: BorderSide(
+                      color: isCurrent ? AppColors.primary : Colors.grey.shade300,
+                    ),
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _nameController.text = item;
+                      if (_categoryController.text.isEmpty || _categoryController.text == 'Accessories') {
+                        _categoryController.text = _selectedAccessoryCategory!;
+                      }
+                    });
+                  },
+                );
+              }).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSparePartPresetSelector() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.build_circle_outlined, size: 16, color: AppColors.primary),
+              SizedBox(width: 6),
+              Text(
+                'Spare Part Component Presets',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          InkWell(
+            onTap: () async {
+              final selected = await AppSearchableBottomSheet.show(
+                context,
+                title: 'Select Spare Part Component',
+                options: InventoryPresets.sparePartPresets.keys.toList(),
+                selectedValues: _selectedSparePartCategory != null ? [_selectedSparePartCategory!] : [],
+                searchHint: 'Search component (Display, Battery, CC Board)...',
+                addCustomHint: '+ Add Custom Component',
+                onAddCustomOption: (custom) async {
+                  setState(() {
+                    _selectedSparePartCategory = custom;
+                    _categoryController.text = custom;
+                  });
+                },
+              );
+              if (selected != null && selected is String && selected.isNotEmpty) {
+                setState(() {
+                  _selectedSparePartCategory = selected;
+                  _categoryController.text = selected;
+                });
+              }
+            },
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.build_outlined, size: 18, color: AppColors.textMuted),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _selectedSparePartCategory ?? 'Choose Component (e.g. Display, Battery, Charging Board)...',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: _selectedSparePartCategory != null ? AppColors.textPrimary : AppColors.textMuted,
+                        fontWeight: _selectedSparePartCategory != null ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const Icon(Icons.arrow_drop_down, color: AppColors.textMuted),
+                ],
+              ),
+            ),
+          ),
+          if (_selectedSparePartCategory != null &&
+              InventoryPresets.sparePartPresets.containsKey(_selectedSparePartCategory)) ...[
+            const SizedBox(height: 10),
+            const Text(
+              'Quick Select Item Name (1-Tap):',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textMuted),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: InventoryPresets.sparePartPresets[_selectedSparePartCategory]!.map((item) {
+                final isCurrent = _nameController.text.trim() == item;
+                return ActionChip(
+                  label: Text(item),
+                  backgroundColor: isCurrent ? AppColors.primary : Colors.white,
+                  labelStyle: TextStyle(
+                    fontSize: 11,
+                    color: isCurrent ? Colors.white : AppColors.textPrimary,
+                    fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    side: BorderSide(
+                      color: isCurrent ? AppColors.primary : Colors.grey.shade300,
+                    ),
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _nameController.text = item;
+                      if (_categoryController.text.isEmpty || _categoryController.text == 'Spare Parts') {
+                        _categoryController.text = _selectedSparePartCategory!;
+                      }
+                    });
+                  },
+                );
+              }).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   void _autoFormatName() {
@@ -687,12 +965,7 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
                           selected: isSelected,
                           onSelected: (selected) {
                             if (selected) {
-                              setState(() {
-                                _itemType = entry.key;
-                                if (_itemType == 'mobile' && _categoryController.text == 'General') {
-                                  _categoryController.text = 'Mobile Phone';
-                                }
-                              });
+                              _onItemTypeChanged(entry.key);
                             }
                           },
                           selectedColor: AppColors.primary,
@@ -840,6 +1113,14 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
                         ),
                       ),
                       const SizedBox(height: 12),
+                    ],
+
+                    if (_itemType == 'accessory') ...[
+                      _buildAccessoryPresetSelector(),
+                      const SizedBox(height: 14),
+                    ] else if (_itemType == 'spare_part') ...[
+                      _buildSparePartPresetSelector(),
+                      const SizedBox(height: 14),
                     ],
 
                     CustomTextField(
