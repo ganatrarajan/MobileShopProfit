@@ -1,10 +1,13 @@
 import '../../../core/utils/date_helper.dart';
 import '../../../core/widgets/app_shimmer.dart';
 import 'package:flutter/material.dart';
+import '../../../core/storage/auth_storage.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/status_badge.dart';
+import '../../settings/presentation/widgets/security_pin_dialogs.dart';
 import '../data/purchase_repository.dart';
 import '../models/purchase.dart';
+import 'add_purchase_screen.dart';
 import 'record_purchase_payment_dialog.dart';
 
 class PurchaseDetailsScreen extends StatefulWidget {
@@ -22,12 +25,16 @@ class PurchaseDetailsScreen extends StatefulWidget {
 class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
   late Purchase _purchase;
   bool _isLoading = false;
+  bool _isOwner = true;
   final PurchaseRepository _repository = PurchaseRepository();
 
   @override
   void initState() {
     super.initState();
     _purchase = widget.purchase;
+    AuthStorage().isOwner().then((val) {
+      if (mounted) setState(() => _isOwner = val);
+    });
     _refreshDetails();
   }
 
@@ -74,40 +81,29 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
   }
 
   Future<void> _deletePurchase() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Purchase?'),
-        content: const Text('Are you sure you want to delete this purchase? Any added stock movements will be reverted.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+    if (!_isOwner) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Only shop admin can delete purchases.'), backgroundColor: AppColors.error),
+      );
+      return;
+    }
+
+    final pin = await SecurityPinPromptDialog.show(
+      context,
+      title: 'Delete Purchase',
+      message: 'Are you sure you want to delete purchase #${_purchase.purchaseNumber}? Any added stock movements will be reverted.\n\nEnter your 4-digit Security PIN to confirm deletion.',
+      confirmLabel: 'Delete Purchase',
+      isDanger: true,
+      onConfirmAction: (enteredPin) => _repository.deletePurchase(_purchase.id, securityPin: enteredPin),
     );
 
-    if (confirm == true) {
-      setState(() => _isLoading = true);
-      final res = await _repository.deletePurchase(_purchase.id);
-      if (mounted) setState(() => _isLoading = false);
-      if (res.success) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Purchase deleted successfully'), backgroundColor: AppColors.success),
-          );
-          Navigator.pop(context, true);
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(res.message), backgroundColor: AppColors.error),
-          );
-        }
-      }
+    if (pin == null || pin.isEmpty) return;
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Purchase deleted successfully'), backgroundColor: AppColors.success),
+      );
+      Navigator.pop(context, true);
     }
   }
 
@@ -146,10 +142,26 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.delete_outline_rounded, color: Colors.white),
-            tooltip: 'Delete Purchase',
-            onPressed: _deletePurchase,
+            icon: const Icon(Icons.edit_rounded, color: Colors.white),
+            tooltip: 'Edit Purchase',
+            onPressed: () async {
+              final updated = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AddPurchaseScreen(purchase: _purchase),
+                ),
+              );
+              if (updated == true) {
+                _refreshDetails();
+              }
+            },
           ),
+          if (_isOwner)
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded, color: Colors.white),
+              tooltip: 'Delete Purchase',
+              onPressed: _deletePurchase,
+            ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: Colors.white),
             tooltip: 'Refresh',

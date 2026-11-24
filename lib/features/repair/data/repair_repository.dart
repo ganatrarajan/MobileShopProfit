@@ -182,10 +182,12 @@ class RepairRepository {
     required int id,
     required String repairStatus,
     String? notes,
+    String? securityPin,
   }) async {
     final body = {
       'repair_status': repairStatus,
       if (notes != null && notes.isNotEmpty) 'notes': notes,
+      if (securityPin != null && securityPin.isNotEmpty) 'security_pin': securityPin,
     };
 
     final response = await _apiClient.post(
@@ -288,11 +290,14 @@ class RepairRepository {
   }
 
   /// Delete a repair job card
-  Future<ApiResponse<dynamic>> deleteRepair(int id) async {
+  Future<ApiResponse<dynamic>> deleteRepair(int id, {String? securityPin}) async {
     try {
       final response = await _apiClient.post(
         '${ApiEndpoints.repairs}/$id',
-        body: {'_method': 'DELETE'},
+        body: {
+          '_method': 'DELETE',
+          if (securityPin != null && securityPin.isNotEmpty) 'security_pin': securityPin,
+        },
       );
       return response;
     } catch (_) {

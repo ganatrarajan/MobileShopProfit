@@ -9,13 +9,16 @@ import '../../inventory/data/inventory_repository.dart';
 import '../../inventory/models/inventory_item.dart';
 import '../../inventory/presentation/widgets/quick_add_inventory_modal.dart';
 import '../data/purchase_repository.dart';
+import '../models/purchase.dart';
 import '../models/vendor.dart';
 import 'widgets/quick_add_vendor_modal.dart';
 import '../../../core/utils/gst_calculator.dart';
 import '../../../core/widgets/gst_input_card.dart';
 
 class AddPurchaseScreen extends StatefulWidget {
-  const AddPurchaseScreen({super.key});
+  final Purchase? purchase;
+
+  const AddPurchaseScreen({super.key, this.purchase});
 
   @override
   State<AddPurchaseScreen> createState() => _AddPurchaseScreenState();
@@ -25,6 +28,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   final _formKey = GlobalKey<FormState>();
   final PurchaseRepository _purchaseRepository = PurchaseRepository();
   final InventoryRepository _inventoryRepository = InventoryRepository();
+
+  bool get _isEditing => widget.purchase != null;
 
   Vendor? _selectedVendor;
   List<Vendor> _vendorsList = [];
@@ -66,6 +71,34 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   @override
   void initState() {
     super.initState();
+    if (_isEditing) {
+      final p = widget.purchase!;
+      _purchaseDate = p.purchaseDate;
+      _discountController.text = p.discount > 0 ? (p.discount % 1 == 0 ? p.discount.toInt().toString() : p.discount.toString()) : '0';
+      _additionalChargesController.text = p.additionalCharges > 0 ? (p.additionalCharges % 1 == 0 ? p.additionalCharges.toInt().toString() : p.additionalCharges.toString()) : '0';
+      _amountPaidController.text = p.amountPaid > 0 ? (p.amountPaid % 1 == 0 ? p.amountPaid.toInt().toString() : p.amountPaid.toString()) : '0';
+      _notesController.text = p.notes ?? '';
+      _paymentStatus = p.paymentStatus;
+      _addToInventory = p.isStockAdded;
+      _gstEnabled = p.taxRate > 0 || p.taxAmount > 0;
+      _gstRate = p.taxRate > 0 ? p.taxRate : 18.0;
+      _gstMode = p.taxType == 'inclusive' ? GstMode.inclusive : GstMode.exclusive;
+      _isInterState = p.isInterState;
+
+      for (final item in p.items) {
+        _purchaseItems.add({
+          'inventory_item': null,
+          'inventory_item_id': item.inventoryItemId,
+          'item_name': item.itemName,
+          'quantity': item.quantity,
+          'imei1': item.imei1,
+          'imei2': item.imei2,
+          'serial_number': item.serialNumber,
+          'purchase_rate': item.purchaseRate,
+          'total_amount': item.totalAmount,
+        });
+      }
+    }
     _loadVendors();
     _loadInventory();
   }
@@ -102,6 +135,18 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       if (mounted) {
         setState(() {
           _vendorsList = response.data!.vendors;
+          if (_isEditing && _selectedVendor == null && widget.purchase != null) {
+            final p = widget.purchase!;
+            _selectedVendor = _vendorsList.firstWhere(
+              (v) => v.id == p.vendorId,
+              orElse: () => p.vendor ?? Vendor(
+                id: p.vendorId,
+                shopId: p.shopId,
+                name: p.vendorName,
+                phone: '',
+              ),
+            );
+          }
         });
       }
     }
@@ -755,32 +800,55 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     }).toList();
 
     try {
-      final response = await _purchaseRepository.createPurchase(
-        vendorId: _selectedVendor!.id,
-        purchaseDate: _purchaseDate.toIso8601String().split('T')[0],
-        items: itemsPayload,
-        discount: _discount,
-        taxAmount: effectiveGst?.taxAmount ?? 0.0,
-        taxRate: _gstEnabled ? _gstRate : 0.0,
-        taxType: _gstMode == GstMode.inclusive ? 'inclusive' : 'exclusive',
-        isInterState: _isInterState,
-        cgstAmount: effectiveGst?.cgstAmount ?? 0.0,
-        sgstAmount: effectiveGst?.sgstAmount ?? 0.0,
-        igstAmount: effectiveGst?.igstAmount ?? 0.0,
-        additionalCharges: _additionalCharges,
-        amountPaid: _amountPaid,
-        paymentStatus: _paymentStatus,
-        addToInventory: _addToInventory,
-        notes: _notesController.text.trim(),
-      );
+      dynamic response;
+      if (_isEditing) {
+        final payload = {
+          'vendor_id': _selectedVendor!.id,
+          'purchase_date': _purchaseDate.toIso8601String().split('T')[0],
+          'items': itemsPayload,
+          'discount': _discount,
+          'tax_amount': effectiveGst?.taxAmount ?? 0.0,
+          'tax_rate': _gstEnabled ? _gstRate : 0.0,
+          'tax_type': _gstMode == GstMode.inclusive ? 'inclusive' : 'exclusive',
+          'is_inter_state': _isInterState,
+          'cgst_amount': effectiveGst?.cgstAmount ?? 0.0,
+          'sgst_amount': effectiveGst?.sgstAmount ?? 0.0,
+          'igst_amount': effectiveGst?.igstAmount ?? 0.0,
+          'additional_charges': _additionalCharges,
+          'amount_paid': _amountPaid,
+          'payment_status': _paymentStatus,
+          'add_to_inventory': _addToInventory,
+          'notes': _notesController.text.trim(),
+        };
+        response = await _purchaseRepository.updatePurchase(widget.purchase!.id, payload);
+      } else {
+        response = await _purchaseRepository.createPurchase(
+          vendorId: _selectedVendor!.id,
+          purchaseDate: _purchaseDate.toIso8601String().split('T')[0],
+          items: itemsPayload,
+          discount: _discount,
+          taxAmount: effectiveGst?.taxAmount ?? 0.0,
+          taxRate: _gstEnabled ? _gstRate : 0.0,
+          taxType: _gstMode == GstMode.inclusive ? 'inclusive' : 'exclusive',
+          isInterState: _isInterState,
+          cgstAmount: effectiveGst?.cgstAmount ?? 0.0,
+          sgstAmount: effectiveGst?.sgstAmount ?? 0.0,
+          igstAmount: effectiveGst?.igstAmount ?? 0.0,
+          additionalCharges: _additionalCharges,
+          amountPaid: _amountPaid,
+          paymentStatus: _paymentStatus,
+          addToInventory: _addToInventory,
+          notes: _notesController.text.trim(),
+        );
+      }
 
       if (mounted) setState(() => _isSaving = false);
 
       if (response.success && response.data != null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Purchase Order created successfully!'),
+            SnackBar(
+              content: Text(_isEditing ? 'Purchase Order updated successfully!' : 'Purchase Order created successfully!'),
               backgroundColor: AppColors.success,
             ),
           );
@@ -788,7 +856,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
         }
       } else {
         if (mounted) {
-          _showFormError(response.message.isNotEmpty ? response.message : 'Failed to save purchase.');
+          _showFormError(response.message.isNotEmpty ? response.message : (_isEditing ? 'Failed to update purchase.' : 'Failed to save purchase.'));
         }
       }
     } catch (e) {
@@ -804,9 +872,9 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text(
-          'Create Purchase Order',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        title: Text(
+          _isEditing ? 'Edit Purchase #${widget.purchase!.purchaseNumber}' : 'Create Purchase Order',
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
@@ -1515,7 +1583,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
 
               // SUBMIT BUTTON
               CustomButton(
-                text: 'Save Purchase',
+                text: _isEditing ? 'Update Purchase' : 'Save Purchase',
                 isLoading: _isSaving,
                 onPressed: _submitPurchase,
               ),

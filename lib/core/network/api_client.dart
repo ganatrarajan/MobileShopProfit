@@ -133,13 +133,23 @@ class ApiClient {
 
   Future<ApiResponse<T>> delete<T>(
     String path, {
+    Map<String, dynamic>? body,
     T Function(dynamic)? fromJson,
   }) async {
     try {
       final uri = Uri.parse('${EnvConfig.baseUrl}$path');
       final headers = await _getHeaders();
       debugPrint('[API DELETE] Requesting: $uri');
-      final response = await http.delete(uri, headers: headers).timeout(const Duration(seconds: 15));
+      if (body != null) {
+        debugPrint('[API DELETE Body]: ${jsonEncode(body)}');
+      }
+      final response = await http
+          .delete(
+            uri,
+            headers: headers,
+            body: body != null ? jsonEncode(body) : null,
+          )
+          .timeout(const Duration(seconds: 15));
       debugPrint('[API DELETE] Response (${response.statusCode}): ${response.body}');
       return _handleResponse(response, fromJson, path: path);
     } catch (e) {

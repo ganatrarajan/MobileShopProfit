@@ -78,6 +78,28 @@ class AuthStorage {
     return hasModulePermission(user, module);
   }
 
+  static bool hasSecurityPinSync([Map<String, dynamic>? user]) {
+    final target = user ?? _cachedUser;
+    if (target == null) return false;
+    final val = target['has_security_pin'];
+    return val == true || val == 1 || val.toString() == 'true';
+  }
+
+  Future<bool> hasSecurityPin() async {
+    final user = await getUser();
+    return hasSecurityPinSync(user);
+  }
+
+  Future<void> updateHasSecurityPin(bool hasPin) async {
+    final user = await getUser();
+    if (user != null) {
+      user['has_security_pin'] = hasPin;
+      _cachedUser = user;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_keyUser, jsonEncode(user));
+    }
+  }
+
   Future<bool> isLoggedIn() async {
     final token = await getToken();
     return token != null && token.isNotEmpty;

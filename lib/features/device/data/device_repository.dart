@@ -158,6 +158,27 @@ class DeviceRepository {
     );
   }
 
+  /// Specialized method to update only IMEI numbers for a device
+  Future<ApiResponse<dynamic>> updateDeviceImei({
+    required int id,
+    required String brand,
+    required String model,
+    required String deviceType,
+    String? imei1,
+    String? imei2,
+  }) async {
+    return await _apiClient.put(
+      '/devices/$id',
+      body: {
+        'brand': brand,
+        'model': model,
+        'device_type': deviceType,
+        'imei_1': (imei1 != null && imei1.trim().isNotEmpty) ? imei1.trim() : null,
+        'imei_2': (imei2 != null && imei2.trim().isNotEmpty) ? imei2.trim() : null,
+      },
+    );
+  }
+
   Future<ApiResponse<dynamic>> deleteDevice(int id) async {
     try {
       return await _apiClient.post(

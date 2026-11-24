@@ -8,6 +8,8 @@ import '../../../core/widgets/custom_card.dart';
 import '../../auth/data/auth_repository.dart';
 import 'widgets/app_lock_dialog.dart';
 import 'widgets/change_password_dialog.dart';
+import 'widgets/security_pin_dialogs.dart';
+import '../data/security_pin_repository.dart';
 import 'widgets/contact_support_dialog.dart';
 import 'widgets/feedback_dialog.dart';
 import 'widgets/report_problem_dialog.dart';
@@ -24,12 +26,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final AuthStorage _authStorage = AuthStorage();
   final AuthRepository _authRepository = AuthRepository();
   final PreferencesStorage _prefsStorage = PreferencesStorage();
+  final SecurityPinRepository _pinRepo = SecurityPinRepository();
 
   Map<String, dynamic>? _user;
   Map<String, dynamic>? _shop;
   bool _isLoading = true;
   bool _isAppLockEnabled = false;
   String _whatsappLangCode = 'en';
+  bool _isOwner = true;
+  bool _hasSecurityPin = false;
 
   @override
   void initState() {
@@ -42,6 +47,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final shop = await _authStorage.getShop();
     final isLock = await _prefsStorage.isAppLockEnabled();
     final waLang = await _prefsStorage.getWhatsAppLanguage();
+    final isOwner = await _authStorage.isOwner();
+    final hasPin = await _authStorage.hasSecurityPin();
 
     if (mounted) {
       setState(() {
@@ -49,8 +56,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _shop = shop;
         _isAppLockEnabled = isLock;
         _whatsappLangCode = waLang;
+        _isOwner = isOwner;
+        _hasSecurityPin = hasPin;
         _isLoading = false;
       });
+    }
+
+    if (isOwner) {
+      try {
+        final pinStatusRes = await _pinRepo.checkStatus();
+        if (pinStatusRes.success && mounted) {
+          setState(() {
+            _hasSecurityPin = pinStatusRes.data == true;
+          });
+        }
+      } catch (_) {}
     }
   }
 
@@ -247,6 +267,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             }
                           },
                         ),
+                        if (_isOwner) ...[
+                          const Divider(height: 1),
+                          _buildSettingTile(
+                            icon: Icons.shield_outlined,
+                            title: 'Security PIN',
+                            subtitle: _hasSecurityPin
+                                ? 'Configured (Required for Delete & Delivered Status)'
+                                : 'Set 4-digit PIN for Deletion & Status changes',
+                            trailingWidget: _hasSecurityPin
+                                ? Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: Colors.green.withOpacity(0.3)),
+                                    ),
+                                    child: const Text('Configured', style: TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.w600)),
+                                  )
+                                : Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                                    ),
+                                    child: const Text('Not Set', style: TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.w600)),
+                                  ),
+                            onTap: () async {
+                              final res = await SecurityPinSettingsDialog.show(
+                                context,
+                                initialMode: _hasSecurityPin
+                                    ? SecurityPinDialogMode.update
+                                    : SecurityPinDialogMode.setup,
+                              );
+                              if (res == true) {
+                                _loadInitialData();
+                              }
+                            },
+                          ),
+                        ],
                         const Divider(height: 1),
                         _buildSettingTile(
                           icon: Icons.logout_rounded,

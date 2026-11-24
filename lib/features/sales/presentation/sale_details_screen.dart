@@ -1,6 +1,7 @@
 import '../../../core/storage/auth_storage.dart';
 import '../../../core/widgets/app_shimmer.dart';
 import '../../../core/utils/date_helper.dart';
+import '../../settings/presentation/widgets/security_pin_dialogs.dart';
 import '../../warranty/models/warranty.dart';
 import '../data/sale_repository.dart';
 import 'package:flutter/material.dart';
@@ -115,54 +116,32 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
   }
 
   Future<void> _confirmDeleteSale() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
-            children: [
-              Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 24),
-              SizedBox(width: 8),
-              Text('Delete Invoice'),
-            ],
-          ),
-          content: Text('Are you sure you want to delete invoice ${_sale.invoiceNumber}? This action cannot be undone.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
+    if (!_isOwner) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Only shop admin can delete sales.'), backgroundColor: AppColors.error),
+      );
+      return;
+    }
+
+    final pin = await SecurityPinPromptDialog.show(
+      context,
+      title: 'Delete Invoice',
+      message: 'Are you sure you want to delete invoice ${_sale.invoiceNumber}? This action cannot be undone.\n\nEnter your 4-digit Security PIN to confirm deletion.',
+      confirmLabel: 'Delete Invoice',
+      isDanger: true,
+      onConfirmAction: (enteredPin) => _saleRepository.deleteSale(_sale.id, securityPin: enteredPin),
     );
 
-    if (confirm == true) {
-      final res = await _saleRepository.deleteSale(_sale.id);
-      if (mounted) {
-        if (res.success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Invoice ${_sale.invoiceNumber} deleted successfully.'),
-              backgroundColor: Colors.green.shade700,
-            ),
-          );
-          Navigator.pop(context, true);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(res.message),
-              backgroundColor: AppColors.error,
-            ),
-          );
-        }
-      }
+    if (pin == null || pin.isEmpty) return;
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Invoice ${_sale.invoiceNumber} deleted successfully.'),
+          backgroundColor: Colors.green.shade700,
+        ),
+      );
+      Navigator.pop(context, true);
     }
   }
 
@@ -209,16 +188,17 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                   ],
                 ),
               ),
-              const PopupMenuItem(
-                value: 'delete',
-                child: Row(
-                  children: [
-                    Icon(Icons.delete_outline_rounded, size: 20, color: AppColors.error),
-                    SizedBox(width: 10),
-                    Text('Delete Invoice', style: TextStyle(color: AppColors.error)),
-                  ],
+              if (_isOwner)
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_outline_rounded, size: 20, color: AppColors.error),
+                      SizedBox(width: 10),
+                      Text('Delete Invoice', style: TextStyle(color: AppColors.error)),
+                    ],
+                  ),
                 ),
-              ),
             ],
           ),
         ],

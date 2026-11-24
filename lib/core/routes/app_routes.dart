@@ -286,7 +286,8 @@ class AppRoutes {
       case purchases:
         return MaterialPageRoute(settings: settings, builder: (_) => const PurchaseListScreen());
       case addPurchase:
-        return MaterialPageRoute(settings: settings, builder: (_) => const AddPurchaseScreen());
+        final purchase = settings.arguments as Purchase?;
+        return MaterialPageRoute(settings: settings, builder: (_) => AddPurchaseScreen(purchase: purchase));
       case purchaseDetails:
         final purchase = settings.arguments as Purchase;
         return MaterialPageRoute(settings: settings, builder: (_) => PurchaseDetailsScreen(purchase: purchase));

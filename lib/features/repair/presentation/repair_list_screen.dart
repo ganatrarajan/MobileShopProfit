@@ -1,6 +1,7 @@
 import '../../../core/widgets/app_shimmer.dart';
 import 'repair_invoice_pdf_screen.dart';
 import 'package:flutter/material.dart';
+import '../../settings/presentation/widgets/security_pin_dialogs.dart';
 import '../../../core/services/profit_visibility_service.dart';
 import '../../../core/storage/auth_storage.dart';
 import '../../../core/routes/app_routes.dart';
@@ -8,7 +9,6 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_feedback.dart';
 import '../../../core/utils/date_helper.dart';
 import '../../../core/utils/whatsapp_helper.dart';
-import '../../../core/widgets/app_dialogs.dart';
 import '../../../core/widgets/app_empty_state.dart';
 import '../../../core/widgets/date_range_empty_state.dart';
 import '../../../core/widgets/custom_card.dart';
@@ -391,31 +391,29 @@ class RepairListScreenState extends State<RepairListScreen> {
   }
 
   Future<void> _confirmDeleteRepair(Repair repair) async {
-    final confirm = await AppDialogs.showConfirmation(
+    if (!_isOwner) {
+      AppFeedback.showError(context, error: 'Only shop admin can delete repair jobs.');
+      return;
+    }
+
+    final pin = await SecurityPinPromptDialog.show(
       context,
       title: 'Delete Job Card',
-      message: 'Are you sure you want to delete job card ${repair.jobNumber}? This action cannot be undone.',
+      message: 'Are you sure you want to delete job card ${repair.jobNumber}? This action cannot be undone.\n\nEnter your 4-digit Security PIN to confirm deletion.',
       confirmLabel: 'Delete Job Card',
       isDanger: true,
+      onConfirmAction: (enteredPin) => _repairRepository.deleteRepair(repair.id, securityPin: enteredPin),
     );
 
-    if (confirm == true) {
-      final res = await _repairRepository.deleteRepair(repair.id);
-      if (mounted) {
-        if (res.success) {
-          AppFeedback.showSuccess(
-            context,
-            title: 'Job Card Deleted',
-            message: 'Job Card ${repair.jobNumber} deleted successfully.',
-          );
-          _fetchRepairs();
-        } else {
-          AppFeedback.showError(
-            context,
-            error: res.message,
-          );
-        }
-      }
+    if (pin == null || pin.isEmpty) return;
+
+    if (mounted) {
+      AppFeedback.showSuccess(
+        context,
+        title: 'Job Card Deleted',
+        message: 'Job Card ${repair.jobNumber} deleted successfully.',
+      );
+      _fetchRepairs();
     }
   }
 
@@ -532,7 +530,7 @@ class RepairListScreenState extends State<RepairListScreen> {
                         onChanged: (_) => _fetchRepairs(),
                         style: const TextStyle(fontSize: 12),
                         decoration: InputDecoration(
-                          hintText: 'Search...',
+                          hintText: 'Search by job#, device, IMEI, customer...',
                           hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 11.5),
                           prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary, size: 16),
                           suffixIcon: _searchController.text.isNotEmpty
@@ -757,14 +755,16 @@ class RepairListScreenState extends State<RepairListScreen> {
                                                   child: Icon(Icons.picture_as_pdf_rounded, size: 18, color: Colors.redAccent),
                                                 ),
                                               ),
-                                              const SizedBox(width: 2),
-                                              InkWell(
-                                                onTap: () => _confirmDeleteRepair(repair),
-                                                child: Padding(
-                                                  padding: const EdgeInsets.all(4.0),
-                                                  child: Icon(Icons.delete_outline_rounded, size: 18, color: Colors.grey.shade400),
+                                              if (_isOwner) ...[
+                                                const SizedBox(width: 2),
+                                                InkWell(
+                                                  onTap: () => _confirmDeleteRepair(repair),
+                                                  child: Padding(
+                                                    padding: const EdgeInsets.all(4.0),
+                                                    child: Icon(Icons.delete_outline_rounded, size: 18, color: Colors.grey.shade400),
+                                                  ),
                                                 ),
-                                              ),
+                                              ],
                                             ],
                                           ),
                                         ],
@@ -795,20 +795,43 @@ class RepairListScreenState extends State<RepairListScreen> {
                                           const Icon(Icons.phone_android_rounded, size: 16, color: AppColors.accent),
                                           const SizedBox(width: 6),
                                           Expanded(
-                                            child: Text.rich(
-                                              TextSpan(
-                                                children: [
-                                                  TextSpan(text: deviceName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textPrimary)),
-                                                  if (repair.device?.imei1 != null)
-                                                    TextSpan(text: ' (IMEI: ${repair.device!.imei1})', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
-                                                ],
-                                              ),
+                                            child: Text(
+                                              deviceName,
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textPrimary),
                                               overflow: TextOverflow.ellipsis,
                                               maxLines: 1,
                                             ),
                                           ),
                                         ],
                                       ),
+                                      if ((repair.device?.imei1 != null && repair.device!.imei1!.trim().isNotEmpty) ||
+                                          (repair.device?.imei2 != null && repair.device!.imei2!.trim().isNotEmpty)) ...[
+                                        const SizedBox(height: 3),
+                                        Row(
+                                          children: [
+                                            Icon(Icons.qr_code_2_rounded, size: 14, color: Colors.blueGrey.shade600),
+                                            const SizedBox(width: 5),
+                                            Expanded(
+                                              child: Text(
+                                                [
+                                                  if (repair.device?.imei1 != null && repair.device!.imei1!.trim().isNotEmpty)
+                                                    'IMEI 1: ${repair.device!.imei1}',
+                                                  if (repair.device?.imei2 != null && repair.device!.imei2!.trim().isNotEmpty)
+                                                    'IMEI 2: ${repair.device!.imei2}',
+                                                ].join(' • '),
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: Colors.blueGrey.shade700,
+                                                  fontFamily: 'monospace',
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                                maxLines: 1,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                       if (!(repair.repairStatus == 'delivered' && (repair.technicianName == null || repair.technicianName!.trim().isEmpty))) ...[
                                         const SizedBox(height: 6),
                                         Row(

@@ -172,11 +172,14 @@ class SaleRepository {
   }
 
   /// Delete a sale invoice
-  Future<ApiResponse<dynamic>> deleteSale(int id) async {
+  Future<ApiResponse<dynamic>> deleteSale(int id, {String? securityPin}) async {
     try {
       final response = await _apiClient.post(
         '${ApiEndpoints.sales}/$id',
-        body: {'_method': 'DELETE'},
+        body: {
+          '_method': 'DELETE',
+          if (securityPin != null && securityPin.isNotEmpty) 'security_pin': securityPin,
+        },
       );
       return response;
     } catch (_) {

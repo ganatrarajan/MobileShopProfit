@@ -238,8 +238,13 @@ class InventoryRepository {
   }
 
   /// Delete inventory item
-  Future<ApiResponse<void>> deleteItem(int id) async {
-    final response = await _apiClient.delete('${ApiEndpoints.inventory}/$id');
+  Future<ApiResponse<void>> deleteItem(int id, {String? securityPin}) async {
+    final response = await _apiClient.delete(
+      '${ApiEndpoints.inventory}/$id',
+      body: {
+        if (securityPin != null && securityPin.isNotEmpty) 'security_pin': securityPin,
+      },
+    );
     return ApiResponse<void>(
       success: response.success,
       message: response.message,

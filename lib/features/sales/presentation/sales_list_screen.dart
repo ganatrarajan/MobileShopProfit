@@ -8,6 +8,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/date_range_empty_state.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/status_badge.dart';
+import '../../settings/presentation/widgets/security_pin_dialogs.dart';
 import '../../subscription/utils/subscription_guard.dart';
 import '../data/sale_repository.dart';
 import '../models/sale.dart';
@@ -288,54 +289,32 @@ class SalesListScreenState extends State<SalesListScreen> {
   }
 
   Future<void> _confirmDeleteSale(Sale sale) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
-            children: [
-              Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 24),
-              SizedBox(width: 8),
-              Text('Delete Invoice'),
-            ],
-          ),
-          content: Text('Are you sure you want to delete invoice ${sale.invoiceNumber}? This action cannot be undone.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
+    if (!_isOwner) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Only shop admin can delete sales.'), backgroundColor: AppColors.error),
+      );
+      return;
+    }
+
+    final pin = await SecurityPinPromptDialog.show(
+      context,
+      title: 'Delete Invoice',
+      message: 'Are you sure you want to delete invoice ${sale.invoiceNumber}? This action cannot be undone.\n\nEnter your 4-digit Security PIN to confirm deletion.',
+      confirmLabel: 'Delete Invoice',
+      isDanger: true,
+      onConfirmAction: (enteredPin) => _saleRepository.deleteSale(sale.id, securityPin: enteredPin),
     );
 
-    if (confirm == true) {
-      final res = await _saleRepository.deleteSale(sale.id);
-      if (mounted) {
-        if (res.success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Invoice ${sale.invoiceNumber} deleted successfully.'),
-              backgroundColor: Colors.green.shade700,
-            ),
-          );
-          _fetchSales();
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(res.message),
-              backgroundColor: AppColors.error,
-            ),
-          );
-        }
-      }
+    if (pin == null || pin.isEmpty) return;
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Invoice ${sale.invoiceNumber} deleted successfully.'),
+          backgroundColor: Colors.green.shade700,
+        ),
+      );
+      _fetchSales();
     }
   }
 
@@ -696,15 +675,17 @@ class SalesListScreenState extends State<SalesListScreen> {
                                                   child: Icon(Icons.picture_as_pdf_rounded, size: 18, color: Colors.redAccent),
                                                 ),
                                               ),
-                                              const SizedBox(width: 2),
-                                              InkWell(
-                                                onTap: () => _confirmDeleteSale(sale),
-                                                borderRadius: BorderRadius.circular(16),
-                                                child: Padding(
-                                                  padding: const EdgeInsets.all(3.0),
-                                                  child: Icon(Icons.delete_outline_rounded, size: 18, color: Colors.grey.shade400),
+                                              if (_isOwner) ...[
+                                                const SizedBox(width: 2),
+                                                InkWell(
+                                                  onTap: () => _confirmDeleteSale(sale),
+                                                  borderRadius: BorderRadius.circular(16),
+                                                  child: Padding(
+                                                    padding: const EdgeInsets.all(3.0),
+                                                    child: Icon(Icons.delete_outline_rounded, size: 18, color: Colors.grey.shade400),
+                                                  ),
                                                 ),
-                                              ),
+                                              ],
                                             ],
                                           ),
                                         ],

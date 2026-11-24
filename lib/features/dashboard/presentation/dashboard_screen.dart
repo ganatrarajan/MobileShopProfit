@@ -1,8 +1,18 @@
+import 'dart:async';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/network/api_response.dart';
 import '../../../core/widgets/app_shimmer.dart';
+import '../../../core/widgets/barcode_scanner_screen.dart';
 import '../../../core/utils/date_helper.dart';
 import '../../../core/utils/nav_utils.dart';
+import '../../../core/utils/whatsapp_helper.dart';
+import '../../../core/widgets/whatsapp_icon.dart';
 import '../../../core/services/profit_visibility_service.dart';
+import '../../customer/data/customer_repository.dart';
+import '../../customer/models/customer.dart';
+import '../../device/data/device_repository.dart';
+import '../../device/models/device.dart';
 import 'profit_ledger_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,6 +20,7 @@ import '../../../core/routes/app_routes.dart';
 import '../../../core/storage/auth_storage.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_error_mapper.dart';
+import '../../../core/utils/app_feedback.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../profit_intelligence/data/profit_intelligence_repository.dart';
 import '../../profit_intelligence/domain/profit_intelligence_models.dart';
@@ -74,6 +85,24 @@ class DashboardScreenState extends State<DashboardScreen> {
   bool _hasCheckedFirstOpenReferral = false;
   bool _showVisitingCardBanner = false;
 
+  // --- TOP DIRECT SEARCH STATE ---
+  bool _isTopSearchVisible = false; // Default hidden / closed to save vertical space
+  final TextEditingController _topSearchController = TextEditingController();
+  final FocusNode _topSearchFocusNode = FocusNode();
+  Timer? _topSearchDebounce;
+  bool _isSearchingDirectly = false;
+  bool _isSearchLoading = false;
+  String _searchFilterTab = 'all'; // 'all', 'devices', 'customers', 'repairs'
+
+  List<Device> _searchedDevices = [];
+  List<Customer> _searchedCustomers = [];
+  List<Repair> _searchedRepairs = [];
+  String? _searchError;
+
+  final DeviceRepository _deviceRepo = DeviceRepository();
+  final CustomerRepository _customerRepo = CustomerRepository();
+  final RepairRepository _repairRepo = RepairRepository();
+
   @override
   void initState() {
     super.initState();
@@ -87,6 +116,202 @@ class DashboardScreenState extends State<DashboardScreen> {
     _loadReferralStatus();
     NotificationRepository().pingAppOpen();
     FcmService().initialize(context);
+  }
+
+  @override
+  void dispose() {
+    _topSearchController.dispose();
+    _topSearchFocusNode.dispose();
+    _topSearchDebounce?.cancel();
+    super.dispose();
+  }
+
+  void _onTopSearchChanged(String query) {
+    final trimmed = query.trim();
+    if (_topSearchDebounce?.isActive ?? false) _topSearchDebounce!.cancel();
+
+    if (trimmed.isEmpty) {
+      setState(() {
+        _isSearchingDirectly = false;
+        _isSearchLoading = false;
+        _searchedDevices = [];
+        _searchedCustomers = [];
+        _searchedRepairs = [];
+        _searchError = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _isSearchingDirectly = true;
+      _isSearchLoading = true;
+      _searchError = null;
+    });
+
+    _topSearchDebounce = Timer(const Duration(milliseconds: 350), () {
+      _performTopSearch(trimmed);
+    });
+  }
+
+  Future<void> _performTopSearch(String query) async {
+    if (query.isEmpty) return;
+    setState(() {
+      _isSearchLoading = true;
+      _searchError = null;
+    });
+
+    try {
+      final results = await Future.wait([
+        _deviceRepo.searchDevices(search: query),
+        _customerRepo.getCustomers(search: query),
+        _repairRepo.getRepairs(search: query),
+      ]);
+
+      if (!mounted) return;
+
+      final deviceRes = results[0] as ApiResponse<List<Device>>;
+      final customerRes = results[1] as ApiResponse<List<Customer>>;
+      final repairRes = results[2] as ApiResponse<List<Repair>>;
+
+      setState(() {
+        _searchedDevices = deviceRes.data ?? [];
+        _searchedCustomers = customerRes.data ?? [];
+        _searchedRepairs = repairRes.data ?? [];
+        _isSearchLoading = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isSearchLoading = false;
+          _searchError = 'Error loading search results: $e';
+        });
+      }
+    }
+  }
+
+  void _clearTopSearch() {
+    _topSearchController.clear();
+    if (_topSearchDebounce?.isActive ?? false) _topSearchDebounce!.cancel();
+    setState(() {
+      _isSearchingDirectly = false;
+      _isSearchLoading = false;
+      _searchedDevices = [];
+      _searchedCustomers = [];
+      _searchedRepairs = [];
+      _searchError = null;
+    });
+    FocusScope.of(context).unfocus();
+  }
+
+  void _toggleTopSearch() {
+    setState(() {
+      _isTopSearchVisible = !_isTopSearchVisible;
+      if (!_isTopSearchVisible) {
+        _clearTopSearch();
+      } else {
+        Future.delayed(const Duration(milliseconds: 150), () {
+          if (mounted && _isTopSearchVisible) {
+            _topSearchFocusNode.requestFocus();
+          }
+        });
+      }
+    });
+  }
+
+  void _closeTopSearchBar() {
+    setState(() {
+      _isTopSearchVisible = false;
+      _clearTopSearch();
+    });
+    _topSearchFocusNode.unfocus();
+  }
+
+  Future<void> _pasteFromClipboard() async {
+    try {
+      final data = await Clipboard.getData('text/plain');
+      final text = data?.text?.trim();
+      if (text != null && text.isNotEmpty) {
+        _topSearchController.text = text;
+        _onTopSearchChanged(text);
+        if (mounted) {
+          AppFeedback.showSuccess(
+            context,
+            title: 'Pasted',
+            message: 'Pasted "$text" from clipboard',
+          );
+        }
+      } else {
+        if (mounted) {
+          AppFeedback.showError(
+            context,
+            error: 'Clipboard is empty. Copy text first to paste.',
+          );
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _scanTopSearchBarcode() async {
+    final scanned = await BarcodeScannerScreen.scan(
+      context,
+      title: 'Scan IMEI or Barcode',
+      instruction: 'Scan device IMEI sticker, phone box barcode, or repair ticket',
+    );
+    if (scanned != null && scanned.trim().isNotEmpty && mounted) {
+      _topSearchController.text = scanned.trim();
+      _onTopSearchChanged(scanned.trim());
+    }
+  }
+
+  Future<void> _makeCall(String phone) async {
+    final clean = phone.replaceAll(RegExp(r'[^\d+]'), '');
+    final uri = Uri.parse('tel:$clean');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
+  void _copyToClipboard(String text, String label) {
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$label copied to clipboard'),
+        duration: const Duration(seconds: 2),
+        backgroundColor: AppColors.primary,
+      ),
+    );
+  }
+
+  IconData _getDeviceIcon(String type) {
+    switch (type.toLowerCase()) {
+      case 'laptop':
+        return Icons.laptop_rounded;
+      case 'tablet':
+        return Icons.tablet_android_rounded;
+      case 'watch':
+        return Icons.watch_rounded;
+      case 'mobile':
+      default:
+        return Icons.phone_iphone_rounded;
+    }
+  }
+
+  Color _getRepairStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'completed':
+      case 'delivered':
+        return Colors.green.shade700;
+      case 'in_progress':
+      case 'diagnosing':
+        return Colors.blue.shade700;
+      case 'pending':
+        return Colors.orange.shade800;
+      case 'cancelled':
+      case 'unrepairable':
+        return Colors.red.shade700;
+      default:
+        return AppColors.primary;
+    }
   }
 
   Future<void> _loadReferralStatus() async {
@@ -524,7 +749,17 @@ class DashboardScreenState extends State<DashboardScreen> {
         ? _dashboardData!.ownerName
         : (_storedOwnerName.isNotEmpty ? _storedOwnerName : 'Shop Owner');
 
-    return Scaffold(
+    final bool isSearchActive = _isTopSearchVisible || _isSearchingDirectly || _topSearchController.text.isNotEmpty;
+
+    return PopScope(
+      canPop: !isSearchActive,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (isSearchActive) {
+          _closeTopSearchBar();
+        }
+      },
+      child: Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
       appBar: AppBar(
         title: Column(
@@ -578,6 +813,14 @@ class DashboardScreenState extends State<DashboardScreen> {
           ),
           const ProfitVisibilityToggle(),
           IconButton(
+            icon: Icon(
+              _isTopSearchVisible ? Icons.search_off_rounded : Icons.search_rounded,
+              color: Colors.white,
+            ),
+            tooltip: _isTopSearchVisible ? 'Close Search' : 'Search Device, IMEI, Customer',
+            onPressed: _toggleTopSearch,
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh_rounded, color: Colors.white),
             tooltip: 'Refresh',
             onPressed: fetchDashboard,
@@ -593,15 +836,24 @@ class DashboardScreenState extends State<DashboardScreen> {
         referralPoints: _referralPoints,
         onReferralReturned: _loadReferralStatus,
       ),
-      body: RefreshIndicator(
-        onRefresh: fetchDashboard,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Period Filter Header Bar
-              _buildPeriodFilterBar(),
+      body: Column(
+        children: [
+          // Pinned Top Search Bar: Device, IMEI, Customer Name & Mobile Search (Default Hidden / Collapsed)
+          if (_isTopSearchVisible) _buildTopSearchBar(),
+
+          // Body Content: Live search results when searching, otherwise normal dashboard
+          Expanded(
+            child: (_isTopSearchVisible && _isSearchingDirectly)
+                ? _buildDirectSearchResultsView()
+                : RefreshIndicator(
+                    onRefresh: fetchDashboard,
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Period Filter Header Bar
+                          _buildPeriodFilterBar(),
 
               // Compact Once-a-Day Visiting Card & Map Notice Strip
               if (_showVisitingCardBanner)
@@ -719,6 +971,10 @@ class DashboardScreenState extends State<DashboardScreen> {
               ],
             ],
           ),
+        ),
+      ),
+    ),
+          ],
         ),
       ),
     );
@@ -961,6 +1217,633 @@ class DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTopSearchBar() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      color: AppColors.primary,
+      padding: const EdgeInsets.fromLTRB(14, 4, 14, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 1. Search Text Field Bar
+          Container(
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: TextField(
+              controller: _topSearchController,
+              focusNode: _topSearchFocusNode,
+              onChanged: _onTopSearchChanged,
+              textInputAction: TextInputAction.search,
+              onSubmitted: (val) => _performTopSearch(val.trim()),
+              enableInteractiveSelection: true,
+              style: TextStyle(
+                color: isDark ? Colors.white : AppColors.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Search Device, IMEI, Customer, Mobile...',
+                hintStyle: TextStyle(
+                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade500,
+                  fontSize: 12.5,
+                ),
+                prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary, size: 22),
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_topSearchController.text.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.clear_rounded, color: Colors.grey, size: 19),
+                        tooltip: 'Clear search',
+                        onPressed: _clearTopSearch,
+                      ),
+                    IconButton(
+                      icon: const Icon(Icons.content_paste_rounded, color: AppColors.primary, size: 19),
+                      tooltip: 'Paste from clipboard',
+                      onPressed: _pasteFromClipboard,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary, size: 19),
+                      tooltip: 'Scan IMEI or Barcode',
+                      onPressed: _scanTopSearchBarcode,
+                    ),
+                    Container(
+                      height: 18,
+                      width: 1,
+                      color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+                      margin: const EdgeInsets.symmetric(horizontal: 2),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Colors.grey, size: 20),
+                      tooltip: 'Close search bar',
+                      onPressed: _closeTopSearchBar,
+                    ),
+                  ],
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              ),
+            ),
+          ),
+
+          // 2. Category Filter Tabs (only when actively searching)
+          if (_isSearchingDirectly) ...[
+            const SizedBox(height: 8),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildSearchFilterTabChip('all', 'All (${_searchedDevices.length + _searchedCustomers.length + _searchedRepairs.length})'),
+                  const SizedBox(width: 6),
+                  _buildSearchFilterTabChip('devices', '📱 Devices (${_searchedDevices.length})'),
+                  const SizedBox(width: 6),
+                  _buildSearchFilterTabChip('customers', '👤 Customers (${_searchedCustomers.length})'),
+                  const SizedBox(width: 6),
+                  _buildSearchFilterTabChip('repairs', '🔧 Repairs (${_searchedRepairs.length})'),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchFilterTabChip(String tabKey, String label) {
+    final isSelected = _searchFilterTab == tabKey;
+    return InkWell(
+      onTap: () => setState(() => _searchFilterTab = tabKey),
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.white.withOpacity(0.18),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? Colors.white : Colors.white.withOpacity(0.3),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? AppColors.primary : Colors.white,
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDirectSearchResultsView() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    if (_isSearchLoading) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(color: AppColors.primary),
+              const SizedBox(height: 16),
+              Text(
+                'Searching devices, customers, and repairs for "${_topSearchController.text}"...',
+                style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_searchError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 40),
+              const SizedBox(height: 12),
+              Text(_searchError!, style: const TextStyle(color: AppColors.error), textAlign: TextAlign.center),
+              const SizedBox(height: 14),
+              ElevatedButton.icon(
+                onPressed: () => _performTopSearch(_topSearchController.text.trim()),
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('Retry Search'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final totalCount = _searchedDevices.length + _searchedCustomers.length + _searchedRepairs.length;
+
+    if (totalCount == 0) {
+      return Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.search_off_rounded, size: 48, color: AppColors.primary.withOpacity(0.7)),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'No Results for "${_topSearchController.text}"',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'No matching devices, IMEIs, customer names, or phone numbers found.\nTry searching with a partial name or digits.',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: _closeTopSearchBar,
+                icon: const Icon(Icons.clear_rounded, size: 16),
+                label: const Text('Back to Dashboard'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+      children: [
+        // Summary Header Bar
+        Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withOpacity(0.06) : Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: isDark ? Colors.white12 : Colors.blue.shade100),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Found $totalCount direct match(es)',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppColors.primary),
+              ),
+              InkWell(
+                onTap: _closeTopSearchBar,
+                child: const Text('Back to Dashboard', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary)),
+              ),
+            ],
+          ),
+        ),
+
+        // 1. Devices section
+        if ((_searchFilterTab == 'all' || _searchFilterTab == 'devices') && _searchedDevices.isNotEmpty) ...[
+          _buildSearchSectionHeader('📱 Registered Devices & IMEIs', _searchedDevices.length, onBrowseAll: () {
+            Navigator.pushNamed(context, AppRoutes.deviceSearch);
+          }),
+          const SizedBox(height: 8),
+          ..._searchedDevices.map(_buildSearchedDeviceCard),
+          const SizedBox(height: 14),
+        ],
+
+        // 2. Customers section
+        if ((_searchFilterTab == 'all' || _searchFilterTab == 'customers') && _searchedCustomers.isNotEmpty) ...[
+          _buildSearchSectionHeader('👤 Customers & Phone Numbers', _searchedCustomers.length, onBrowseAll: () {
+            Navigator.pushNamed(context, AppRoutes.customers);
+          }),
+          const SizedBox(height: 8),
+          ..._searchedCustomers.map(_buildSearchedCustomerCard),
+          const SizedBox(height: 14),
+        ],
+
+        // 3. Repairs section
+        if ((_searchFilterTab == 'all' || _searchFilterTab == 'repairs') && _searchedRepairs.isNotEmpty) ...[
+          _buildSearchSectionHeader('🔧 Repair Job Cards', _searchedRepairs.length),
+          const SizedBox(height: 8),
+          ..._searchedRepairs.map(_buildSearchedRepairCard),
+          const SizedBox(height: 14),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSearchSectionHeader(String title, int count, {VoidCallback? onBrowseAll}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          '$title ($count)',
+          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+        ),
+        if (onBrowseAll != null)
+          InkWell(
+            onTap: onBrowseAll,
+            child: const Text(
+              'Browse all →',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSearchedDeviceCard(Device device) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final customer = device.customer;
+    final hasImei1 = device.imei1 != null && device.imei1!.trim().isNotEmpty;
+    final hasImei2 = device.imei2 != null && device.imei2!.trim().isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: CustomCard(
+        padding: const EdgeInsets.all(14),
+        onTap: () {
+          Navigator.pushNamed(context, AppRoutes.deviceDetails, arguments: device);
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(_getDeviceIcon(device.deviceType), color: AppColors.primary, size: 22),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${device.brand} ${device.model}',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        device.deviceType,
+                        style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textMuted),
+              ],
+            ),
+            if (hasImei1 || hasImei2) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  if (hasImei1)
+                    InkWell(
+                      onTap: () => _copyToClipboard(device.imei1!, 'IMEI 1'),
+                      borderRadius: BorderRadius.circular(4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.blue.shade200),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.copy_rounded, size: 11, color: AppColors.primary),
+                            const SizedBox(width: 4),
+                            Text('IMEI 1: ${device.imei1}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  if (hasImei2)
+                    InkWell(
+                      onTap: () => _copyToClipboard(device.imei2!, 'IMEI 2'),
+                      borderRadius: BorderRadius.circular(4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.blue.shade200),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.copy_rounded, size: 11, color: AppColors.primary),
+                            const SizedBox(width: 4),
+                            Text('IMEI 2: ${device.imei2}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+            if (customer != null) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade200),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.person_outline_rounded, size: 14, color: AppColors.textSecondary),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        '${customer.name} (${customer.mobile})',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (customer.mobile.isNotEmpty) ...[
+                      IconButton(
+                        icon: const Icon(Icons.phone_rounded, size: 16, color: Colors.green),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        tooltip: 'Call Customer',
+                        onPressed: () => _makeCall(customer.mobile),
+                      ),
+                      const SizedBox(width: 10),
+                      IconButton(
+                        icon: const WhatsAppIcon(size: 16),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        tooltip: 'WhatsApp',
+                        onPressed: () => WhatsAppHelper.openChat(context, phone: customer.mobile),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchedCustomerCard(Customer customer) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: CustomCard(
+        padding: const EdgeInsets.all(14),
+        onTap: () {
+          Navigator.pushNamed(context, AppRoutes.customerDetails, arguments: customer);
+        },
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: AppColors.primary.withOpacity(0.12),
+              foregroundColor: AppColors.primary,
+              radius: 20,
+              child: Text(
+                customer.name.isNotEmpty ? customer.name[0].toUpperCase() : 'C',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    customer.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      const Icon(Icons.phone_rounded, size: 12, color: AppColors.textSecondary),
+                      const SizedBox(width: 4),
+                      Text(
+                        customer.mobile,
+                        style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                  if (customer.city != null && customer.city!.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      customer.city!,
+                      style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (customer.mobile.isNotEmpty) ...[
+              IconButton(
+                icon: const Icon(Icons.phone_rounded, size: 18, color: Colors.green),
+                tooltip: 'Call',
+                onPressed: () => _makeCall(customer.mobile),
+              ),
+              IconButton(
+                icon: const WhatsAppIcon(size: 18),
+                tooltip: 'WhatsApp',
+                onPressed: () => WhatsAppHelper.showCustomerWhatsAppOptions(context, customer),
+              ),
+            ],
+            const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textMuted),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchedRepairCard(Repair repair) {
+    final statusColor = _getRepairStatusColor(repair.repairStatus);
+    final totalCost = repair.finalCost > 0 ? repair.finalCost : repair.estimatedCost;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: CustomCard(
+        padding: const EdgeInsets.all(14),
+        onTap: () {
+          Navigator.pushNamed(context, AppRoutes.repairDetails, arguments: repair);
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '#${repair.jobNumber}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.primary),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    repair.repairStatus.toUpperCase(),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: statusColor),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${repair.device?.brand ?? ''} ${repair.device?.model ?? 'Device'}',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            if ((repair.device?.imei1 != null && repair.device!.imei1!.trim().isNotEmpty) ||
+                (repair.device?.imei2 != null && repair.device!.imei2!.trim().isNotEmpty)) ...[
+              const SizedBox(height: 2),
+              Row(
+                children: [
+                  Icon(Icons.qr_code_2_rounded, size: 13, color: Colors.blueGrey.shade600),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      [
+                        if (repair.device?.imei1 != null && repair.device!.imei1!.trim().isNotEmpty)
+                          'IMEI 1: ${repair.device!.imei1}',
+                        if (repair.device?.imei2 != null && repair.device!.imei2!.trim().isNotEmpty)
+                          'IMEI 2: ${repair.device!.imei2}',
+                      ].join(' • '),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.blueGrey.shade700,
+                        fontFamily: 'monospace',
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 2),
+            Text(
+              'Customer: ${repair.customer?.name ?? 'Unknown'} (${repair.customer?.mobile ?? ''})',
+              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            ),
+            if (repair.problemDescription.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Issue: ${repair.problemDescription}',
+                style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Total: \u20B9${totalCost.toStringAsFixed(0)} ${repair.amountDue > 0 ? '(Due: \u20B9${repair.amountDue.toStringAsFixed(0)})' : ''}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: repair.amountDue > 0 ? AppColors.error : AppColors.success,
+                  ),
+                ),
+                Row(
+                  children: [
+                    if (repair.customer?.mobile != null && repair.customer!.mobile.isNotEmpty)
+                      IconButton(
+                        icon: const WhatsAppIcon(size: 16),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        tooltip: 'WhatsApp update',
+                        onPressed: () => WhatsAppHelper.showRepairWhatsAppOptions(context, repair),
+                      ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: AppColors.textMuted),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

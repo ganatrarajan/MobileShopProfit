@@ -50,4 +50,9 @@ class ApiEndpoints {
   static const String fcmToken = '/fcm-token';
   static const String referralValidate = '/referrals/validate';
   static const String referralSummary = '/referrals/summary';
+  static const String securityPinStatus = '/security-pin/status';
+  static const String securityPinSetup = '/security-pin/setup';
+  static const String securityPinUpdate = '/security-pin/update';
+  static const String securityPinForgot = '/security-pin/forgot';
+  static const String securityPinVerify = '/security-pin/verify';
 }

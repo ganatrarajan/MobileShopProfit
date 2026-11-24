@@ -5,6 +5,7 @@ import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/custom_card.dart';
 import '../../../core/widgets/status_badge.dart';
+import '../../settings/presentation/widgets/security_pin_dialogs.dart';
 import '../data/inventory_repository.dart';
 import '../models/inventory_item.dart';
 import '../../../core/utils/gst_calculator.dart';
@@ -86,39 +87,29 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
   }
 
   Future<void> _confirmDeleteItem() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
-            children: [
-              Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 24),
-              SizedBox(width: 8),
-              Text('Delete Item'),
-            ],
-          ),
-          content: Text('Are you sure you want to delete ${_item.name}? This action cannot be undone.'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
+    if (!_isOwner) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Only shop admin can delete inventory items.'), backgroundColor: AppColors.error),
+      );
+      return;
+    }
+
+    final pin = await SecurityPinPromptDialog.show(
+      context,
+      title: 'Delete Item',
+      message: 'Are you sure you want to delete ${_item.name}? This action cannot be undone.\n\nEnter your 4-digit Security PIN to confirm deletion.',
+      confirmLabel: 'Delete Item',
+      isDanger: true,
+      onConfirmAction: (enteredPin) => _inventoryRepository.deleteItem(_item.id, securityPin: enteredPin),
     );
 
-    if (confirm == true) {
-      final res = await _inventoryRepository.deleteItem(_item.id);
-      if (mounted && res.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${_item.name} deleted.'), backgroundColor: Colors.green.shade700),
-        );
-        Navigator.pop(context, true);
-      }
+    if (pin == null || pin.isEmpty) return;
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${_item.name} deleted.'), backgroundColor: Colors.green.shade700),
+      );
+      Navigator.pop(context, true);
     }
   }
 
@@ -158,11 +149,12 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
             },
             tooltip: 'Edit Item',
           ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline_rounded, color: Colors.white),
-            onPressed: _confirmDeleteItem,
-            tooltip: 'Delete Item',
-          ),
+          if (_isOwner)
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded, color: Colors.white),
+              onPressed: _confirmDeleteItem,
+              tooltip: 'Delete Item',
+            ),
         ],
       ),
       body: _isLoading

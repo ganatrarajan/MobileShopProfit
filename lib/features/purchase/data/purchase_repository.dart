@@ -347,8 +347,13 @@ class PurchaseRepository {
     return ApiResponse<Purchase>(success: false, message: response.message);
   }
 
-  Future<ApiResponse<void>> deletePurchase(int id) async {
-    final response = await _apiClient.delete('${ApiEndpoints.purchases}/$id');
+  Future<ApiResponse<void>> deletePurchase(int id, {String? securityPin}) async {
+    final response = await _apiClient.delete(
+      '${ApiEndpoints.purchases}/$id',
+      body: {
+        if (securityPin != null && securityPin.isNotEmpty) 'security_pin': securityPin,
+      },
+    );
     return ApiResponse<void>(success: response.success, message: response.message);
   }
 
