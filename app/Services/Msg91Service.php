@@ -69,15 +69,16 @@ class Msg91Service
 
             if ($response->successful() && isset($resData['type']) && $resData['type'] !== 'error') {
                 Log::info("MSG91 Widget OTP sent to {$formattedMobile}", ['response' => $resData]);
+                $reqId = $resData['reqId'] ?? $resData['request_id'] ?? (isset($resData['message']) && $resData['message'] !== 'OTP sent successfully' ? $resData['message'] : null);
                 return [
                     'success' => true,
                     'message' => 'OTP sent successfully via MSG91 Widget.',
-                    'req_id'  => $resData['message'] ?? null,
+                    'req_id'  => $reqId,
                 ];
             }
 
             // Fallback to control.msg91.com API if Widget API expects captcha token
-            $fallbackUrl = 'https://control.msg91.com/api/v5/otp';
+            $fallbackUrl = "https://control.msg91.com/api/v5/otp?template_id={$this->templateId}&mobile={$formattedMobile}&otp={$otp}";
             $fallbackPayload = [
                 'widget_id' => $this->widgetId,
                 'mobile'    => $formattedMobile,
@@ -91,18 +92,19 @@ class Msg91Service
 
             $fbData = $fbRes->json();
 
-            if ($fbRes->successful()) {
+            if ($fbRes->successful() && (!isset($fbData['type']) || $fbData['type'] !== 'error')) {
                 Log::info("MSG91 Fallback OTP sent to {$formattedMobile}", ['response' => $fbData]);
+                $reqId = $fbData['request_id'] ?? $fbData['reqId'] ?? $fbData['message'] ?? null;
                 return [
                     'success' => true,
                     'message' => 'OTP sent successfully via MSG91.',
-                    'req_id'  => $fbData['message'] ?? null,
+                    'req_id'  => $reqId,
                 ];
             }
 
             return [
                 'success' => false,
-                'message' => $resData['message'] ?? 'Failed to send OTP via SMS gateway.',
+                'message' => $resData['message'] ?? ($fbData['message'] ?? 'Failed to send OTP via SMS gateway.'),
                 'req_id'  => null,
             ];
         } catch (\Throwable $e) {
@@ -133,8 +135,8 @@ class Msg91Service
         }
 
         try {
-            // 1. Primary MSG91 Widget Verify API endpoint (requires reqId and widgetId)
-            if (!empty($reqId)) {
+            // 1. Primary MSG91 Widget Verify API endpoint (requires valid reqId and widgetId)
+            if (!empty($reqId) && $reqId !== 'OTP sent successfully') {
                 $widgetUrl = 'https://api.msg91.com/api/v5/widget/verifyOtp';
                 $widgetPayload = [
                     'widgetId' => $this->widgetId,
@@ -157,22 +159,15 @@ class Msg91Service
                     ];
                 }
 
-                if (isset($resData['type']) && strtolower($resData['type']) === 'error') {
-                    Log::warning("MSG91 Widget verifyOtp failed for {$formattedMobile}", ['response' => $resData]);
-                    return [
-                        'success' => false,
-                        'message' => $resData['message'] ?? 'Invalid OTP code.',
-                    ];
-                }
+                Log::warning("MSG91 Widget verifyOtp failed, attempting fallback verify", ['response' => $resData]);
             }
 
-            // 2. Fallback control.msg91.com OTP verify endpoint
+            // 2. Standard control.msg91.com OTP verify endpoint (MUST BE GET METHOD)
             $url = "https://control.msg91.com/api/v5/otp/verify?mobile={$formattedMobile}&otp={$otp}";
 
-            $response = Http::timeout(6)->withHeaders([
-                'authkey'      => $this->authKey,
-                'Content-Type' => 'application/json',
-            ])->post($url);
+            $response = Http::timeout(8)->withHeaders([
+                'authkey' => $this->authKey,
+            ])->get($url);
 
             $resData = $response->json();
 
