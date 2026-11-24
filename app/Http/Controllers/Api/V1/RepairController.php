@@ -14,6 +14,7 @@ use App\Models\RepairPayment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 
@@ -352,10 +353,37 @@ class RepairController extends Controller
         }
 
         if ($repair->repair_status === 'delivered') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Job Card is Delivered & finalized. It is completely locked and cannot be modified.',
-            ], 422);
+            $user = $request->user();
+            if ($user->role !== 'owner') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Job Card is Delivered & finalized. Only shop admin can change status.',
+                ], 403);
+            }
+
+            if (empty($user->security_pin)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Please set up a 4-digit Security PIN in Settings before changing delivered status.',
+                    'requires_pin_setup' => true,
+                ], 422);
+            }
+
+            $pin = $request->input('security_pin');
+            if (empty($pin)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Security PIN is required to change status of a delivered repair.',
+                    'requires_pin' => true,
+                ], 422);
+            }
+
+            if (!Hash::check($pin, $user->security_pin)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid Security PIN.',
+                ], 422);
+            }
         }
 
         $validated = $request->validated();
@@ -399,10 +427,37 @@ class RepairController extends Controller
         }
 
         if ($repair->repair_status === 'delivered') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Job Card is Delivered & finalized. It is completely locked and cannot be modified.',
-            ], 422);
+            $user = $request->user();
+            if ($user->role !== 'owner') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Job Card is Delivered & finalized. Only shop admin can change status.',
+                ], 403);
+            }
+
+            if (empty($user->security_pin)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Please set up a 4-digit Security PIN in Settings before changing delivered status.',
+                    'requires_pin_setup' => true,
+                ], 422);
+            }
+
+            $pin = $request->input('security_pin');
+            if (empty($pin)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Security PIN is required to change status of a delivered repair.',
+                    'requires_pin' => true,
+                ], 422);
+            }
+
+            if (!Hash::check($pin, $user->security_pin)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid Security PIN.',
+                ], 422);
+            }
         }
 
         $validated = $request->validated();
@@ -448,6 +503,30 @@ class RepairController extends Controller
             ], 403);
         }
 
+        if (empty($user->security_pin)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Please set up a 4-digit Security PIN in Settings before deleting repairs.',
+                'requires_pin_setup' => true,
+            ], 422);
+        }
+
+        $pin = $request->input('security_pin');
+        if (empty($pin)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Security PIN is required to delete repair job card.',
+                'requires_pin' => true,
+            ], 422);
+        }
+
+        if (!Hash::check($pin, $user->security_pin)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid Security PIN.',
+            ], 422);
+        }
+
         $id = $this->resolveRepairId($repair);
         $repairRecord = Repair::forShop($user->shop_id)->find($id);
 
@@ -456,13 +535,6 @@ class RepairController extends Controller
                 'success' => false,
                 'message' => 'Repair job card not found or unauthorized.',
             ], 404);
-        }
-
-        if ($repairRecord->repair_status === 'delivered') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Job Card is Delivered & finalized. Delivered repairs are frozen and cannot be deleted.',
-            ], 422);
         }
 
         DB::transaction(function () use ($repairRecord) {

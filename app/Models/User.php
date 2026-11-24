@@ -29,6 +29,7 @@ class User extends Authenticatable
         'permissions',
         'password',
         'plain_password',
+        'security_pin',
         'fcm_token',
         'last_app_opened_at',
         'last_mobile_login_at',
@@ -43,8 +44,26 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'plain_password',
+        'security_pin',
         'remember_token',
     ];
+
+    /**
+     * The accessors to append to the model's array form.
+     *
+     * @var list<string>
+     */
+    protected $appends = [
+        'has_security_pin',
+    ];
+
+    /**
+     * Determine if the user has a configured security pin.
+     */
+    public function getHasSecurityPinAttribute(): bool
+    {
+        return !empty($this->security_pin);
+    }
 
     /**
      * Get the attributes that should be cast.

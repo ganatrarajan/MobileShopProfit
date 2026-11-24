@@ -43,6 +43,7 @@ use App\Http\Controllers\Api\V1\SubscriptionController;
 use App\Http\Controllers\Api\V1\StaffController;
 use App\Http\Controllers\Api\V1\TechnicianController;
 use App\Http\Controllers\Api\V1\TechnicianPaymentController;
+use App\Http\Controllers\Api\V1\SecurityPinController;
 use App\Http\Controllers\Api\V1\UsedMobileController;
 use App\Http\Controllers\Api\V1\WarrantyClaimController;
 use App\Http\Controllers\Api\V1\WarrantyController;
@@ -230,6 +231,13 @@ Route::prefix('v1')->group(function () {
         Route::post('/auth/change-password', [AuthController::class, 'changePassword']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
         Route::post('/auth/ping-open', [AuthController::class, 'pingAppOpen']);
+
+        // Security PIN Management (Owner Only)
+        Route::get('/security-pin/status', [SecurityPinController::class, 'status']);
+        Route::post('/security-pin/setup', [SecurityPinController::class, 'setup']);
+        Route::post('/security-pin/update', [SecurityPinController::class, 'update']);
+        Route::post('/security-pin/forgot', [SecurityPinController::class, 'forgot']);
+        Route::post('/security-pin/verify', [SecurityPinController::class, 'verify']);
 
         // Subscription & Payments (Shop Owner - Rate Limited)
         Route::get('/subscription/status', [SubscriptionController::class, 'status']);

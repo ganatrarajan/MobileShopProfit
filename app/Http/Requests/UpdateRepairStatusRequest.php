@@ -20,6 +20,7 @@ class UpdateRepairStatusRequest extends FormRequest
                 'in:received,diagnosing,waiting_customer,waiting_parts,repairing,ready,delivered,cancelled',
             ],
             'notes' => ['nullable', 'string', 'max:1000'],
+            'security_pin' => ['nullable', 'string'],
         ];
     }
 }

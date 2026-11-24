@@ -204,12 +204,111 @@
         }
 
         .user-footer {
-            padding: 16px 20px;
+            padding: 14px 16px;
             border-top: 1px solid #1e293b;
+            background: #0b1120;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            font-size: 13px;
+        }
+
+        .user-footer-profile {
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .user-footer-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            flex-shrink: 0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+        }
+
+        .user-footer-info {
+            min-width: 0;
+            flex: 1;
+        }
+
+        .user-footer-name {
+            font-weight: 600;
+            color: #f8fafc;
             font-size: 13px;
+            line-height: 1.3;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .user-footer-role {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 2px;
+            font-size: 11px;
+            color: #94a3b8;
+            font-weight: 500;
+        }
+
+        .user-footer-role-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #22c55e;
+            display: inline-block;
+        }
+
+        .user-footer-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .user-footer-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            padding: 7px 8px;
+            font-size: 11.5px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            border: 1px solid transparent;
+        }
+
+        .user-footer-btn-pwd {
+            background: #1e293b;
+            color: #93c5fd;
+            border-color: #334155;
+        }
+
+        .user-footer-btn-pwd:hover {
+            background: #334155;
+            color: #ffffff;
+            border-color: #475569;
+        }
+
+        .user-footer-btn-logout {
+            background: rgba(239, 68, 68, 0.12);
+            color: #f87171;
+            border-color: rgba(239, 68, 68, 0.25);
+        }
+
+        .user-footer-btn-logout:hover {
+            background: #ef4444;
+            color: #ffffff;
+            border-color: #ef4444;
         }
 
         .main-content {
@@ -847,15 +946,29 @@
                 <li><a href="#notifications" class="nav-item" onclick="switchNav('notifications')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-2px; margin-right:6px;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Push Notifications</a></li>
                 <li><a href="#settings" class="nav-item" onclick="switchNav('settings')">⚙️ System & Settings</a></li>
             </ul>
-            <div class="user-footer" style="display:flex; flex-direction:column; gap:8px;">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span id="admin-name" style="font-weight:600; color:#f8fafc; font-size:13px;">Admin</span>
-                    <a href="#" style="color:#ef4444; text-decoration:none; font-weight:600; font-size:12px;" onclick="logout()">Logout</a>
+            <div class="user-footer">
+                <div class="user-footer-profile">
+                    <div class="user-footer-avatar">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    </div>
+                    <div class="user-footer-info">
+                        <div id="admin-name" class="user-footer-name" title="Platform Super Admin">Platform Super Admin</div>
+                        <div class="user-footer-role">
+                            <span class="user-footer-role-dot"></span>
+                            <span>Super Admin</span>
+                        </div>
+                    </div>
                 </div>
-                <button type="button" onclick="openAdminChangePasswordModal()" style="background:#1e293b; color:#93c5fd; border:1px solid #334155; border-radius:6px; padding:6px 10px; font-size:11.5px; font-weight:600; cursor:pointer; text-align:center; transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:6px;">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                    Change Password
-                </button>
+                <div class="user-footer-actions">
+                    <button type="button" class="user-footer-btn user-footer-btn-pwd" onclick="openAdminChangePasswordModal()" title="Change Password">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        <span>Password</span>
+                    </button>
+                    <button type="button" class="user-footer-btn user-footer-btn-logout" onclick="logout()" title="Logout Session">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                        <span>Logout</span>
+                    </button>
+                </div>
             </div>
         </aside>
 
