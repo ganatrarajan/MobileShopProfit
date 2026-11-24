@@ -272,6 +272,51 @@ class DeviceController extends Controller
     }
 
     /**
+     * Resolve master_catalog.json path across common server/cPanel deployment paths.
+     */
+    private function resolveMasterCatalogPath(): ?string
+    {
+        $candidates = [
+            storage_path('app/public/device/master_catalog.json'),
+            storage_path('app/public/Device/master_catalog.json'),
+            public_path('storage/device/master_catalog.json'),
+            public_path('storage/Device/master_catalog.json'),
+            base_path('storage/app/public/device/master_catalog.json'),
+            storage_path('app/device/master_catalog.json'),
+            base_path('public_html/storage/device/master_catalog.json'),
+        ];
+
+        foreach ($candidates as $path) {
+            if (\Illuminate\Support\Facades\File::exists($path)) {
+                return $path;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Resolve legacy devices.json path across common server/cPanel deployment paths.
+     */
+    private function resolveLegacyDevicesPath(): ?string
+    {
+        $candidates = [
+            storage_path('app/public/device/devices.json'),
+            storage_path('app/public/Device/devices.json'),
+            public_path('storage/device/devices.json'),
+            public_path('storage/Device/devices.json'),
+            base_path('storage/app/public/device/devices.json'),
+            storage_path('app/device/devices.json'),
+        ];
+
+        foreach ($candidates as $path) {
+            if (\Illuminate\Support\Facades\File::exists($path)) {
+                return $path;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Get unique device brands from master catalog & devices.json.
      * Supports optional category filtering (e.g. ?category=watch, ?category=tablet, etc.)
      */
@@ -285,14 +330,15 @@ class DeviceController extends Controller
         if (in_array($category, ['audio', 'earbuds', 'headphone', 'headphones', 'accessories'])) $category = 'audio';
         if (in_array($category, ['laptop', 'laptops', 'mac', 'macbook'])) $category = 'laptop';
 
-        $cacheKey = 'device_brands_master_v3_' . md5($category);
+        $cacheKey = 'device_brands_master_catalog_v6_' . md5($category);
 
         $loadBrands = function () use ($category) {
-            $masterPath = storage_path('app/public/device/master_catalog.json');
-            $legacyPath = storage_path('app/public/device/devices.json');
+            $masterPath = $this->resolveMasterCatalogPath();
+            $legacyPath = $this->resolveLegacyDevicesPath();
 
+            $masterJson = [];
             $masterBrands = [];
-            if (\Illuminate\Support\Facades\File::exists($masterPath)) {
+            if ($masterPath && \Illuminate\Support\Facades\File::exists($masterPath)) {
                 $masterJson = json_decode(\Illuminate\Support\Facades\File::get($masterPath), true) ?? [];
                 if (! empty($masterJson['brands'])) {
                     foreach ($masterJson['brands'] as $bName => $bData) {
@@ -305,7 +351,7 @@ class DeviceController extends Controller
 
             // For phone/mobile/all, also merge in legacy brands from devices.json
             $legacyBrands = [];
-            if (($category === 'all' || $category === 'mobile') && \Illuminate\Support\Facades\File::exists($legacyPath)) {
+            if (($category === 'all' || $category === 'mobile') && $legacyPath && \Illuminate\Support\Facades\File::exists($legacyPath)) {
                 $content = \Illuminate\Support\Facades\File::get($legacyPath);
                 $devices = json_decode($content, true) ?? [];
                 foreach ($devices as $key => $item) {
@@ -315,11 +361,12 @@ class DeviceController extends Controller
                 }
             }
 
-            // Popular top brands to prioritize at the beginning of the list
-            $popularOrder = [
-                'Apple', 'Samsung', 'OnePlus', 'Xiaomi', 'Vivo', 'Oppo', 'Realme',
-                'Motorola', 'Google', 'Nothing', 'Boat', 'Noise', 'Fire-Boltt', 'Fastrack', 'Amazfit'
-            ];
+            // Read popular priority brands dynamically from master_catalog.json
+            $popularOrder = [];
+            if (! empty($masterJson['popular_brands'])) {
+                $catKey = ($category === 'all') ? 'mobile' : $category;
+                $popularOrder = $masterJson['popular_brands'][$catKey] ?? ($masterJson['popular_brands']['mobile'] ?? []);
+            }
 
             $allBrands = array_merge($masterBrands, $legacyBrands);
             $uniqueMap = [];
@@ -330,7 +377,7 @@ class DeviceController extends Controller
                 }
             }
 
-            // Order with popular brands first if they exist in uniqueMap
+            // Order with popular brands first if they exist in catalog
             $orderedList = [];
             foreach ($popularOrder as $pop) {
                 $lowerPop = strtolower($pop);
@@ -382,16 +429,16 @@ class DeviceController extends Controller
             ], 400);
         }
 
-        $cacheKey = 'device_models_master_v3_' . md5(strtolower($brandName) . '_' . $category);
+        $cacheKey = 'device_models_master_catalog_v6_' . md5(strtolower($brandName) . '_' . $category);
 
         $loadModels = function () use ($brandName, $category) {
-            $masterPath = storage_path('app/public/device/master_catalog.json');
-            $legacyPath = storage_path('app/public/device/devices.json');
+            $masterPath = $this->resolveMasterCatalogPath();
+            $legacyPath = $this->resolveLegacyDevicesPath();
 
             $modelList = [];
 
             // 1. Check curated master catalog first
-            if (\Illuminate\Support\Facades\File::exists($masterPath)) {
+            if ($masterPath && \Illuminate\Support\Facades\File::exists($masterPath)) {
                 $masterJson = json_decode(\Illuminate\Support\Facades\File::get($masterPath), true) ?? [];
                 if (! empty($masterJson['brands'])) {
                     foreach ($masterJson['brands'] as $bName => $bData) {
@@ -409,7 +456,7 @@ class DeviceController extends Controller
             }
 
             // 2. Also merge with legacy devices.json for broad Android compatibility (if category is all or mobile)
-            if (($category === 'all' || $category === 'mobile') && \Illuminate\Support\Facades\File::exists($legacyPath)) {
+            if (($category === 'all' || $category === 'mobile') && $legacyPath && \Illuminate\Support\Facades\File::exists($legacyPath)) {
                 $content = \Illuminate\Support\Facades\File::get($legacyPath);
                 $devices = json_decode($content, true) ?? [];
                 foreach ($devices as $key => $item) {

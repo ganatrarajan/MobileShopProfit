@@ -11,6 +11,7 @@ use App\Models\SalePayment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class SaleController extends Controller
 {
@@ -545,6 +546,30 @@ class SaleController extends Controller
                 'success' => false,
                 'message' => 'Only the shop owner can delete sales invoices.',
             ], 403);
+        }
+
+        if (empty($user->security_pin)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Please set up a 4-digit Security PIN in Settings before deleting sales.',
+                'requires_pin_setup' => true,
+            ], 422);
+        }
+
+        $pin = $request->input('security_pin');
+        if (empty($pin)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Security PIN is required to delete sales invoice.',
+                'requires_pin' => true,
+            ], 422);
+        }
+
+        if (!Hash::check($pin, $user->security_pin)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid Security PIN.',
+            ], 422);
         }
 
         $id = $this->resolveSaleId($sale);

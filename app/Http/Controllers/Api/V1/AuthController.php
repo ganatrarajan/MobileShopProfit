@@ -225,7 +225,7 @@ class AuthController extends Controller
         // OTP is valid! Execute existing DB Transaction to create Shop & User
         $payload = $pending->payload;
 
-        return DB::transaction(function () use ($payload, $pending) {
+        return DB::transaction(function () use ($payload, $pending, $request) {
             $trialExpiry = now()->addDays(30);
 
             // 1. Create Shop Record (with 1 Staff Login and Expiry Date pre-set)
@@ -978,11 +978,12 @@ class AuthController extends Controller
     /**
      * Determine token name based on client platform (web vs mobile).
      */
-    private function resolveTokenName(Request $request): string
+    private function resolveTokenName(?Request $request = null): string
     {
-        $isWeb = $request->input('login_source') === 'web'
-            || strtolower((string) $request->header('X-Client-Type')) === 'web'
-            || $request->input('client_type') === 'web';
+        $req = $request ?? request();
+        $isWeb = $req->input('login_source') === 'web'
+            || strtolower((string) $req->header('X-Client-Type')) === 'web'
+            || $req->input('client_type') === 'web';
 
         return $isWeb ? 'web_session' : 'mobile_session';
     }
