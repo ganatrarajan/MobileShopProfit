@@ -213,7 +213,9 @@ class PurchaseController extends Controller
                 }
             }
 
-            if (!empty($batchImeis)) {
+            $addToInventory = isset($validated['add_to_inventory']) ? (bool) $validated['add_to_inventory'] : true;
+
+            if (!empty($batchImeis) && $addToInventory) {
                 $existing = \App\Models\InventorySerial::forShop($shopId)
                     ->where('status', 'available')
                     ->where(function ($q) use ($batchImeis) {
@@ -225,14 +227,24 @@ class PurchaseController extends Controller
                     ->first();
 
                 if ($existing) {
-                    $dupVal = in_array($existing->imei1, $batchImeis)
-                        ? $existing->imei1
-                        : (in_array($existing->imei2, $batchImeis) ? $existing->imei2 : $existing->serial_number);
-                    $itemName = $existing->inventoryItem ? " ({$existing->inventoryItem->name})" : '';
-                    return response()->json([
-                        'success' => false,
-                        'message' => "IMEI/Serial '{$dupVal}' is already in stock for this shop{$itemName}. Cannot add duplicate until the current unit is sold.",
-                    ], 422);
+                    $isSameItem = false;
+                    foreach ($itemsData as $bItem) {
+                        if ($bItem['inventory_item_id'] == $existing->inventory_item_id) {
+                            $isSameItem = true;
+                            break;
+                        }
+                    }
+
+                    if (!$isSameItem) {
+                        $dupVal = in_array($existing->imei1, $batchImeis)
+                            ? $existing->imei1
+                            : (in_array($existing->imei2, $batchImeis) ? $existing->imei2 : $existing->serial_number);
+                        $itemName = $existing->inventoryItem ? " ({$existing->inventoryItem->name})" : '';
+                        return response()->json([
+                            'success' => false,
+                            'message' => "IMEI/Serial '{$dupVal}' is already in stock for this shop{$itemName}. Cannot add duplicate until the current unit is sold.",
+                        ], 422);
+                    }
                 }
             }
 
@@ -365,14 +377,25 @@ class PurchaseController extends Controller
 
                     // Record serial / IMEI if provided
                     if (!empty($item['imei1']) || !empty($item['imei2']) || !empty($item['serial_number'])) {
-                        \App\Models\InventorySerial::create([
-                            'shop_id' => $shopId,
-                            'inventory_item_id' => $invItem->id,
-                            'imei1' => $item['imei1'],
-                            'imei2' => $item['imei2'],
-                            'serial_number' => $item['serial_number'],
-                            'status' => 'available',
-                        ]);
+                        $serialExists = \App\Models\InventorySerial::forShop($shopId)
+                            ->where('inventory_item_id', $invItem->id)
+                            ->where(function ($q) use ($item) {
+                                if (!empty($item['imei1'])) $q->where('imei1', $item['imei1']);
+                                if (!empty($item['imei2'])) $q->orWhere('imei2', $item['imei2']);
+                                if (!empty($item['serial_number'])) $q->orWhere('serial_number', $item['serial_number']);
+                            })
+                            ->exists();
+
+                        if (!$serialExists) {
+                            \App\Models\InventorySerial::create([
+                                'shop_id' => $shopId,
+                                'inventory_item_id' => $invItem->id,
+                                'imei1' => $item['imei1'],
+                                'imei2' => $item['imei2'],
+                                'serial_number' => $item['serial_number'],
+                                'status' => 'available',
+                            ]);
+                        }
                     }
 
                     $invItem->recalculateStock();
@@ -479,7 +502,7 @@ class PurchaseController extends Controller
                     }
                 }
 
-                if (!empty($batchImeis)) {
+                if (!empty($batchImeis) && $purchase->is_stock_added) {
                     $existing = \App\Models\InventorySerial::forShop($shopId)
                         ->where('status', 'available')
                         ->where(function ($q) use ($batchImeis) {
@@ -491,14 +514,24 @@ class PurchaseController extends Controller
                         ->first();
 
                     if ($existing) {
-                        $dupVal = in_array($existing->imei1, $batchImeis)
-                            ? $existing->imei1
-                            : (in_array($existing->imei2, $batchImeis) ? $existing->imei2 : $existing->serial_number);
-                        $itemName = $existing->inventoryItem ? " ({$existing->inventoryItem->name})" : '';
-                        return response()->json([
-                            'success' => false,
-                            'message' => "IMEI/Serial '{$dupVal}' is already in stock for this shop{$itemName}. Cannot add duplicate until the current unit is sold.",
-                        ], 422);
+                        $isSameItem = false;
+                        foreach ($itemsData as $bItem) {
+                            if ($bItem['inventory_item_id'] == $existing->inventory_item_id) {
+                                $isSameItem = true;
+                                break;
+                            }
+                        }
+
+                        if (!$isSameItem) {
+                            $dupVal = in_array($existing->imei1, $batchImeis)
+                                ? $existing->imei1
+                                : (in_array($existing->imei2, $batchImeis) ? $existing->imei2 : $existing->serial_number);
+                            $itemName = $existing->inventoryItem ? " ({$existing->inventoryItem->name})" : '';
+                            return response()->json([
+                                'success' => false,
+                                'message' => "IMEI/Serial '{$dupVal}' is already in stock for this shop{$itemName}. Cannot add duplicate until the current unit is sold.",
+                            ], 422);
+                        }
                     }
                 }
 

@@ -26,12 +26,19 @@ class UpdateInventoryItemRequest extends FormRequest
             'tax_type' => ['nullable', 'string', 'in:exclusive,inclusive'],
             'opening_stock' => ['nullable', 'integer', 'min:0'],
             'minimum_stock' => ['sometimes', 'integer', 'min:0'],
-            'unit' => ['nullable', 'string', 'max:20'],
+            'unit' => ['nullable', 'string', 'max:20', 'not_regex:/[0-9]/'],
             'description' => ['nullable', 'string', 'max:1000'],
             'imei1' => ['nullable', 'string', 'max:50'],
             'imei2' => ['nullable', 'string', 'max:50'],
             'serial_number' => ['nullable', 'string', 'max:50'],
             'is_active' => ['sometimes', 'boolean'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'unit.not_regex' => 'Unit must be measurement text like pcs, box, nos and cannot contain numbers.',
         ];
     }
 }

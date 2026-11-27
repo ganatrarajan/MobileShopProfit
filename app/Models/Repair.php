@@ -33,6 +33,8 @@ class Repair extends Model
         'accessories_notes',
         'pin_passcode',
         'device_photo',
+        'device_photo_back',
+        'customer_photo',
         'estimated_cost',
         'final_cost',
         'labour_cost',
@@ -68,9 +70,9 @@ class Repair extends Model
     ];
 
     /**
-     * Resolve device photo dynamically to current request origin (e.g. Wi-Fi IP, localhost, domain).
+     * Resolve photo paths dynamically to current request origin (e.g. Wi-Fi IP, localhost, domain).
      */
-    public function getDevicePhotoAttribute($value): ?string
+    protected function formatPhotoUrl(?string $value): ?string
     {
         if (empty($value)) {
             return null;
@@ -91,6 +93,21 @@ class Repair extends Model
         }
 
         return $value;
+    }
+
+    public function getDevicePhotoAttribute($value): ?string
+    {
+        return $this->formatPhotoUrl($value);
+    }
+
+    public function getDevicePhotoBackAttribute($value): ?string
+    {
+        return $this->formatPhotoUrl($value);
+    }
+
+    public function getCustomerPhotoAttribute($value): ?string
+    {
+        return $this->formatPhotoUrl($value);
     }
 
     public function scopeForShop($query, $shopId)
