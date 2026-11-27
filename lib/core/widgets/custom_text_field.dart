@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme/app_colors.dart';
 
 class CustomTextField extends StatefulWidget {
@@ -15,6 +16,9 @@ class CustomTextField extends StatefulWidget {
   final int maxLines;
   final bool isRequired;
   final VoidCallback? onTap;
+  final List<TextInputFormatter>? inputFormatters;
+  final bool hasError;
+  final String? errorText;
 
   const CustomTextField({
     super.key,
@@ -31,6 +35,9 @@ class CustomTextField extends StatefulWidget {
     this.maxLines = 1,
     this.isRequired = false,
     this.onTap,
+    this.inputFormatters,
+    this.hasError = false,
+    this.errorText,
   });
 
   @override
@@ -43,8 +50,11 @@ class _CustomTextFieldState extends State<CustomTextField> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isFieldInError = widget.hasError || (widget.errorText != null && widget.errorText!.isNotEmpty);
     final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
-    final labelColor = isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final labelColor = isFieldInError
+        ? AppColors.error
+        : (isDark ? AppColors.darkTextSecondary : AppColors.textSecondary);
 
     final cleanLabel = widget.label.replaceAll('*', '').replaceAll('(', '').replaceAll(')', '').replaceAll('₹', '').trim();
     final isDecimalNumber = widget.keyboardType == const TextInputType.numberWithOptions(decimal: true) ||
@@ -88,6 +98,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
         TextFormField(
           controller: widget.controller,
           keyboardType: widget.keyboardType,
+          inputFormatters: widget.inputFormatters,
           obscureText: widget.isPassword ? _obscureText : false,
           maxLines: widget.isPassword ? 1 : widget.maxLines,
           readOnly: widget.readOnly,
@@ -97,9 +108,27 @@ class _CustomTextFieldState extends State<CustomTextField> {
           style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: textColor),
           decoration: InputDecoration(
             hintText: effectiveHint,
+            errorText: widget.errorText,
+            errorStyle: const TextStyle(color: AppColors.error, fontSize: 11.5, fontWeight: FontWeight.w500),
+            enabledBorder: isFieldInError
+                ? OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.error, width: 1.5),
+                  )
+                : null,
+            focusedBorder: isFieldInError
+                ? OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.error, width: 2.0),
+                  )
+                : null,
             hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13, fontWeight: FontWeight.normal),
             prefixIcon: widget.prefixIcon != null
-                ? Icon(widget.prefixIcon, size: 20, color: AppColors.primary)
+                ? Icon(
+                    widget.prefixIcon,
+                    size: 20,
+                    color: isFieldInError ? AppColors.error : AppColors.primary,
+                  )
                 : null,
             suffixIcon: widget.isPassword
                 ? IconButton(

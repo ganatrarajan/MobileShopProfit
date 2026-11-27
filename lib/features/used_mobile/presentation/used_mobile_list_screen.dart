@@ -245,7 +245,7 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
 
   void _onSearchChanged(String val) {
     _debounceTimer?.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 400), () {
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
       fetchMobiles();
     });
   }
@@ -436,69 +436,77 @@ class UsedMobileListScreenState extends State<UsedMobileListScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                 child: Column(
                   children: [
+                    // 1. Search Bar - Full Width for displaying full IMEIs & Model names
+                    TextField(
+                      controller: _searchController,
+                      onChanged: _onSearchChanged,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                      decoration: InputDecoration(
+                        hintText: 'Search Brand, Model, IMEI, Ref #...',
+                        hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                        prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
+                        suffixIcon: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (_searchController.text.isNotEmpty)
+                              IconButton(
+                                icon: const Icon(Icons.clear_rounded, color: AppColors.textMuted),
+                                onPressed: () {
+                                  _debounceTimer?.cancel();
+                                  _searchController.clear();
+                                  fetchMobiles();
+                                },
+                              ),
+                            IconButton(
+                              icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary),
+                              tooltip: 'Scan IMEI or Serial to Search / Sell',
+                              onPressed: _scanToFindOrSell,
+                            ),
+                          ],
+                        ),
+                        filled: true,
+                        fillColor: isDark ? AppColors.darkSurface : Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.border),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.border),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // 2. Date Filter Button (Full Width Row)
                     Row(
                       children: [
                         Expanded(
-                          child: TextField(
-                            controller: _searchController,
-                            onChanged: _onSearchChanged,
-                            decoration: InputDecoration(
-                              hintText: 'Search Brand, Model, IMEI, Ref #...',
-                              hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
-                              prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
-                              suffixIcon: Row(
-                                mainAxisSize: MainAxisSize.min,
+                          child: InkWell(
+                            onTap: _showDateFilterBottomSheet,
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: AppColors.accent,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  if (_searchController.text.isNotEmpty)
-                                    IconButton(
-                                      icon: const Icon(Icons.clear_rounded, color: AppColors.textMuted),
-                                      onPressed: () {
-                                        _searchController.clear();
-                                        fetchMobiles();
-                                      },
+                                  const Icon(Icons.calendar_month_rounded, color: Colors.white, size: 16),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      'Filter Date: $_dateFilterLabel',
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                  IconButton(
-                                    icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary),
-                                    tooltip: 'Scan IMEI or Serial to Search / Sell',
-                                    onPressed: _scanToFindOrSell,
                                   ),
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.arrow_drop_down_rounded, color: Colors.white, size: 18),
                                 ],
                               ),
-                              filled: true,
-                              fillColor: isDark ? AppColors.darkSurface : Colors.white,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.border),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.border),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        InkWell(
-                          onTap: _showDateFilterBottomSheet,
-                          borderRadius: BorderRadius.circular(10),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                            decoration: BoxDecoration(
-                              color: AppColors.accent,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.calendar_month_rounded, color: Colors.white, size: 18),
-                                const SizedBox(width: 4),
-                                Text(
-                                  _dateFilterLabel,
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                                ),
-                                const SizedBox(width: 2),
-                                const Icon(Icons.arrow_drop_down_rounded, color: Colors.white, size: 18),
-                              ],
                             ),
                           ),
                         ),

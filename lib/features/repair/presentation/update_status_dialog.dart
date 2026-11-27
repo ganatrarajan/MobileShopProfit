@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:convert';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../models/repair.dart';
@@ -27,6 +30,17 @@ class UpdateStatusDialog extends StatefulWidget {
 class _UpdateStatusDialogState extends State<UpdateStatusDialog> {
   late String _selectedStatus;
   final _notesController = TextEditingController();
+  File? _customerPhotoFile;
+  final ImagePicker _picker = ImagePicker();
+
+  Future<void> _pickCustomerPhoto(ImageSource source) async {
+    try {
+      final picked = await _picker.pickImage(source: source, maxWidth: 1200, maxHeight: 1200, imageQuality: 85);
+      if (picked != null) {
+        setState(() => _customerPhotoFile = File(picked.path));
+      }
+    } catch (_) {}
+  }
 
   final Map<String, String> _statusLabels = {
     'received': 'Received',
@@ -150,16 +164,105 @@ class _UpdateStatusDialogState extends State<UpdateStatusDialog> {
             ),
             maxLines: 2,
           ),
+          if (_selectedStatus == 'delivered') ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.green.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.person_pin_circle_rounded, color: Colors.green, size: 18),
+                      SizedBox(width: 6),
+                      Text('Customer Live Handover Photo', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.green)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  const Text('Click live photo of customer receiving the device', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                  const SizedBox(height: 10),
+                  if (_customerPhotoFile != null) ...[
+                    Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(_customerPhotoFile!, width: 60, height: 60, fit: BoxFit.cover),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Photo attached', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green)),
+                              TextButton.icon(
+                                onPressed: () => setState(() => _customerPhotoFile = null),
+                                icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
+                                label: const Text('Remove', style: TextStyle(fontSize: 11, color: Colors.red)),
+                                style: TextButton.styleFrom(padding: EdgeInsets.zero, visualDensity: VisualDensity.compact),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ] else ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _pickCustomerPhoto(ImageSource.camera),
+                            icon: const Icon(Icons.camera_alt_rounded, size: 16),
+                            label: const Text('Camera', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.green.shade800,
+                              side: BorderSide(color: Colors.green.shade400),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _pickCustomerPhoto(ImageSource.gallery),
+                            icon: const Icon(Icons.photo_library_rounded, size: 16),
+                            label: const Text('Gallery', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.green.shade800,
+                              side: BorderSide(color: Colors.green.shade400),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
             height: 48,
             child: ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context, {
-                  'status': _selectedStatus,
-                  'notes': _notesController.text.trim(),
-                });
+              onPressed: () async {
+                String? customerPhotoPayload;
+                if (_customerPhotoFile != null) {
+                  final bytes = await _customerPhotoFile!.readAsBytes();
+                  customerPhotoPayload = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+                }
+                if (context.mounted) {
+                  Navigator.pop(context, {
+                    'status': _selectedStatus,
+                    'notes': _notesController.text.trim(),
+                    if (customerPhotoPayload != null) 'customer_photo': customerPhotoPayload,
+                  });
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: _statusColors[_selectedStatus] ?? AppColors.primary,

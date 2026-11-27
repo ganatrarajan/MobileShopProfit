@@ -74,7 +74,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
 
   void _onSearchChanged(String query) {
     if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 400), () {
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
       _fetchCustomers(query: query);
     });
   }
@@ -144,6 +144,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                       ? IconButton(
                           icon: const Icon(Icons.clear_rounded, color: Colors.white70, size: 18),
                           onPressed: () {
+                            _debounceTimer?.cancel();
                             _searchController.clear();
                             _fetchCustomers(query: '');
                           },

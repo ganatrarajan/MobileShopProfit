@@ -1,3 +1,4 @@
+import 'dart:async';
 import '../../../core/widgets/app_shimmer.dart';
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
@@ -27,6 +28,7 @@ class PurchaseListScreenState extends State<PurchaseListScreen>
 
   final PurchaseRepository _repository = PurchaseRepository();
   final TextEditingController _searchController = TextEditingController();
+  Timer? _debounceTimer;
 
   List<Purchase> _purchases = [];
   bool _isLoading = false;
@@ -107,9 +109,17 @@ class PurchaseListScreenState extends State<PurchaseListScreen>
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String query) {
+    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      fetchPurchases();
+    });
   }
 
   String? get _dateFrom => DateHelper.getDateRangeForPreset(_datePreset, customRange: _customDateRange).dateFrom;
@@ -450,93 +460,104 @@ class PurchaseListScreenState extends State<PurchaseListScreen>
                 ],
               ),
               const SizedBox(height: 8),
-              // SEARCH & FILTERS ROW
+              // 1. Search Bar - Full Width for displaying full numbers & vendor names
+              SizedBox(
+                height: 40,
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: _onSearchChanged,
+                  onSubmitted: (_) {
+                    _debounceTimer?.cancel();
+                    fetchPurchases();
+                  },
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                  decoration: InputDecoration(
+                    hintText: 'Search purchase #, vendor, phone...',
+                    hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                    prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary, size: 18),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear_rounded, color: AppColors.textMuted, size: 18),
+                            onPressed: () {
+                              _debounceTimer?.cancel();
+                              _searchController.clear();
+                              fetchPurchases();
+                            },
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              // 2. Filters Row (Date Filter & Status Filter)
               Row(
                 children: [
+                  // DATE FILTER BUTTON
                   Expanded(
-                    child: SizedBox(
-                      height: 38,
-                      child: TextField(
-                        controller: _searchController,
-                        onSubmitted: (_) => fetchPurchases(),
-                        style: const TextStyle(fontSize: 12),
-                        decoration: InputDecoration(
-                          hintText: 'Search purchase #, vendor...',
-                          hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 12),
-                          prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary, size: 18),
-                          suffixIcon: _searchController.text.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear_rounded, color: AppColors.textMuted, size: 16),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    fetchPurchases();
-                                  },
-                                )
-                              : null,
-                          filled: true,
-                          fillColor: Colors.white,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide.none,
-                          ),
+                    child: InkWell(
+                      onTap: _showDateFilterBottomSheet,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        height: 36,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: AppColors.accent,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.calendar_month_rounded, color: Colors.white, size: 15),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                _dateFilterLabel,
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.5),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const Icon(Icons.arrow_drop_down_rounded, color: Colors.white, size: 16),
+                          ],
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  // GREEN DATE FILTER BUTTON
-                  InkWell(
-                    onTap: _showDateFilterBottomSheet,
-                    borderRadius: BorderRadius.circular(8),
+                  const SizedBox(width: 8),
+                  // STATUS FILTER DROPDOWN
+                  Expanded(
                     child: Container(
-                      height: 38,
+                      height: 36,
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       decoration: BoxDecoration(
-                        color: AppColors.accent,
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.calendar_month_rounded, color: Colors.white, size: 15),
-                          const SizedBox(width: 4),
-                          Text(
-                            _dateFilterLabel,
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
-                          ),
-                          const SizedBox(width: 2),
-                          const Icon(Icons.arrow_drop_down_rounded, color: Colors.white, size: 16),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  // STATUS FILTER DROPDOWN
-                  Container(
-                    height: 38,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _paymentStatusFilter,
-                        icon: const Icon(Icons.arrow_drop_down_rounded, color: AppColors.primary, size: 18),
-                        style: const TextStyle(color: AppColors.textPrimary, fontSize: 11, fontWeight: FontWeight.w600),
-                        items: const [
-                          DropdownMenuItem(value: 'all', child: Text('All')),
-                          DropdownMenuItem(value: 'paid', child: Text('Paid')),
-                          DropdownMenuItem(value: 'partial', child: Text('Partial')),
-                          DropdownMenuItem(value: 'pending', child: Text('Due')),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() => _paymentStatusFilter = val);
-                            fetchPurchases();
-                          }
-                        },
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _paymentStatusFilter,
+                          isExpanded: true,
+                          icon: const Icon(Icons.arrow_drop_down_rounded, color: AppColors.primary, size: 18),
+                          style: const TextStyle(color: AppColors.textPrimary, fontSize: 11.5, fontWeight: FontWeight.w600),
+                          items: const [
+                            DropdownMenuItem(value: 'all', child: Text('All Status')),
+                            DropdownMenuItem(value: 'paid', child: Text('Paid')),
+                            DropdownMenuItem(value: 'partial', child: Text('Partial')),
+                            DropdownMenuItem(value: 'pending', child: Text('Due')),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() => _paymentStatusFilter = val);
+                              fetchPurchases();
+                            }
+                          },
+                        ),
                       ),
                     ),
                   ),

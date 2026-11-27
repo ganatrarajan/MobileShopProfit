@@ -35,7 +35,7 @@ class _DeviceSearchScreenState extends State<DeviceSearchScreen> {
 
   void _onSearchChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 300), () {
+    _debounce = Timer(const Duration(milliseconds: 500), () {
       _performSearch(query);
     });
   }

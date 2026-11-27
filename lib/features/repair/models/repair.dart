@@ -158,7 +158,9 @@ class Repair {
   final List<String> accessoriesReceived;
   final String? accessoriesNotes;
   final String? pinPasscode;
-  final String? devicePhoto;
+  final String? devicePhoto; // Front photo of device
+  final String? devicePhotoBack; // Back photo of device
+  final String? customerPhoto; // Live photo of customer
   final double estimatedCost;
   final double finalCost;
   final double labourCost;
@@ -201,6 +203,8 @@ class Repair {
     this.accessoriesNotes,
     this.pinPasscode,
     this.devicePhoto,
+    this.devicePhotoBack,
+    this.customerPhoto,
     this.estimatedCost = 0.0,
     this.finalCost = 0.0,
     this.labourCost = 0.0,
@@ -301,7 +305,9 @@ class Repair {
       accessoriesReceived: _parseListString(json['accessories_received']),
       accessoriesNotes: json['accessories_notes']?.toString(),
       pinPasscode: json['pin_passcode']?.toString(),
-      devicePhoto: json['device_photo']?.toString() ?? json['photo']?.toString(),
+      devicePhoto: json['device_photo']?.toString() ?? json['device_photo_front']?.toString() ?? json['photo']?.toString(),
+      devicePhotoBack: json['device_photo_back']?.toString(),
+      customerPhoto: json['customer_photo']?.toString(),
       estimatedCost: _parseDouble(json['estimated_cost']),
       finalCost: _parseDouble(json['final_cost']),
       labourCost: _parseDouble(json['labour_cost']),
@@ -352,6 +358,8 @@ class Repair {
       'accessories_notes': accessoriesNotes,
       'pin_passcode': pinPasscode,
       if (devicePhoto != null) 'device_photo': devicePhoto,
+      if (devicePhotoBack != null) 'device_photo_back': devicePhotoBack,
+      if (customerPhoto != null) 'customer_photo': customerPhoto,
       'estimated_cost': estimatedCost,
       'final_cost': finalCost,
       'labour_cost': labourCost,
@@ -394,6 +402,8 @@ class Repair {
     String? accessoriesNotes,
     String? pinPasscode,
     String? devicePhoto,
+    String? devicePhotoBack,
+    String? customerPhoto,
     double? estimatedCost,
     double? finalCost,
     double? labourCost,
@@ -436,6 +446,8 @@ class Repair {
       accessoriesNotes: accessoriesNotes ?? this.accessoriesNotes,
       pinPasscode: pinPasscode ?? this.pinPasscode,
       devicePhoto: devicePhoto ?? this.devicePhoto,
+      devicePhotoBack: devicePhotoBack ?? this.devicePhotoBack,
+      customerPhoto: customerPhoto ?? this.customerPhoto,
       estimatedCost: estimatedCost ?? this.estimatedCost,
       finalCost: finalCost ?? this.finalCost,
       labourCost: labourCost ?? this.labourCost,

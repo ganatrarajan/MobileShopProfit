@@ -132,6 +132,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
         backgroundColor: AppColors.primary,
         elevation: 0,
         actions: [
+          const ProfitVisibilityToggle(),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: _refreshDetails,
@@ -276,7 +277,13 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text('Purchase Price (Cost):', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-                              Text('₹${_item.purchasePrice.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                              ValueListenableBuilder<bool>(
+                                valueListenable: ProfitVisibilityService().isHiddenNotifier,
+                                builder: (context, _, __) => Text(
+                                  ProfitVisibilityService().format(_item.purchasePrice),
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                ),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 6),
@@ -390,9 +397,12 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text('Margin / Profit per Unit:', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-                              Text(
-                                '₹${(_item.sellingPrice - _item.purchasePrice).toStringAsFixed(2)}',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.accent),
+                              ValueListenableBuilder<bool>(
+                                valueListenable: ProfitVisibilityService().isHiddenNotifier,
+                                builder: (context, _, __) => Text(
+                                  ProfitVisibilityService().format(_item.sellingPrice - _item.purchasePrice),
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.accent),
+                                ),
                               ),
                             ],
                           ),
@@ -401,7 +411,13 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text('Total Stock Value (Cost):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                              Text('₹${_item.stockValue.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary)),
+                              ValueListenableBuilder<bool>(
+                                valueListenable: ProfitVisibilityService().isHiddenNotifier,
+                                builder: (context, _, __) => Text(
+                                  ProfitVisibilityService().format(_item.stockValue),
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary),
+                                ),
+                              ),
                             ],
                           ),
                         ],

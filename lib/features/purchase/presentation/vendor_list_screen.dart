@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_empty_state.dart';
@@ -19,6 +20,7 @@ class VendorListScreenState extends State<VendorListScreen> {
 
   final PurchaseRepository _repository = PurchaseRepository();
   final TextEditingController _searchController = TextEditingController();
+  Timer? _debounceTimer;
 
   List<Vendor> _vendors = [];
   bool _isLoading = false;
@@ -31,8 +33,16 @@ class VendorListScreenState extends State<VendorListScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String query) {
+    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _fetchVendors();
+    });
   }
 
   Future<void> _fetchVendors() async {
@@ -76,7 +86,11 @@ class VendorListScreenState extends State<VendorListScreen> {
           color: AppColors.primary,
           child: TextField(
             controller: _searchController,
-            onSubmitted: (_) => _fetchVendors(),
+            onChanged: _onSearchChanged,
+            onSubmitted: (_) {
+              _debounceTimer?.cancel();
+              _fetchVendors();
+            },
             decoration: InputDecoration(
               hintText: 'Search by vendor name, phone, GST...',
               hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
@@ -85,6 +99,7 @@ class VendorListScreenState extends State<VendorListScreen> {
                   ? IconButton(
                       icon: const Icon(Icons.clear_rounded, color: AppColors.textMuted, size: 18),
                       onPressed: () {
+                        _debounceTimer?.cancel();
                         _searchController.clear();
                         _fetchVendors();
                       },

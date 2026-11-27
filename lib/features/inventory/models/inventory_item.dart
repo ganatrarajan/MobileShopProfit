@@ -102,6 +102,9 @@ class InventoryItem {
   final bool isOutOfStock;
   final List<InventorySerial> serials;
   final List<StockMovement> stockMovements;
+  final String? imei1;
+  final String? imei2;
+  final String? serialNumber;
   final String? createdAt;
 
   InventoryItem({
@@ -129,6 +132,9 @@ class InventoryItem {
     required this.isOutOfStock,
     this.serials = const [],
     this.stockMovements = const [],
+    this.imei1,
+    this.imei2,
+    this.serialNumber,
     this.createdAt,
   });
 
@@ -150,6 +156,13 @@ class InventoryItem {
     final totStock = json['total_stock'] != null
         ? _parseInt(json['total_stock'])
         : (curStock > opStock ? curStock : opStock);
+
+    final String? im1 = json['imei1']?.toString() ??
+        (parsedSerials.isNotEmpty ? parsedSerials.first.imei1 : null);
+    final String? im2 = json['imei2']?.toString() ??
+        (parsedSerials.isNotEmpty ? parsedSerials.first.imei2 : null);
+    final String? sn = json['serial_number']?.toString() ??
+        (parsedSerials.isNotEmpty ? parsedSerials.first.serialNumber : null);
 
     return InventoryItem(
       id: _parseInt(json['id']),
@@ -176,6 +189,9 @@ class InventoryItem {
       isOutOfStock: json['is_out_of_stock'] == true,
       serials: parsedSerials,
       stockMovements: parsedMovements,
+      imei1: im1,
+      imei2: im2,
+      serialNumber: sn,
       createdAt: json['created_at']?.toString(),
     );
   }

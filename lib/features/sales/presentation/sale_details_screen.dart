@@ -18,6 +18,7 @@ import '../../../core/utils/whatsapp_helper.dart';
 import '../../../core/widgets/whatsapp_icon.dart';
 import 'sale_invoice_pdf_screen.dart';
 import 'collect_payment_dialog.dart';
+import 'edit_sale_screen.dart';
 
 class SaleDetailsScreen extends StatefulWidget {
   final Sale sale;
@@ -115,6 +116,44 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
     }
   }
 
+  Future<void> _editSale() async {
+    if (!_isOwner) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Only shop owner / admin can edit sales invoices.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    final pin = await SecurityPinPromptDialog.show(
+      context,
+      title: 'Admin Verification',
+      message: 'Enter your 4-digit Security PIN to edit invoice ${_sale.invoiceNumber}.',
+      confirmLabel: 'Verify & Edit',
+    );
+
+    if (pin == null || pin.isEmpty) return;
+
+    if (!mounted) return;
+
+    final updatedSale = await Navigator.push<Sale>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditSaleScreen(
+          sale: _sale,
+          securityPin: pin,
+        ),
+      ),
+    );
+
+    if (updatedSale != null && mounted) {
+      setState(() => _sale = updatedSale);
+      _refreshDetails();
+    }
+  }
+
   Future<void> _confirmDeleteSale() async {
     if (!_isOwner) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -157,6 +196,13 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
         backgroundColor: AppColors.primary,
         elevation: 0,
         actions: [
+          const ProfitVisibilityToggle(),
+          if (_isOwner)
+            IconButton(
+              icon: const Icon(Icons.edit_rounded, color: Colors.white),
+              onPressed: _editSale,
+              tooltip: 'Edit Invoice (Admin PIN Required)',
+            ),
           IconButton(
             icon: const Icon(Icons.picture_as_pdf_rounded, color: Colors.white),
             onPressed: () => SaleInvoicePdfScreen.show(context, _sale),
@@ -173,6 +219,8 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
             onSelected: (value) {
               if (value == 'refresh') {
                 _refreshDetails();
+              } else if (value == 'edit') {
+                _editSale();
               } else if (value == 'delete') {
                 _confirmDeleteSale();
               }
@@ -188,6 +236,17 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                   ],
                 ),
               ),
+              if (_isOwner)
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit_rounded, size: 20, color: AppColors.primary),
+                      SizedBox(width: 10),
+                      Text('Edit Invoice'),
+                    ],
+                  ),
+                ),
               if (_isOwner)
                 const PopupMenuItem(
                   value: 'delete',
@@ -486,7 +545,7 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                                             final profitVal = taxableRevenue - totalCost;
                                             final isProfit = profitVal >= 0;
                                             return Text(
-                                              'Cost: \u20B9${totalCost.toStringAsFixed(0)} \u2022 ${isProfit ? "Profit" : "Loss"}: ${ProfitVisibilityService().format(profitVal, showSign: true, decimals: 0)}',
+                                              'Cost: ${ProfitVisibilityService().format(totalCost, decimals: 0)} \u2022 ${isProfit ? "Profit" : "Loss"}: ${ProfitVisibilityService().format(profitVal, showSign: true, decimals: 0)}',
                                               style: TextStyle(
                                                 fontSize: 10.5,
                                                 color: isProfit ? const Color(0xFF047857) : const Color(0xFFDC2626),
@@ -678,7 +737,16 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                             _buildRow('AMOUNT DUE', '\u20B9 ${_sale.amountDue.toStringAsFixed(2)}', color: _sale.amountDue > 0 ? Colors.red.shade700 : Colors.green.shade700, isBold: true, fontSize: 18),
                             if (_isOwner) ...[
                               const Divider(height: 20),
-                              _buildRow('Item Purchase Cost', '\u20B9 ${_sale.totalCost.toStringAsFixed(2)}', color: AppColors.textSecondary),
+                              ValueListenableBuilder<bool>(
+                                valueListenable: ProfitVisibilityService().isHiddenNotifier,
+                                builder: (context, _, __) {
+                                  return _buildRow(
+                                    'Item Purchase Cost',
+                                    ProfitVisibilityService().format(_sale.totalCost, prefix: '₹ ', decimals: 2),
+                                    color: AppColors.textSecondary,
+                                  );
+                                },
+                              ),
                               const SizedBox(height: 10),
                               // Net Profit / Loss Box
                               Container(
@@ -742,18 +810,25 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                                                     : AppColors.textMuted,
                                               ),
                                             ),
-                                            if (_sale.amountPaid > 0 && _sale.profitMarginPercent > 0 && isProfitable)
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                decoration: BoxDecoration(
-                                                  color: const Color(0xFF059669),
-                                                  borderRadius: BorderRadius.circular(4),
-                                                ),
-                                                child: Text(
-                                                  '${_sale.profitMarginPercent.toStringAsFixed(0)}% Margin',
-                                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
-                                                ),
-                                              ),
+                                            ValueListenableBuilder<bool>(
+                                              valueListenable: ProfitVisibilityService().isHiddenNotifier,
+                                              builder: (context, isHidden, _) {
+                                                if (isHidden || _sale.amountPaid <= 0 || _sale.profitMarginPercent <= 0 || !isProfitable) {
+                                                  return const SizedBox.shrink();
+                                                }
+                                                return Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: const Color(0xFF059669),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                  child: Text(
+                                                    '${_sale.profitMarginPercent.toStringAsFixed(0)}% Margin',
+                                                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                                                  ),
+                                                );
+                                              },
+                                            ),
                                           ],
                                         ),
                                       ],

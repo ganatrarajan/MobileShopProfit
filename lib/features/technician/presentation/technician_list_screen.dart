@@ -1,3 +1,4 @@
+import 'dart:async';
 import '../../../core/widgets/app_shimmer.dart';
 import 'package:flutter/material.dart';
 import '../../../core/routes/app_routes.dart';
@@ -18,6 +19,7 @@ class TechnicianListScreen extends StatefulWidget {
 class _TechnicianListScreenState extends State<TechnicianListScreen> {
   final TechnicianRepository _repository = TechnicianRepository();
   final TextEditingController _searchController = TextEditingController();
+  Timer? _debounceTimer;
 
   List<Technician> _technicians = [];
   TechnicianSummary? _summary;
@@ -40,8 +42,16 @@ class _TechnicianListScreenState extends State<TechnicianListScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String query) {
+    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _fetchTechnicians();
+    });
   }
 
   Future<void> _fetchTechnicians() async {
@@ -166,7 +176,7 @@ class _TechnicianListScreenState extends State<TechnicianListScreen> {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             child: TextField(
               controller: _searchController,
-              onChanged: (_) => _fetchTechnicians(),
+              onChanged: _onSearchChanged,
               style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
               decoration: InputDecoration(
                 hintText: 'Search Name, Mobile, Specialization...',
@@ -176,6 +186,7 @@ class _TechnicianListScreenState extends State<TechnicianListScreen> {
                     ? IconButton(
                         icon: const Icon(Icons.clear_rounded, color: Colors.grey),
                         onPressed: () {
+                          _debounceTimer?.cancel();
                           _searchController.clear();
                           _fetchTechnicians();
                         },

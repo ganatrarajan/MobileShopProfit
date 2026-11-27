@@ -1,3 +1,4 @@
+import 'dart:async';
 import '../../../core/widgets/app_shimmer.dart';
 import 'package:flutter/material.dart';
 import '../../../core/services/profit_visibility_service.dart';
@@ -25,6 +26,7 @@ class InventoryListScreenState extends State<InventoryListScreen> {
   void fetchInventory() => _fetchInventory();
   final InventoryRepository _inventoryRepository = InventoryRepository();
   final TextEditingController _searchController = TextEditingController();
+  Timer? _debounceTimer;
 
   List<InventoryItem> _items = [];
   InventoryMetrics? _metrics;
@@ -84,8 +86,16 @@ class InventoryListScreenState extends State<InventoryListScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String query) {
+    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _fetchInventory();
+    });
   }
 
   Future<void> _fetchInventory() async {
@@ -216,11 +226,21 @@ class InventoryListScreenState extends State<InventoryListScreen> {
           color: AppColors.primary,
           child: TextField(
             controller: _searchController,
-            onChanged: (_) => _fetchInventory(),
+            onChanged: _onSearchChanged,
             decoration: InputDecoration(
               hintText: 'Search Name, SKU, Brand, Model, IMEI...',
               hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
               prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
+              suffixIcon: _searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear_rounded, color: AppColors.textMuted),
+                      onPressed: () {
+                        _debounceTimer?.cancel();
+                        _searchController.clear();
+                        _fetchInventory();
+                      },
+                    )
+                  : null,
               filled: true,
               fillColor: Colors.white,
               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -467,15 +487,21 @@ class InventoryListScreenState extends State<InventoryListScreen> {
                                                   ],
                                                 ),
                                                 const SizedBox(height: 4),
-                                                Text(
-                                                  _isOwner
-                                                      ? (item.taxRate > 0
-                                                          ? 'Buy: \u{20B9}${item.purchasePrice.toStringAsFixed(2)} | Sell: \u{20B9}${item.sellingPrice.toStringAsFixed(2)} • ${item.taxRate.toStringAsFixed(item.taxRate % 1 == 0 ? 0 : 1)}% GST (${item.taxType == 'inclusive' ? 'Incl' : 'Excl'})'
-                                                          : 'Buy: \u{20B9}${item.purchasePrice.toStringAsFixed(2)} | Sell: \u{20B9}${item.sellingPrice.toStringAsFixed(2)}')
-                                                      : (item.taxRate > 0
-                                                          ? 'Price: \u{20B9}${item.sellingPrice.toStringAsFixed(2)} • ${item.taxRate.toStringAsFixed(item.taxRate % 1 == 0 ? 0 : 1)}% GST (${item.taxType == 'inclusive' ? 'Incl' : 'Excl'})'
-                                                          : 'Price: \u{20B9}${item.sellingPrice.toStringAsFixed(2)}'),
-                                                  style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                                ValueListenableBuilder<bool>(
+                                                  valueListenable: ProfitVisibilityService().isHiddenNotifier,
+                                                  builder: (context, _, __) {
+                                                    final buyStr = ProfitVisibilityService().format(item.purchasePrice);
+                                                    return Text(
+                                                      _isOwner
+                                                          ? (item.taxRate > 0
+                                                              ? 'Buy: $buyStr | Sell: \u{20B9}${item.sellingPrice.toStringAsFixed(2)} \u2022 ${item.taxRate.toStringAsFixed(item.taxRate % 1 == 0 ? 0 : 1)}% GST (${item.taxType == 'inclusive' ? 'Incl' : 'Excl'})'
+                                                              : 'Buy: $buyStr | Sell: \u{20B9}${item.sellingPrice.toStringAsFixed(2)}')
+                                                          : (item.taxRate > 0
+                                                              ? 'Price: \u{20B9}${item.sellingPrice.toStringAsFixed(2)} \u2022 ${item.taxRate.toStringAsFixed(item.taxRate % 1 == 0 ? 0 : 1)}% GST (${item.taxType == 'inclusive' ? 'Incl' : 'Excl'})'
+                                                              : 'Price: \u{20B9}${item.sellingPrice.toStringAsFixed(2)}'),
+                                                      style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                                    );
+                                                  },
                                                 ),
                                               ],
                                             ),
@@ -542,6 +568,7 @@ class InventoryListScreenState extends State<InventoryListScreen> {
         backgroundColor: AppColors.primary,
         elevation: 0,
         actions: [
+          const ProfitVisibilityToggle(),
           IconButton(
             icon: const Icon(Icons.add_rounded),
             onPressed: () async {

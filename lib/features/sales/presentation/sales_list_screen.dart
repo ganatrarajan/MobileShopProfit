@@ -1,3 +1,4 @@
+import 'dart:async';
 import '../../../core/utils/date_helper.dart';
 import '../../../core/widgets/app_shimmer.dart';
 import 'package:flutter/material.dart';
@@ -27,6 +28,7 @@ class SalesListScreen extends StatefulWidget {
 class SalesListScreenState extends State<SalesListScreen> {
   final SaleRepository _saleRepository = SaleRepository();
   final TextEditingController _searchController = TextEditingController();
+  Timer? _debounceTimer;
 
   List<Sale> _sales = [];
   bool _isLoading = true;
@@ -100,8 +102,139 @@ class SalesListScreenState extends State<SalesListScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String query) {
+    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _fetchSales();
+    });
+  }
+
+  String get _statusFilterLabel {
+    switch (_selectedStatus) {
+      case 'paid':
+        return 'Status: Paid';
+      case 'partially_paid':
+        return 'Status: Partial';
+      case 'due':
+        return 'Status: Due';
+      case 'all':
+      default:
+        return 'Status: All';
+    }
+  }
+
+  void _showStatusFilterBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.filter_list_rounded, color: AppColors.primary),
+                        SizedBox(width: 8),
+                        Text('Filter by Payment Status', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    if (_selectedStatus != 'all')
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          setState(() => _selectedStatus = 'all');
+                          _fetchSales();
+                        },
+                        child: const Text('Reset', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold)),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const CircleAvatar(radius: 10, backgroundColor: Colors.grey),
+                  title: Text(
+                    'All Sales',
+                    style: TextStyle(
+                      fontWeight: _selectedStatus == 'all' ? FontWeight.bold : FontWeight.normal,
+                      color: _selectedStatus == 'all' ? AppColors.primary : Colors.black87,
+                    ),
+                  ),
+                  trailing: _selectedStatus == 'all' ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    setState(() => _selectedStatus = 'all');
+                    _fetchSales();
+                  },
+                ),
+                ListTile(
+                  leading: CircleAvatar(radius: 10, backgroundColor: Colors.green.shade700),
+                  title: Text(
+                    'Paid (Full)',
+                    style: TextStyle(
+                      fontWeight: _selectedStatus == 'paid' ? FontWeight.bold : FontWeight.normal,
+                      color: _selectedStatus == 'paid' ? AppColors.primary : Colors.black87,
+                    ),
+                  ),
+                  trailing: _selectedStatus == 'paid' ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    setState(() => _selectedStatus = 'paid');
+                    _fetchSales();
+                  },
+                ),
+                ListTile(
+                  leading: CircleAvatar(radius: 10, backgroundColor: Colors.orange.shade800),
+                  title: Text(
+                    'Partially Paid',
+                    style: TextStyle(
+                      fontWeight: _selectedStatus == 'partially_paid' ? FontWeight.bold : FontWeight.normal,
+                      color: _selectedStatus == 'partially_paid' ? AppColors.primary : Colors.black87,
+                    ),
+                  ),
+                  trailing: _selectedStatus == 'partially_paid' ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    setState(() => _selectedStatus = 'partially_paid');
+                    _fetchSales();
+                  },
+                ),
+                ListTile(
+                  leading: CircleAvatar(radius: 10, backgroundColor: Colors.red.shade700),
+                  title: Text(
+                    'Due / Unpaid',
+                    style: TextStyle(
+                      fontWeight: _selectedStatus == 'due' ? FontWeight.bold : FontWeight.normal,
+                      color: _selectedStatus == 'due' ? AppColors.primary : Colors.black87,
+                    ),
+                  ),
+                  trailing: _selectedStatus == 'due' ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    setState(() => _selectedStatus = 'due');
+                    _fetchSales();
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   String? get _dateFrom => DateHelper.getDateRangeForPreset(_datePreset, customRange: _customDateRange).dateFrom;
@@ -431,63 +564,125 @@ class SalesListScreenState extends State<SalesListScreen> {
                         ],
                       ),
                       const Text('|', style: TextStyle(color: Colors.white24, fontSize: 11)),
-                      Text('Items Cost: \u20B9${_totalCostSum.toStringAsFixed(0)}', style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 10.5, fontWeight: FontWeight.bold)),
+                      ValueListenableBuilder<bool>(
+                        valueListenable: ProfitVisibilityService().isHiddenNotifier,
+                        builder: (context, _, __) {
+                          return Text(
+                            'Items Cost: ${ProfitVisibilityService().format(_totalCostSum, decimals: 0)}',
+                            style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 10.5, fontWeight: FontWeight.bold),
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ),
               ],
               const SizedBox(height: 10),
-              // Search Field & Date Filter Chip
+              // 1. Search Field - Full Width for displaying full numbers & customer names
+              TextField(
+                controller: _searchController,
+                onChanged: _onSearchChanged,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                decoration: InputDecoration(
+                  hintText: 'Search Invoice #, Customer, Mobile...',
+                  hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                  prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear_rounded, color: AppColors.textMuted),
+                          onPressed: () {
+                            _debounceTimer?.cancel();
+                            _searchController.clear();
+                            _fetchSales();
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              // 2. Filters Row (Status Filter & Date Filter)
               Row(
                 children: [
+                  // Status Filter Button
                   Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      onChanged: (_) => _fetchSales(),
-                      decoration: InputDecoration(
-                        hintText: 'Search Invoice #, Customer, Mobile...',
-                        hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
-                        prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
-                        suffixIcon: _searchController.text.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear_rounded, color: AppColors.textMuted),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  _fetchSales();
-                                },
-                              )
-                            : null,
-                        filled: true,
-                        fillColor: Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide.none,
+                    child: InkWell(
+                      onTap: _showStatusFilterBottomSheet,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        height: 36,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: _selectedStatus == 'all' ? AppColors.accent : Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: _selectedStatus == 'all' ? Colors.transparent : Colors.white.withOpacity(0.4),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.filter_list_rounded,
+                              color: _selectedStatus == 'all' ? Colors.white : AppColors.primary,
+                              size: 15,
+                            ),
+                            const SizedBox(width: 5),
+                            Flexible(
+                              child: Text(
+                                _statusFilterLabel,
+                                style: TextStyle(
+                                  color: _selectedStatus == 'all' ? Colors.white : AppColors.primary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11.5,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Icon(
+                              Icons.arrow_drop_down_rounded,
+                              color: _selectedStatus == 'all' ? Colors.white : AppColors.primary,
+                              size: 16,
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  InkWell(
-                    onTap: _showDateFilterBottomSheet,
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: AppColors.accent,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.calendar_month_rounded, color: Colors.white, size: 18),
-                          const SizedBox(width: 4),
-                          Text(
-                            _dateFilterLabel,
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                          ),
-                          const SizedBox(width: 2),
-                          const Icon(Icons.arrow_drop_down_rounded, color: Colors.white, size: 18),
-                        ],
+                  // Date Filter Button
+                  Expanded(
+                    child: InkWell(
+                      onTap: _showDateFilterBottomSheet,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        height: 36,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: AppColors.accent,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.calendar_month_rounded, color: Colors.white, size: 15),
+                            const SizedBox(width: 5),
+                            Flexible(
+                              child: Text(
+                                'Date: $_dateFilterLabel',
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.5),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const Icon(Icons.arrow_drop_down_rounded, color: Colors.white, size: 16),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -747,6 +942,7 @@ class SalesListScreenState extends State<SalesListScreen> {
         backgroundColor: AppColors.primary,
         elevation: 0,
         actions: [
+          const ProfitVisibilityToggle(),
           IconButton(
             icon: const Icon(Icons.add_rounded),
             onPressed: () => _showCreateSaleOptions(context),
@@ -1083,76 +1279,81 @@ class SalesListScreenState extends State<SalesListScreen> {
               alignment: Alignment.centerLeft,
               child: SizedBox(
                 width: MediaQuery.of(context).size.width - 56,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: ProfitVisibilityService().isHiddenNotifier,
+                  builder: (context, isHidden, _) {
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Icon(Icons.shopping_bag_outlined, size: 12, color: textMutedColor),
-                        const SizedBox(width: 3),
-                        Text(
-                          'Purchase: ',
-                          style: TextStyle(fontSize: 11, color: textMutedColor),
-                        ),
-                        Text(
-                          '\u20B9${cost.toStringAsFixed(0)}',
-                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: textColor),
-                        ),
-                      ],
-                    ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Profit: ',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.bold,
-                            color: isUnpaid ? AppColors.textMuted : const Color(0xFF047857),
-                          ),
-                        ),
-                        isUnpaid
-                            ? const Text(
-                                '\u20B90',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w900,
-                                  color: AppColors.textSecondary,
-                                ),
-                              )
-                            : ProfitText(
-                                amount: realizedProfit,
-                                prefix: '₹',
-                                showSign: true,
-                                decimals: 0,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFF047857),
-                                ),
-                              ),
-                        if (!isUnpaid && margin > 0) ...[
-                          const SizedBox(width: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF059669),
-                              borderRadius: BorderRadius.circular(3),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.shopping_bag_outlined, size: 12, color: textMutedColor),
+                            const SizedBox(width: 3),
+                            Text(
+                              'Purchase: ',
+                              style: TextStyle(fontSize: 11, color: textMutedColor),
                             ),
-                            child: Text(
-                              '${margin.toStringAsFixed(0)}%',
-                              style: const TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
+                            Text(
+                              ProfitVisibilityService().format(cost, decimals: 0),
+                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: textColor),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Profit: ',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: isUnpaid ? AppColors.textMuted : const Color(0xFF047857),
                               ),
                             ),
-                          ),
-                        ],
+                            isUnpaid
+                                ? Text(
+                                    ProfitVisibilityService().format(0, showSign: false, decimals: 0),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w900,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  )
+                                : ProfitText(
+                                    amount: realizedProfit,
+                                    prefix: '₹',
+                                    showSign: true,
+                                    decimals: 0,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w900,
+                                      color: Color(0xFF047857),
+                                    ),
+                                  ),
+                            if (!isHidden && !isUnpaid && margin > 0) ...[
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF059669),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: Text(
+                                  '${margin.toStringAsFixed(0)}%',
+                                  style: const TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
                       ],
-                    ),
-                  ],
+                    );
+                  },
                 ),
               ),
             ),

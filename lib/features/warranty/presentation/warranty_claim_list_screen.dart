@@ -1,3 +1,4 @@
+import 'dart:async';
 import '../../../core/utils/date_helper.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
@@ -17,6 +18,7 @@ class WarrantyClaimListScreen extends StatefulWidget {
 class _WarrantyClaimListScreenState extends State<WarrantyClaimListScreen> {
   final WarrantyRepository _warrantyRepository = WarrantyRepository();
   final TextEditingController _searchController = TextEditingController();
+  Timer? _debounceTimer;
 
   List<WarrantyClaim> _claims = [];
   bool _isLoading = true;
@@ -52,8 +54,16 @@ class _WarrantyClaimListScreenState extends State<WarrantyClaimListScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String query) {
+    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _fetchClaims();
+    });
   }
 
   Future<void> _fetchClaims() async {
@@ -119,11 +129,21 @@ class _WarrantyClaimListScreenState extends State<WarrantyClaimListScreen> {
             color: AppColors.primary,
             child: TextField(
               controller: _searchController,
-              onChanged: (_) => _fetchClaims(),
+              onChanged: _onSearchChanged,
               decoration: InputDecoration(
                 hintText: 'Search Claim #, Customer, IMEI...',
                 hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
                 prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear_rounded, color: AppColors.textMuted),
+                        onPressed: () {
+                          _debounceTimer?.cancel();
+                          _searchController.clear();
+                          _fetchClaims();
+                        },
+                      )
+                    : null,
                 filled: true,
                 fillColor: Colors.white,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

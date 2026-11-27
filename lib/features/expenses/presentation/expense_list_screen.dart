@@ -1,3 +1,4 @@
+import 'dart:async';
 import '../../../core/utils/date_helper.dart';
 import '../../../core/widgets/app_shimmer.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +22,7 @@ class ExpenseListScreen extends StatefulWidget {
 class _ExpenseListScreenState extends State<ExpenseListScreen> {
   final ExpenseRepository _expenseRepository = ExpenseRepository();
   final TextEditingController _searchController = TextEditingController();
+  Timer? _debounceTimer;
 
   List<Expense> _expenses = [];
   List<ExpenseCategory> _categories = [];
@@ -73,8 +75,16 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String query) {
+    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _fetchExpenses();
+    });
   }
 
   Future<void> _fetchCategories() async {
@@ -255,12 +265,22 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
               // Search Field
               TextField(
                 controller: _searchController,
-                onChanged: (_) => _fetchExpenses(),
+                onChanged: _onSearchChanged,
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
                   hintText: 'Search title, notes, reference #...',
                   hintStyle: const TextStyle(color: Colors.white60),
                   prefixIcon: const Icon(Icons.search_rounded, color: Colors.white70),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear_rounded, color: Colors.white70),
+                          onPressed: () {
+                            _debounceTimer?.cancel();
+                            _searchController.clear();
+                            _fetchExpenses();
+                          },
+                        )
+                      : null,
                   filled: true,
                   fillColor: Colors.white.withOpacity(0.15),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -24,6 +25,7 @@ class StaffListScreen extends StatefulWidget {
 class _StaffListScreenState extends State<StaffListScreen> {
   final _staffRepo = StaffRepository();
   final _searchController = TextEditingController();
+  Timer? _debounceTimer;
 
   List<Staff> _staffList = [];
   StaffSummary? _summary;
@@ -45,8 +47,16 @@ class _StaffListScreenState extends State<StaffListScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String query) {
+    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _loadStaff();
+    });
   }
 
   Future<void> _loadStaff() async {
@@ -386,7 +396,11 @@ class _StaffListScreenState extends State<StaffListScreen> {
                 // Search Field
                 TextField(
                   controller: _searchController,
-                  onSubmitted: (_) => _loadStaff(),
+                  onChanged: _onSearchChanged,
+                  onSubmitted: (_) {
+                    _debounceTimer?.cancel();
+                    _loadStaff();
+                  },
                   style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
                   decoration: InputDecoration(
                     hintText: 'Search by name, mobile, role...',
@@ -396,6 +410,7 @@ class _StaffListScreenState extends State<StaffListScreen> {
                         ? IconButton(
                             icon: const Icon(Icons.clear_rounded, color: Colors.grey),
                             onPressed: () {
+                              _debounceTimer?.cancel();
                               _searchController.clear();
                               _loadStaff();
                             },

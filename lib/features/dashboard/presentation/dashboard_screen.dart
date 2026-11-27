@@ -148,7 +148,7 @@ class DashboardScreenState extends State<DashboardScreen> {
       _searchError = null;
     });
 
-    _topSearchDebounce = Timer(const Duration(milliseconds: 350), () {
+    _topSearchDebounce = Timer(const Duration(milliseconds: 500), () {
       _performTopSearch(trimmed);
     });
   }
@@ -2709,20 +2709,29 @@ class DashboardScreenState extends State<DashboardScreen> {
                     Row(
                       children: [
                         Text('Total Profit', style: TextStyle(fontSize: 11, color: textMutedColor)),
-                        if (usedMobiles.profitMargin > 0) ...[
-                          const SizedBox(width: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF059669),
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                            child: Text(
-                              '${usedMobiles.profitMargin.toStringAsFixed(0)}%',
-                              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
-                            ),
-                          ),
-                        ],
+                        ValueListenableBuilder<bool>(
+                          valueListenable: ProfitVisibilityService().isHiddenNotifier,
+                          builder: (context, isHidden, _) {
+                            if (isHidden || usedMobiles.profitMargin <= 0) return const SizedBox.shrink();
+                            return Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const SizedBox(width: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF059669),
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
+                                  child: Text(
+                                    '${usedMobiles.profitMargin.toStringAsFixed(0)}%',
+                                    style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -2756,9 +2765,14 @@ class DashboardScreenState extends State<DashboardScreen> {
                     style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isDark ? Colors.white : const Color(0xFF0369A1)),
                   ),
                 ),
-                Text(
-                  'Inv: \u20B9${usedMobiles.inStockInvestment.toStringAsFixed(0)}',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isDark ? AppColors.darkTextSecondary : const Color(0xFF0284C7)),
+                ValueListenableBuilder<bool>(
+                  valueListenable: ProfitVisibilityService().isHiddenNotifier,
+                  builder: (context, _, __) {
+                    return Text(
+                      'Inv: ${ProfitVisibilityService().format(usedMobiles.inStockInvestment, decimals: 0)}',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isDark ? AppColors.darkTextSecondary : const Color(0xFF0284C7)),
+                    );
+                  },
                 ),
               ],
             ),
@@ -2819,20 +2833,29 @@ class DashboardScreenState extends State<DashboardScreen> {
                     Row(
                       children: [
                         Text('Sales Profit', style: TextStyle(fontSize: 11, color: textMutedColor)),
-                        if (sales.profitMargin > 0) ...[
-                          const SizedBox(width: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF059669),
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                            child: Text(
-                              '${sales.profitMargin.toStringAsFixed(0)}%',
-                              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
-                            ),
-                          ),
-                        ],
+                        ValueListenableBuilder<bool>(
+                          valueListenable: ProfitVisibilityService().isHiddenNotifier,
+                          builder: (context, isHidden, _) {
+                            if (isHidden || sales.profitMargin <= 0) return const SizedBox.shrink();
+                            return Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const SizedBox(width: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF059669),
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
+                                  child: Text(
+                                    '${sales.profitMargin.toStringAsFixed(0)}%',
+                                    style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -2887,7 +2910,17 @@ class DashboardScreenState extends State<DashboardScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text('Item Cost', style: TextStyle(fontSize: 10, color: AppColors.textMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
-                            Text('\u20B9${sales.totalCost.toStringAsFixed(0)}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: textColor), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            ValueListenableBuilder<bool>(
+                              valueListenable: ProfitVisibilityService().isHiddenNotifier,
+                              builder: (context, _, __) {
+                                return Text(
+                                  ProfitVisibilityService().format(sales.totalCost, decimals: 0),
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: textColor),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                );
+                              },
+                            ),
                           ],
                         ),
                       ),
@@ -3090,21 +3123,30 @@ class DashboardScreenState extends State<DashboardScreen> {
                     Row(
                       children: [
                         Text('Net Profit', style: TextStyle(fontSize: 11, color: textMutedColor)),
-                        if (profitMargin > 0) ...[
-                          const SizedBox(width: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFECFDF5),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: const Color(0xFFA7F3D0)),
-                            ),
-                            child: Text(
-                              '+${profitMargin.toStringAsFixed(0)}%',
-                              style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: Color(0xFF047857)),
-                            ),
-                          ),
-                        ],
+                        ValueListenableBuilder<bool>(
+                          valueListenable: ProfitVisibilityService().isHiddenNotifier,
+                          builder: (context, isHidden, _) {
+                            if (isHidden || profitMargin <= 0) return const SizedBox.shrink();
+                            return Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const SizedBox(width: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFECFDF5),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: const Color(0xFFA7F3D0)),
+                                  ),
+                                  child: Text(
+                                    '+${profitMargin.toStringAsFixed(0)}%',
+                                    style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: Color(0xFF047857)),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -3144,7 +3186,17 @@ class DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       const Text('Parts Cost', style: TextStyle(fontSize: 10, color: AppColors.textMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 2),
-                      Text('\u20B9${repairs.partsCost.toStringAsFixed(0)}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: textColor), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ValueListenableBuilder<bool>(
+                        valueListenable: ProfitVisibilityService().isHiddenNotifier,
+                        builder: (context, _, __) {
+                          return Text(
+                            ProfitVisibilityService().format(repairs.partsCost, decimals: 0),
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: textColor),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -3156,7 +3208,17 @@ class DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       const Text('Tech Payout', style: TextStyle(fontSize: 10, color: AppColors.textMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 2),
-                      Text('\u20B9${repairs.technicianCost.toStringAsFixed(0)}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: textColor), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ValueListenableBuilder<bool>(
+                        valueListenable: ProfitVisibilityService().isHiddenNotifier,
+                        builder: (context, _, __) {
+                          return Text(
+                            ProfitVisibilityService().format(repairs.technicianCost, decimals: 0),
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: textColor),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ),

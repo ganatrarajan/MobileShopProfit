@@ -106,6 +106,55 @@ class SaleRepository {
     return ApiResponse<Sale>(success: false, message: response.message);
   }
 
+  /// Update an existing sale invoice (Owner only with Security PIN).
+  /// Customer details are locked and not included in update.
+  Future<ApiResponse<Sale>> updateSale({
+    required int id,
+    required String securityPin,
+    String? saleDate,
+    double discount = 0.0,
+    double taxAmount = 0.0,
+    double taxRate = 0.0,
+    String taxType = 'exclusive',
+    bool isInterState = false,
+    double cgstAmount = 0.0,
+    double sgstAmount = 0.0,
+    double igstAmount = 0.0,
+    String? notes,
+    required List<SaleItem> items,
+    double? paidAmount,
+  }) async {
+    final body = {
+      '_method': 'PUT',
+      'security_pin': securityPin,
+      if (saleDate != null) 'sale_date': saleDate,
+      'discount': discount,
+      'tax_amount': taxAmount,
+      'tax_rate': taxRate,
+      'tax_type': taxType,
+      'is_inter_state': isInterState,
+      'cgst_amount': cgstAmount,
+      'sgst_amount': sgstAmount,
+      'igst_amount': igstAmount,
+      if (notes != null) 'notes': notes,
+      if (paidAmount != null) 'paid_amount': paidAmount,
+      'items': items.map((i) => i.toJson()).toList(),
+    };
+
+    final response = await _apiClient.post('${ApiEndpoints.sales}/$id', body: body);
+
+    if (response.success && response.data != null) {
+      final dynamic rawData = response.data;
+      final Map<String, dynamic> saleMap = (rawData is Map && rawData.containsKey('data') && rawData['data'] is Map)
+          ? Map<String, dynamic>.from(rawData['data'])
+          : Map<String, dynamic>.from(rawData);
+      final sale = Sale.fromJson(saleMap);
+      return ApiResponse<Sale>(success: true, message: response.message, data: sale);
+    }
+
+    return ApiResponse<Sale>(success: false, message: response.message);
+  }
+
   /// Get sale details by ID
   Future<ApiResponse<Sale>> getSaleDetails(int id) async {
     final response = await _apiClient.get('${ApiEndpoints.sales}/$id');

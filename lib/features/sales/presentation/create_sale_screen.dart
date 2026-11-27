@@ -887,6 +887,8 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
     final nameCtrl = TextEditingController();
     final brandCtrl = TextEditingController();
     final modelCtrl = TextEditingController();
+    final imei1Ctrl = TextEditingController();
+    final imei2Ctrl = TextEditingController();
     final priceCtrl = TextEditingController();
     final costPriceCtrl = TextEditingController();
     final qtyCtrl = TextEditingController(text: '1');
@@ -1474,8 +1476,42 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                                       Expanded(
                                         child: CustomTextField(
                                           label: 'Brand',
-                                          hint: 'e.g. Apple',
+                                          hint: 'Select or type brand',
                                           controller: brandCtrl,
+                                          suffixIcon: IconButton(
+                                            icon: const Icon(Icons.arrow_drop_down_circle_outlined, size: 20, color: AppColors.primary),
+                                            tooltip: 'Select Mobile Brand',
+                                            onPressed: () async {
+                                              final brandOptions = [
+                                                'Apple', 'Samsung', 'Vivo', 'Oppo', 'Realme', 'Xiaomi', 'OnePlus',
+                                                'Motorola', 'Google', 'Poco', 'IQOO', 'Nothing', 'Infinix', 'Tecno', 'Lava', 'Nokia', 'Honor', 'Sony',
+                                              ];
+                                              try {
+                                                final apiBrands = await DeviceRepository().getDeviceBrands();
+                                                if (apiBrands.success && apiBrands.data != null) {
+                                                  for (final b in apiBrands.data!) {
+                                                    if (!brandOptions.contains(b)) brandOptions.add(b);
+                                                  }
+                                                }
+                                              } catch (_) {}
+
+                                              if (!ctx.mounted) return;
+                                              final selected = await AppSearchableBottomSheet.show(
+                                                ctx,
+                                                title: 'Select Mobile Brand',
+                                                options: brandOptions,
+                                                selectedValues: brandCtrl.text.isNotEmpty ? [brandCtrl.text] : [],
+                                                searchHint: 'Search or add brand...',
+                                                addCustomHint: '+ Add Custom Brand',
+                                              );
+                                              if (selected != null && selected is String && selected.isNotEmpty) {
+                                                setSheetState(() {
+                                                  brandCtrl.text = selected;
+                                                  nameCtrl.text = '$selected ${modelCtrl.text}'.trim();
+                                                });
+                                              }
+                                            },
+                                          ),
                                           onChanged: (v) {
                                             nameCtrl.text = '$v ${modelCtrl.text}'.trim();
                                           },
@@ -1485,11 +1521,93 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                                       Expanded(
                                         child: CustomTextField(
                                           label: 'Model',
-                                          hint: 'e.g. iPhone 13',
+                                          hint: 'Select or type model',
                                           controller: modelCtrl,
+                                          suffixIcon: IconButton(
+                                            icon: const Icon(Icons.arrow_drop_down_circle_outlined, size: 20, color: AppColors.primary),
+                                            tooltip: 'Select Model',
+                                            onPressed: () async {
+                                              final brand = brandCtrl.text.trim();
+                                              List<String> modelOptions = [];
+                                              if (brand.isNotEmpty) {
+                                                try {
+                                                  final apiModels = await DeviceRepository().getDeviceModels(brand);
+                                                  if (apiModels.success && apiModels.data != null) {
+                                                    modelOptions = apiModels.data!;
+                                                  }
+                                                } catch (_) {}
+                                              }
+
+                                              if (!ctx.mounted) return;
+                                              final selected = await AppSearchableBottomSheet.show(
+                                                ctx,
+                                                title: brand.isNotEmpty ? 'Select $brand Model' : 'Select Mobile Model',
+                                                options: modelOptions.isNotEmpty ? modelOptions : ['Standard Model'],
+                                                selectedValues: modelCtrl.text.isNotEmpty ? [modelCtrl.text] : [],
+                                                searchHint: 'Search or add model...',
+                                                addCustomHint: '+ Add Custom Model',
+                                              );
+                                              if (selected != null && selected is String && selected.isNotEmpty) {
+                                                setSheetState(() {
+                                                  modelCtrl.text = selected;
+                                                  nameCtrl.text = '${brandCtrl.text} $selected'.trim();
+                                                });
+                                              }
+                                            },
+                                          ),
                                           onChanged: (v) {
                                             nameCtrl.text = '${brandCtrl.text} $v'.trim();
                                           },
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: CustomTextField(
+                                          label: 'IMEI 1 (Optional)',
+                                          hint: '15-digit IMEI 1 (optional)',
+                                          controller: imei1Ctrl,
+                                          suffixIcon: IconButton(
+                                            icon: const Icon(Icons.qr_code_scanner_rounded, size: 20, color: AppColors.primary),
+                                            tooltip: 'Scan IMEI 1',
+                                            onPressed: () async {
+                                              final scanned = await BarcodeScannerScreen.scan(
+                                                context,
+                                                title: 'Scan IMEI 1',
+                                                instruction: 'Scan device barcode or IMEI',
+                                              );
+                                              if (scanned != null && scanned.trim().isNotEmpty) {
+                                                final clean = scanned.replaceFirst(RegExp(r'^(imei1|imei|sn|s/n)[:\s-]+', caseSensitive: false), '').trim();
+                                                setSheetState(() => imei1Ctrl.text = clean);
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: CustomTextField(
+                                          label: 'IMEI 2 (Optional)',
+                                          hint: '15-digit IMEI 2 (optional)',
+                                          controller: imei2Ctrl,
+                                          suffixIcon: IconButton(
+                                            icon: const Icon(Icons.qr_code_scanner_rounded, size: 20, color: AppColors.primary),
+                                            tooltip: 'Scan IMEI 2',
+                                            onPressed: () async {
+                                              final scanned = await BarcodeScannerScreen.scan(
+                                                context,
+                                                title: 'Scan IMEI 2',
+                                                instruction: 'Scan secondary IMEI',
+                                              );
+                                              if (scanned != null && scanned.trim().isNotEmpty) {
+                                                final clean = scanned.replaceFirst(RegExp(r'^(imei2|imei|sn|s/n)[:\s-]+', caseSensitive: false), '').trim();
+                                                setSheetState(() => imei2Ctrl.text = clean);
+                                              }
+                                            },
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -1816,12 +1934,17 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                                 : null;
 
                             final customCost = double.tryParse(costPriceCtrl.text.trim()) ?? 0.0;
+                            final customImei1 = imei1Ctrl.text.trim();
+                            final customImei2 = imei2Ctrl.text.trim();
+
                             final newItem = SaleItem(
                               inventoryItemId: saleMode == 'inventory' ? selectedInvItem?.id : null,
                               productName: name,
                               itemType: saleMode == 'inventory' ? selectedInvItem!.itemType : itemType,
                               brand: saleMode == 'inventory' ? selectedInvItem?.brand : (brandCtrl.text.trim().isNotEmpty ? brandCtrl.text.trim() : null),
                               model: saleMode == 'inventory' ? selectedInvItem?.model : (modelCtrl.text.trim().isNotEmpty ? modelCtrl.text.trim() : null),
+                              imei1: saleMode == 'inventory' ? null : (customImei1.isNotEmpty ? customImei1 : null),
+                              imei2: saleMode == 'inventory' ? null : (customImei2.isNotEmpty ? customImei2 : null),
                               quantity: qty,
                               unitPrice: price,
                               costPrice: saleMode == 'inventory' ? selectedInvItem?.purchasePrice : (customCost > 0 ? customCost : null),
@@ -2305,8 +2428,11 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                                     item.productName,
                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                   ),
-                                  if (item.imei1 != null) ...[
-                                    Text('IMEI: ${item.imei1}', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                                  if (item.imei1 != null && item.imei1!.isNotEmpty) ...[
+                                    Text('IMEI 1: ${item.imei1}', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                                  ],
+                                  if (item.imei2 != null && item.imei2!.isNotEmpty) ...[
+                                    Text('IMEI 2: ${item.imei2}', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
                                   ],
                                   const SizedBox(height: 2),
                                   Text(

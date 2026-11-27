@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_feedback.dart';
 import '../../../core/widgets/app_searchable_bottom_sheet.dart';
@@ -27,6 +28,30 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
   final _inventoryRepository = InventoryRepository();
   final _deviceRepo = DeviceRepository();
   final ScrollController _scrollController = ScrollController();
+
+  final Map<String, String> _fieldErrors = {};
+  final GlobalKey _brandFieldKey = GlobalKey();
+  final GlobalKey _modelFieldKey = GlobalKey();
+  final GlobalKey _nameFieldKey = GlobalKey();
+  final GlobalKey _costPriceFieldKey = GlobalKey();
+  final GlobalKey _sellingPriceFieldKey = GlobalKey();
+  final GlobalKey _stockFieldKey = GlobalKey();
+  final GlobalKey _minStockFieldKey = GlobalKey();
+  final GlobalKey _unitFieldKey = GlobalKey();
+  final GlobalKey _imei1FieldKey = GlobalKey();
+  final GlobalKey _imei2FieldKey = GlobalKey();
+  final GlobalKey _serialFieldKey = GlobalKey();
+
+  void _clearFieldError(String field) {
+    if (_fieldErrors.containsKey(field)) {
+      setState(() {
+        _fieldErrors.remove(field);
+        if (_fieldErrors.isEmpty) {
+          _errorMessage = null;
+        }
+      });
+    }
+  }
 
   // GST State
   bool _gstEnabled = false;
@@ -207,7 +232,7 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
     _skuController = TextEditingController(text: item?.sku ?? '');
     _purchasePriceController = TextEditingController(text: item != null ? item.purchasePrice.toStringAsFixed(2) : '');
     _sellingPriceController = TextEditingController(text: item != null ? item.sellingPrice.toStringAsFixed(2) : '');
-    _openingStockController = TextEditingController(text: item != null ? item.currentStock.toString() : '0');
+    _openingStockController = TextEditingController(text: item != null ? item.currentStock.toString() : '1');
     _minimumStockController = TextEditingController(text: item != null ? item.minimumStock.toString() : '2');
     _unitController = TextEditingController(text: item?.unit ?? 'pcs');
     _descriptionController = TextEditingController(text: item?.description ?? '');
@@ -674,9 +699,14 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
     required VoidCallback onTap,
     bool isLoading = false,
     bool isRequired = false,
+    bool hasError = false,
+    String? errorText,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final labelColor = isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final isFieldInError = hasError || (errorText != null && errorText.isNotEmpty);
+    final labelColor = isFieldInError
+        ? AppColors.error
+        : (isDark ? AppColors.darkTextSecondary : AppColors.textSecondary);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -688,7 +718,7 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: labelColor),
             ),
             if (isRequired)
-              const Text(' *', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+              const Text(' *', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold)),
           ],
         ),
         const SizedBox(height: 6),
@@ -700,16 +730,24 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
             decoration: BoxDecoration(
               color: isDark ? AppColors.darkBackground : Colors.white,
               border: Border.all(
-                color: value.isNotEmpty
-                    ? AppColors.primary
-                    : (isDark ? AppColors.darkBorder : AppColors.border),
-                width: value.isNotEmpty ? 1.5 : 1.0,
+                color: isFieldInError
+                    ? AppColors.error
+                    : (value.isNotEmpty
+                        ? AppColors.primary
+                        : (isDark ? AppColors.darkBorder : AppColors.border)),
+                width: isFieldInError ? 1.5 : (value.isNotEmpty ? 1.5 : 1.0),
               ),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
               children: [
-                Icon(prefixIcon, size: 18, color: value.isNotEmpty ? AppColors.primary : AppColors.textMuted),
+                Icon(
+                  prefixIcon,
+                  size: 18,
+                  color: isFieldInError
+                      ? AppColors.error
+                      : (value.isNotEmpty ? AppColors.primary : AppColors.textMuted),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: isLoading
@@ -737,31 +775,54 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
             ),
           ),
         ),
+        if (isFieldInError) ...[
+          const SizedBox(height: 4),
+          Text(
+            errorText ?? '',
+            style: const TextStyle(color: AppColors.error, fontSize: 11.5, fontWeight: FontWeight.w500),
+          ),
+        ],
       ],
     );
   }
 
-  void _showFormError(String errorMsg) {
+  void _showFormError(String errorMsg, {String? field, GlobalKey? targetKey}) {
     AppFeedback.showError(context, error: errorMsg);
-    setState(() => _errorMessage = errorMsg);
-    _scrollController.animateTo(
-      0,
-      duration: const Duration(milliseconds: 350),
-      curve: Curves.easeInOut,
-    );
+    setState(() {
+      _errorMessage = errorMsg;
+      if (field != null) {
+        _fieldErrors[field] = errorMsg;
+      }
+    });
+
+    if (targetKey?.currentContext != null) {
+      Scrollable.ensureVisible(
+        targetKey!.currentContext!,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+        alignment: 0.25,
+      );
+    } else {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 
   Future<void> _submitForm() async {
     FocusScope.of(context).unfocus();
+    setState(() => _fieldErrors.clear());
     if (!_formKey.currentState!.validate()) return;
 
     if (_itemType == 'mobile') {
       if (_brandController.text.trim().isEmpty) {
-        _showFormError('Mobile brand is required.');
+        _showFormError('Mobile brand is required.', field: 'brand', targetKey: _brandFieldKey);
         return;
       }
       if (_modelController.text.trim().isEmpty) {
-        _showFormError('Mobile model is required.');
+        _showFormError('Mobile model is required.', field: 'model', targetKey: _modelFieldKey);
         return;
       }
     }
@@ -771,9 +832,40 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
     final sellingPrice = double.tryParse(_sellingPriceController.text.trim()) ?? 0.0;
     final openingStock = int.tryParse(_openingStockController.text.trim()) ?? 0;
     final minimumStock = int.tryParse(_minimumStockController.text.trim()) ?? 2;
+    final unit = _unitController.text.trim();
 
     if (name.isEmpty) {
-      _showFormError('Item name is required.');
+      _showFormError('Item name is required.', field: 'name', targetKey: _nameFieldKey);
+      return;
+    }
+
+    if (_purchasePriceController.text.trim().isEmpty || purchasePrice <= 0) {
+      _showFormError('Please enter a valid purchase cost price.', field: 'purchase_price', targetKey: _costPriceFieldKey);
+      return;
+    }
+
+    if (_sellingPriceController.text.trim().isEmpty || sellingPrice <= 0) {
+      _showFormError('Please enter a valid selling price.', field: 'selling_price', targetKey: _sellingPriceFieldKey);
+      return;
+    }
+
+    if (!_isEditing && openingStock < 1) {
+      _showFormError('Please enter at least 1 opening stock.', field: 'opening_stock', targetKey: _stockFieldKey);
+      return;
+    }
+
+    if (minimumStock < 0) {
+      _showFormError('Minimum stock alert cannot be negative.', field: 'min_stock', targetKey: _minStockFieldKey);
+      return;
+    }
+
+    if (unit.isEmpty) {
+      _showFormError('Unit of measure is required (e.g. pcs, box, nos).', field: 'unit', targetKey: _unitFieldKey);
+      return;
+    }
+
+    if (RegExp(r'[0-9]').hasMatch(unit)) {
+      _showFormError('Unit cannot contain numbers. Enter measurement type like pcs, box, nos (not quantity).', field: 'unit', targetKey: _unitFieldKey);
       return;
     }
 
@@ -783,21 +875,21 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
 
     if (_itemType == 'mobile' && openingStock > 0 && !_isEditing) {
       if (imei1.isEmpty) {
-        _showFormError('Primary IMEI 1 is required when adding stock for mobile phones.');
+        _showFormError('Primary IMEI 1 is required when adding stock for mobile phones.', field: 'imei1', targetKey: _imei1FieldKey);
         return;
       }
       if (imei1.length < 8) {
-        _showFormError('Please enter a valid IMEI number (typically 15 digits).');
+        _showFormError('Please enter a valid IMEI number (typically 15 digits).', field: 'imei1', targetKey: _imei1FieldKey);
         return;
       }
       if (openingStock > 1) {
-        _showFormError('For mobile phones, stock must be added 1 unit at a time with unique IMEI.');
+        _showFormError('For mobile phones, stock must be added 1 unit at a time with unique IMEI.', field: 'opening_stock', targetKey: _stockFieldKey);
         return;
       }
     }
 
     if (imei1.isNotEmpty && imei2.isNotEmpty && imei1 == imei2) {
-      _showFormError('Primary IMEI 1 and Secondary IMEI 2 cannot be identical.');
+      _showFormError('Primary IMEI 1 and Secondary IMEI 2 cannot be identical.', field: 'imei2', targetKey: _imei2FieldKey);
       return;
     }
 
@@ -812,9 +904,15 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
           if (check.success && check.data != null && check.data!['in_stock'] == true) {
             final itemName = check.data!['item']?['name'];
             final suffix = itemName != null ? ' ($itemName)' : '';
-            _showFormError(check.message.isNotEmpty
-                ? check.message
-                : "IMEI/Serial '$val' is already in stock for this shop$suffix. Cannot add duplicate until the current unit is sold.");
+            final fKey = val == imei1 ? _imei1FieldKey : (val == imei2 ? _imei2FieldKey : _serialFieldKey);
+            final fName = val == imei1 ? 'imei1' : (val == imei2 ? 'imei2' : 'serial');
+            _showFormError(
+              check.message.isNotEmpty
+                  ? check.message
+                  : "IMEI/Serial '$val' is already in stock for this shop$suffix. Cannot add duplicate until the current unit is sold.",
+              field: fName,
+              targetKey: fKey,
+            );
             return;
           }
         } catch (_) {}
@@ -1032,46 +1130,76 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
                             const SizedBox(height: 10),
 
                             if (!_isManualBrandModel) ...[
-                              _buildSelectField(
-                                label: 'Mobile Brand',
-                                value: _brandController.text,
-                                hint: 'Select Brand (Apple, Samsung, etc.)',
-                                prefixIcon: Icons.business_rounded,
-                                isLoading: _isLoadingBrands,
-                                onTap: _selectBrand,
-                                isRequired: true,
+                              KeyedSubtree(
+                                key: _brandFieldKey,
+                                child: _buildSelectField(
+                                  label: 'Mobile Brand',
+                                  value: _brandController.text,
+                                  hint: 'Select Brand (Apple, Samsung, etc.)',
+                                  prefixIcon: Icons.business_rounded,
+                                  isLoading: _isLoadingBrands,
+                                  onTap: () {
+                                    _clearFieldError('brand');
+                                    _selectBrand();
+                                  },
+                                  isRequired: true,
+                                  hasError: _fieldErrors.containsKey('brand'),
+                                  errorText: _fieldErrors['brand'],
+                                ),
                               ),
                               const SizedBox(height: 10),
-                              _buildSelectField(
-                                label: 'Mobile Model',
-                                value: _modelController.text,
-                                hint: _brandController.text.isEmpty
-                                    ? 'Select Brand first'
-                                    : 'Select ${_brandController.text} model',
-                                prefixIcon: Icons.devices_other_rounded,
-                                isLoading: _isLoadingModels,
-                                onTap: _selectModel,
-                                isRequired: true,
+                              KeyedSubtree(
+                                key: _modelFieldKey,
+                                child: _buildSelectField(
+                                  label: 'Mobile Model',
+                                  value: _modelController.text,
+                                  hint: _brandController.text.isEmpty
+                                      ? 'Select Brand first'
+                                      : 'Select ${_brandController.text} model',
+                                  prefixIcon: Icons.devices_other_rounded,
+                                  isLoading: _isLoadingModels,
+                                  onTap: () {
+                                    _clearFieldError('model');
+                                    _selectModel();
+                                  },
+                                  isRequired: true,
+                                  hasError: _fieldErrors.containsKey('model'),
+                                  errorText: _fieldErrors['model'],
+                                ),
                               ),
                             ] else ...[
-                              CustomTextField(
-                                controller: _brandController,
-                                label: 'Brand Name *',
-                                hint: 'e.g. Apple, Samsung, OnePlus',
-                                prefixIcon: Icons.business_rounded,
-                                isRequired: true,
-                                onChanged: (_) => _autoFormatName(),
-                                validator: (v) => v == null || v.trim().isEmpty ? 'Brand required' : null,
+                              KeyedSubtree(
+                                key: _brandFieldKey,
+                                child: CustomTextField(
+                                  controller: _brandController,
+                                  label: 'Brand Name *',
+                                  hint: 'e.g. Apple, Samsung, OnePlus',
+                                  prefixIcon: Icons.business_rounded,
+                                  isRequired: true,
+                                  hasError: _fieldErrors.containsKey('brand'),
+                                  errorText: _fieldErrors['brand'],
+                                  onChanged: (_) {
+                                    _clearFieldError('brand');
+                                    _autoFormatName();
+                                  },
+                                ),
                               ),
                               const SizedBox(height: 10),
-                              CustomTextField(
-                                controller: _modelController,
-                                label: 'Model Name *',
-                                hint: 'e.g. iPhone 13 / Galaxy S21',
-                                prefixIcon: Icons.devices_other_rounded,
-                                isRequired: true,
-                                onChanged: (_) => _autoFormatName(),
-                                validator: (v) => v == null || v.trim().isEmpty ? 'Model required' : null,
+                              KeyedSubtree(
+                                key: _modelFieldKey,
+                                child: CustomTextField(
+                                  controller: _modelController,
+                                  label: 'Model Name *',
+                                  hint: 'e.g. iPhone 13 / Galaxy S21',
+                                  prefixIcon: Icons.devices_other_rounded,
+                                  isRequired: true,
+                                  hasError: _fieldErrors.containsKey('model'),
+                                  errorText: _fieldErrors['model'],
+                                  onChanged: (_) {
+                                    _clearFieldError('model');
+                                    _autoFormatName();
+                                  },
+                                ),
                               ),
                             ],
                             const SizedBox(height: 10),
@@ -1123,11 +1251,16 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
                       const SizedBox(height: 14),
                     ],
 
-                    CustomTextField(
-                      label: 'Item Name *',
-                      hint: _itemType == 'mobile' ? 'e.g. Apple iPhone 13 (8 GB / 128 GB - Black)' : 'e.g. Display Folder iPhone 13 or USB-C Cable',
-                      controller: _nameController,
-                      validator: (val) => val == null || val.trim().isEmpty ? 'Item name is required' : null,
+                    KeyedSubtree(
+                      key: _nameFieldKey,
+                      child: CustomTextField(
+                        label: 'Item Name *',
+                        hint: _itemType == 'mobile' ? 'e.g. Apple iPhone 13 (8 GB / 128 GB - Black)' : 'e.g. Display Folder iPhone 13 or USB-C Cable',
+                        controller: _nameController,
+                        hasError: _fieldErrors.containsKey('name'),
+                        errorText: _fieldErrors['name'],
+                        onChanged: (_) => _clearFieldError('name'),
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Row(
@@ -1193,24 +1326,38 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
                     Row(
                       children: [
                         Expanded(
-                          child: CustomTextField(
-                            label: 'Purchase Cost (₹) *',
-                            hint: 'e.g. 4500.00',
-                            controller: _purchasePriceController,
-                            keyboardType: TextInputType.number,
-                            validator: (val) => val == null || val.trim().isEmpty ? 'Cost price required' : null,
-                            onChanged: (_) => setState(() {}),
+                          child: KeyedSubtree(
+                            key: _costPriceFieldKey,
+                            child: CustomTextField(
+                              label: 'Purchase Cost (₹) *',
+                              hint: 'e.g. 4500.00',
+                              controller: _purchasePriceController,
+                              keyboardType: TextInputType.number,
+                              hasError: _fieldErrors.containsKey('purchase_price'),
+                              errorText: _fieldErrors['purchase_price'],
+                              onChanged: (_) {
+                                _clearFieldError('purchase_price');
+                                setState(() {});
+                              },
+                            ),
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: CustomTextField(
-                            label: 'Selling Price (₹) *',
-                            hint: 'e.g. 7000.00',
-                            controller: _sellingPriceController,
-                            keyboardType: TextInputType.number,
-                            validator: (val) => val == null || val.trim().isEmpty ? 'Selling price required' : null,
-                            onChanged: (_) => setState(() {}),
+                          child: KeyedSubtree(
+                            key: _sellingPriceFieldKey,
+                            child: CustomTextField(
+                              label: 'Selling Price (₹) *',
+                              hint: 'e.g. 7000.00',
+                              controller: _sellingPriceController,
+                              keyboardType: TextInputType.number,
+                              hasError: _fieldErrors.containsKey('selling_price'),
+                              errorText: _fieldErrors['selling_price'],
+                              onChanged: (_) {
+                                _clearFieldError('selling_price');
+                                setState(() {});
+                              },
+                            ),
                           ),
                         ),
                       ],
@@ -1241,38 +1388,118 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Stock Management *', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 12),
+                    const Row(
+                      children: [
+                        Icon(Icons.inventory_2_rounded, size: 20, color: AppColors.primary),
+                        SizedBox(width: 8),
+                        Text('Stock & Unit of Measure *', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Opening quantity (at least 1), low-stock alert threshold, and measuring unit (e.g. pcs, box, nos).',
+                      style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                    ),
+                    const SizedBox(height: 14),
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         if (!_isEditing) ...[
                           Expanded(
-                            child: CustomTextField(
-                              label: 'Opening Stock',
-                              hint: 'Initial quantity',
-                              controller: _openingStockController,
-                              keyboardType: TextInputType.number,
+                            child: KeyedSubtree(
+                              key: _stockFieldKey,
+                              child: CustomTextField(
+                                label: 'Opening Stock *',
+                                hint: 'Min. 1',
+                                controller: _openingStockController,
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                hasError: _fieldErrors.containsKey('opening_stock'),
+                                errorText: _fieldErrors['opening_stock'],
+                                onChanged: (_) => _clearFieldError('opening_stock'),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 10),
                         ],
                         Expanded(
-                          child: CustomTextField(
-                            label: 'Minimum Stock Alert',
-                            hint: 'Low stock threshold',
-                            controller: _minimumStockController,
-                            keyboardType: TextInputType.number,
+                          child: KeyedSubtree(
+                            key: _minStockFieldKey,
+                            child: CustomTextField(
+                              label: 'Min. Stock Alert',
+                              hint: 'Low threshold (e.g. 2)',
+                              controller: _minimumStockController,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              hasError: _fieldErrors.containsKey('min_stock'),
+                              errorText: _fieldErrors['min_stock'],
+                              onChanged: (_) => _clearFieldError('min_stock'),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: CustomTextField(
-                            label: 'Unit',
-                            hint: 'pcs / box / set',
-                            controller: _unitController,
+                          child: KeyedSubtree(
+                            key: _unitFieldKey,
+                            child: CustomTextField(
+                              label: 'Unit of Measure *',
+                              hint: 'pcs / box / nos',
+                              controller: _unitController,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
+                              ],
+                              hasError: _fieldErrors.containsKey('unit'),
+                              errorText: _fieldErrors['unit'],
+                              onChanged: (_) => _clearFieldError('unit'),
+                            ),
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 10),
+                    // Quick unit selection chips & notice
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'Quick Unit: ',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                        ),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                for (final u in ['pcs', 'box', 'nos', 'set', 'pkt', 'mtr', 'pair', 'kg']) ...[
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 6),
+                                    child: ChoiceChip(
+                                      visualDensity: VisualDensity.compact,
+                                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      label: Text(u, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                      selected: _unitController.text.trim().toLowerCase() == u,
+                                      selectedColor: AppColors.primary.withOpacity(0.15),
+                                      onSelected: (selected) {
+                                        if (selected) {
+                                          setState(() {
+                                            _unitController.text = u;
+                                            _clearFieldError('unit');
+                                          });
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'ℹ️ Note: "Unit" is measuring text (e.g. pcs, box, nos). Numbers are not allowed in Unit.',
+                      style: TextStyle(fontSize: 10.5, color: Colors.blue.shade700, fontStyle: FontStyle.italic),
                     ),
                   ],
                 ),
@@ -1322,38 +1549,56 @@ class _AddEditInventoryItemScreenState extends State<AddEditInventoryItemScreen>
                         ],
                       ),
                       const SizedBox(height: 12),
-                      CustomTextField(
-                        label: 'IMEI 1',
-                        hint: 'Primary 15-digit IMEI',
-                        controller: _imei1Controller,
-                        keyboardType: TextInputType.number,
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary),
-                          tooltip: 'Scan Box (All Identifiers)',
-                          onPressed: _scanBoxTogether,
+                      KeyedSubtree(
+                        key: _imei1FieldKey,
+                        child: CustomTextField(
+                          label: 'IMEI 1',
+                          hint: 'Primary 15-digit IMEI',
+                          controller: _imei1Controller,
+                          keyboardType: TextInputType.number,
+                          hasError: _fieldErrors.containsKey('imei1'),
+                          errorText: _fieldErrors['imei1'],
+                          onChanged: (_) => _clearFieldError('imei1'),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary),
+                            tooltip: 'Scan Box (All Identifiers)',
+                            onPressed: _scanBoxTogether,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 12),
-                      CustomTextField(
-                        label: 'IMEI 2',
-                        hint: 'Secondary IMEI (Optional)',
-                        controller: _imei2Controller,
-                        keyboardType: TextInputType.number,
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary),
-                          tooltip: 'Scan Box (All Identifiers)',
-                          onPressed: _scanBoxTogether,
+                      KeyedSubtree(
+                        key: _imei2FieldKey,
+                        child: CustomTextField(
+                          label: 'IMEI 2',
+                          hint: 'Secondary IMEI (Optional)',
+                          controller: _imei2Controller,
+                          keyboardType: TextInputType.number,
+                          hasError: _fieldErrors.containsKey('imei2'),
+                          errorText: _fieldErrors['imei2'],
+                          onChanged: (_) => _clearFieldError('imei2'),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary),
+                            tooltip: 'Scan Box (All Identifiers)',
+                            onPressed: _scanBoxTogether,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 12),
-                      CustomTextField(
-                        label: 'Serial Number',
-                        hint: 'Manufacturer Serial #',
-                        controller: _serialController,
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary),
-                          tooltip: 'Scan Box (All Identifiers)',
-                          onPressed: _scanBoxTogether,
+                      KeyedSubtree(
+                        key: _serialFieldKey,
+                        child: CustomTextField(
+                          label: 'Serial Number',
+                          hint: 'Manufacturer Serial #',
+                          controller: _serialController,
+                          hasError: _fieldErrors.containsKey('serial'),
+                          errorText: _fieldErrors['serial'],
+                          onChanged: (_) => _clearFieldError('serial'),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary),
+                            tooltip: 'Scan Box (All Identifiers)',
+                            onPressed: _scanBoxTogether,
+                          ),
                         ),
                       ),
                     ],

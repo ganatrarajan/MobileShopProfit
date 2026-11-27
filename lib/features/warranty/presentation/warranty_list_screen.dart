@@ -1,3 +1,4 @@
+import 'dart:async';
 import '../../../core/utils/whatsapp_helper.dart';
 import '../../../core/widgets/whatsapp_icon.dart';
 import '../../../core/utils/date_helper.dart';
@@ -26,6 +27,7 @@ class WarrantyListScreen extends StatefulWidget {
 class _WarrantyListScreenState extends State<WarrantyListScreen> {
   final WarrantyRepository _warrantyRepository = WarrantyRepository();
   final TextEditingController _searchController = TextEditingController();
+  Timer? _debounceTimer;
 
   List<Warranty> _warranties = [];
   bool _isLoading = true;
@@ -80,8 +82,16 @@ class _WarrantyListScreenState extends State<WarrantyListScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String query) {
+    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _fetchWarranties();
+    });
   }
 
   Future<void> _fetchWarranties() async {
@@ -231,7 +241,7 @@ class _WarrantyListScreenState extends State<WarrantyListScreen> {
                   Expanded(
                     child: TextField(
                       controller: _searchController,
-                      onChanged: (_) => _fetchWarranties(),
+                      onChanged: _onSearchChanged,
                       decoration: InputDecoration(
                         hintText: 'Search Warranty #, Customer, IMEI, Model...',
                         hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
@@ -240,6 +250,7 @@ class _WarrantyListScreenState extends State<WarrantyListScreen> {
                             ? IconButton(
                                 icon: const Icon(Icons.clear_rounded, color: AppColors.textMuted),
                                 onPressed: () {
+                                  _debounceTimer?.cancel();
                                   _searchController.clear();
                                   _fetchWarranties();
                                 },

@@ -31,9 +31,20 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
   bool _isLoadingTechnicians = false;
 
   final ImagePicker _picker = ImagePicker();
-  File? _newDevicePhotoFile;
-  String? _existingDevicePhotoUrl;
-  bool _photoRemoved = false;
+  // Front Photo
+  File? _newFrontPhotoFile;
+  String? _existingFrontPhotoUrl;
+  bool _frontPhotoRemoved = false;
+
+  // Back Photo
+  File? _newBackPhotoFile;
+  String? _existingBackPhotoUrl;
+  bool _backPhotoRemoved = false;
+
+  // Customer Live Photo
+  File? _newCustomerPhotoFile;
+  String? _existingCustomerPhotoUrl;
+  bool _customerPhotoRemoved = false;
 
   late TextEditingController _problemController;
   late TextEditingController _conditionNotesController;
@@ -108,9 +119,17 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
     _customerNotesController = TextEditingController(text: r.customerNotes);
     _internalNotesController = TextEditingController(text: r.internalNotes);
 
-    _existingDevicePhotoUrl = r.devicePhoto;
-    _newDevicePhotoFile = null;
-    _photoRemoved = false;
+    _existingFrontPhotoUrl = r.devicePhoto;
+    _newFrontPhotoFile = null;
+    _frontPhotoRemoved = false;
+
+    _existingBackPhotoUrl = r.devicePhotoBack;
+    _newBackPhotoFile = null;
+    _backPhotoRemoved = false;
+
+    _existingCustomerPhotoUrl = r.customerPhoto;
+    _newCustomerPhotoFile = null;
+    _customerPhotoRemoved = false;
 
     _selectedConditions = Set.from(r.deviceCondition);
     _selectedAccessories = Set.from(r.accessoriesReceived);
@@ -219,7 +238,25 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
     }
   }
 
-  Future<void> _showPhotoPickerSheet() async {
+  Future<void> _showPhotoPickerSheet(String slot) async {
+    if (widget.repair.repairStatus == 'delivered') {
+      AppFeedback.showError(context, error: 'Photos cannot be changed or retaken after the repair is delivered.');
+      return;
+    }
+
+    String title = 'Device Photo';
+    String desc = 'Take a clear photo';
+    if (slot == 'front') {
+      title = 'Mobile Front Photo';
+      desc = 'Take a clear photo of the screen and front condition';
+    } else if (slot == 'back') {
+      title = 'Mobile Back Photo';
+      desc = 'Take a clear photo of the rear panel, camera or body condition';
+    } else if (slot == 'customer') {
+      title = 'Customer Live Photo';
+      desc = 'Capture customer photo live when receiving or delivering device';
+    }
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
@@ -231,14 +268,14 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Attach Device Photo (Optional)',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Take a clear photo of the device condition or damage before delivery',
-                  style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                Text(
+                  desc,
+                  style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                 ),
                 const SizedBox(height: 14),
                 ListTile(
@@ -250,11 +287,16 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
                     ),
                     child: const Icon(Icons.camera_alt_rounded, color: AppColors.primary),
                   ),
-                  title: const Text('Take Photo with Camera', style: TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: const Text('Capture device condition right now'),
+                  title: Text(
+                    slot == 'customer' ? 'Capture Live Customer Photo (Camera)' : 'Take Photo with Camera',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    slot == 'customer' ? 'Capture live photo of the customer right now' : 'Capture condition right now',
+                  ),
                   onTap: () async {
                     Navigator.pop(ctx);
-                    await _pickDeviceImage(ImageSource.camera);
+                    await _pickImage(slot, ImageSource.camera);
                   },
                 ),
                 const SizedBox(height: 8),
@@ -271,7 +313,7 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
                   subtitle: const Text('Select photo from gallery'),
                   onTap: () async {
                     Navigator.pop(ctx);
-                    await _pickDeviceImage(ImageSource.gallery);
+                    await _pickImage(slot, ImageSource.gallery);
                   },
                 ),
               ],
@@ -282,7 +324,7 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
     );
   }
 
-  Future<void> _pickDeviceImage(ImageSource source) async {
+  Future<void> _pickImage(String slot, ImageSource source) async {
     try {
       final XFile? picked = await _picker.pickImage(
         source: source,
@@ -292,8 +334,16 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
       );
       if (picked != null) {
         setState(() {
-          _newDevicePhotoFile = File(picked.path);
-          _photoRemoved = false;
+          if (slot == 'front') {
+            _newFrontPhotoFile = File(picked.path);
+            _frontPhotoRemoved = false;
+          } else if (slot == 'back') {
+            _newBackPhotoFile = File(picked.path);
+            _backPhotoRemoved = false;
+          } else if (slot == 'customer') {
+            _newCustomerPhotoFile = File(picked.path);
+            _customerPhotoRemoved = false;
+          }
         });
       }
     } catch (e) {
@@ -301,6 +351,186 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
         AppFeedback.showError(context, message: 'Failed to pick image: $e');
       }
     }
+  }
+
+  Widget _buildPhotoSlot({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required File? newFile,
+    required String? existingUrl,
+    required bool isRemoved,
+    required VoidCallback onPick,
+    required VoidCallback onRemove,
+    Color activeColor = AppColors.primary,
+  }) {
+    final isDelivered = widget.repair.repairStatus == 'delivered';
+    final hasPhoto = newFile != null || (!isRemoved && existingUrl != null && existingUrl.isNotEmpty);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: hasPhoto ? activeColor.withOpacity(0.5) : Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: activeColor.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: activeColor, size: 18),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                    Text(subtitle, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                  ],
+                ),
+              ),
+              if (hasPhoto)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.green.shade300),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.check_circle_rounded, size: 12, color: Colors.green),
+                      SizedBox(width: 4),
+                      Text('Attached', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green)),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (hasPhoto) ...[
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: newFile != null
+                      ? Image.file(
+                          newFile,
+                          height: 140,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        )
+                      : Image.network(
+                          existingUrl!,
+                          height: 140,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            height: 140,
+                            width: double.infinity,
+                            color: Colors.grey[200],
+                            child: const Center(
+                              child: Icon(Icons.broken_image_rounded, size: 36, color: Colors.grey),
+                            ),
+                          ),
+                        ),
+                ),
+                if (!isDelivered) ...[
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: InkWell(
+                      onTap: onRemove,
+                      child: Container(
+                        padding: const EdgeInsets.all(5),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.65),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close_rounded, size: 16, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 6,
+                    right: 6,
+                    child: InkWell(
+                      onTap: onPick,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.65),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.refresh_rounded, size: 13, color: Colors.white),
+                            SizedBox(width: 4),
+                            Text('Change', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ] else ...[
+            if (!isDelivered) ...[
+              InkWell(
+                onTap: onPick,
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: activeColor.withOpacity(0.35), width: 1.2),
+                    borderRadius: BorderRadius.circular(10),
+                    color: activeColor.withOpacity(0.04),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.add_a_photo_outlined, size: 18, color: activeColor),
+                      const SizedBox(width: 8),
+                      Text('Tap to Capture or Upload', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: activeColor)),
+                    ],
+                  ),
+                ),
+              ),
+            ] else ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.lock_outline_rounded, size: 15, color: Colors.grey),
+                    SizedBox(width: 6),
+                    Text('No photo uploaded (Locked)', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
   }
 
   Future<void> _submitUpdate() async {
@@ -323,14 +553,34 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
           ? '${_expectedDeliveryDate!.year}-${_expectedDeliveryDate!.month.toString().padLeft(2, '0')}-${_expectedDeliveryDate!.day.toString().padLeft(2, '0')}'
           : null;
 
-      String? photoPayload;
-      if (_newDevicePhotoFile != null) {
-        final bytes = await _newDevicePhotoFile!.readAsBytes();
-        photoPayload = 'data:image/jpeg;base64,${base64Encode(bytes)}';
-      } else if (_photoRemoved) {
-        photoPayload = '';
+      String? frontPayload;
+      if (_newFrontPhotoFile != null) {
+        final bytes = await _newFrontPhotoFile!.readAsBytes();
+        frontPayload = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+      } else if (_frontPhotoRemoved) {
+        frontPayload = '';
       } else {
-        photoPayload = _existingDevicePhotoUrl;
+        frontPayload = _existingFrontPhotoUrl;
+      }
+
+      String? backPayload;
+      if (_newBackPhotoFile != null) {
+        final bytes = await _newBackPhotoFile!.readAsBytes();
+        backPayload = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+      } else if (_backPhotoRemoved) {
+        backPayload = '';
+      } else {
+        backPayload = _existingBackPhotoUrl;
+      }
+
+      String? customerPayload;
+      if (_newCustomerPhotoFile != null) {
+        final bytes = await _newCustomerPhotoFile!.readAsBytes();
+        customerPayload = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+      } else if (_customerPhotoRemoved) {
+        customerPayload = '';
+      } else {
+        customerPayload = _existingCustomerPhotoUrl;
       }
 
       final res = await _repairRepository.updateRepair(
@@ -343,7 +593,9 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
         accessoriesReceived: _selectedAccessories.toList(),
         accessoriesNotes: _accessoriesNotesController.text.trim(),
         pinPasscode: _pinPasscodeController.text.trim(),
-        devicePhoto: photoPayload,
+        devicePhoto: frontPayload,
+        devicePhotoBack: backPayload,
+        customerPhoto: customerPayload,
         expectedDeliveryDate: dateStr,
         estimatedCost: estimatedCost,
         finalCost: finalCost,
@@ -688,147 +940,117 @@ class _EditRepairScreenState extends State<EditRepairScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Device Photo Card (Optional)
+              // Device Photo Card (3 Photos)
               CustomCard(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.camera_alt_outlined, color: AppColors.primary, size: 20),
-                            SizedBox(width: 8),
-                            Text('Device Photo', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                          ],
+                        const Icon(Icons.add_a_photo_outlined, color: AppColors.primary, size: 20),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'Repair & Customer Photos',
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
                             color: Colors.grey.withOpacity(0.12),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Text('Optional', style: TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+                          child: const Text('3 Photos', style: TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
                         ),
                       ],
                     ),
                     const SizedBox(height: 6),
                     const Text(
-                      'Capture or update device condition photo before delivery',
+                      'Capture or update mobile front, back condition photos and live customer photo',
                       style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                     ),
-                    const SizedBox(height: 12),
-                    if (_newDevicePhotoFile != null || (!_photoRemoved && _existingDevicePhotoUrl != null && _existingDevicePhotoUrl!.isNotEmpty)) ...[
-                      Stack(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: _newDevicePhotoFile != null
-                                ? Image.file(
-                                    _newDevicePhotoFile!,
-                                    height: 180,
-                                    width: double.infinity,
-                                    fit: BoxFit.cover,
-                                  )
-                                : Image.network(
-                                    _existingDevicePhotoUrl!,
-                                    height: 180,
-                                    width: double.infinity,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Container(
-                                      height: 180,
-                                      width: double.infinity,
-                                      color: Colors.grey[200],
-                                      child: const Center(
-                                        child: Icon(Icons.broken_image_rounded, size: 40, color: Colors.grey),
-                                      ),
-                                    ),
-                                  ),
-                          ),
-                          Positioned(
-                            top: 8,
-                            right: 8,
-                            child: InkWell(
-                              onTap: () {
-                                setState(() {
-                                  _newDevicePhotoFile = null;
-                                  _photoRemoved = true;
-                                });
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.65),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(Icons.close_rounded, size: 18, color: Colors.white),
+                    if (widget.repair.repairStatus == 'delivered') ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.amber.shade300),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.lock_rounded, size: 16, color: Colors.amber),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Job Card is Delivered. Photos are locked and cannot be changed.',
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.brown),
                               ),
                             ),
-                          ),
-                          Positioned(
-                            bottom: 8,
-                            right: 8,
-                            child: InkWell(
-                              onTap: _showPhotoPickerSheet,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.65),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.refresh_rounded, size: 14, color: Colors.white),
-                                    SizedBox(width: 4),
-                                    Text('Change Photo', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ] else ...[
-                      InkWell(
-                        onTap: _showPhotoPickerSheet,
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: AppColors.primary.withOpacity(0.35), width: 1.5),
-                            borderRadius: BorderRadius.circular(12),
-                            color: AppColors.primary.withOpacity(0.04),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary.withOpacity(0.12),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(Icons.add_a_photo_rounded, size: 26, color: AppColors.primary),
-                              ),
-                              const SizedBox(height: 10),
-                              const Text(
-                                'Tap to Take or Upload Device Photo',
-                                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                              ),
-                              const SizedBox(height: 3),
-                              const Text(
-                                'Camera or Gallery (1 Photo Max)',
-                                style: TextStyle(fontSize: 11.5, color: AppColors.textMuted),
-                              ),
-                            ],
-                          ),
+                          ],
                         ),
                       ),
                     ],
+                    const SizedBox(height: 14),
+
+                    // Slot 1: Mobile Front Photo
+                    _buildPhotoSlot(
+                      title: '1. Mobile Front Photo',
+                      subtitle: 'Front screen condition & display scratches',
+                      icon: Icons.smartphone_rounded,
+                      newFile: _newFrontPhotoFile,
+                      existingUrl: _existingFrontPhotoUrl,
+                      isRemoved: _frontPhotoRemoved,
+                      onPick: () => _showPhotoPickerSheet('front'),
+                      onRemove: () {
+                        setState(() {
+                          _newFrontPhotoFile = null;
+                          _frontPhotoRemoved = true;
+                        });
+                      },
+                      activeColor: AppColors.primary,
+                    ),
+
+                    // Slot 2: Mobile Back Photo
+                    _buildPhotoSlot(
+                      title: '2. Mobile Back Photo',
+                      subtitle: 'Rear body, back panel & camera condition',
+                      icon: Icons.flip_to_back_rounded,
+                      newFile: _newBackPhotoFile,
+                      existingUrl: _existingBackPhotoUrl,
+                      isRemoved: _backPhotoRemoved,
+                      onPick: () => _showPhotoPickerSheet('back'),
+                      onRemove: () {
+                        setState(() {
+                          _newBackPhotoFile = null;
+                          _backPhotoRemoved = true;
+                        });
+                      },
+                      activeColor: Colors.deepPurple,
+                    ),
+
+                    // Slot 3: Customer Live Photo
+                    _buildPhotoSlot(
+                      title: '3. Customer Live Photo',
+                      subtitle: 'Click live photo when customer receives or hands over mobile',
+                      icon: Icons.person_pin_circle_rounded,
+                      newFile: _newCustomerPhotoFile,
+                      existingUrl: _existingCustomerPhotoUrl,
+                      isRemoved: _customerPhotoRemoved,
+                      onPick: () => _showPhotoPickerSheet('customer'),
+                      onRemove: () {
+                        setState(() {
+                          _newCustomerPhotoFile = null;
+                          _customerPhotoRemoved = true;
+                        });
+                      },
+                      activeColor: Colors.teal,
+                    ),
                   ],
                 ),
               ),

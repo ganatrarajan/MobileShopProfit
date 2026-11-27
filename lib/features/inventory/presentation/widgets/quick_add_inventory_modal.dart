@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/app_searchable_bottom_sheet.dart';
@@ -47,6 +48,39 @@ class QuickAddInventoryModal extends StatefulWidget {
 
 class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
   final _formKey = GlobalKey<FormState>();
+  final ScrollController _scrollController = ScrollController();
+  final Map<String, String> _fieldErrors = {};
+
+  final GlobalKey _brandFieldKey = GlobalKey();
+  final GlobalKey _modelFieldKey = GlobalKey();
+  final GlobalKey _nameFieldKey = GlobalKey();
+  final GlobalKey _sellingPriceFieldKey = GlobalKey();
+  final GlobalKey _costPriceFieldKey = GlobalKey();
+  final GlobalKey _openingStockFieldKey = GlobalKey();
+  final GlobalKey _imei1FieldKey = GlobalKey();
+  final GlobalKey _imei2FieldKey = GlobalKey();
+
+  void _clearFieldError(String field) {
+    if (_fieldErrors.containsKey(field)) {
+      setState(() => _fieldErrors.remove(field));
+    }
+  }
+
+  void _showError(String msg, {String? field, GlobalKey? targetKey}) {
+    AppFeedback.showError(context, error: msg);
+    setState(() {
+      if (field != null) _fieldErrors[field] = msg;
+    });
+    if (targetKey?.currentContext != null) {
+      Scrollable.ensureVisible(
+        targetKey!.currentContext!,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        alignment: 0.2,
+      );
+    }
+  }
+
   final _nameController = TextEditingController();
   final _sellingPriceController = TextEditingController();
   final _purchasePriceController = TextEditingController();
@@ -117,6 +151,7 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _nameController.dispose();
     _sellingPriceController.dispose();
     _purchasePriceController.dispose();
@@ -605,9 +640,14 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
     required VoidCallback onTap,
     bool isLoading = false,
     bool isRequired = false,
+    bool hasError = false,
+    String? errorText,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final labelColor = isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final isFieldInError = hasError || (errorText != null && errorText.isNotEmpty);
+    final labelColor = isFieldInError
+        ? AppColors.error
+        : (isDark ? AppColors.darkTextSecondary : AppColors.textSecondary);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -619,7 +659,7 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: labelColor),
             ),
             if (isRequired)
-              const Text(' *', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+              const Text(' *', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold)),
           ],
         ),
         const SizedBox(height: 6),
@@ -631,16 +671,24 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
             decoration: BoxDecoration(
               color: isDark ? AppColors.darkBackground : Colors.white,
               border: Border.all(
-                color: value.isNotEmpty
-                    ? AppColors.primary
-                    : (isDark ? AppColors.darkBorder : AppColors.border),
-                width: value.isNotEmpty ? 1.5 : 1.0,
+                color: isFieldInError
+                    ? AppColors.error
+                    : (value.isNotEmpty
+                        ? AppColors.primary
+                        : (isDark ? AppColors.darkBorder : AppColors.border)),
+                width: isFieldInError ? 1.5 : (value.isNotEmpty ? 1.5 : 1.0),
               ),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
               children: [
-                Icon(prefixIcon, size: 18, color: value.isNotEmpty ? AppColors.primary : AppColors.textMuted),
+                Icon(
+                  prefixIcon,
+                  size: 18,
+                  color: isFieldInError
+                      ? AppColors.error
+                      : (value.isNotEmpty ? AppColors.primary : AppColors.textMuted),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: isLoading
@@ -668,27 +716,93 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
             ),
           ),
         ),
+        if (isFieldInError) ...[
+          const SizedBox(height: 4),
+          Text(
+            errorText ?? '',
+            style: const TextStyle(color: AppColors.error, fontSize: 11.5, fontWeight: FontWeight.w500),
+          ),
+        ],
       ],
     );
   }
 
   Future<void> _save() async {
+    setState(() => _fieldErrors.clear());
     if (!_formKey.currentState!.validate()) return;
 
     if (_itemType == 'mobile') {
       if (_brandController.text.trim().isEmpty) {
-        AppFeedback.showError(context, error: 'Please select or enter the Mobile Brand.');
+        _showError('Please select or enter the Mobile Brand.', field: 'brand', targetKey: _brandFieldKey);
         return;
       }
       if (_modelController.text.trim().isEmpty) {
-        AppFeedback.showError(context, error: 'Please select or enter the Mobile Model.');
+        _showError('Please select or enter the Mobile Model.', field: 'model', targetKey: _modelFieldKey);
         return;
       }
+    }
+
+    if (_nameController.text.trim().isEmpty) {
+      _showError('Please enter item or product name.', field: 'name', targetKey: _nameFieldKey);
+      return;
     }
 
     final sellingPrice = double.tryParse(_sellingPriceController.text.trim()) ?? 0.0;
     final purchasePrice = double.tryParse(_purchasePriceController.text.trim()) ?? 0.0;
     final openingStock = widget.isFromPurchase ? 0 : (int.tryParse(_openingStockController.text.trim()) ?? 0);
+
+    if (_sellingPriceController.text.trim().isEmpty || sellingPrice <= 0) {
+      _showError('Please enter a valid selling price.', field: 'selling_price', targetKey: _sellingPriceFieldKey);
+      return;
+    }
+
+    if (!widget.isFromPurchase && openingStock < 1) {
+      _showError('Please enter at least 1 opening stock.', field: 'opening_stock', targetKey: _openingStockFieldKey);
+      return;
+    }
+
+    if (widget.isFromPurchase) {
+      final draftItem = InventoryItem(
+        id: -1,
+        shopId: 0,
+        name: _nameController.text.trim(),
+        itemType: _itemType,
+        category: _itemType == 'mobile'
+            ? 'Mobile Phone'
+            : _itemType == 'accessory'
+                ? (_selectedAccessoryCategory ?? 'Accessories')
+                : _itemType == 'spare_part'
+                    ? (_selectedSparePartCategory ?? 'Spare Parts')
+                    : 'General',
+        brand: _brandController.text.trim().isNotEmpty ? _brandController.text.trim() : null,
+        model: _modelController.text.trim().isNotEmpty ? _modelController.text.trim() : null,
+        sku: _skuController.text.trim().isNotEmpty ? _skuController.text.trim() : null,
+        purchasePrice: purchasePrice,
+        sellingPrice: sellingPrice,
+        taxRate: _gstEnabled ? _gstRate : 0.0,
+        taxType: _gstMode == GstMode.inclusive ? 'inclusive' : 'exclusive',
+        openingStock: 0,
+        totalStock: 0,
+        currentStock: 0,
+        minimumStock: 2,
+        unit: 'pcs',
+        description: _buildDescription(),
+        isActive: true,
+        stockValue: 0.0,
+        isLowStock: false,
+        isOutOfStock: true,
+        serials: const [],
+        stockMovements: const [],
+      );
+
+      AppFeedback.showSuccess(
+        context,
+        title: 'Product Added to Bill',
+        message: '${draftItem.name} added to draft. Enter purchase rate & quantity.',
+      );
+      Navigator.pop(context, draftItem);
+      return;
+    }
 
     final imei1 = _imei1Controller.text.trim();
     final imei2 = _imei2Controller.text.trim();
@@ -696,21 +810,21 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
 
     if (_itemType == 'mobile' && openingStock > 0) {
       if (imei1.isEmpty) {
-        AppFeedback.showError(context, error: 'Primary IMEI 1 is required when adding stock for mobile phones.');
+        _showError('Primary IMEI 1 is required when adding stock for mobile phones.', field: 'imei1', targetKey: _imei1FieldKey);
         return;
       }
       if (imei1.length < 8) {
-        AppFeedback.showError(context, error: 'Please enter a valid IMEI number (typically 15 digits).');
+        _showError('Please enter a valid IMEI number (typically 15 digits).', field: 'imei1', targetKey: _imei1FieldKey);
         return;
       }
       if (openingStock > 1) {
-        AppFeedback.showError(context, error: 'For mobile phones, stock must be added 1 unit at a time with unique IMEI.');
+        _showError('For mobile phones, stock must be added 1 unit at a time with unique IMEI.', field: 'opening_stock', targetKey: _openingStockFieldKey);
         return;
       }
     }
 
     if (imei1.isNotEmpty && imei2.isNotEmpty && imei1 == imei2) {
-      AppFeedback.showError(context, error: 'Primary IMEI 1 and Secondary IMEI 2 cannot be identical.');
+      _showError('Primary IMEI 1 and Secondary IMEI 2 cannot be identical.', field: 'imei2', targetKey: _imei2FieldKey);
       return;
     }
 
@@ -723,11 +837,14 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
             final itemName = check.data!['item']?['name'];
             final suffix = itemName != null ? ' ($itemName)' : '';
             if (mounted) {
-              AppFeedback.showError(
-                context,
-                error: check.message.isNotEmpty
+              final targetKey = val == imei1 ? _imei1FieldKey : (val == imei2 ? _imei2FieldKey : null);
+              final fName = val == imei1 ? 'imei1' : (val == imei2 ? 'imei2' : 'serial');
+              _showError(
+                check.message.isNotEmpty
                     ? check.message
                     : "IMEI/Serial '$val' is already in stock for this shop$suffix. Cannot add duplicate until the current unit is sold.",
+                field: fName,
+                targetKey: targetKey,
               );
             }
             return;
@@ -797,6 +914,7 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
         bottom: bottomInset + 20,
       ),
       child: SingleChildScrollView(
+        controller: _scrollController,
         child: Form(
           key: _formKey,
           child: Column(
@@ -823,7 +941,7 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.isFromPurchase ? 'Create Item for Purchase' : 'Quick Add Inventory Item',
+                          widget.isFromPurchase ? 'New Product for Bill' : 'Quick Add Inventory Item',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -832,7 +950,7 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
                         ),
                         Text(
                           widget.isFromPurchase
-                              ? 'Master item will be created with 0 initial stock. Purchase Order quantity will add the stock.'
+                              ? 'Enter product details. Stock and IMEIs will be added via the Purchase Bill.'
                               : 'Add new mobile phone, part or accessory to inventory',
                           style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                         ),
@@ -953,46 +1071,76 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
                       const SizedBox(height: 12),
 
                       if (!_isManualBrandModel) ...[
-                        _buildSelectField(
-                          label: 'Mobile Brand',
-                          value: _brandController.text,
-                          hint: 'Tap to select Brand (Apple, Samsung, etc.)',
-                          prefixIcon: Icons.business_rounded,
-                          isLoading: _isLoadingBrands,
-                          onTap: _selectBrand,
-                          isRequired: true,
+                        KeyedSubtree(
+                          key: _brandFieldKey,
+                          child: _buildSelectField(
+                            label: 'Mobile Brand',
+                            value: _brandController.text,
+                            hint: 'Tap to select Brand (Apple, Samsung, etc.)',
+                            prefixIcon: Icons.business_rounded,
+                            isLoading: _isLoadingBrands,
+                            onTap: () {
+                              _clearFieldError('brand');
+                              _selectBrand();
+                            },
+                            isRequired: true,
+                            hasError: _fieldErrors.containsKey('brand'),
+                            errorText: _fieldErrors['brand'],
+                          ),
                         ),
                         const SizedBox(height: 10),
-                        _buildSelectField(
-                          label: 'Mobile Model',
-                          value: _modelController.text,
-                          hint: _brandController.text.isEmpty
-                              ? 'Select Brand first'
-                              : 'Tap to select ${_brandController.text} model',
-                          prefixIcon: Icons.devices_other_rounded,
-                          isLoading: _isLoadingModels,
-                          onTap: _selectModel,
-                          isRequired: true,
+                        KeyedSubtree(
+                          key: _modelFieldKey,
+                          child: _buildSelectField(
+                            label: 'Mobile Model',
+                            value: _modelController.text,
+                            hint: _brandController.text.isEmpty
+                                ? 'Select Brand first'
+                                : 'Tap to select ${_brandController.text} model',
+                            prefixIcon: Icons.devices_other_rounded,
+                            isLoading: _isLoadingModels,
+                            onTap: () {
+                              _clearFieldError('model');
+                              _selectModel();
+                            },
+                            isRequired: true,
+                            hasError: _fieldErrors.containsKey('model'),
+                            errorText: _fieldErrors['model'],
+                          ),
                         ),
                       ] else ...[
-                        CustomTextField(
-                          controller: _brandController,
-                          label: 'Mobile Brand *',
-                          hint: 'e.g. Apple, Samsung, OnePlus',
-                          prefixIcon: Icons.business_rounded,
-                          isRequired: true,
-                          onChanged: (_) => _autoFormatName(),
-                          validator: (v) => v == null || v.trim().isEmpty ? 'Brand required' : null,
+                        KeyedSubtree(
+                          key: _brandFieldKey,
+                          child: CustomTextField(
+                            controller: _brandController,
+                            label: 'Mobile Brand *',
+                            hint: 'e.g. Apple, Samsung, OnePlus',
+                            prefixIcon: Icons.business_rounded,
+                            isRequired: true,
+                            hasError: _fieldErrors.containsKey('brand'),
+                            errorText: _fieldErrors['brand'],
+                            onChanged: (_) {
+                              _clearFieldError('brand');
+                              _autoFormatName();
+                            },
+                          ),
                         ),
                         const SizedBox(height: 10),
-                        CustomTextField(
-                          controller: _modelController,
-                          label: 'Mobile Model *',
-                          hint: 'e.g. iPhone 13 / Galaxy S21',
-                          prefixIcon: Icons.devices_other_rounded,
-                          isRequired: true,
-                          onChanged: (_) => _autoFormatName(),
-                          validator: (v) => v == null || v.trim().isEmpty ? 'Model required' : null,
+                        KeyedSubtree(
+                          key: _modelFieldKey,
+                          child: CustomTextField(
+                            controller: _modelController,
+                            label: 'Mobile Model *',
+                            hint: 'e.g. iPhone 13 / Galaxy S21',
+                            prefixIcon: Icons.devices_other_rounded,
+                            isRequired: true,
+                            hasError: _fieldErrors.containsKey('model'),
+                            errorText: _fieldErrors['model'],
+                            onChanged: (_) {
+                              _clearFieldError('model');
+                              _autoFormatName();
+                            },
+                          ),
                         ),
                       ],
                       const SizedBox(height: 10),
@@ -1048,84 +1196,119 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
                       ),
                       const SizedBox(height: 14),
 
-                      // Auto-scan Box shortcut & IMEIs
-                      Row(
-                        children: [
-                          const Expanded(
-                            child: Text(
-                              'Device Identifiers (IMEI / Serial)',
-                              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                      // Auto-scan Box shortcut & IMEIs (only for standalone inventory entry)
+                      if (widget.isFromPurchase) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFBFDBFE)),
                           ),
-                          const SizedBox(width: 6),
-                          InkWell(
-                            onTap: _scanBoxTogether,
-                            borderRadius: BorderRadius.circular(6),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF10B981).withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: const Color(0xFF10B981)),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFF1D4ED8)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Device IMEIs will be entered/scanned directly on the Purchase bill.',
+                                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Colors.blue.shade900),
+                                ),
                               ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.qr_code_scanner_rounded, size: 13, color: Color(0xFF10B981)),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    '⚡ Auto-Scan Box',
-                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
-                                  ),
-                                ],
+                            ],
+                          ),
+                        ),
+                      ] else ...[
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'Device Identifiers (IMEI / Serial)',
+                                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
+                            const SizedBox(width: 6),
+                            InkWell(
+                              onTap: _scanBoxTogether,
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF10B981).withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: const Color(0xFF10B981)),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.qr_code_scanner_rounded, size: 13, color: Color(0xFF10B981)),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      '⚡ Auto-Scan Box',
+                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
 
-                      CustomTextField(
-                        label: (_openingStockController.text.trim().isNotEmpty && _openingStockController.text.trim() != '0')
-                            ? 'Primary IMEI 1 * (Required)'
-                            : 'Primary IMEI 1 (Optional)',
-                        hint: 'Primary 15-digit IMEI',
-                        controller: _imei1Controller,
-                        isRequired: _openingStockController.text.trim().isNotEmpty && _openingStockController.text.trim() != '0',
-                        keyboardType: TextInputType.number,
-                        prefixIcon: Icons.qr_code_2_rounded,
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary),
-                          tooltip: 'Scan Box Sticker',
-                          onPressed: _scanBoxTogether,
+                        KeyedSubtree(
+                          key: _imei1FieldKey,
+                          child: CustomTextField(
+                            label: (_openingStockController.text.trim().isNotEmpty && _openingStockController.text.trim() != '0')
+                                ? 'Primary IMEI 1 * (Required)'
+                                : 'Primary IMEI 1 (Optional)',
+                            hint: 'Primary 15-digit IMEI',
+                            controller: _imei1Controller,
+                            isRequired: _openingStockController.text.trim().isNotEmpty && _openingStockController.text.trim() != '0',
+                            keyboardType: TextInputType.number,
+                            prefixIcon: Icons.qr_code_2_rounded,
+                            hasError: _fieldErrors.containsKey('imei1'),
+                            errorText: _fieldErrors['imei1'],
+                            onChanged: (_) => _clearFieldError('imei1'),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary),
+                              tooltip: 'Scan Box Sticker',
+                              onPressed: _scanBoxTogether,
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      CustomTextField(
-                        label: 'Secondary IMEI 2 (Optional)',
-                        hint: 'Secondary 15-digit IMEI',
-                        controller: _imei2Controller,
-                        keyboardType: TextInputType.number,
-                        prefixIcon: Icons.qr_code_rounded,
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary),
-                          tooltip: 'Scan Box Sticker',
-                          onPressed: _scanBoxTogether,
+                        const SizedBox(height: 8),
+                        KeyedSubtree(
+                          key: _imei2FieldKey,
+                          child: CustomTextField(
+                            label: 'Secondary IMEI 2 (Optional)',
+                            hint: 'Secondary 15-digit IMEI',
+                            controller: _imei2Controller,
+                            keyboardType: TextInputType.number,
+                            prefixIcon: Icons.qr_code_rounded,
+                            hasError: _fieldErrors.containsKey('imei2'),
+                            errorText: _fieldErrors['imei2'],
+                            onChanged: (_) => _clearFieldError('imei2'),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary),
+                              tooltip: 'Scan Box Sticker',
+                              onPressed: _scanBoxTogether,
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      CustomTextField(
-                        label: 'Serial Number (Optional)',
-                        hint: 'Manufacturer Serial #',
-                        controller: _serialController,
-                        prefixIcon: Icons.tag_rounded,
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary),
-                          tooltip: 'Scan Serial #',
-                          onPressed: _scanBoxTogether,
+                        const SizedBox(height: 8),
+                        CustomTextField(
+                          label: 'Serial Number (Optional)',
+                          hint: 'Manufacturer Serial #',
+                          controller: _serialController,
+                          prefixIcon: Icons.tag_rounded,
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primary),
+                            tooltip: 'Scan Serial #',
+                            onPressed: _scanBoxTogether,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
@@ -1140,16 +1323,18 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
                 const SizedBox(height: 14),
               ],
 
-              CustomTextField(
-                label: 'Item / Product Name *',
-                hint: _itemType == 'mobile' ? 'e.g. Apple iPhone 13 (8 GB / 128 GB - Black)' : 'e.g. BoAt Airdopes 141 or Noise Smartwatch',
-                controller: _nameController,
-                isRequired: true,
-                prefixIcon: Icons.shopping_bag_outlined,
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Please enter item or product name.';
-                  return null;
-                },
+              KeyedSubtree(
+                key: _nameFieldKey,
+                child: CustomTextField(
+                  label: 'Item / Product Name *',
+                  hint: _itemType == 'mobile' ? 'e.g. Apple iPhone 13 (8 GB / 128 GB - Black)' : 'e.g. BoAt Airdopes 141 or Noise Smartwatch',
+                  controller: _nameController,
+                  isRequired: true,
+                  prefixIcon: Icons.shopping_bag_outlined,
+                  hasError: _fieldErrors.containsKey('name'),
+                  errorText: _fieldErrors['name'],
+                  onChanged: (_) => _clearFieldError('name'),
+                ),
               ),
               const SizedBox(height: 14),
 
@@ -1191,30 +1376,41 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
               Row(
                 children: [
                   Expanded(
-                    child: CustomTextField(
-                      label: 'Selling Price (₹) *',
-                      hint: '0.00',
-                      controller: _sellingPriceController,
-                      isRequired: true,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      prefixIcon: Icons.currency_rupee,
-                      onChanged: (_) => setState(() {}),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) return 'Enter price';
-                        if (double.tryParse(v.trim()) == null) return 'Invalid price';
-                        return null;
-                      },
+                    child: KeyedSubtree(
+                      key: _sellingPriceFieldKey,
+                      child: CustomTextField(
+                        label: 'Selling Price (₹) *',
+                        hint: '0.00',
+                        controller: _sellingPriceController,
+                        isRequired: true,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        prefixIcon: Icons.currency_rupee,
+                        hasError: _fieldErrors.containsKey('selling_price'),
+                        errorText: _fieldErrors['selling_price'],
+                        onChanged: (_) {
+                          _clearFieldError('selling_price');
+                          setState(() {});
+                        },
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: CustomTextField(
-                      label: 'Purchase Cost (₹)',
-                      hint: '0.00',
-                      controller: _purchasePriceController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      prefixIcon: Icons.money_off_outlined,
-                      onChanged: (_) => setState(() {}),
+                    child: KeyedSubtree(
+                      key: _costPriceFieldKey,
+                      child: CustomTextField(
+                        label: 'Purchase Cost (₹)',
+                        hint: '0.00',
+                        controller: _purchasePriceController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        prefixIcon: Icons.money_off_outlined,
+                        hasError: _fieldErrors.containsKey('purchase_price'),
+                        errorText: _fieldErrors['purchase_price'],
+                        onChanged: (_) {
+                          _clearFieldError('purchase_price');
+                          setState(() {});
+                        },
+                      ),
                     ),
                   ),
                 ],
@@ -1237,12 +1433,19 @@ class _QuickAddInventoryModalState extends State<QuickAddInventoryModal> {
               const SizedBox(height: 14),
 
               if (!widget.isFromPurchase)
-                CustomTextField(
-                  label: 'Initial Stock Quantity',
-                  hint: '1',
-                  controller: _openingStockController,
-                  keyboardType: TextInputType.number,
-                  prefixIcon: Icons.numbers_outlined,
+                KeyedSubtree(
+                  key: _openingStockFieldKey,
+                  child: CustomTextField(
+                    label: 'Initial Stock Quantity *',
+                    hint: 'Min. 1',
+                    controller: _openingStockController,
+                    keyboardType: TextInputType.number,
+                    prefixIcon: Icons.numbers_outlined,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    hasError: _fieldErrors.containsKey('opening_stock'),
+                    errorText: _fieldErrors['opening_stock'],
+                    onChanged: (_) => _clearFieldError('opening_stock'),
+                  ),
                 )
               else
                 Container(

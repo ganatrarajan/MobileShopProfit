@@ -52,7 +52,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   GstCalculationResult? _gstResult;
 
   String _paymentStatus = 'pending'; // paid, partial, pending
-  bool _addToInventory = false;
+  bool _addToInventory = true;
   bool _isSaving = false;
   String? _errorMessage;
 
@@ -67,6 +67,33 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   final TextEditingController _itemImei2Controller = TextEditingController();
   final TextEditingController _itemSerialController = TextEditingController();
   bool _showManualImei = false;
+
+  void _populateItemDetails(InventoryItem item) {
+    _selectedItemForAdd = item;
+    final displayPrice = item.purchasePrice > 0 ? item.purchasePrice : item.sellingPrice;
+    _itemRateController.text = displayPrice.toStringAsFixed(2);
+    _errorMessage = null;
+
+    // Clear previous values
+    _itemImei1Controller.clear();
+    _itemImei2Controller.clear();
+    _itemSerialController.clear();
+
+    // Auto-fetch IMEI 1, IMEI 2, Serial from the selected InventoryItem
+    final im1 = item.imei1 ?? (item.serials.isNotEmpty ? item.serials.first.imei1 : null);
+    final im2 = item.imei2 ?? (item.serials.isNotEmpty ? item.serials.first.imei2 : null);
+    final sn = item.serialNumber ?? (item.serials.isNotEmpty ? item.serials.first.serialNumber : null);
+
+    if (im1 != null && im1.isNotEmpty) {
+      _itemImei1Controller.text = im1;
+    }
+    if (im2 != null && im2.isNotEmpty) {
+      _itemImei2Controller.text = im2;
+    }
+    if (sn != null && sn.isNotEmpty) {
+      _itemSerialController.text = sn;
+    }
+  }
 
   @override
   void initState() {
@@ -160,6 +187,15 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       if (mounted) {
         setState(() {
           _inventoryItemsList = response.data!.items;
+          for (final pi in _purchaseItems) {
+            if (pi['inventory_item'] == null && pi['inventory_item_id'] != null) {
+              try {
+                pi['inventory_item'] = _inventoryItemsList.firstWhere(
+                  (inv) => inv.id == pi['inventory_item_id'],
+                );
+              } catch (_) {}
+            }
+          }
         });
       }
     }
@@ -182,17 +218,21 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   Future<void> _openQuickAddInventory() async {
     final newItem = await QuickAddInventoryModal.show(context, isFromPurchase: true);
     if (newItem != null) {
-      await _loadInventory();
-      setState(() {
-        _selectedItemForAdd = _inventoryItemsList.firstWhere(
-          (item) => item.id == newItem.id,
-          orElse: () => newItem,
-        );
-        _itemRateController.text = newItem.purchasePrice > 0
-            ? newItem.purchasePrice.toStringAsFixed(2)
-            : newItem.sellingPrice.toStringAsFixed(2);
-        _errorMessage = null;
-      });
+      if (newItem.id > 0) {
+        await _loadInventory();
+        setState(() {
+          final found = _inventoryItemsList.firstWhere(
+            (item) => item.id == newItem.id,
+            orElse: () => newItem,
+          );
+          _populateItemDetails(found);
+        });
+      } else {
+        // In-memory draft item
+        setState(() {
+          _populateItemDetails(newItem);
+        });
+      }
     }
   }
 
@@ -442,9 +482,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                     trailing: isSelected ? const Icon(Icons.check_circle, color: AppColors.primary) : null,
                                     onTap: () {
                                       setState(() {
-                                        _selectedItemForAdd = item;
-                                        _itemRateController.text = displayPrice.toStringAsFixed(2);
-                                        _errorMessage = null;
+                                        _populateItemDetails(item);
                                       });
                                       Navigator.pop(ctx);
                                     },
@@ -476,10 +514,26 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       }
     }
 
+    // If not adding stock to inventory (bill only), no conflict with inventory stock
+    if (!_addToInventory) return null;
+
+    // If this serial belongs to the exact selected inventory item (e.g. from opening stock), allow it
+    if (_selectedItemForAdd != null) {
+      final isItemOwnSerial = _selectedItemForAdd!.imei1 == clean ||
+          _selectedItemForAdd!.imei2 == clean ||
+          _selectedItemForAdd!.serialNumber == clean ||
+          _selectedItemForAdd!.serials.any((s) => s.imei1 == clean || s.imei2 == clean || s.serialNumber == clean);
+      if (isItemOwnSerial) return null;
+    }
+
     // Check against backend active inventory stock for this shop
     try {
       final check = await _inventoryRepository.checkImeiAvailability(clean);
       if (check.success && check.data != null && check.data!['in_stock'] == true) {
+        // If the backend returned the exact item that is currently selected, allow it
+        if (_selectedItemForAdd != null && check.data!['item']?['id'] == _selectedItemForAdd!.id) {
+          return null;
+        }
         final itemName = check.data!['item']?['name'];
         final suffix = itemName != null ? ' ($itemName)' : '';
         return check.message.isNotEmpty
@@ -605,6 +659,37 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     final imei2 = _itemImei2Controller.text.trim();
     final serial = _itemSerialController.text.trim();
 
+    // If this item is already added to the bill and is not a mobile phone, automatically merge quantity!
+    if (itemToAdd.id > 0 && itemToAdd.itemType != 'mobile') {
+      final existingIndex = _purchaseItems.indexWhere((i) => i['inventory_item_id'] == itemToAdd.id);
+      if (existingIndex >= 0) {
+        final currentQty = _purchaseItems[existingIndex]['quantity'] as int;
+        final newTotalQty = currentQty + qty;
+        setState(() {
+          _purchaseItems[existingIndex]['quantity'] = newTotalQty;
+          _purchaseItems[existingIndex]['purchase_rate'] = rate;
+          _purchaseItems[existingIndex]['total_amount'] = newTotalQty * rate;
+          _selectedItemForAdd = null;
+          _itemQtyController.text = '1';
+          _itemRateController.text = '0';
+          _itemImei1Controller.clear();
+          _itemImei2Controller.clear();
+          _itemSerialController.clear();
+          _showManualImei = false;
+          _errorMessage = null;
+        });
+        _recalculateTotals();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Updated ${itemToAdd.name}: $currentQty + $qty = $newTotalQty units in bill'),
+            duration: const Duration(seconds: 2),
+            backgroundColor: const Color(0xFF15803D),
+          ),
+        );
+        return;
+      }
+    }
+
     if (itemToAdd.itemType == 'mobile') {
       if (imei1.isEmpty) {
         _showFormError('Primary IMEI 1 is required for mobile phones. Cannot add mobile to purchase without IMEI.');
@@ -653,7 +738,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       setState(() {
         _purchaseItems.add({
           'inventory_item': itemToAdd,
-          'inventory_item_id': itemToAdd.id,
+          'inventory_item_id': itemToAdd.id > 0 ? itemToAdd.id : null,
+          'is_draft': itemToAdd.id <= 0,
           'item_name': itemToAdd.name,
           'quantity': qty,
           'imei1': imei1.isNotEmpty ? imei1 : null,
@@ -758,6 +844,44 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     }
 
     setState(() => _isSaving = true);
+
+    // 1. Create any in-memory draft products in inventory catalog first
+    try {
+      for (final pi in _purchaseItems) {
+        final invId = pi['inventory_item_id'] as int?;
+        final invItem = pi['inventory_item'] as InventoryItem?;
+        if ((invId == null || invId <= 0) && invItem != null) {
+          final createRes = await _inventoryRepository.createItem(
+            name: invItem.name,
+            itemType: invItem.itemType,
+            category: invItem.category,
+            brand: invItem.brand,
+            model: invItem.model,
+            sku: invItem.sku,
+            purchasePrice: (pi['purchase_rate'] as num).toDouble(),
+            sellingPrice: invItem.sellingPrice,
+            taxRate: _gstEnabled ? _gstRate : 0.0,
+            taxType: _gstMode == GstMode.inclusive ? 'inclusive' : 'exclusive',
+            openingStock: 0,
+            description: invItem.description,
+          );
+          if (createRes.success && createRes.data != null) {
+            pi['inventory_item_id'] = createRes.data!.id;
+            pi['inventory_item'] = createRes.data!;
+          } else {
+            setState(() => _isSaving = false);
+            _showFormError(createRes.message.isNotEmpty
+                ? 'Failed to create product ${invItem.name}: ${createRes.message}'
+                : 'Failed to create product ${invItem.name}.');
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      setState(() => _isSaving = false);
+      _showFormError('Failed to prepare items for purchase: $e');
+      return;
+    }
 
     final effectiveGst = _gstEnabled
         ? GstCalculator.calculate(
@@ -867,19 +991,60 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     }
   }
 
+  Future<bool> _confirmDiscard() async {
+    if (_purchaseItems.isEmpty) return true;
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Discard Purchase?'),
+        content: const Text('You have items in this purchase bill. Are you sure you want to discard without saving?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep Editing'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Discard', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    return discard == true;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(
-          _isEditing ? 'Edit Purchase #${widget.purchase!.purchaseNumber}' : 'Create Purchase Order',
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+    return PopScope(
+      canPop: _purchaseItems.isEmpty,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final shouldDiscard = await _confirmDiscard();
+        if (shouldDiscard && context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: Text(
+            _isEditing ? 'Edit Purchase #${widget.purchase!.purchaseNumber}' : 'Create Purchase Order',
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () async {
+              final shouldDiscard = await _confirmDiscard();
+              if (shouldDiscard && context.mounted) {
+                Navigator.of(context).pop();
+              }
+            },
+          ),
         ),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -1047,26 +1212,37 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                           ),
                         ),
                       ),
-                      if (_selectedItemForAdd != null &&
-                          (_selectedItemForAdd!.brand != null ||
-                              _selectedItemForAdd!.model != null ||
-                              _selectedItemForAdd!.itemType == 'mobile')) ...[
+                      if (_selectedItemForAdd != null) ...[
                         const SizedBox(height: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.08),
+                            color: _selectedItemForAdd!.id <= 0 ? const Color(0xFFEFF6FF) : const Color(0xFFF1F5F9),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                            border: Border.all(
+                              color: _selectedItemForAdd!.id <= 0 ? const Color(0xFF93C5FD) : const Color(0xFFCBD5E1),
+                            ),
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.smartphone_rounded, size: 14, color: AppColors.primary),
+                              Icon(
+                                _selectedItemForAdd!.id <= 0
+                                    ? Icons.fiber_new_rounded
+                                    : (_selectedItemForAdd!.itemType == 'mobile' ? Icons.smartphone_rounded : Icons.inventory_2_outlined),
+                                size: 16,
+                                color: _selectedItemForAdd!.id <= 0 ? const Color(0xFF1D4ED8) : AppColors.primary,
+                              ),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
-                                  '${_selectedItemForAdd!.brand ?? ''} ${_selectedItemForAdd!.model ?? ''}${_selectedItemForAdd!.description != null && _selectedItemForAdd!.description!.isNotEmpty ? " • ${_selectedItemForAdd!.description!}" : ""}',
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary),
+                                  _selectedItemForAdd!.id <= 0
+                                      ? 'New Product (Draft) • Will be added to catalog upon saving bill'
+                                      : 'Current Stock: ${_selectedItemForAdd!.currentStock} ${_selectedItemForAdd!.unit}${_selectedItemForAdd!.brand != null || _selectedItemForAdd!.model != null ? " • ${_selectedItemForAdd!.brand ?? ''} ${_selectedItemForAdd!.model ?? ''}" : ""}${_selectedItemForAdd!.description != null && _selectedItemForAdd!.description!.isNotEmpty ? " • ${_selectedItemForAdd!.description!}" : ""}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: _selectedItemForAdd!.id <= 0 ? const Color(0xFF1E40AF) : AppColors.textPrimary,
+                                  ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -1148,6 +1324,67 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                 ],
                               ),
                               const SizedBox(height: 10),
+                              if (_selectedItemForAdd != null &&
+                                  _itemImei1Controller.text.isNotEmpty &&
+                                  (_selectedItemForAdd!.imei1 == _itemImei1Controller.text ||
+                                      _selectedItemForAdd!.serials.any((s) => s.imei1 == _itemImei1Controller.text))) ...[
+                                Container(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.shade50,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: Colors.green.shade200),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.check_circle_outline, size: 14, color: AppColors.success),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '⚡ Auto-fetched IMEI from inventory',
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green.shade800),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                              if (_selectedItemForAdd != null && _selectedItemForAdd!.serials.length > 1) ...[
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Available serials in inventory:',
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 4,
+                                        children: _selectedItemForAdd!.serials.map((s) {
+                                          final isCurrent = _itemImei1Controller.text == (s.imei1 ?? '');
+                                          final label = s.imei1 ?? s.serialNumber ?? 'Serial #${s.id}';
+                                          return ActionChip(
+                                            visualDensity: VisualDensity.compact,
+                                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                            backgroundColor: isCurrent ? AppColors.primary.withOpacity(0.15) : Colors.grey.shade100,
+                                            label: Text(label, style: TextStyle(fontSize: 11, fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal)),
+                                            onPressed: () {
+                                              setState(() {
+                                                _itemImei1Controller.text = s.imei1 ?? '';
+                                                _itemImei2Controller.text = s.imei2 ?? '';
+                                                _itemSerialController.text = s.serialNumber ?? '';
+                                              });
+                                            },
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                               CustomTextField(
                                 controller: _itemImei1Controller,
                                 label: 'Primary IMEI 1',
@@ -1302,24 +1539,81 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                               ),
                               child: ListTile(
                                 visualDensity: VisualDensity.compact,
-                                title: Text(item['item_name'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                title: Text(
+                                  item['item_name'],
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      '${item['quantity']} x \u20B9${rate.toStringAsFixed(2)}',
-                                      style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                                    const SizedBox(height: 2),
+                                    Wrap(
+                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      spacing: 6,
+                                      runSpacing: 4,
+                                      children: [
+                                        Text(
+                                          '${item['quantity']} x \u20B9${rate.toStringAsFixed(2)}',
+                                          style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                                        ),
+                                        if (item['is_draft'] == true || (item['inventory_item_id'] == null || (item['inventory_item_id'] as int) <= 0))
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFEFF6FF),
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(
+                                                color: const Color(0xFF93C5FD),
+                                                width: 0.8,
+                                              ),
+                                            ),
+                                            child: Text(
+                                              'New Item ➔ Stock: +${item['quantity']}',
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: Color(0xFF1D4ED8),
+                                              ),
+                                            ),
+                                          )
+                                        else if (item['inventory_item'] != null)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFDCFCE7),
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(
+                                                color: const Color(0xFF86EFAC),
+                                                width: 0.8,
+                                              ),
+                                            ),
+                                            child: Text(
+                                              'Old: ${(item['inventory_item'] as InventoryItem).currentStock} ➔ New: +${item['quantity']} ➔ Total: ${(item['inventory_item'] as InventoryItem).currentStock + (item['quantity'] as int)}',
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: Color(0xFF15803D),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
                                     ),
                                     if (item['imei1'] != null)
                                       Padding(
-                                        padding: const EdgeInsets.only(top: 2),
+                                        padding: const EdgeInsets.only(top: 3),
                                         child: Row(
                                           children: [
                                             const Icon(Icons.phone_android_rounded, size: 12, color: AppColors.primary),
                                             const SizedBox(width: 4),
-                                            Text(
-                                              'IMEI: ${item['imei1']}${item['imei2'] != null ? ' / ${item['imei2']}' : ''}',
-                                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary),
+                                            Expanded(
+                                              child: Text(
+                                                'IMEI: ${item['imei1']}${item['imei2'] != null ? ' / ${item['imei2']}' : ''}',
+                                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
                                             ),
                                           ],
                                         ),
@@ -1331,7 +1625,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                           children: [
                                             const Icon(Icons.tag_rounded, size: 12, color: AppColors.primary),
                                             const SizedBox(width: 4),
-                                            Flexible(
+                                            Expanded(
                                               child: Text(
                                                 'S/N: ${item['serial_number']}',
                                                 style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary),
@@ -1348,11 +1642,16 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                                   children: [
                                     Text(
                                       '\u20B9${total.toStringAsFixed(2)}',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textPrimary),
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppColors.textPrimary),
                                     ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                                      onPressed: () => _removeItemFromPurchase(idx),
+                                    const SizedBox(width: 4),
+                                    InkWell(
+                                      onTap: () => _removeItemFromPurchase(idx),
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: const Padding(
+                                        padding: EdgeInsets.all(4),
+                                        child: Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -1564,19 +1863,215 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
               ),
               const SizedBox(height: 16),
 
-              // 5. STOCK INTEGRATION OPTION
-              Card(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 1.5,
-                color: Colors.purple.shade50,
-                child: CheckboxListTile(
-                  title: const Text('Add purchased items to Inventory', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary)),
-                  subtitle: const Text('Automatically increases item stock in inventory immediately after saving.', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
-                  value: _addToInventory,
-                  activeColor: AppColors.primary,
-                  onChanged: (val) {
-                    if (val != null) setState(() => _addToInventory = val);
-                  },
+              // 5. INVENTORY STOCK IMPACT (VYAPAR STYLE)
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFF86EFAC),
+                    width: 1.2,
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.inventory_2_rounded,
+                            color: Color(0xFF16A34A),
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Inventory Stock Impact',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13.5,
+                                    color: Color(0xFF15803D),
+                                  ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  '✓ All purchased items will automatically increase your inventory stock upon saving.',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF166534),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFDCFCE7),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              'Auto-Update',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF15803D),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_purchaseItems.isNotEmpty) ...[
+                        const Divider(height: 20),
+                        Builder(
+                          builder: (context) {
+                            int totalOld = 0;
+                            int totalNew = 0;
+                            for (final pi in _purchaseItems) {
+                              final qty = (pi['quantity'] as int?) ?? 1;
+                              totalNew += qty;
+                              final inv = pi['inventory_item'] as InventoryItem?;
+                              if (inv != null && inv.id > 0) {
+                                totalOld += inv.currentStock;
+                              }
+                            }
+                            final totalCalculated = totalOld + totalNew;
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _buildStockStatBox(
+                                        label: 'Old Count',
+                                        value: '$totalOld',
+                                        color: Colors.blueGrey.shade700,
+                                        subtext: 'Current Stock',
+                                      ),
+                                    ),
+                                    const Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: 4),
+                                      child: Icon(Icons.add, size: 14, color: Colors.grey),
+                                    ),
+                                    Expanded(
+                                      child: _buildStockStatBox(
+                                        label: 'New (+Added)',
+                                        value: '+$totalNew',
+                                        color: const Color(0xFF16A34A),
+                                        subtext: 'This Bill',
+                                      ),
+                                    ),
+                                    const Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: 4),
+                                      child: Icon(Icons.arrow_forward_rounded, size: 14, color: Colors.grey),
+                                    ),
+                                    Expanded(
+                                      child: _buildStockStatBox(
+                                        label: 'Total Count',
+                                        value: '$totalCalculated',
+                                        color: const Color(0xFF0F766E),
+                                        subtext: 'After Save',
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.85),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: const Color(0xFFBBF7D0),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Row(
+                                        children: [
+                                          Icon(
+                                            Icons.format_list_bulleted_rounded,
+                                            size: 13,
+                                            color: Color(0xFF15803D),
+                                          ),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            'Stock Breakdown per Item:',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFF15803D),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      ..._purchaseItems.map((item) {
+                                        final inv = item['inventory_item'] as InventoryItem?;
+                                        final isDraft = inv == null || inv.id <= 0 || item['is_draft'] == true;
+                                        final oldCount = isDraft ? 0 : inv.currentStock;
+                                        final qty = (item['quantity'] as int?) ?? 1;
+                                        final finalCount = oldCount + qty;
+                                        final itemName = item['item_name'] ?? 'Item';
+
+                                        return Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 2.5),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  isDraft ? '$itemName (New)' : itemName,
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: isDraft ? const Color(0xFF1D4ED8) : AppColors.textPrimary,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                'Old: $oldCount',
+                                                style: TextStyle(fontSize: 10.5, color: Colors.grey.shade700),
+                                              ),
+                                              Text(
+                                                '  ➔  +$qty',
+                                                style: const TextStyle(
+                                                  fontSize: 10.5,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Color(0xFF16A34A),
+                                                ),
+                                              ),
+                                              Text(
+                                                '  =  $finalCount',
+                                                style: const TextStyle(
+                                                  fontSize: 10.5,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Color(0xFF0F766E),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -1591,6 +2086,72 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
             ],
           ),
         ),
+      ),
+    ));
+  }
+
+  Widget _buildStockStatBox({
+    required String label,
+    required String value,
+    required Color color,
+    required String subtext,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.06),
+            blurRadius: 3,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 2),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 1),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              subtext,
+              style: TextStyle(
+                fontSize: 9,
+                color: Colors.grey.shade500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
       ),
     );
   }
