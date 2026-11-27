@@ -497,14 +497,54 @@ class SaleController extends Controller
     }
 
     /**
-     * Update sale notes / details.
+     * Update sale details (Owner only with Security PIN verification).
+     * Customer details are locked and cannot be edited.
      */
-    public function update(Request $request, int $id): JsonResponse
+    public function update(Request $request, mixed $sale): JsonResponse
     {
         $user = $request->user();
-        $sale = Sale::forShop($user->shop_id)->find($id);
+        if (!$user || !$user->shop_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized or no shop associated.',
+            ], 403);
+        }
 
-        if (!$sale) {
+        if ($user->role !== 'owner') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only the shop owner can edit sales invoices.',
+            ], 403);
+        }
+
+        if (empty($user->security_pin)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Please set up a 4-digit Security PIN in Settings before editing sales.',
+                'requires_pin_setup' => true,
+            ], 422);
+        }
+
+        $pin = $request->input('security_pin');
+        if (empty($pin)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Security PIN is required to edit sales invoice.',
+                'requires_pin' => true,
+            ], 422);
+        }
+
+        if (!Hash::check($pin, $user->security_pin)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid Security PIN.',
+            ], 422);
+        }
+
+        $id = $this->resolveSaleId($sale);
+        $saleRecord = Sale::forShop($user->shop_id)->with(['items', 'payments'])->find($id);
+
+        if (!$saleRecord) {
             return response()->json([
                 'success' => false,
                 'message' => 'Sale invoice not found or unauthorized.',
@@ -512,19 +552,308 @@ class SaleController extends Controller
         }
 
         $validated = $request->validate([
-            'customer_name' => ['nullable', 'string', 'max:255'],
-            'customer_mobile' => ['nullable', 'string', 'max:50'],
+            'security_pin' => ['required', 'string'],
             'sale_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:1000'],
+            'discount' => ['nullable', 'numeric', 'min:0'],
+            'tax_amount' => ['nullable', 'numeric', 'min:0'],
+            'tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'tax_type' => ['nullable', 'string', 'in:exclusive,inclusive'],
+            'is_inter_state' => ['nullable', 'boolean'],
+            'cgst_amount' => ['nullable', 'numeric', 'min:0'],
+            'sgst_amount' => ['nullable', 'numeric', 'min:0'],
+            'igst_amount' => ['nullable', 'numeric', 'min:0'],
+            'items' => ['sometimes', 'array', 'min:1'],
+            'items.*.inventory_item_id' => ['nullable', 'integer', 'exists:inventory_items,id'],
+            'items.*.product_name' => ['required_without:items.*.item_name', 'nullable', 'string', 'max:255'],
+            'items.*.item_name' => ['required_without:items.*.product_name', 'nullable', 'string', 'max:255'],
+            'items.*.item_type' => ['nullable', 'string', 'in:mobile,accessory,product,service,spare_part,other'],
+            'items.*.brand' => ['nullable', 'string', 'max:100'],
+            'items.*.model' => ['nullable', 'string', 'max:100'],
+            'items.*.imei_1' => ['nullable', 'string', 'max:50'],
+            'items.*.imei_2' => ['nullable', 'string', 'max:50'],
+            'items.*.serial_number' => ['nullable', 'string', 'max:100'],
+            'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'items.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'items.*.discount' => ['nullable', 'numeric', 'min:0'],
+            'items.*.tax_amount' => ['nullable', 'numeric', 'min:0'],
+            'items.*.tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'items.*.tax_type' => ['nullable', 'string', 'in:exclusive,inclusive'],
+            'items.*.cgst_amount' => ['nullable', 'numeric', 'min:0'],
+            'items.*.sgst_amount' => ['nullable', 'numeric', 'min:0'],
+            'items.*.igst_amount' => ['nullable', 'numeric', 'min:0'],
+            'items.*.cost_price' => ['nullable', 'numeric', 'min:0'],
+            'paid_amount' => ['nullable', 'numeric', 'min:0'],
         ]);
 
-        $sale->update($validated);
+        try {
+            DB::transaction(function () use ($user, $saleRecord, $validated, $request) {
+                if ($request->has('items') && is_array($validated['items'])) {
+                    // 1. Revert previous inventory items stock and serials
+                    foreach ($saleRecord->items as $item) {
+                        if ($item->inventory_item_id) {
+                            $invItem = \App\Models\InventoryItem::forShop($saleRecord->shop_id)->find($item->inventory_item_id);
+                            if ($invItem) {
+                                $invItem->increment('current_stock', $item->quantity);
+                            }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Sale invoice updated successfully.',
-            'data' => new SaleResource($sale->load(['customer', 'device', 'items', 'payments', 'creator'])),
-        ]);
+                            $serialQuery = \App\Models\InventorySerial::forShop($saleRecord->shop_id)
+                                ->where('inventory_item_id', $item->inventory_item_id)
+                                ->where('status', 'sold');
+
+                            if (!empty($item->imei_1) || !empty($item->imei_2) || !empty($item->serial_number)) {
+                                $serialQuery->where(function ($q) use ($item) {
+                                    if (!empty($item->imei_1)) $q->orWhere('imei1', $item->imei_1)->orWhere('imei2', $item->imei_1);
+                                    if (!empty($item->imei_2)) $q->orWhere('imei1', $item->imei_2)->orWhere('imei2', $item->imei_2);
+                                    if (!empty($item->serial_number)) $q->orWhere('serial_number', $item->serial_number);
+                                });
+                            }
+
+                            $serialToRestore = $serialQuery->first();
+                            if ($serialToRestore) {
+                                $serialToRestore->update(['status' => 'available']);
+                            }
+                        }
+                    }
+
+                    // 2. Remove previous stock movements for this sale
+                    \App\Models\StockMovement::where('shop_id', $saleRecord->shop_id)
+                        ->where('reference_type', 'sale')
+                        ->where('reference_id', $saleRecord->id)
+                        ->delete();
+
+                    // 3. Delete old items
+                    $saleRecord->items()->delete();
+
+                    // 4. Calculate new item totals and subtotal
+                    $subtotal = 0;
+                    $totalItemDiscount = 0;
+                    $totalItemTax = 0;
+                    $processedItems = [];
+
+                    foreach ($validated['items'] as $itemData) {
+                        if (!isset($itemData['product_name']) && isset($itemData['item_name'])) {
+                            $itemData['product_name'] = $itemData['item_name'];
+                        }
+                        $qty = (int) $itemData['quantity'];
+                        $price = (float) $itemData['unit_price'];
+                        $itemDiscount = (float) ($itemData['discount'] ?? 0);
+                        $itemTax = (float) ($itemData['tax_amount'] ?? 0);
+                        $itemTaxRate = (float) ($itemData['tax_rate'] ?? 0);
+                        $itemTaxType = $itemData['tax_type'] ?? null;
+
+                        if ($itemTaxRate <= 0 && !empty($itemData['inventory_item_id'])) {
+                            $inv = \App\Models\InventoryItem::forShop($user->shop_id)->find($itemData['inventory_item_id']);
+                            if ($inv && (float) $inv->tax_rate > 0) {
+                                $itemTaxRate = (float) $inv->tax_rate;
+                                $itemTaxType = $itemTaxType ?? ($inv->tax_type ?? 'exclusive');
+                            }
+                        }
+                        $itemTaxType = $itemTaxType ?? 'exclusive';
+
+                        if ($itemTax <= 0 && $itemTaxRate > 0) {
+                            $lineTaxable = max(0, ($qty * $price) - $itemDiscount);
+                            if ($itemTaxType === 'inclusive') {
+                                $lineBase = $lineTaxable / (1 + ($itemTaxRate / 100));
+                                $itemTax = round($lineTaxable - $lineBase, 2);
+                            } else {
+                                $itemTax = round($lineTaxable * ($itemTaxRate / 100), 2);
+                            }
+                        }
+
+                        $itemTotal = ($qty * $price) - $itemDiscount + ($itemTaxType === 'inclusive' ? 0 : $itemTax);
+
+                        $subtotal += ($qty * $price);
+                        $totalItemDiscount += $itemDiscount;
+                        $totalItemTax += $itemTax;
+
+                        $processedItems[] = array_merge($itemData, [
+                            'tax_rate' => $itemTaxRate,
+                            'tax_type' => $itemTaxType,
+                            'discount' => $itemDiscount,
+                            'tax_amount' => $itemTax,
+                            'total' => max(0, $itemTotal),
+                        ]);
+                    }
+
+                    $saleDiscount = isset($validated['discount']) ? (float) $validated['discount'] : (float) $saleRecord->discount;
+                    $saleTax = isset($validated['tax_amount']) ? (float) $validated['tax_amount'] : 0.0;
+                    $taxRate = isset($validated['tax_rate']) ? (float) $validated['tax_rate'] : (float) $saleRecord->tax_rate;
+                    $taxType = $validated['tax_type'] ?? ($saleRecord->tax_type ?? 'exclusive');
+                    $isInterState = isset($validated['is_inter_state']) ? (bool) $validated['is_inter_state'] : (bool) $saleRecord->is_inter_state;
+
+                    if ($saleTax <= 0 && $taxRate > 0) {
+                        $taxable = max(0, $subtotal - $saleDiscount);
+                        if ($taxType === 'inclusive') {
+                            $taxableBase = $taxable / (1 + ($taxRate / 100));
+                            $saleTax = round($taxable - $taxableBase, 2);
+                        } else {
+                            $saleTax = round($taxable * ($taxRate / 100), 2);
+                        }
+                    } elseif ($saleTax <= 0 && $totalItemTax > 0) {
+                        $saleTax = $totalItemTax;
+                        $firstTaxed = collect($processedItems)->first(fn($i) => ($i['tax_rate'] ?? 0) > 0);
+                        if ($firstTaxed) {
+                            $taxRate = (float) $firstTaxed['tax_rate'];
+                            $taxType = $firstTaxed['tax_type'] ?? 'exclusive';
+                        }
+                    }
+
+                    if ($isInterState) {
+                        $igstAmount = $saleTax;
+                        $cgstAmount = 0;
+                        $sgstAmount = 0;
+                    } else {
+                        $cgstAmount = round($saleTax / 2, 2);
+                        $sgstAmount = round($saleTax - $cgstAmount, 2);
+                        $igstAmount = 0;
+                    }
+
+                    $overallDiscount = $totalItemDiscount + $saleDiscount;
+                    $overallTax = ($saleTax == $totalItemTax) ? $saleTax : ($totalItemTax + $saleTax);
+                    $grandTotal = max(0, $subtotal - $overallDiscount + ($taxType === 'inclusive' ? 0 : $overallTax));
+
+                    // 5. Deduct new stock and create items
+                    foreach ($processedItems as $pItem) {
+                        $invItemId = $pItem['inventory_item_id'] ?? null;
+                        if ($invItemId) {
+                            $invItem = \App\Models\InventoryItem::forShop($user->shop_id)->lockForUpdate()->find($invItemId);
+                            if (!$invItem) {
+                                throw new \Exception("Inventory item ID {$invItemId} not found.");
+                            }
+                            if ($invItem->current_stock < $pItem['quantity']) {
+                                throw new \Exception("Insufficient stock for '{$invItem->name}'. Current stock: {$invItem->current_stock}, requested: {$pItem['quantity']}.");
+                            }
+
+                            $invItem->decrement('current_stock', $pItem['quantity']);
+
+                            if (empty($pItem['cost_price']) && !empty($invItem->purchase_price)) {
+                                $pItem['cost_price'] = $invItem->purchase_price;
+                            }
+
+                            \App\Models\StockMovement::create([
+                                'shop_id' => $user->shop_id,
+                                'inventory_item_id' => $invItem->id,
+                                'movement_type' => 'sale',
+                                'quantity' => -$pItem['quantity'],
+                                'unit_cost' => $invItem->purchase_price,
+                                'reference_type' => 'sale',
+                                'reference_id' => $saleRecord->id,
+                                'notes' => "Sold {$pItem['quantity']} unit(s) via updated Invoice #{$saleRecord->invoice_number}",
+                            ]);
+
+                            $serialQuery = \App\Models\InventorySerial::forShop($user->shop_id)
+                                ->where('inventory_item_id', $invItem->id)
+                                ->where('status', 'available');
+
+                            if (!empty($pItem['imei_1']) || !empty($pItem['imei_2']) || !empty($pItem['serial_number'])) {
+                                $serialQuery->where(function ($q) use ($pItem) {
+                                    if (!empty($pItem['imei_1'])) $q->orWhere('imei1', $pItem['imei_1'])->orWhere('imei2', $pItem['imei_1']);
+                                    if (!empty($pItem['imei_2'])) $q->orWhere('imei1', $pItem['imei_2'])->orWhere('imei2', $pItem['imei_2']);
+                                    if (!empty($pItem['serial_number'])) $q->orWhere('serial_number', $pItem['serial_number']);
+                                });
+                            }
+
+                            $serialToMark = $serialQuery->first();
+                            if ($serialToMark) {
+                                $serialToMark->update(['status' => 'sold']);
+                            }
+                        }
+                        $saleRecord->items()->create($pItem);
+                    }
+
+                    $targetPaid = $request->has('paid_amount')
+                        ? min((float) $validated['paid_amount'], (float) $grandTotal)
+                        : ($saleRecord->payment_status === 'paid'
+                            ? (float) $grandTotal
+                            : min((float) $saleRecord->amount_paid, (float) $grandTotal));
+
+                    // Sync / adjust payment records if paid amount changed or exceeded grand total
+                    if (abs($targetPaid - (float) $saleRecord->amount_paid) > 0.001) {
+                        $existingPayments = $saleRecord->payments()->get();
+                        if ($existingPayments->count() === 1) {
+                            $firstPayment = $existingPayments->first();
+                            if ($targetPaid <= 0) {
+                                $firstPayment->delete();
+                            } else {
+                                $firstPayment->update(['amount' => $targetPaid]);
+                            }
+                        } elseif ($existingPayments->count() > 1) {
+                            if ($targetPaid <= 0) {
+                                $saleRecord->payments()->delete();
+                            } else {
+                                $remaining = $targetPaid;
+                                foreach ($existingPayments as $pmt) {
+                                    if ($remaining <= 0) {
+                                        $pmt->delete();
+                                    } else {
+                                        $alloc = min((float) $pmt->amount, $remaining);
+                                        $pmt->update(['amount' => $alloc]);
+                                        $remaining -= $alloc;
+                                    }
+                                }
+                                if ($remaining > 0) {
+                                    $saleRecord->payments()->create([
+                                        'shop_id' => $user->shop_id,
+                                        'amount' => $remaining,
+                                        'payment_method' => 'cash',
+                                        'created_by' => $user->id,
+                                    ]);
+                                }
+                            }
+                        } elseif ($targetPaid > 0) {
+                            $saleRecord->payments()->create([
+                                'shop_id' => $user->shop_id,
+                                'amount' => $targetPaid,
+                                'payment_method' => 'cash',
+                                'created_by' => $user->id,
+                            ]);
+                        }
+                    }
+
+                    $amountDue = max(0, (float) $grandTotal - $targetPaid);
+                    $paymentStatus = ($amountDue <= 0.001) ? 'paid' : (($targetPaid > 0) ? 'partially_paid' : 'due');
+
+                    // Note: customer_id, customer_name, customer_mobile are NOT updated (locked for editing)
+                    $saleRecord->update([
+                        'sale_date' => $validated['sale_date'] ?? $saleRecord->sale_date,
+                        'notes' => array_key_exists('notes', $validated) ? $validated['notes'] : $saleRecord->notes,
+                        'subtotal' => $subtotal,
+                        'discount' => $saleDiscount,
+                        'tax_amount' => $saleTax,
+                        'tax_rate' => $taxRate,
+                        'tax_type' => $taxType,
+                        'is_inter_state' => $isInterState,
+                        'cgst_amount' => $cgstAmount,
+                        'sgst_amount' => $sgstAmount,
+                        'igst_amount' => $igstAmount,
+                        'grand_total' => $grandTotal,
+                        'amount_paid' => $targetPaid,
+                        'amount_due' => $amountDue,
+                        'payment_status' => $paymentStatus,
+                    ]);
+                } else {
+                    // Update only non-customer header details
+                    $headerUpdates = [];
+                    if (isset($validated['sale_date'])) $headerUpdates['sale_date'] = $validated['sale_date'];
+                    if (array_key_exists('notes', $validated)) $headerUpdates['notes'] = $validated['notes'];
+                    if (!empty($headerUpdates)) {
+                        $saleRecord->update($headerUpdates);
+                    }
+                }
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Sale invoice updated successfully.',
+                'data' => new SaleResource($saleRecord->fresh()->load(['customer', 'device', 'items', 'payments', 'creator'])),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage() ?: 'Failed to update sale invoice.',
+            ], 422);
+        }
     }
 
     private function resolveSaleId(mixed $sale): int

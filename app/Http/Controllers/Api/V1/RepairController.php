@@ -186,10 +186,12 @@ class RepairController extends Controller
             }
         }
 
-        $devicePhoto = $this->processDevicePhoto($request, $validated['device_photo'] ?? null);
+        $devicePhoto = $this->processPhoto($request, $validated['device_photo_front'] ?? $validated['device_photo'] ?? null, 'device_photo', 'front');
+        $devicePhotoBack = $this->processPhoto($request, $validated['device_photo_back'] ?? null, 'device_photo_back', 'back');
+        $customerPhoto = $this->processPhoto($request, $validated['customer_photo'] ?? null, 'customer_photo', 'customer');
 
         try {
-            $repair = DB::transaction(function () use ($user, $validated, $devicePhoto) {
+            $repair = DB::transaction(function () use ($user, $validated, $devicePhoto, $devicePhotoBack, $customerPhoto) {
                 // Generate per-shop unique job card number collision-safely
                 $lastJob = Repair::withTrashed()->forShop($user->shop_id)
                     ->where('job_number', 'like', 'JOB-%')
@@ -229,6 +231,8 @@ class RepairController extends Controller
                     'accessories_notes' => $validated['accessories_notes'] ?? null,
                     'pin_passcode' => $validated['pin_passcode'] ?? null,
                     'device_photo' => $devicePhoto,
+                    'device_photo_back' => $devicePhotoBack,
+                    'customer_photo' => $customerPhoto,
                     'estimated_cost' => $estimatedCost,
                     'final_cost' => $finalCost,
                     'labour_cost' => (float) ($validated['labour_cost'] ?? 0),
@@ -397,8 +401,19 @@ class RepairController extends Controller
             }
         }
 
-        if ($request->hasFile('device_photo') || array_key_exists('device_photo', $validated)) {
-            $validated['device_photo'] = $this->processDevicePhoto($request, $validated['device_photo'] ?? null);
+        if ($repair->repair_status === 'delivered') {
+            // Photos cannot be changed, retaken, or removed after delivered
+            unset($validated['device_photo'], $validated['device_photo_front'], $validated['device_photo_back'], $validated['customer_photo']);
+        } else {
+            if ($request->hasFile('device_photo') || array_key_exists('device_photo', $validated) || array_key_exists('device_photo_front', $validated)) {
+                $validated['device_photo'] = $this->processPhoto($request, $validated['device_photo_front'] ?? $validated['device_photo'] ?? null, 'device_photo', 'front');
+            }
+            if ($request->hasFile('device_photo_back') || array_key_exists('device_photo_back', $validated)) {
+                $validated['device_photo_back'] = $this->processPhoto($request, $validated['device_photo_back'] ?? null, 'device_photo_back', 'back');
+            }
+            if ($request->hasFile('customer_photo') || array_key_exists('customer_photo', $validated)) {
+                $validated['customer_photo'] = $this->processPhoto($request, $validated['customer_photo'] ?? null, 'customer_photo', 'customer');
+            }
         }
 
         $repair->update($validated);
@@ -471,6 +486,13 @@ class RepairController extends Controller
         if (!empty($validated['notes'])) {
             $updateData['internal_notes'] = ($repair->internal_notes ? $repair->internal_notes . "\n" : '') .
                 "[" . now()->toDateTimeString() . " Status: $newStatus] " . $validated['notes'];
+        }
+
+        if ($repair->repair_status !== 'delivered' && ($request->hasFile('customer_photo') || array_key_exists('customer_photo', $validated))) {
+            $customerPhoto = $this->processPhoto($request, $validated['customer_photo'] ?? null, 'customer_photo', 'customer');
+            if ($customerPhoto !== null) {
+                $updateData['customer_photo'] = $customerPhoto;
+            }
         }
 
         $repair->update($updateData);
@@ -550,16 +572,16 @@ class RepairController extends Controller
     }
 
     /**
-     * Process and store device photo from file upload or base64 data URL.
+     * Process and store photo from file upload or base64 data URL.
      */
-    private function processDevicePhoto(Request $request, ?string $devicePhoto): ?string
+    private function processPhoto(Request $request, ?string $photo, string $field, string $prefix = 'repair'): ?string
     {
-        if ($request->hasFile('device_photo')) {
-            $path = $request->file('device_photo')->store('repairs/photos', 'public');
+        if ($request->hasFile($field)) {
+            $path = $request->file($field)->store('repairs/photos', 'public');
             return 'storage/' . $path;
-        } elseif (!empty($devicePhoto) && str_starts_with($devicePhoto, 'data:image')) {
+        } elseif (!empty($photo) && str_starts_with($photo, 'data:image')) {
             try {
-                $imageParts = explode(';base64,', $devicePhoto);
+                $imageParts = explode(';base64,', $photo);
                 if (count($imageParts) === 2) {
                     $imageTypeAux = explode('image/', $imageParts[0]);
                     $imageType = $imageTypeAux[1] ?? 'jpeg';
@@ -567,14 +589,22 @@ class RepairController extends Controller
                         $imageType = explode('+', $imageType)[0];
                     }
                     $imageBase64 = base64_decode($imageParts[1]);
-                    $fileName = 'repairs/photos/repair_' . uniqid() . '.' . $imageType;
+                    $fileName = 'repairs/photos/' . $prefix . '_' . uniqid() . '.' . $imageType;
                     Storage::disk('public')->put($fileName, $imageBase64);
                     return 'storage/' . $fileName;
                 }
             } catch (\Exception $e) {
-                Log::warning('Repair device photo save failed: ' . $e->getMessage());
+                Log::warning("Repair {$field} save failed: " . $e->getMessage());
             }
         }
-        return $devicePhoto;
+        if (empty($photo)) {
+            return null;
+        }
+        return $photo;
+    }
+
+    private function processDevicePhoto(Request $request, ?string $devicePhoto): ?string
+    {
+        return $this->processPhoto($request, $devicePhoto, 'device_photo', 'repair');
     }
 }
