@@ -402,8 +402,11 @@ class RepairController extends Controller
         }
 
         if ($repair->repair_status === 'delivered') {
-            // Photos cannot be changed, retaken, or removed after delivered
-            unset($validated['device_photo'], $validated['device_photo_front'], $validated['device_photo_back'], $validated['customer_photo']);
+            // Front/back condition photos are locked after delivery, but customer handover photo can still be attached/updated
+            unset($validated['device_photo'], $validated['device_photo_front'], $validated['device_photo_back']);
+            if ($request->hasFile('customer_photo') || array_key_exists('customer_photo', $validated)) {
+                $validated['customer_photo'] = $this->processPhoto($request, $validated['customer_photo'] ?? null, 'customer_photo', 'customer');
+            }
         } else {
             if ($request->hasFile('device_photo') || array_key_exists('device_photo', $validated) || array_key_exists('device_photo_front', $validated)) {
                 $validated['device_photo'] = $this->processPhoto($request, $validated['device_photo_front'] ?? $validated['device_photo'] ?? null, 'device_photo', 'front');
@@ -488,8 +491,8 @@ class RepairController extends Controller
                 "[" . now()->toDateTimeString() . " Status: $newStatus] " . $validated['notes'];
         }
 
-        if ($repair->repair_status !== 'delivered' && ($request->hasFile('customer_photo') || array_key_exists('customer_photo', $validated))) {
-            $customerPhoto = $this->processPhoto($request, $validated['customer_photo'] ?? null, 'customer_photo', 'customer');
+        if ($request->hasFile('customer_photo') || array_key_exists('customer_photo', $validated) || $request->filled('customer_photo')) {
+            $customerPhoto = $this->processPhoto($request, $validated['customer_photo'] ?? $request->input('customer_photo') ?? null, 'customer_photo', 'customer');
             if ($customerPhoto !== null) {
                 $updateData['customer_photo'] = $customerPhoto;
             }

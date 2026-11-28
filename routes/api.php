@@ -275,6 +275,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/shop/signature', [ShopController::class, 'uploadSignature']);
 
         // Customers Module
+        Route::get('/customers/sample-import', [CustomerController::class, 'sampleImport']);
+        Route::post('/customers/import', [CustomerController::class, 'import']);
         Route::apiResource('customers', CustomerController::class);
 
         // Customer Devices Module
