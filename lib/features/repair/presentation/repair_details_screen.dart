@@ -27,6 +27,7 @@ import '../models/repair.dart';
 import 'add_repair_part_dialog.dart';
 import 'collect_repair_payment_dialog.dart';
 import 'update_status_dialog.dart';
+import '../../../core/widgets/barcode_scanner_screen.dart';
 import '../../settings/presentation/widgets/security_pin_dialogs.dart';
 
 class RepairDetailsScreen extends StatefulWidget {
@@ -344,6 +345,7 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
 
       if (res.success && res.data != null) {
         setState(() => _repair = res.data!);
+        _refreshDetails();
         if (mounted) {
           AppFeedback.showSuccess(
             context,
@@ -453,6 +455,7 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
 
       if (res.success && res.data != null) {
         setState(() => _repair = res.data!);
+        _refreshDetails();
         
         if (mounted) {
           final initialLangCode = await PreferencesStorage().getWhatsAppLanguage();
@@ -693,274 +696,495 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
     bool isSaving = false;
     String? errorMessage;
 
-    await showDialog(
+    await showModalBottomSheet(
       context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
         return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-              contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-              actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              title: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.qr_code_2_rounded, color: AppColors.primary, size: 22),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
+          builder: (context, setSheetState) {
+            final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              padding: EdgeInsets.only(
+                bottom: bottomInset + 16,
+              ),
+              child: SingleChildScrollView(
+                physics: const ClampingScrollPhysics(),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  child: Form(
+                    key: formKey,
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Edit Device IMEI',
-                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                        // Drag Handle
+                        Center(
+                          child: Container(
+                            width: 40,
+                            height: 4,
+                            margin: const EdgeInsets.only(bottom: 14),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade300,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${device.brand} ${device.model}',
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        // Header Row
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(Icons.qr_code_2_rounded, color: AppColors.primary, size: 24),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Edit Device IMEI',
+                                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${device.brand} ${device.model}',
+                                    style: TextStyle(fontSize: 13, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close_rounded, color: AppColors.textSecondary),
+                              onPressed: isSaving ? null : () => Navigator.pop(sheetContext),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              content: SingleChildScrollView(
-                child: Form(
-                  key: formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Update or add 15-digit IMEI numbers for this device. These are searchable across the app and displayed on the job card.',
-                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                      ),
-                      const SizedBox(height: 16),
-                      if (errorMessage != null) ...[
+                        const SizedBox(height: 12),
+                        // Info banner
                         Container(
                           padding: const EdgeInsets.all(10),
-                          margin: const EdgeInsets.only(bottom: 12),
                           decoration: BoxDecoration(
-                            color: AppColors.errorLight,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 16),
+                              const Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFF475569)),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  errorMessage!,
-                                  style: const TextStyle(color: AppColors.error, fontSize: 12),
+                                  'Update 15-digit IMEI numbers for Job Card #${_repair.jobNumber.isNotEmpty ? _repair.jobNumber : _repair.id}. IMEIs are searchable across the app and printed on invoices.',
+                                  style: const TextStyle(fontSize: 11.5, color: Color(0xFF475569)),
                                 ),
                               ),
                             ],
                           ),
+                        ),
+                        const SizedBox(height: 12),
+                        // Box Auto-Scan Shortcut Button
+                        InkWell(
+                          onTap: isSaving
+                              ? null
+                              : () async {
+                                  final result = await BarcodeScannerScreen.scanBox(
+                                    sheetContext,
+                                    title: 'Auto-Scan Phone Box',
+                                    instruction: 'Point camera at box sticker with IMEIs',
+                                  );
+                                  if (!sheetContext.mounted) return;
+                                  if (result != null) {
+                                    setSheetState(() {
+                                      if (result.imei1 != null && result.imei1!.isNotEmpty) {
+                                        imei1Controller.text = result.imei1!;
+                                      }
+                                      if (result.imei2 != null && result.imei2!.isNotEmpty) {
+                                        imei2Controller.text = result.imei2!;
+                                      }
+                                    });
+                                    if (result.hasBothImeis) {
+                                      ScaffoldMessenger.of(sheetContext).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('✓ Both IMEI 1 & IMEI 2 captured from scan!'),
+                                          duration: Duration(seconds: 2),
+                                          backgroundColor: Color(0xFF10B981),
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF10B981).withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.qr_code_scanner_rounded, size: 16, color: Color(0xFF10B981)),
+                                SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    'Auto-Scan Box Barcode (Capture Both IMEIs)',
+                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        // Error message if any
+                        if (errorMessage != null) ...[
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: AppColors.errorLight,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 16),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    errorMessage!,
+                                    style: const TextStyle(color: AppColors.error, fontSize: 12, fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
+                        // IMEI 1 Field
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Flexible(
+                              child: Text(
+                                'IMEI 1 (Primary)',
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (imei1Controller.text.trim().isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: imei1Controller.text.trim().length == 15
+                                      ? const Color(0xFFDCFCE7)
+                                      : const Color(0xFFFEF3C7),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  imei1Controller.text.trim().length == 15
+                                      ? '✓ 15/15 Digits'
+                                      : '${imei1Controller.text.trim().length}/15 Digits',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: imei1Controller.text.trim().length == 15
+                                        ? const Color(0xFF15803D)
+                                        : const Color(0xFFB45309),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: imei1Controller,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(15),
+                          ],
+                          style: const TextStyle(fontSize: 14.5, fontFamily: 'monospace', letterSpacing: 1.2, fontWeight: FontWeight.w600),
+                          decoration: InputDecoration(
+                            hintText: 'Enter 15-digit IMEI 1',
+                            hintStyle: TextStyle(fontSize: 12.5, color: Colors.grey.shade400, fontFamily: 'sans-serif', letterSpacing: 0, fontWeight: FontWeight.normal),
+                            prefixIcon: const Icon(Icons.smartphone_rounded, size: 18, color: AppColors.primary),
+                            suffixIcon: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (imei1Controller.text.isNotEmpty)
+                                  IconButton(
+                                    icon: const Icon(Icons.clear_rounded, size: 18, color: AppColors.textMuted),
+                                    onPressed: () {
+                                      imei1Controller.clear();
+                                      setSheetState(() {});
+                                    },
+                                  ),
+                                IconButton(
+                                  icon: const Icon(Icons.content_paste_rounded, size: 18, color: AppColors.primary),
+                                  tooltip: 'Paste',
+                                  onPressed: () async {
+                                    final data = await Clipboard.getData('text/plain');
+                                    if (data?.text != null) {
+                                      final clean = data!.text!.replaceAll(RegExp(r'\D'), '');
+                                      if (clean.isNotEmpty) {
+                                        imei1Controller.text = clean.length > 15 ? clean.substring(0, 15) : clean;
+                                        setSheetState(() {});
+                                      }
+                                    }
+                                  },
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.qr_code_scanner_rounded, size: 18, color: AppColors.primary),
+                                  tooltip: 'Scan Barcode',
+                                  onPressed: () async {
+                                    final scanned = await BarcodeScannerScreen.scan(sheetContext, title: 'Scan IMEI 1');
+                                    if (!sheetContext.mounted) return;
+                                    if (scanned != null && scanned.isNotEmpty) {
+                                      final clean = scanned.replaceAll(RegExp(r'\D'), '');
+                                      imei1Controller.text = clean.length > 15 ? clean.substring(0, 15) : clean;
+                                      setSheetState(() {});
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+                          ),
+                          onChanged: (_) => setSheetState(() {}),
+                        ),
+                        const SizedBox(height: 14),
+
+                        // IMEI 2 Field
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Flexible(
+                              child: Text(
+                                'IMEI 2 (Secondary / Optional)',
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (imei2Controller.text.trim().isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: imei2Controller.text.trim().length == 15
+                                      ? const Color(0xFFDCFCE7)
+                                      : const Color(0xFFFEF3C7),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  imei2Controller.text.trim().length == 15
+                                      ? '✓ 15/15 Digits'
+                                      : '${imei2Controller.text.trim().length}/15 Digits',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: imei2Controller.text.trim().length == 15
+                                        ? const Color(0xFF15803D)
+                                        : const Color(0xFFB45309),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: imei2Controller,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(15),
+                          ],
+                          style: const TextStyle(fontSize: 14.5, fontFamily: 'monospace', letterSpacing: 1.2, fontWeight: FontWeight.w600),
+                          decoration: InputDecoration(
+                            hintText: 'Enter 15-digit IMEI 2 (Optional)',
+                            hintStyle: TextStyle(fontSize: 12.5, color: Colors.grey.shade400, fontFamily: 'sans-serif', letterSpacing: 0, fontWeight: FontWeight.normal),
+                            prefixIcon: const Icon(Icons.smartphone_outlined, size: 18, color: AppColors.textMuted),
+                            suffixIcon: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (imei2Controller.text.isNotEmpty)
+                                  IconButton(
+                                    icon: const Icon(Icons.clear_rounded, size: 18, color: AppColors.textMuted),
+                                    onPressed: () {
+                                      imei2Controller.clear();
+                                      setSheetState(() {});
+                                    },
+                                  ),
+                                IconButton(
+                                  icon: const Icon(Icons.content_paste_rounded, size: 18, color: AppColors.primary),
+                                  tooltip: 'Paste',
+                                  onPressed: () async {
+                                    final data = await Clipboard.getData('text/plain');
+                                    if (data?.text != null) {
+                                      final clean = data!.text!.replaceAll(RegExp(r'\D'), '');
+                                      if (clean.isNotEmpty) {
+                                        imei2Controller.text = clean.length > 15 ? clean.substring(0, 15) : clean;
+                                        setSheetState(() {});
+                                      }
+                                    }
+                                  },
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.qr_code_scanner_rounded, size: 18, color: AppColors.primary),
+                                  tooltip: 'Scan Barcode',
+                                  onPressed: () async {
+                                    final scanned = await BarcodeScannerScreen.scan(sheetContext, title: 'Scan IMEI 2');
+                                    if (!sheetContext.mounted) return;
+                                    if (scanned != null && scanned.isNotEmpty) {
+                                      final clean = scanned.replaceAll(RegExp(r'\D'), '');
+                                      imei2Controller.text = clean.length > 15 ? clean.substring(0, 15) : clean;
+                                      setSheetState(() {});
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+                          ),
+                          onChanged: (_) => setSheetState(() {}),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Action Buttons: Cancel & Save
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 1,
+                              child: OutlinedButton(
+                                onPressed: isSaving ? null : () => Navigator.pop(sheetContext),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 13),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  side: BorderSide(color: Colors.grey.shade300),
+                                ),
+                                child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 2,
+                              child: ElevatedButton(
+                                onPressed: isSaving
+                                    ? null
+                                    : () async {
+                                        final imei1 = imei1Controller.text.trim();
+                                        final imei2 = imei2Controller.text.trim();
+
+                                        if (imei1.isNotEmpty && imei1.length != 15) {
+                                          setSheetState(() => errorMessage = 'IMEI 1 must be exactly 15 digits');
+                                          return;
+                                        }
+                                        if (imei2.isNotEmpty && imei2.length != 15) {
+                                          setSheetState(() => errorMessage = 'IMEI 2 must be exactly 15 digits');
+                                          return;
+                                        }
+                                        if (imei1.isNotEmpty && imei2.isNotEmpty && imei1 == imei2) {
+                                          setSheetState(() => errorMessage = 'IMEI 1 and IMEI 2 cannot be identical');
+                                          return;
+                                        }
+
+                                        setSheetState(() {
+                                          isSaving = true;
+                                          errorMessage = null;
+                                        });
+
+                                        final res = await _deviceRepository.updateDeviceImei(
+                                          id: device.id,
+                                          brand: device.brand,
+                                          model: device.model,
+                                          deviceType: device.deviceType,
+                                          imei1: imei1.isNotEmpty ? imei1 : null,
+                                          imei2: imei2.isNotEmpty ? imei2 : null,
+                                        );
+
+                                        if (!sheetContext.mounted) return;
+
+                                        if (res.success) {
+                                          Navigator.pop(sheetContext);
+
+                                          final updatedDevice = device.copyWith(
+                                            imei1: imei1.isNotEmpty ? imei1 : null,
+                                            imei2: imei2.isNotEmpty ? imei2 : null,
+                                          );
+
+                                          if (mounted) {
+                                            setState(() {
+                                              _repair = _repair.copyWith(device: updatedDevice);
+                                            });
+                                            AppFeedback.showSuccess(
+                                              context,
+                                              title: 'IMEI Updated',
+                                              message: 'Device IMEI numbers updated successfully.',
+                                            );
+                                            _refreshDetails();
+                                          }
+                                        } else {
+                                          setSheetState(() {
+                                            isSaving = false;
+                                            errorMessage = res.message.isNotEmpty
+                                                ? res.message
+                                                : 'Failed to update device IMEI numbers.';
+                                          });
+                                        }
+                                      },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  padding: const EdgeInsets.symmetric(vertical: 13),
+                                  elevation: 0,
+                                ),
+                                child: isSaving
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                      )
+                                    : const Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.check_circle_outline_rounded, size: 18),
+                                          SizedBox(width: 6),
+                                          Text('Save IMEI', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                                        ],
+                                      ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
-                      // IMEI 1 Field
-                      const Text(
-                        'IMEI 1 (15 Digits)',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-                      ),
-                      const SizedBox(height: 6),
-                      TextFormField(
-                        controller: imei1Controller,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(15),
-                        ],
-                        style: const TextStyle(fontSize: 14, fontFamily: 'monospace', letterSpacing: 1),
-                        decoration: InputDecoration(
-                          hintText: 'Enter 15-digit IMEI 1',
-                          hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400, fontFamily: 'sans-serif', letterSpacing: 0),
-                          prefixIcon: const Icon(Icons.pin_outlined, size: 18, color: AppColors.textMuted),
-                          suffixIcon: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (imei1Controller.text.isNotEmpty)
-                                IconButton(
-                                  icon: const Icon(Icons.clear_rounded, size: 18, color: AppColors.textMuted),
-                                  onPressed: () {
-                                    imei1Controller.clear();
-                                    setDialogState(() {});
-                                  },
-                                ),
-                              IconButton(
-                                icon: const Icon(Icons.content_paste_rounded, size: 18, color: AppColors.primary),
-                                tooltip: 'Paste from clipboard',
-                                onPressed: () async {
-                                  final data = await Clipboard.getData('text/plain');
-                                  if (data?.text != null) {
-                                    final clean = data!.text!.replaceAll(RegExp(r'\D'), '');
-                                    if (clean.isNotEmpty) {
-                                      imei1Controller.text = clean.length > 15 ? clean.substring(0, 15) : clean;
-                                      setDialogState(() {});
-                                    }
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
-                        ),
-                        onChanged: (_) => setDialogState(() {}),
-                      ),
-                      const SizedBox(height: 14),
-                      // IMEI 2 Field
-                      const Text(
-                        'IMEI 2 (Optional, 15 Digits)',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-                      ),
-                      const SizedBox(height: 6),
-                      TextFormField(
-                        controller: imei2Controller,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(15),
-                        ],
-                        style: const TextStyle(fontSize: 14, fontFamily: 'monospace', letterSpacing: 1),
-                        decoration: InputDecoration(
-                          hintText: 'Enter 15-digit IMEI 2 (Optional)',
-                          hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400, fontFamily: 'sans-serif', letterSpacing: 0),
-                          prefixIcon: const Icon(Icons.pin_outlined, size: 18, color: AppColors.textMuted),
-                          suffixIcon: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (imei2Controller.text.isNotEmpty)
-                                IconButton(
-                                  icon: const Icon(Icons.clear_rounded, size: 18, color: AppColors.textMuted),
-                                  onPressed: () {
-                                    imei2Controller.clear();
-                                    setDialogState(() {});
-                                  },
-                                ),
-                              IconButton(
-                                icon: const Icon(Icons.content_paste_rounded, size: 18, color: AppColors.primary),
-                                tooltip: 'Paste from clipboard',
-                                onPressed: () async {
-                                  final data = await Clipboard.getData('text/plain');
-                                  if (data?.text != null) {
-                                    final clean = data!.text!.replaceAll(RegExp(r'\D'), '');
-                                    if (clean.isNotEmpty) {
-                                      imei2Controller.text = clean.length > 15 ? clean.substring(0, 15) : clean;
-                                      setDialogState(() {});
-                                    }
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
-                        ),
-                        onChanged: (_) => setDialogState(() {}),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: isSaving ? null : () => Navigator.pop(dialogContext),
-                  child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
-                ),
-                ElevatedButton(
-                  onPressed: isSaving
-                      ? null
-                      : () async {
-                          final imei1 = imei1Controller.text.trim();
-                          final imei2 = imei2Controller.text.trim();
-
-                          if (imei1.isNotEmpty && imei1.length != 15) {
-                            setDialogState(() => errorMessage = 'IMEI 1 must be exactly 15 digits');
-                            return;
-                          }
-                          if (imei2.isNotEmpty && imei2.length != 15) {
-                            setDialogState(() => errorMessage = 'IMEI 2 must be exactly 15 digits');
-                            return;
-                          }
-                          if (imei1.isNotEmpty && imei2.isNotEmpty && imei1 == imei2) {
-                            setDialogState(() => errorMessage = 'IMEI 1 and IMEI 2 cannot be identical');
-                            return;
-                          }
-
-                          setDialogState(() {
-                            isSaving = true;
-                            errorMessage = null;
-                          });
-
-                          final res = await _deviceRepository.updateDeviceImei(
-                            id: device.id,
-                            brand: device.brand,
-                            model: device.model,
-                            deviceType: device.deviceType,
-                            imei1: imei1.isNotEmpty ? imei1 : null,
-                            imei2: imei2.isNotEmpty ? imei2 : null,
-                          );
-
-                          if (!dialogContext.mounted) return;
-
-                          if (res.success) {
-                            Navigator.pop(dialogContext);
-
-                            final updatedDevice = device.copyWith(
-                              imei1: imei1.isNotEmpty ? imei1 : null,
-                              imei2: imei2.isNotEmpty ? imei2 : null,
-                            );
-
-                            if (mounted) {
-                              setState(() {
-                                _repair = _repair.copyWith(device: updatedDevice);
-                              });
-                              AppFeedback.showSuccess(
-                                context,
-                                title: 'IMEI Updated',
-                                message: 'Device IMEI numbers updated successfully.',
-                              );
-                              _refreshDetails();
-                            }
-                          } else {
-                            setDialogState(() {
-                              isSaving = false;
-                              errorMessage = res.message.isNotEmpty
-                                  ? res.message
-                                  : 'Failed to update device IMEI numbers.';
-                            });
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                  ),
-                  child: isSaving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Text('Save IMEI', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              ],
             );
           },
         );
@@ -1065,21 +1289,16 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text('Job Card ${_repair.jobNumber}', overflow: TextOverflow.ellipsis),
+        titleSpacing: 0,
+        title: Text(
+          _repair.jobNumber.isNotEmpty ? 'Job #${_repair.jobNumber}' : 'Job Details',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+          overflow: TextOverflow.ellipsis,
+        ),
         backgroundColor: AppColors.primary,
         elevation: 0,
         actions: [
           const ProfitVisibilityToggle(),
-          IconButton(
-            icon: const Icon(Icons.picture_as_pdf_rounded, color: Colors.white),
-            onPressed: () => RepairInvoicePdfScreen.show(context, _repair),
-            tooltip: 'View PDF Bill / Ticket',
-          ),
-          IconButton(
-            icon: const WhatsAppIcon(size: 22),
-            onPressed: () => WhatsAppHelper.showRepairWhatsAppOptions(context, _repair),
-            tooltip: 'WhatsApp Options',
-          ),
           if (!isDelivered)
             IconButton(
               icon: const Icon(Icons.edit_rounded, color: Colors.white),
@@ -1092,8 +1311,15 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
             tooltip: 'More Options',
-            onSelected: (value) {
-              if (value == 'refresh') {
+            onSelected: (value) async {
+              if (value == 'pdf') {
+                RepairInvoicePdfScreen.show(context, _repair);
+              } else if (value == 'whatsapp') {
+                WhatsAppHelper.showRepairWhatsAppOptions(context, _repair);
+              } else if (value == 'edit') {
+                final updated = await Navigator.pushNamed(context, AppRoutes.editRepair, arguments: _repair);
+                if (updated == true) _refreshDetails();
+              } else if (value == 'refresh') {
                 _refreshDetails();
               } else if (value == 'status') {
                 _updateStatus();
@@ -1103,15 +1329,36 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
             },
             itemBuilder: (ctx) => [
               const PopupMenuItem(
-                value: 'refresh',
+                value: 'pdf',
                 child: Row(
                   children: [
-                    Icon(Icons.refresh_rounded, size: 20, color: AppColors.textPrimary),
+                    Icon(Icons.picture_as_pdf_rounded, size: 20, color: AppColors.primary),
                     SizedBox(width: 10),
-                    Text('Refresh Details'),
+                    Text('View PDF Bill / Ticket'),
                   ],
                 ),
               ),
+              const PopupMenuItem(
+                value: 'whatsapp',
+                child: Row(
+                  children: [
+                    WhatsAppIcon(size: 20),
+                    SizedBox(width: 10),
+                    Text('WhatsApp Options'),
+                  ],
+                ),
+              ),
+              if (!isDelivered)
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit_rounded, size: 20, color: AppColors.primary),
+                      SizedBox(width: 10),
+                      Text('Edit Job Card'),
+                    ],
+                  ),
+                ),
               if (!isDelivered || _isOwner)
                 PopupMenuItem(
                   value: 'status',
@@ -1127,6 +1374,16 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
                     ],
                   ),
                 ),
+              const PopupMenuItem(
+                value: 'refresh',
+                child: Row(
+                  children: [
+                    Icon(Icons.refresh_rounded, size: 20, color: AppColors.textPrimary),
+                    SizedBox(width: 10),
+                    Text('Refresh Details'),
+                  ],
+                ),
+              ),
               if (_isOwner)
                 const PopupMenuItem(
                   value: 'delete',
@@ -2728,7 +2985,7 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
                 ],
               ),
             ),
-            if (!isDelivered) ...[
+            if (!isDelivered || slot == 'customer') ...[
               const SizedBox(height: 10),
               Row(
                 children: [
@@ -2761,7 +3018,7 @@ class _RepairDetailsScreenState extends State<RepairDetailsScreen> {
               ),
             ],
           ] else ...[
-            if (!isDelivered) ...[
+            if (!isDelivered || slot == 'customer') ...[
               InkWell(
                 onTap: () => _handlePhotoAction(slot, isChange: false),
                 borderRadius: BorderRadius.circular(10),

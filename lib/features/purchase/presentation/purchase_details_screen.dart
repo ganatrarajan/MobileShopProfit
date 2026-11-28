@@ -133,9 +133,11 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        titleSpacing: 0,
         title: Text(
           'Purchase #${_purchase.purchaseNumber}',
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17),
+          overflow: TextOverflow.ellipsis,
         ),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
@@ -156,16 +158,59 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
               }
             },
           ),
-          if (_isOwner)
-            IconButton(
-              icon: const Icon(Icons.delete_outline_rounded, color: Colors.white),
-              tooltip: 'Delete Purchase',
-              onPressed: _deletePurchase,
-            ),
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-            tooltip: 'Refresh',
-            onPressed: _refreshDetails,
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+            tooltip: 'More Options',
+            onSelected: (value) async {
+              if (value == 'edit') {
+                final updated = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AddPurchaseScreen(purchase: _purchase),
+                  ),
+                );
+                if (updated == true) {
+                  _refreshDetails();
+                }
+              } else if (value == 'refresh') {
+                _refreshDetails();
+              } else if (value == 'delete') {
+                _deletePurchase();
+              }
+            },
+            itemBuilder: (ctx) => [
+              const PopupMenuItem(
+                value: 'edit',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit_rounded, size: 20, color: AppColors.primary),
+                    SizedBox(width: 10),
+                    Text('Edit Purchase'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'refresh',
+                child: Row(
+                  children: [
+                    Icon(Icons.refresh_rounded, size: 20, color: AppColors.textPrimary),
+                    SizedBox(width: 10),
+                    Text('Refresh Details'),
+                  ],
+                ),
+              ),
+              if (_isOwner)
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_outline_rounded, size: 20, color: AppColors.error),
+                      SizedBox(width: 10),
+                      Text('Delete Purchase', style: TextStyle(color: AppColors.error)),
+                    ],
+                  ),
+                ),
+            ],
           ),
         ],
       ),

@@ -1,3 +1,12 @@
+double _parseDouble(dynamic val, {double defaultValue = 0.0}) {
+  if (val == null) return defaultValue;
+  if (val is double) return val;
+  if (val is int) return val.toDouble();
+  if (val is num) return val.toDouble();
+  if (val is String) return double.tryParse(val) ?? defaultValue;
+  return defaultValue;
+}
+
 int _parseInt(dynamic val, {int defaultValue = 0}) {
   if (val == null) return defaultValue;
   if (val is int) return val;
@@ -18,6 +27,12 @@ class Customer {
   final String? notes;
   final String? signaturePath;
   final String? signatureUrl;
+  final int repairsCount;
+  final int salesCount;
+  final int devicesCount;
+  final int totalJobs;
+  final double totalSpent;
+  final double totalDue;
   final String? createdAt;
   final String? updatedAt;
 
@@ -33,6 +48,12 @@ class Customer {
     this.notes,
     this.signaturePath,
     this.signatureUrl,
+    this.repairsCount = 0,
+    this.salesCount = 0,
+    this.devicesCount = 0,
+    this.totalJobs = 0,
+    this.totalSpent = 0.0,
+    this.totalDue = 0.0,
     this.createdAt,
     this.updatedAt,
   });
@@ -50,6 +71,12 @@ class Customer {
       notes: json['notes']?.toString(),
       signaturePath: json['signature_path']?.toString(),
       signatureUrl: json['signature_url']?.toString(),
+      repairsCount: _parseInt(json['repairs_count']),
+      salesCount: _parseInt(json['sales_count']),
+      devicesCount: _parseInt(json['devices_count']),
+      totalJobs: _parseInt(json['total_jobs']),
+      totalSpent: _parseDouble(json['total_spent']),
+      totalDue: _parseDouble(json['total_due']),
       createdAt: json['created_at']?.toString(),
       updatedAt: json['updated_at']?.toString(),
     );
@@ -68,6 +95,12 @@ class Customer {
       'notes': notes,
       'signature_path': signaturePath,
       'signature_url': signatureUrl,
+      'repairs_count': repairsCount,
+      'sales_count': salesCount,
+      'devices_count': devicesCount,
+      'total_jobs': totalJobs,
+      'total_spent': totalSpent,
+      'total_due': totalDue,
       'created_at': createdAt,
       'updated_at': updatedAt,
     };

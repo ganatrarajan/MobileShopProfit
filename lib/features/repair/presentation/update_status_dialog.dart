@@ -31,15 +31,27 @@ class _UpdateStatusDialogState extends State<UpdateStatusDialog> {
   late String _selectedStatus;
   final _notesController = TextEditingController();
   File? _customerPhotoFile;
+  String? _existingPhotoUrl;
+  bool _photoRemoved = false;
   final ImagePicker _picker = ImagePicker();
 
   Future<void> _pickCustomerPhoto(ImageSource source) async {
     try {
-      final picked = await _picker.pickImage(source: source, maxWidth: 1200, maxHeight: 1200, imageQuality: 85);
+      final picked = await _picker.pickImage(
+        source: source,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 75,
+      );
       if (picked != null) {
-        setState(() => _customerPhotoFile = File(picked.path));
+        setState(() {
+          _customerPhotoFile = File(picked.path);
+          _photoRemoved = false;
+        });
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[PickPhotoError]: $e');
+    }
   }
 
   final Map<String, String> _statusLabels = {
@@ -68,6 +80,7 @@ class _UpdateStatusDialogState extends State<UpdateStatusDialog> {
   void initState() {
     super.initState();
     _selectedStatus = widget.repair.repairStatus;
+    _existingPhotoUrl = widget.repair.customerPhoto;
   }
 
   @override
@@ -198,12 +211,88 @@ class _UpdateStatusDialogState extends State<UpdateStatusDialog> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Photo attached', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green)),
-                              TextButton.icon(
-                                onPressed: () => setState(() => _customerPhotoFile = null),
-                                icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
-                                label: const Text('Remove', style: TextStyle(fontSize: 11, color: Colors.red)),
-                                style: TextButton.styleFrom(padding: EdgeInsets.zero, visualDensity: VisualDensity.compact),
+                              const Text('New Photo Selected', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green)),
+                              Row(
+                                children: [
+                                  TextButton.icon(
+                                    onPressed: () => _pickCustomerPhoto(ImageSource.camera),
+                                    icon: const Icon(Icons.camera_alt_rounded, size: 14),
+                                    label: const Text('Camera', style: TextStyle(fontSize: 11)),
+                                    style: TextButton.styleFrom(padding: EdgeInsets.zero, visualDensity: VisualDensity.compact),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  TextButton.icon(
+                                    onPressed: () => _pickCustomerPhoto(ImageSource.gallery),
+                                    icon: const Icon(Icons.photo_library_rounded, size: 14),
+                                    label: const Text('Gallery', style: TextStyle(fontSize: 11)),
+                                    style: TextButton.styleFrom(padding: EdgeInsets.zero, visualDensity: VisualDensity.compact),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  TextButton.icon(
+                                    onPressed: () => setState(() {
+                                      _customerPhotoFile = null;
+                                      _photoRemoved = true;
+                                    }),
+                                    icon: const Icon(Icons.delete_outline, size: 14, color: Colors.red),
+                                    label: const Text('Remove', style: TextStyle(fontSize: 11, color: Colors.red)),
+                                    style: TextButton.styleFrom(padding: EdgeInsets.zero, visualDensity: VisualDensity.compact),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ] else if (_existingPhotoUrl != null && _existingPhotoUrl!.isNotEmpty && !_photoRemoved) ...[
+                    Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            _existingPhotoUrl!,
+                            width: 60,
+                            height: 60,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              width: 60,
+                              height: 60,
+                              color: Colors.grey.shade200,
+                              child: const Icon(Icons.broken_image, size: 20, color: Colors.grey),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Current Handover Photo', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green)),
+                              Row(
+                                children: [
+                                  TextButton.icon(
+                                    onPressed: () => _pickCustomerPhoto(ImageSource.camera),
+                                    icon: const Icon(Icons.camera_alt_rounded, size: 14),
+                                    label: const Text('Retake', style: TextStyle(fontSize: 11)),
+                                    style: TextButton.styleFrom(padding: EdgeInsets.zero, visualDensity: VisualDensity.compact),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  TextButton.icon(
+                                    onPressed: () => _pickCustomerPhoto(ImageSource.gallery),
+                                    icon: const Icon(Icons.photo_library_rounded, size: 14),
+                                    label: const Text('Gallery', style: TextStyle(fontSize: 11)),
+                                    style: TextButton.styleFrom(padding: EdgeInsets.zero, visualDensity: VisualDensity.compact),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  TextButton.icon(
+                                    onPressed: () => setState(() {
+                                      _photoRemoved = true;
+                                    }),
+                                    icon: const Icon(Icons.delete_outline, size: 14, color: Colors.red),
+                                    label: const Text('Remove', style: TextStyle(fontSize: 11, color: Colors.red)),
+                                    style: TextButton.styleFrom(padding: EdgeInsets.zero, visualDensity: VisualDensity.compact),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -255,7 +344,10 @@ class _UpdateStatusDialogState extends State<UpdateStatusDialog> {
                 if (_customerPhotoFile != null) {
                   final bytes = await _customerPhotoFile!.readAsBytes();
                   customerPhotoPayload = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+                } else if (_photoRemoved && _existingPhotoUrl != null) {
+                  customerPhotoPayload = '';
                 }
+
                 if (context.mounted) {
                   Navigator.pop(context, {
                     'status': _selectedStatus,

@@ -128,16 +128,12 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        titleSpacing: 0,
         title: Text(_item.name, overflow: TextOverflow.ellipsis),
         backgroundColor: AppColors.primary,
         elevation: 0,
         actions: [
           const ProfitVisibilityToggle(),
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _refreshDetails,
-            tooltip: 'Refresh',
-          ),
           IconButton(
             icon: const Icon(Icons.edit_outlined),
             onPressed: () async {
@@ -150,12 +146,57 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
             },
             tooltip: 'Edit Item',
           ),
-          if (_isOwner)
-            IconButton(
-              icon: const Icon(Icons.delete_outline_rounded, color: Colors.white),
-              onPressed: _confirmDeleteItem,
-              tooltip: 'Delete Item',
-            ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+            tooltip: 'More Options',
+            onSelected: (value) async {
+              if (value == 'edit') {
+                final result = await Navigator.pushNamed(
+                  context,
+                  AppRoutes.editInventoryItem,
+                  arguments: _item,
+                );
+                if (result == true) _refreshDetails();
+              } else if (value == 'refresh') {
+                _refreshDetails();
+              } else if (value == 'delete') {
+                _confirmDeleteItem();
+              }
+            },
+            itemBuilder: (ctx) => [
+              const PopupMenuItem(
+                value: 'edit',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit_rounded, size: 20, color: AppColors.primary),
+                    SizedBox(width: 10),
+                    Text('Edit Item'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'refresh',
+                child: Row(
+                  children: [
+                    Icon(Icons.refresh_rounded, size: 20, color: AppColors.textPrimary),
+                    SizedBox(width: 10),
+                    Text('Refresh Details'),
+                  ],
+                ),
+              ),
+              if (_isOwner)
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_outline_rounded, size: 20, color: AppColors.error),
+                      SizedBox(width: 10),
+                      Text('Delete Item', style: TextStyle(color: AppColors.error)),
+                    ],
+                  ),
+                ),
+            ],
+          ),
         ],
       ),
       body: _isLoading

@@ -192,7 +192,12 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text('Invoice #${_sale.invoiceNumber}', overflow: TextOverflow.ellipsis),
+        titleSpacing: 0,
+        title: Text(
+          _sale.invoiceNumber.isNotEmpty ? 'Invoice #${_sale.invoiceNumber}' : 'Sale Details',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+          overflow: TextOverflow.ellipsis,
+        ),
         backgroundColor: AppColors.primary,
         elevation: 0,
         actions: [
@@ -203,21 +208,15 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
               onPressed: _editSale,
               tooltip: 'Edit Invoice (Admin PIN Required)',
             ),
-          IconButton(
-            icon: const Icon(Icons.picture_as_pdf_rounded, color: Colors.white),
-            onPressed: () => SaleInvoicePdfScreen.show(context, _sale),
-            tooltip: 'Print / View PDF Invoice',
-          ),
-          IconButton(
-            icon: const WhatsAppIcon(size: 22),
-            onPressed: () => WhatsAppHelper.sendSaleWhatsAppMessage(context, _sale),
-            tooltip: 'Send WhatsApp Bill',
-          ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
             tooltip: 'More Options',
             onSelected: (value) {
-              if (value == 'refresh') {
+              if (value == 'pdf') {
+                SaleInvoicePdfScreen.show(context, _sale);
+              } else if (value == 'whatsapp') {
+                WhatsAppHelper.sendSaleWhatsAppMessage(context, _sale);
+              } else if (value == 'refresh') {
                 _refreshDetails();
               } else if (value == 'edit') {
                 _editSale();
@@ -227,12 +226,22 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
             },
             itemBuilder: (ctx) => [
               const PopupMenuItem(
-                value: 'refresh',
+                value: 'pdf',
                 child: Row(
                   children: [
-                    Icon(Icons.refresh_rounded, size: 20, color: AppColors.textPrimary),
+                    Icon(Icons.picture_as_pdf_rounded, size: 20, color: AppColors.primary),
                     SizedBox(width: 10),
-                    Text('Refresh Invoice'),
+                    Text('Print / View PDF Invoice'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'whatsapp',
+                child: Row(
+                  children: [
+                    WhatsAppIcon(size: 20),
+                    SizedBox(width: 10),
+                    Text('Send WhatsApp Bill'),
                   ],
                 ),
               ),
@@ -247,6 +256,16 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
                     ],
                   ),
                 ),
+              const PopupMenuItem(
+                value: 'refresh',
+                child: Row(
+                  children: [
+                    Icon(Icons.refresh_rounded, size: 20, color: AppColors.textPrimary),
+                    SizedBox(width: 10),
+                    Text('Refresh Invoice'),
+                  ],
+                ),
+              ),
               if (_isOwner)
                 const PopupMenuItem(
                   value: 'delete',

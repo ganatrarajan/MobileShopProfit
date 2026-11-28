@@ -171,6 +171,7 @@ class _WarrantyDetailsScreenState extends State<WarrantyDetailsScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        titleSpacing: 0,
         title: Text('Warranty ${_warranty.warrantyNumber}', overflow: TextOverflow.ellipsis),
         backgroundColor: AppColors.primary,
         elevation: 0,
@@ -180,15 +181,50 @@ class _WarrantyDetailsScreenState extends State<WarrantyDetailsScreen> {
             onPressed: () => WhatsAppHelper.showWarrantyWhatsAppOptions(context, _warranty),
             tooltip: 'Send Warranty on WhatsApp',
           ),
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _refreshDetails,
-            tooltip: 'Refresh',
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline_rounded, color: Colors.white),
-            onPressed: _confirmDeleteWarranty,
-            tooltip: 'Delete Warranty',
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+            tooltip: 'More Options',
+            onSelected: (value) {
+              if (value == 'whatsapp') {
+                WhatsAppHelper.showWarrantyWhatsAppOptions(context, _warranty);
+              } else if (value == 'refresh') {
+                _refreshDetails();
+              } else if (value == 'delete') {
+                _confirmDeleteWarranty();
+              }
+            },
+            itemBuilder: (ctx) => [
+              const PopupMenuItem(
+                value: 'whatsapp',
+                child: Row(
+                  children: [
+                    WhatsAppIcon(size: 20),
+                    SizedBox(width: 10),
+                    Text('Send on WhatsApp'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'refresh',
+                child: Row(
+                  children: [
+                    Icon(Icons.refresh_rounded, size: 20, color: AppColors.textPrimary),
+                    SizedBox(width: 10),
+                    Text('Refresh Details'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_outline_rounded, size: 20, color: AppColors.error),
+                    SizedBox(width: 10),
+                    Text('Delete Warranty', style: TextStyle(color: AppColors.error)),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
